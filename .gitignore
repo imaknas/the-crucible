@@ -1,0 +1,33 @@
+# Node
+node_modules/
+.next/
+dist/
+build/
+.env*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.class
+.venv/
+venv/
+ENV/
+.env
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+pyrightconfig.json
+
+# Database
+*.sqlite
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+.gemini/
+.agents/

@@ -1,0 +1,28 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Environment variables (contains API keys!)
+.env
+
+# SQLite database (local state, can be large)
+checkpoints.sqlite
+checkpoints.sqlite-shm
+checkpoints.sqlite-wal
+
+# Uploaded files
+uploads/
+
+# Debug / scratch files
+auto_title_debug.txt
+*.log
+
+# Test cache
+.pytest_cache/

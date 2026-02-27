@@ -1,0 +1,45 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "aiosqlite>=0.22.1",
+  "fastapi>=0.128.4",
+  "langchain>=1.2.9",
+  "langchain-anthropic>=1.3.2",
+  "langchain-google-genai>=4.2.0",
+  "langchain-openai>=1.1.7",
+  "langgraph>=1.0.8",
+  "langgraph-checkpoint>=4.0.0",
+  "langgraph-checkpoint-sqlite>=3.0.3",
+  "pydantic>=2.12.5",
+  "pymupdf>=1.26.7",
+  "python-dotenv>=1.2.1",
+  "python-multipart>=0.0.22",
+  "sqlalchemy>=2.0.46",
+  "tiktoken>=0.12.0",
+  "unstructured>=0.18.31",
+  "uvicorn>=0.40.0",
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28.1",
+  "mypy>=1.19.1",
+  "pytest>=9.0.2",
+  "pytest-asyncio>=1.3.0",
+  "ruff>=0.15.2",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+  "ignore:builtin type .* has no __module__ attribute:DeprecationWarning",
+]
+
+[tool.pyright]
+exclude = ["migrations", ".venv", "tests"]
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
