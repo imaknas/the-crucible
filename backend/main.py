@@ -320,7 +320,9 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
             if not renamed and len(initial_checkpoints) == 0 and formatted_messages:
                 renamed = True
                 asyncio.create_task(
-                    auto_rename_thread(thread_id, formatted_messages, websocket, ws_lock)
+                    auto_rename_thread(
+                        thread_id, formatted_messages, websocket, ws_lock
+                    )
                 )
 
         except Exception as e:
@@ -402,20 +404,24 @@ def _format_messages(raw_messages: list, active_model: str) -> list:
 
         # Priority 1: Direct name attribute
         msg_model = getattr(msg, "name", None)
+        if msg_model and not isinstance(msg_model, str):
+            msg_model = None
 
         # Priority 2: additional_kwargs
         if not msg_model and hasattr(msg, "additional_kwargs"):
             add_kwargs = getattr(msg, "additional_kwargs", {})
-            msg_model = add_kwargs.get(
-                "model", add_kwargs.get("model_id")
-            ) or add_kwargs.get("name")
+            if isinstance(add_kwargs, dict):
+                msg_model = add_kwargs.get(
+                    "model", add_kwargs.get("model_id")
+                ) or add_kwargs.get("name")
 
         # Priority 3: response_metadata
         if not msg_model and hasattr(msg, "response_metadata"):
             resp_meta = getattr(msg, "response_metadata", {})
-            msg_model = resp_meta.get(
-                "model_name", resp_meta.get("model_id")
-            ) or resp_meta.get("model")
+            if isinstance(resp_meta, dict):
+                msg_model = resp_meta.get(
+                    "model_name", resp_meta.get("model_id")
+                ) or resp_meta.get("model")
 
         # Priority 4: Dictionary keys (for JSON serialized state)
         if not msg_model and isinstance(msg, dict):
@@ -430,9 +436,9 @@ def _format_messages(raw_messages: list, active_model: str) -> list:
         if not msg_model:
             is_last = i == len(meaningful_messages) - 1
             if role == "assistant":
-                msg_model = active_model if is_last else "Assistant"
+                msg_model = active_model if is_last else "assistant"
             else:
-                msg_model = "User"
+                msg_model = "user"
 
         formatted.append(
             {

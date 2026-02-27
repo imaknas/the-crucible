@@ -47,8 +47,11 @@ export default function Home() {
     message: string;
     resolve: (v: boolean) => void;
   } | null>(null);
-  const showConfirm = (title: string, message: string): Promise<boolean> =>
-    new Promise((resolve) => setConfirmDialog({ title, message, resolve }));
+  const showConfirm = useCallback(
+    (title: string, message: string): Promise<boolean> =>
+      new Promise((resolve) => setConfirmDialog({ title, message, resolve })),
+    [],
+  );
   const handleConfirmClose = (accepted: boolean) => {
     confirmDialog?.resolve(accepted);
     setConfirmDialog(null);

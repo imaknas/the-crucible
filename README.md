@@ -68,7 +68,7 @@ the-crucible/
 
 ### Prerequisites
 
-- **Node.js** 18+
+- **Node.js** 24+
 - **Python** 3.12+
 - **uv** (recommended) or pip
 - At least one API key: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY`
@@ -163,13 +163,22 @@ uv run pytest tests/ -v
 
 ## 🤝 Contributing
 
-Contributions are welcome! Feel free to open issues, submit PRs, or fork the project.
+Contributions are welcome! Whether it's adding a new model, improving the tree layout, or fixing a bug, your help is appreciated.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+This project follows the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages.
+
+1. Clone the repository and create a branch:
+   ```bash
+   git checkout -b feat/amazing-feature
+   ```
+2. Commit your changes following the format:
+   - `feat:` for new features
+   - `fix:` for bug fixes
+   - `docs:` for documentation updates
+   - `refactor:` for code restructurings
+   - `test:` for adding/updating tests
+   - *Example: `git commit -m "feat: add support for DeepSeek models"`*
+3. Push to your branch and open a Pull Request.
 
 ---
 

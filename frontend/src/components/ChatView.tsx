@@ -1614,6 +1614,10 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   );
 };
 
+ChatInput.displayName = "ChatInput";
+MessageBubble.displayName = "MessageBubble";
+ChatViewRaw.displayName = "ChatView";
 const ChatView = React.memo(ChatViewRaw);
+ChatView.displayName = "ChatView";
 
 export default ChatView;

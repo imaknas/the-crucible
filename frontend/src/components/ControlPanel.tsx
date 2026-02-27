@@ -659,5 +659,6 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
     );
   },
 );
+ControlPanel.displayName = "ControlPanel";
 
 export default ControlPanel;

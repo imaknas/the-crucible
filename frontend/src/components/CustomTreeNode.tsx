@@ -188,5 +188,6 @@ const CustomTreeNode = React.memo(
     );
   },
 );
+CustomTreeNode.displayName = "CustomTreeNode";
 
 export default CustomTreeNode;

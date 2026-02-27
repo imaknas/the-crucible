@@ -540,5 +540,6 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
     );
   },
 );
+Sidebar.displayName = "Sidebar";
 
 export default Sidebar;

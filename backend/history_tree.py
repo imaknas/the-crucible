@@ -355,14 +355,16 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
                     msg_model = getattr(msg, "name", None)
                     if not msg_model and hasattr(msg, "additional_kwargs"):
                         add_kwargs = getattr(msg, "additional_kwargs", {})
-                        msg_model = add_kwargs.get(
-                            "model", add_kwargs.get("model_id")
-                        ) or add_kwargs.get("name")
+                        if isinstance(add_kwargs, dict):
+                            msg_model = add_kwargs.get(
+                                "model", add_kwargs.get("model_id")
+                            ) or add_kwargs.get("name")
                     if not msg_model and hasattr(msg, "response_metadata"):
                         resp_meta = getattr(msg, "response_metadata", {})
-                        msg_model = resp_meta.get(
-                            "model_name", resp_meta.get("model_id")
-                        ) or resp_meta.get("model")
+                        if isinstance(resp_meta, dict):
+                            msg_model = resp_meta.get(
+                                "model_name", resp_meta.get("model_id")
+                            ) or resp_meta.get("model")
                     if not msg_model and isinstance(msg, dict):
                         msg_model = (
                             msg.get("name")
@@ -370,9 +372,11 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
                             or msg.get("additional_kwargs", {}).get("model_id")
                             or msg.get("metadata", {}).get("active_peer")
                         )
+                    if not msg_model and role == "assistant":
+                        msg_model = (state.values or {}).get("active_peer")
 
                     if not msg_model:
-                        msg_model = "Assistant" if role == "assistant" else "User"
+                        msg_model = "assistant" if role == "assistant" else "user"
 
                     path_messages.append(
                         {

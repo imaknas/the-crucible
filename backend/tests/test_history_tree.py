@@ -25,6 +25,9 @@ def _make_message(content, msg_type="human"):
     msg = MagicMock()
     msg.content = content
     msg.type = msg_type
+    msg.name = None  # Ensure it doesn't return a new MagicMock for name
+    msg.additional_kwargs = {}
+    msg.response_metadata = {}
     return msg
 
 
@@ -75,8 +78,8 @@ class TestBuildGraphStructure:
         from history_tree import build_graph_structure
 
         root = _make_state("root")
-        child_map, state_map, root_id = build_graph_structure([root])
-        assert root_id == "root"
+        child_map, state_map, roots = build_graph_structure([root])
+        assert roots == ["root"]
         assert "root" in state_map
         assert child_map == {}
 
@@ -86,9 +89,9 @@ class TestBuildGraphStructure:
         s1 = _make_state("cp1")
         s2 = _make_state("cp2", parent_id="cp1")
         s3 = _make_state("cp3", parent_id="cp2")
-        child_map, state_map, root_id = build_graph_structure([s1, s2, s3])
+        child_map, state_map, roots = build_graph_structure([s1, s2, s3])
 
-        assert root_id == "cp1"
+        assert roots == ["cp1"]
         assert "cp2" in child_map.get("cp1", [])
         assert "cp3" in child_map.get("cp2", [])
 
@@ -115,8 +118,8 @@ class TestDeduplicateCheckpoints:
         )
         # all_states must be newest-first (LangGraph order); deduplicate_checkpoints reverses internally
         all_states = [s2, s1]
-        child_map, state_map, _ = build_graph_structure(all_states)
-        id_to_vis, sig_ids = deduplicate_checkpoints(all_states, child_map, state_map)
+        child_map, state_map, roots = build_graph_structure(all_states)
+        id_to_vis, sig_ids = deduplicate_checkpoints(roots, child_map, state_map)
 
         assert "cp1" in sig_ids
         assert "cp2" in sig_ids
@@ -128,8 +131,8 @@ class TestDeduplicateCheckpoints:
         s1 = _make_state("cp1", messages=msg)
         s2 = _make_state("cp2", parent_id="cp1", messages=msg)  # Same content → dedup
         all_states = [s2, s1]  # newest-first
-        child_map, state_map, _ = build_graph_structure(all_states)
-        id_to_vis, sig_ids = deduplicate_checkpoints(all_states, child_map, state_map)
+        child_map, state_map, roots = build_graph_structure(all_states)
+        id_to_vis, sig_ids = deduplicate_checkpoints(roots, child_map, state_map)
 
         # cp2 should map to cp1 since content is identical
         assert id_to_vis["cp2"] == "cp1"
@@ -142,7 +145,8 @@ class TestFormatMessages:
         state = _make_state(
             "cp1", messages=[_make_message("Hello", "human")], active_peer="gpt-5.2"
         )
-        result = format_messages(state)
+        state_map = {"cp1": state}
+        result = format_messages("cp1", state_map)
         assert len(result) == 1
         assert result[0]["role"] == "user"
         assert result[0]["content"] == "Hello"
@@ -154,27 +158,32 @@ class TestFormatMessages:
         state = _make_state(
             "cp1", messages=[_make_message("Reply", "ai")], active_peer="gpt-5.2"
         )
-        result = format_messages(state)
+        state_map = {"cp1": state}
+        result = format_messages("cp1", state_map)
         assert result[0]["role"] == "assistant"
         assert result[0]["model"] == "gpt-5.2"
 
     def test_mixed_messages(self):
         from history_tree import format_messages
 
-        state = _make_state(
-            "cp1",
-            messages=[
-                _make_message("Hello", "human"),
-                _make_message("Reply", "ai"),
-                _make_message("Follow up", "human"),
-            ],
-            active_peer="claude-sonnet-4-6",
+        s1 = _make_state("cp1", messages=[_make_message("Hello", "human")])
+        s2 = _make_state(
+            "cp2",
+            parent_id="cp1",
+            messages=[_make_message("Reply", "ai")],
+            active_peer="gpt-4",
         )
-        result = format_messages(state)
+        s3 = _make_state(
+            "cp3", parent_id="cp2", messages=[_make_message("Follow up", "human")]
+        )
+
+        state_map = {"cp1": s1, "cp2": s2, "cp3": s3}
+        result = format_messages("cp3", state_map)
         assert len(result) == 3
-        assert result[0]["role"] == "user"
-        assert result[1]["role"] == "assistant"
-        assert result[1]["model"] == "claude-sonnet-4-6"
+        assert result[0]["content"] == "Hello"
+        assert result[1]["content"] == "Reply"
+        assert result[1]["model"] == "gpt-4"
+        assert result[2]["content"] == "Follow up"
         assert result[2]["role"] == "user"
 
 
