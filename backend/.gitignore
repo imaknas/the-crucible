@@ -20,6 +20,9 @@ checkpoints.sqlite-wal
 # Uploaded files
 uploads/
 
+# Vector database (local indexing)
+chroma_db/
+
 # Debug / scratch files
 auto_title_debug.txt
 ruff_*.txt

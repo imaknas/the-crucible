@@ -440,12 +440,20 @@ def _format_messages(raw_messages: list, active_model: str) -> list:
             else:
                 msg_model = "user"
 
+        # Extract sources if present
+        sources = None
+        if hasattr(msg, "additional_kwargs"):
+            sources = getattr(msg, "additional_kwargs", {}).get("sources")
+        if not sources and isinstance(msg, dict):
+            sources = msg.get("additional_kwargs", {}).get("sources")
+
         formatted.append(
             {
                 "role": role,
                 "content": extract_text(content),
                 "type": role,
                 "model": msg_model,
+                "sources": sources,
             }
         )
     return formatted

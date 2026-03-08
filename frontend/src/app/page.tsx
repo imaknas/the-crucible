@@ -35,7 +35,7 @@ export default function Home() {
   const [editingTitle, setEditingTitle] = useState("");
   const [selectedModels, setSelectedModels] = useState<string[]>(["gpt-5.2"]);
   const [documents, setDocuments] = useState<Record<string, string>>({});
-  const [toggles, setToggles] = useState({ strict_logic: true });
+  const [toggles, setToggles] = useState({ strict_logic: true, use_rag: true });
   const [errorModals, setErrorModals] = useState<
     { id: string; title: string; details: string; suggestion?: string }[]
   >([]);
@@ -151,7 +151,8 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const data = await api.uploadFile(file);
+      if (!threadId) return;
+      const data = await api.uploadDocument(file, threadId);
       setDocuments((prev) => ({ ...prev, [data.filename]: data.full_content }));
     } catch (error) {
       console.error("Upload error:", error);

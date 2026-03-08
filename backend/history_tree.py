@@ -378,12 +378,19 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
                     if not msg_model:
                         msg_model = "assistant" if role == "assistant" else "user"
 
+                    sources = None
+                    if hasattr(msg, "additional_kwargs"):
+                        sources = getattr(msg, "additional_kwargs", {}).get("sources")
+                    if not sources and isinstance(msg, dict):
+                        sources = msg.get("additional_kwargs", {}).get("sources")
+
                     path_messages.append(
                         {
                             "role": role,
                             "content": text,
                             "type": role,
                             "model": msg_model,
+                            "sources": sources,
                         }
                     )
                     seen_keys.add(key)

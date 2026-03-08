@@ -91,11 +91,13 @@ export async function deleteCheckpoint(
 
 // ─── File Upload ────────────────────────────────────────────────
 
-export async function uploadFile(
+export async function uploadDocument(
   file: File,
+  threadId: string,
 ): Promise<{ filename: string; full_content: string }> {
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("thread_id", threadId);
   const res = await fetch(`${API_BASE}/upload`, {
     method: "POST",
     body: formData,

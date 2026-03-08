@@ -23,10 +23,12 @@ import { fetchModels, ModelFamily } from "@/lib/api";
 interface ControlPanelProps {
   toggles: {
     strict_logic: boolean;
+    use_rag: boolean;
   };
   setToggles: React.Dispatch<
     React.SetStateAction<{
       strict_logic: boolean;
+      use_rag: boolean;
     }>
   >;
   selectedModels: string[];
@@ -649,6 +651,19 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
                   setToggles((prev) => ({
                     ...prev,
                     strict_logic: !prev.strict_logic,
+                  }))
+                }
+              />
+              <ToggleRow
+                isDark={isDark}
+                label="Deep Knowledge Search"
+                subtitle="Enables RAG. Automatically searches your uploaded documents for relevant context before answering."
+                icon={<BookOpen width={16} height={16} />}
+                checked={toggles.use_rag}
+                onChange={() =>
+                  setToggles((prev) => ({
+                    ...prev,
+                    use_rag: !prev.use_rag,
                   }))
                 }
               />

@@ -97,7 +97,9 @@ class TestGraphNodes:
         }
 
         with patch("graph.get_model", return_value=mock_model):
-            result = drafting_node(state)
+            result = drafting_node(
+                state, config={"configurable": {"thread_id": "test_thread"}}
+            )
 
         assert len(result["messages"]) == 1
         assert result["messages"][0].content == "Model response"
@@ -119,7 +121,7 @@ class TestGraphNodes:
         }
 
         with patch("graph.get_model", return_value=mock_model):
-            drafting_node(state)
+            drafting_node(state, config={"configurable": {"thread_id": "test_thread"}})
 
         # Check that system message includes "Step-by-Step"
         call_args = mock_model.invoke.call_args[0][0]

@@ -22,3 +22,6 @@ class CrucibleState(TypedDict):
 
     # Deliberation mode trigger
     is_deliberation: bool
+
+    # RAG Context
+    retrieved_chunks: Optional[List[Dict[str, str]]]

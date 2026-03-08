@@ -12,6 +12,9 @@ import {
   useTheme,
   Tooltip,
   Chip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from "@mui/material";
 import {
   Send,
@@ -23,6 +26,7 @@ import {
   Scale,
   X,
   StopCircle,
+  ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
@@ -42,6 +46,7 @@ interface Message {
   type?: string;
   model?: string;
   streaming?: boolean;
+  sources?: { text: string; filename: string }[];
 }
 
 interface ChatViewProps {
@@ -758,6 +763,71 @@ const MessageBubble = React.memo(
                   .replace(/\\\)/g, "$");
               })()}
             </ReactMarkdown>
+            {msg.sources && msg.sources.length > 0 && (
+              <Accordion
+                elevation={0}
+                sx={{
+                  mt: 2,
+                  bgcolor: isDark ? "rgba(0,0,0,0.1)" : "rgba(0,0,0,0.02)",
+                  borderRadius: 2,
+                  "&:before": { display: "none" },
+                }}
+              >
+                <AccordionSummary
+                  expandIcon={<ChevronDown size={16} />}
+                  sx={{
+                    minHeight: "40px",
+                    ".MuiAccordionSummary-content": { m: 0 },
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ fontWeight: 600, color: "text.secondary" }}
+                  >
+                    Sources Cited ({msg.sources.length})
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 0 }}>
+                  <Stack spacing={1.5}>
+                    {msg.sources.map((src, i) => (
+                      <Box
+                        key={i}
+                        sx={{
+                          p: 1.5,
+                          bgcolor: isDark
+                            ? "rgba(255,255,255,0.02)"
+                            : "rgba(0,0,0,0.02)",
+                          borderRadius: 1.5,
+                          border: "1px solid",
+                          borderColor: "divider",
+                        }}
+                      >
+                        <Typography
+                          variant="overline"
+                          color="primary.main"
+                          fontWeight="bold"
+                        >
+                          Source {i + 1}: {src.filename}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{
+                            display: "block",
+                            mt: 0.5,
+                            whiteSpace: "pre-wrap",
+                            maxHeight: 150,
+                            overflowY: "auto",
+                          }}
+                        >
+                          {src.text}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </AccordionDetails>
+              </Accordion>
+            )}
             {msg.streaming && (
               <Box
                 component="span"
