@@ -17,7 +17,8 @@ The Crucible is an open-source, full-stack research interface that lets you orch
 | **🧠 Smart Compression** | Automatic context management via `tiktoken`. When token counts approach a model's limit, older history is compressed into a technical brief — with speaker attribution preserved. |
 | **📐 LaTeX Math** | Native rendering of `$inline$` and `$$block$$` math expressions via KaTeX. |
 | **🕐 Temporal Context** | Models automatically receive the current date, time, and timezone — just like official web clients. |
-| **📎 Document Attachments** | Upload PDFs mid-conversation. Documents are embedded directly into the message, not stored globally. |
+| **📎 Document Attachments** | Upload PDFs mid-conversation. Documents are parsed and indexed for retrieval. |
+| **🔍 RAG (Deep Knowledge Search)** | Enable the RAG toggle to perform semantic search across your uploaded documents. Features self-correcting retrieval grading and inline source citations. |
 
 ---
 
@@ -27,12 +28,14 @@ The Crucible is an open-source, full-stack research interface that lets you orch
 the-crucible/
 ├── backend/           # FastAPI + LangGraph + SQLite
 │   ├── main.py        # WebSocket server, streaming, orchestration
-│   ├── graph.py       # LangGraph state machine (draft → synthesis)
+│   ├── graph.py       # LangGraph state machine (draft → retrieve → grade → synthesis)
+│   ├── rag_service.py # Persistence, ChromaDB, and local HuggingFace embeddings
 │   ├── history_tree.py # Checkpoint deduplication & tree layout
 │   ├── db.py          # SQLite helpers (threads, positions)
 │   ├── schema.py      # CrucibleState TypedDict
 │   ├── utils.py       # Shared utilities (text extraction)
 │   ├── parser.py      # PDF text extraction (PyMuPDF)
+│   ├── chroma_db/     # Persistent vector storage (git-ignored)
 │   └── routers/       # FastAPI route modules
 │       ├── threads.py
 │       ├── history.py
@@ -59,7 +62,8 @@ the-crucible/
 | Layer | Stack |
 |---|---|
 | **Frontend** | Next.js 16, React, MUI, React Flow, Framer Motion, react-markdown, KaTeX |
-| **Backend** | FastAPI, LangGraph, LangChain, SQLite, WebSockets, tiktoken |
+| **Backend** | FastAPI, LangGraph, LangChain, ChromaDB, SQLite, WebSockets, tiktoken |
+| **Embeddings** | HuggingFace (local `all-MiniLM-L6-v2`) |
 | **AI Providers** | OpenAI, Anthropic, Google (via `langchain-*` SDKs) |
 
 ---

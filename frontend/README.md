@@ -25,9 +25,9 @@ The application will be available at [http://localhost:3000](http://localhost:30
 
 ## 🏗️ Architecture
 
-- **`ChatView.tsx`**: The primary message renderer, supporting Markdown, LaTeX (via KaTeX), and streaming responses.
+- **`ChatView.tsx`**: The primary message renderer, supporting Markdown, LaTeX, and **Sources Cited** accordions for RAG citations.
 - **`TreeCanvas.tsx`**: The conversation tree visualizer built on React Flow. Supports custom node rendering and persistent layout.
-- **`ControlPanel.tsx`**: Unified interface for model selection, system toggles, and arena configuration.
+- **`ControlPanel.tsx`**: Unified interface for model selection, system toggles (including **Deep Knowledge Search**), and arena configuration.
 - **`useChatWebSocket.ts`**: Custom hook managing the complex WebSocket communication flow.
 
 ## 🧪 Testing
