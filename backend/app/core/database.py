@@ -2,8 +2,11 @@ import sqlite3
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Default to local file, but allow override for Docker/Prod
-DB_PATH = os.getenv("DATABASE_PATH", os.path.join(BASE_DIR, "checkpoints.sqlite"))
+# Default to backend/root (two levels up from app/core), but allow override for Docker/Prod
+DB_PATH = os.getenv(
+    "DATABASE_PATH",
+    os.path.abspath(os.path.join(BASE_DIR, "..", "..", "checkpoints.sqlite")),
+)
 
 
 def get_db_connection():

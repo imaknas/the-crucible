@@ -40,13 +40,13 @@ def isolated_db(tmp_path):
     conn.commit()
     conn.close()
 
-    with patch("db.DB_PATH", test_db):
+    with patch("app.core.database.DB_PATH", test_db):
         yield test_db
 
 
 class TestThreadMetadata:
     def test_rename_and_list(self):
-        import db
+        from app.core import database as db
 
         db.rename_thread("t1", "My Thread")
         # We can't test list_threads without checkpoints table data
@@ -59,7 +59,7 @@ class TestThreadMetadata:
         assert row[0] == "My Thread"
 
     def test_rename_overwrites(self):
-        import db
+        from app.core import database as db
 
         db.rename_thread("t1", "First")
         db.rename_thread("t1", "Second")
@@ -73,7 +73,7 @@ class TestThreadMetadata:
 
 class TestNodePositions:
     def test_save_and_load(self):
-        import db
+        from app.core import database as db
 
         update = MagicMock()
         update.node_id = "node1"
@@ -87,13 +87,13 @@ class TestNodePositions:
         assert positions["node1"]["y"] == 200.0
 
     def test_load_empty(self):
-        import db
+        from app.core import database as db
 
         positions = db.load_node_positions("nonexistent")
         assert positions == {}
 
     def test_overwrite_position(self):
-        import db
+        from app.core import database as db
 
         u1 = MagicMock()
         u1.node_id = "n1"
@@ -112,7 +112,7 @@ class TestNodePositions:
 
 class TestDeleteThread:
     def test_delete_cleans_all_tables(self):
-        import db
+        from app.core import database as db
 
         conn = sqlite3.connect(db.DB_PATH)
         conn.execute("INSERT INTO checkpoints VALUES ('t1', 'cp1')")
@@ -154,7 +154,7 @@ class TestDeleteThread:
 
 class TestDeleteCheckpoint:
     def test_delete_specific_checkpoints(self):
-        import db
+        from app.core import database as db
 
         conn = sqlite3.connect(db.DB_PATH)
         conn.execute("INSERT INTO checkpoints VALUES ('t1', 'cp1')")
@@ -178,7 +178,7 @@ class TestDeleteCheckpoint:
 
 class TestGetAllCheckpointIds:
     def test_returns_set(self):
-        import db
+        from app.core import database as db
 
         conn = sqlite3.connect(db.DB_PATH)
         conn.execute("INSERT INTO checkpoints VALUES ('t1', 'cp1')")
@@ -190,7 +190,7 @@ class TestGetAllCheckpointIds:
         assert result == {"cp1", "cp2"}
 
     def test_empty_thread(self):
-        import db
+        from app.core import database as db
 
         result = db.get_all_checkpoint_ids("nonexistent")
         assert result == set()

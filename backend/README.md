@@ -23,11 +23,13 @@ Ensure at least one and preferably multiple API keys are set (`OPENAI_API_KEY`, 
 
 ## 🛠️ Key Components
 
-- **`main.py`**: The FastAPI application and WebSocket coordinator.
-- **`graph.py`**: Defines the conversation state graph, including drafting, retrieval, grading, synthesis, and summarization nodes.
-- **`rag_service.py`**: Manages local vector storage using ChromaDB, semantic chunking, and HuggingFace embeddings (`all-MiniLM-L6-v2`).
-- **`history_tree.py`**: Handles graph path reconstruction, checkpoint deduplication, and node layout.
-- **`db.py`**: SQLite database layer for thread metadata and node positions.
+- **`app/main.py`**: The FastAPI application and WebSocket coordinator.
+- **`app/services/graph.py`**: Defines the conversation state graph, including drafting, retrieval, grading, synthesis, and summarization nodes.
+- **`app/services/rag.py`**: Manages local vector storage using ChromaDB, semantic chunking, and HuggingFace embeddings (`all-MiniLM-L6-v2`).
+- **`app/services/tree.py`**: Handles graph path reconstruction, checkpoint deduplication, and node layout.
+- **`app/core/database.py`**: SQLite database layer for thread metadata and node positions.
+- **`app/core/schema.py`**: CrucibleState TypedDict and state definitions.
+- **`app/api/`**: Modular FastAPI routers for threads, history, models, and uploads.
 - **`chroma_db/`**: Persistent storage directory for the vector database (automatically created on first upload).
 
 ## 🧪 Testing

@@ -2,7 +2,7 @@
 
 import os
 from unittest.mock import patch
-from routers.models import _build_families
+from app.api.models import _build_families
 
 
 class TestEndpointStructure:

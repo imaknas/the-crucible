@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
-from main import server as app
+from app.main import server as app
 
 
 @pytest.fixture
@@ -12,9 +12,9 @@ def mock_graph_app():
 @pytest.fixture
 def mock_db():
     with (
-        patch("db.get_thread_checkpoint_graph") as mock_graph,
-        patch("db.list_threads") as mock_threads,
-        patch("db.get_all_checkpoint_ids") as mock_cids,
+        patch("app.core.database.get_thread_checkpoint_graph") as mock_graph,
+        patch("app.core.database.list_threads") as mock_threads,
+        patch("app.core.database.get_all_checkpoint_ids") as mock_cids,
     ):
         yield {"graph": mock_graph, "threads": mock_threads, "cids": mock_cids}
 
@@ -58,7 +58,7 @@ def test_get_history_missing_thread(client, mock_db):
 
 
 def test_delete_thread(client, mock_db):
-    with patch("db.delete_thread_data") as mock_del:
+    with patch("app.core.database.delete_thread_data") as mock_del:
         response = client.delete("/threads/t1")
         assert response.status_code == 200
         mock_del.assert_called_once_with("t1")

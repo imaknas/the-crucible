@@ -2,8 +2,8 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from typing import List, Optional
 
-import db
-from history_tree import build_history_tree
+from app.core import database as db
+from app.services.tree import build_history_tree
 
 router = APIRouter(prefix="/history", tags=["history"])
 
@@ -94,7 +94,7 @@ async def delete_checkpoint(request: Request, thread_id: str, checkpoint_id: str
         if not target_state or not target_state.values:
             return {"status": "ok", "deleted_count": 0}
 
-        from history_tree import get_content_key
+        from app.services.tree import get_content_key
 
         target_ckey = get_content_key(target_state)
         target_parent = parent_map.get(checkpoint_id)
@@ -150,7 +150,8 @@ async def search_history(request: Request, thread_id: str, q: str):
     raw_graph = db.get_thread_checkpoint_graph(thread_id)
     all_checkpoint_ids = [row[0] for row in raw_graph]
 
-    from history_tree import extract_text, get_checkpoint_role
+    from app.utils.helpers import extract_text
+    from app.services.tree import get_checkpoint_role
 
     results = []
     seen_content = set()  # Deduplicate within search results

@@ -9,12 +9,12 @@ from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
 from langgraph.graph import StateGraph, END
-from schema import CrucibleState
-from routers.models import MODEL_REGISTRY
+from app.core.schema import CrucibleState
+from app.api.models import MODEL_REGISTRY
 from langchain_core.runnables import RunnableConfig
 
-from utils import extract_text
-import rag_service
+from app.utils.helpers import extract_text
+from app.services import rag as rag_service
 
 load_dotenv()
 
@@ -30,7 +30,7 @@ def sanitize_messages(
     4. Guarantees User-first and strictly alternating roles.
     5. prune_history: If True, uses the LAST summary marker to jump context.
     """
-    from utils import extract_text
+    from app.utils.helpers import extract_text
     from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
     # --- Step 1: Flatten & Clean to String Content ---
@@ -460,7 +460,7 @@ def branching_node(state: CrucibleState):
 def synthesis_node(state: CrucibleState):
     """Analyzes recent messages to update the 'current_thesis' efficiently."""
     try:
-        from utils import extract_text
+        from app.utils.helpers import extract_text
 
         messages = state["messages"]
         if not messages:
@@ -507,7 +507,7 @@ def summarize_history(state: CrucibleState):
         return {"messages": []}  # No change needed
 
     # Stop Churn: If the LAST message is already a summary, don't summarize again
-    from utils import extract_text
+    from app.utils.helpers import extract_text
 
     if messages and "PREVIOUS CONTEXT SUMMARY:" in extract_text(messages[-1].content):
         return {"messages": []}
@@ -522,7 +522,7 @@ def summarize_history(state: CrucibleState):
     try:
         # Use a FAST model for summarization regardless of the active peer
         # This prevents Opus from stalling the user experience during a summary jump
-        from routers.models import MODEL_REGISTRY
+        from app.api.models import MODEL_REGISTRY
 
         summarizer_id = "gemini-3-flash-preview"
         if summarizer_id not in MODEL_REGISTRY:
@@ -536,7 +536,7 @@ def summarize_history(state: CrucibleState):
         to_summarize = messages[:-5]
 
         def format_msg(m):
-            from utils import extract_text
+            from app.utils.helpers import extract_text
 
             content_text = extract_text(m.content)
             if hasattr(m, "type") and m.type == "human":

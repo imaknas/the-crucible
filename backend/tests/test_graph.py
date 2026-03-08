@@ -10,7 +10,7 @@ from unittest.mock import patch, MagicMock
 
 def _patch_constructor(family: str):
     """Patch the constructor in _FAMILY_CONSTRUCTORS for a given family."""
-    import graph
+    from app.services import graph as graph
 
     original = graph._FAMILY_CONSTRUCTORS[family]
     mock_cls = MagicMock()
@@ -34,7 +34,7 @@ class TestGetModel:
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test-123"})
     def test_exact_match_openai(self):
-        from graph import get_model
+        from app.services.graph import get_model
 
         with _patch_constructor("openai") as mock_cls:
             mock_cls.return_value = MagicMock()
@@ -43,7 +43,7 @@ class TestGetModel:
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test-123"})
     def test_exact_match_openai_pro(self):
-        from graph import get_model
+        from app.services.graph import get_model
 
         with _patch_constructor("openai") as mock_cls:
             mock_cls.return_value = MagicMock()
@@ -52,7 +52,7 @@ class TestGetModel:
 
     @patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"})
     def test_exact_match_anthropic(self):
-        from graph import get_model
+        from app.services.graph import get_model
 
         with _patch_constructor("anthropic") as mock_cls:
             mock_cls.return_value = MagicMock()
@@ -61,7 +61,7 @@ class TestGetModel:
 
     @patch.dict(os.environ, {"GOOGLE_API_KEY": "goog-test"})
     def test_exact_match_google(self):
-        from graph import get_model
+        from app.services.graph import get_model
 
         with _patch_constructor("google") as mock_cls:
             mock_cls.return_value = MagicMock()
@@ -70,35 +70,35 @@ class TestGetModel:
 
     @patch.dict(os.environ, {}, clear=True)
     def test_missing_openai_key_raises(self):
-        from graph import get_model
+        from app.services.graph import get_model
 
         with pytest.raises(ValueError, match="OPENAI_API_KEY"):
             get_model("gpt-5.2")
 
     @patch.dict(os.environ, {}, clear=True)
     def test_missing_anthropic_key_raises(self):
-        from graph import get_model
+        from app.services.graph import get_model
 
         with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
             get_model("claude-sonnet-4-6")
 
     @patch.dict(os.environ, {}, clear=True)
     def test_missing_google_key_raises(self):
-        from graph import get_model
+        from app.services.graph import get_model
 
         with pytest.raises(ValueError, match="GOOGLE_API_KEY"):
             get_model("gemini-3-flash-preview")
 
     @patch.dict(os.environ, {}, clear=True)
     def test_unknown_model_not_in_whitelist(self):
-        from graph import get_model
+        from app.services.graph import get_model
 
         with pytest.raises(ValueError, match="not supported in the whitelist"):
             get_model("totally-unknown-model")
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test"})
     def test_case_insensitive(self):
-        from graph import get_model
+        from app.services.graph import get_model
 
         with _patch_constructor("openai") as mock_cls:
             mock_cls.return_value = MagicMock()
@@ -107,7 +107,7 @@ class TestGetModel:
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test"})
     def test_strips_whitespace(self):
-        from graph import get_model
+        from app.services.graph import get_model
 
         with _patch_constructor("openai") as mock_cls:
             mock_cls.return_value = MagicMock()

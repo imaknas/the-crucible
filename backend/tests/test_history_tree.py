@@ -33,19 +33,19 @@ def _make_message(content, msg_type="human"):
 
 class TestGetCheckpointRole:
     def test_empty_messages(self):
-        from history_tree import get_checkpoint_role
+        from app.services.tree import get_checkpoint_role
 
         state = _make_state("cp1")
         assert get_checkpoint_role(state) == "system"
 
     def test_human_message(self):
-        from history_tree import get_checkpoint_role
+        from app.services.tree import get_checkpoint_role
 
         state = _make_state("cp1", messages=[_make_message("Hello", "human")])
         assert get_checkpoint_role(state) == "user"
 
     def test_ai_message(self):
-        from history_tree import get_checkpoint_role
+        from app.services.tree import get_checkpoint_role
 
         state = _make_state("cp1", messages=[_make_message("Reply", "ai")])
         assert get_checkpoint_role(state) == "assistant"
@@ -53,20 +53,20 @@ class TestGetCheckpointRole:
 
 class TestGetContentKey:
     def test_empty_messages(self):
-        from history_tree import get_content_key
+        from app.services.tree import get_content_key
 
         state = _make_state("cp1")
         assert get_content_key(state) == "EMPTY"
 
     def test_unique_key(self):
-        from history_tree import get_content_key
+        from app.services.tree import get_content_key
 
         s1 = _make_state("cp1", messages=[_make_message("Hello", "human")])
         s2 = _make_state("cp2", messages=[_make_message("World", "human")])
         assert get_content_key(s1) != get_content_key(s2)
 
     def test_same_key_for_identical(self):
-        from history_tree import get_content_key
+        from app.services.tree import get_content_key
 
         s1 = _make_state("cp1", messages=[_make_message("Hello", "human")])
         s2 = _make_state("cp2", messages=[_make_message("Hello", "human")])
@@ -75,7 +75,7 @@ class TestGetContentKey:
 
 class TestBuildGraphStructure:
     def test_single_root(self):
-        from history_tree import build_graph_structure
+        from app.services.tree import build_graph_structure
 
         root = _make_state("root")
         child_map, state_map, roots = build_graph_structure([root])
@@ -84,7 +84,7 @@ class TestBuildGraphStructure:
         assert child_map == {}
 
     def test_linear_chain(self):
-        from history_tree import build_graph_structure
+        from app.services.tree import build_graph_structure
 
         s1 = _make_state("cp1")
         s2 = _make_state("cp2", parent_id="cp1")
@@ -96,7 +96,7 @@ class TestBuildGraphStructure:
         assert "cp3" in child_map.get("cp2", [])
 
     def test_branch(self):
-        from history_tree import build_graph_structure
+        from app.services.tree import build_graph_structure
 
         s1 = _make_state("cp1")
         s2 = _make_state("cp2", parent_id="cp1")
@@ -110,7 +110,7 @@ class TestBuildGraphStructure:
 
 class TestDeduplicateCheckpoints:
     def test_no_duplicates(self):
-        from history_tree import build_graph_structure, deduplicate_checkpoints
+        from app.services.tree import build_graph_structure, deduplicate_checkpoints
 
         s1 = _make_state("cp1", messages=[_make_message("Hello", "human")])
         s2 = _make_state(
@@ -125,7 +125,7 @@ class TestDeduplicateCheckpoints:
         assert "cp2" in sig_ids
 
     def test_deduplicates_same_content(self):
-        from history_tree import build_graph_structure, deduplicate_checkpoints
+        from app.services.tree import build_graph_structure, deduplicate_checkpoints
 
         msg = [_make_message("Hello", "human")]
         s1 = _make_state("cp1", messages=msg)
@@ -140,7 +140,7 @@ class TestDeduplicateCheckpoints:
 
 class TestFormatMessages:
     def test_human_message(self):
-        from history_tree import format_messages
+        from app.services.tree import format_messages
 
         state = _make_state(
             "cp1", messages=[_make_message("Hello", "human")], active_peer="gpt-5.2"
@@ -153,7 +153,7 @@ class TestFormatMessages:
         assert result[0]["model"] == "user"
 
     def test_ai_message(self):
-        from history_tree import format_messages
+        from app.services.tree import format_messages
 
         state = _make_state(
             "cp1", messages=[_make_message("Reply", "ai")], active_peer="gpt-5.2"
@@ -164,7 +164,7 @@ class TestFormatMessages:
         assert result[0]["model"] == "gpt-5.2"
 
     def test_mixed_messages(self):
-        from history_tree import format_messages
+        from app.services.tree import format_messages
 
         s1 = _make_state("cp1", messages=[_make_message("Hello", "human")])
         s2 = _make_state(
@@ -188,9 +188,9 @@ class TestFormatMessages:
 
 
 class TestBuildHistoryTree:
-    @patch("history_tree.load_node_positions", return_value={})
+    @patch("app.services.tree.load_node_positions", return_value={})
     def test_full_pipeline(self, _):
-        from history_tree import build_history_tree
+        from app.services.tree import build_history_tree
 
         s1 = _make_state("cp1", messages=[_make_message("Hello", "human")])
         s2 = _make_state(
@@ -209,9 +209,9 @@ class TestBuildHistoryTree:
         assert "current_checkpoint" in result
         assert len(result["messages"]) == 2
 
-    @patch("history_tree.load_node_positions", return_value={})
+    @patch("app.services.tree.load_node_positions", return_value={})
     def test_branching_tree(self, _):
-        from history_tree import build_history_tree
+        from app.services.tree import build_history_tree
 
         root = _make_state("root", messages=[_make_message("Start", "human")])
         branch_a = _make_state(

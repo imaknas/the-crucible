@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from typing import Dict
 
-import db
+from app.core import database as db
 
 router = APIRouter(prefix="/threads", tags=["threads"])
 

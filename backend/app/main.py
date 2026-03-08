@@ -6,12 +6,12 @@ import json
 import asyncio
 from contextlib import asynccontextmanager
 
-from graph import workflow
+from app.services.graph import workflow
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-import db
-from utils import extract_text, clean_string
+from app.core import database as db
+from app.utils.helpers import extract_text, clean_string
 
-from routers import threads, history, upload, models
+from app.api import threads, history, upload, models
 
 
 @asynccontextmanager
@@ -175,7 +175,7 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
         # 2. Dynamic Context Management (Compression is handled by the Graph's entry node)
         current_msgs = state.values.get("messages", [])
         if current_msgs:
-            from graph import count_tokens, get_token_limit
+            from app.services.graph import count_tokens, get_token_limit
 
             print(
                 f"[Context] Current Tokens: {count_tokens(current_msgs)}, Limit: {get_token_limit(model)}"
@@ -299,7 +299,7 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
                 }
                 temp_state = await graph_app.aget_state(p_cfg)
 
-            from history_tree import format_messages
+            from app.services.tree import format_messages
 
             active_cid = new_state.config.get("configurable", {}).get("checkpoint_id")
             formatted_messages = format_messages(active_cid, full_path_states)
@@ -462,4 +462,4 @@ def _format_messages(raw_messages: list, active_model: str) -> list:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:server", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:server", host="0.0.0.0", port=8000, reload=True)

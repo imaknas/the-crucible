@@ -20,7 +20,7 @@ echo "🚀 Starting The Crucible Development Environment..."
 # 1. Start Backend
 echo "📦 Starting Backend (FastAPI on http://localhost:8000)..."
 cd backend
-uv run python main.py &
+uv run python -m app.main &
 BACKEND_PID=$!
 cd ..
 

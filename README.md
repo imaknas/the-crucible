@@ -27,20 +27,15 @@ The Crucible is an open-source, full-stack research interface that lets you orch
 ```
 the-crucible/
 ├── backend/           # FastAPI + LangGraph + SQLite
-│   ├── main.py        # WebSocket server, streaming, orchestration
-│   ├── graph.py       # LangGraph state machine (draft → retrieve → grade → synthesis)
-│   ├── rag_service.py # Persistence, ChromaDB, and local HuggingFace embeddings
-│   ├── history_tree.py # Checkpoint deduplication & tree layout
-│   ├── db.py          # SQLite helpers (threads, positions)
-│   ├── schema.py      # CrucibleState TypedDict
-│   ├── utils.py       # Shared utilities (text extraction)
-│   ├── parser.py      # PDF text extraction (PyMuPDF)
+│   ├── app/           # Modular application package
+│   │   ├── api/       # FastAPI route modules (threads, history, models, etc.)
+│   │   ├── core/      # Database logic, schema, and core config
+│   │   ├── services/  # LangGraph, RAG, and tree reconstruction logic
+│   │   ├── utils/     # Parsers and helper functions
+│   │   └── main.py    # WebSocket server & entry point
+│   ├── tests/         # Pytest suite
 │   ├── chroma_db/     # Persistent vector storage (git-ignored)
-│   └── routers/       # FastAPI route modules
-│       ├── threads.py
-│       ├── history.py
-│       ├── upload.py
-│       └── models.py
+│   └── Dockerfile     # Optimized for Python 3.13 + uv
 └── frontend/          # Next.js + MUI + React Flow
     └── src/
         ├── app/
@@ -112,7 +107,7 @@ Open **http://localhost:3000** and step into The Crucible.
 
 ```bash
 # Terminal 1 — Backend
-cd backend && uv run python main.py
+cd backend && uv run python -m app.main
 
 # Terminal 2 — Frontend
 cd frontend && npm run dev

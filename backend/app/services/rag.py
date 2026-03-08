@@ -8,8 +8,11 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
-# Persistence directory for ChromaDB
-DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
+# Persistence directory for ChromaDB (points to backend/chroma_db)
+DB_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "chroma_db",
+)
 
 # Use a fast, local, lightweight embedding model
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"

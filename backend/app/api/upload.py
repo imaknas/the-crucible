@@ -2,8 +2,8 @@ from fastapi import APIRouter, UploadFile, File, Form, BackgroundTasks
 import os
 import shutil
 
-from parser import extract_text_from_pdf
-import rag_service
+from app.utils.parser import extract_text_from_pdf
+from app.services import rag as rag_service
 
 router = APIRouter(tags=["upload"])
 
