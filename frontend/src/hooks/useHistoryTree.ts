@@ -1,7 +1,10 @@
 import { useState, useCallback } from "react";
 import * as api from "@/lib/api";
 
-export function useHistoryTree(onMessagesLoaded: (messages: any[]) => void) {
+export function useHistoryTree(
+  onMessagesLoaded: (messages: any[]) => void,
+  onHistoryLoaded?: (data: any) => void,
+) {
   const [nodes, setNodes] = useState<any[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
   const [activeCheckpoint, setActiveCheckpoint] = useState<string | null>(null);
@@ -28,11 +31,15 @@ export function useHistoryTree(onMessagesLoaded: (messages: any[]) => void) {
         if (data.current_checkpoint) {
           setActiveCheckpoint(data.current_checkpoint);
         }
+
+        if (onHistoryLoaded) {
+          onHistoryLoaded(data);
+        }
       } catch (error) {
         console.error("Error fetching history:", error);
       }
     },
-    [onMessagesLoaded],
+    [onMessagesLoaded, onHistoryLoaded],
   );
 
   const clearTree = useCallback(() => {

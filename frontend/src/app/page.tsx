@@ -35,7 +35,11 @@ export default function Home() {
   const [editingTitle, setEditingTitle] = useState("");
   const [selectedModels, setSelectedModels] = useState<string[]>(["gpt-5.2"]);
   const [documents, setDocuments] = useState<Record<string, string>>({});
-  const [toggles, setToggles] = useState({ strict_logic: true, use_rag: true });
+  const [toggles, setToggles] = useState({
+    strict_logic: true,
+    use_rag: true,
+    cot_enabled: true,
+  });
   const [errorModals, setErrorModals] = useState<
     { id: string; title: string; details: string; suggestion?: string }[]
   >([]);
@@ -64,6 +68,18 @@ export default function Home() {
     setMessagesRef.current?.(msgs);
   }, []);
 
+  const handleHistoryLoaded = useCallback((data: any) => {
+    const cpId = data.current_checkpoint;
+    const activeNode = (data.nodes || []).find((n: any) => n.id === cpId);
+    if (activeNode?.metadata?.active_peer) {
+      const model = activeNode.metadata.active_peer;
+      setSelectedModels((prev) => {
+        if (prev.length === 1 && prev[0] === model) return prev;
+        return [model];
+      });
+    }
+  }, []);
+
   const {
     nodes,
     setNodes,
@@ -74,7 +90,7 @@ export default function Home() {
     setShowTree,
     fetchHistory,
     clearTree,
-  } = useHistoryTree(handleMessagesLoaded);
+  } = useHistoryTree(handleMessagesLoaded, handleHistoryLoaded);
 
   const handleThreadDeleted = useCallback(
     (deleted?: boolean) => {
@@ -230,13 +246,9 @@ export default function Home() {
   const handleNodeClick = useCallback(
     (id: string) => {
       setActiveCheckpoint(id);
-      const clickedNode = nodes.find((n: any) => n.id === id);
-      if (clickedNode?.metadata?.active_peer) {
-        setSelectedModels([clickedNode.metadata.active_peer]);
-      }
       if (threadId) fetchHistory(threadId, id);
     },
-    [nodes, threadId, fetchHistory, setActiveCheckpoint, setSelectedModels],
+    [threadId, fetchHistory, setActiveCheckpoint],
   );
 
   const handleNodeDragStop = useCallback(
@@ -278,13 +290,9 @@ export default function Home() {
   const handleSwitchCheckpoint = useCallback(
     (id: string) => {
       setActiveCheckpoint(id);
-      const clickedNode = nodes.find((n: any) => n.id === id);
-      if (clickedNode?.metadata?.active_peer) {
-        setSelectedModels([clickedNode.metadata.active_peer]);
-      }
       if (threadId) fetchHistory(threadId, id);
     },
-    [nodes, threadId, fetchHistory, setActiveCheckpoint, setSelectedModels],
+    [threadId, fetchHistory, setActiveCheckpoint],
   );
 
   const handleSynthesize = useCallback(
@@ -571,6 +579,7 @@ export default function Home() {
                 className="absolute inset-0 w-full h-full"
               >
                 <TreeCanvas
+                  key={threadId}
                   nodes={nodes}
                   edges={edges}
                   activeNodeId={activeCheckpoint || undefined}
