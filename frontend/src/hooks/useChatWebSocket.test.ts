@@ -27,7 +27,7 @@ describe("useChatWebSocket", () => {
     threadId: "thread_1",
     activeCheckpoint: "cp_1",
     selectedModels: ["gpt-4o"],
-    toggles: { strict_logic: true },
+    toggles: { strict_logic: true, use_rag: true, cot_enabled: true },
     documents: {},
     clearDocuments: jest.fn(),
     onHistoryRefreshNeeded: jest.fn(),
@@ -76,7 +76,7 @@ describe("useChatWebSocket", () => {
     const { result } = renderHook(() => useChatWebSocket(mockProps));
 
     await act(async () => {
-      await result.current.synthesizeConsensus(["View 1", "View 2"]);
+      await result.current.synthesizeConsensus(["View 1", "View 2"], "cp_1");
     });
 
     expect(result.current.isLoading).toBe(true);

@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional, Any, Set, Tuple
 from app.core.database import load_node_positions
-from app.utils.helpers import extract_text
+from app.utils.helpers import extract_text, get_preview_text
 
 
 def get_checkpoint_role(state_obj) -> str:
@@ -182,7 +182,7 @@ def build_graph_layout(
     # 1. Build the visual graph (vis_id -> set of visual children)
     vis_child_map: Dict[str, Set[str]] = {}
     vis_parent_map: Dict[str, Optional[str]] = {}
-    vis_roots = set()
+    vis_roots: Set[str] = set()
 
     for cp_id, vis_id in id_to_vis.items():
         state = state_map[cp_id]
@@ -244,7 +244,6 @@ def build_graph_layout(
                 else str(last_msg_obj)
             )
             content = extract_text(raw_content)
-
             # Detect synthesis prompts and use a cleaner label
             if (
                 content
@@ -253,9 +252,13 @@ def build_graph_layout(
             ):
                 display_label = "Consensus Convergence"
             else:
-                display_label = content[:30] + "..." if content else ""
+                display_label = get_preview_text(content, max_length=40)
+            has_thoughts = (
+                "<think>" in raw_content if isinstance(raw_content, str) else False
+            )
         else:
             display_label = ""
+            has_thoughts = False
 
         nodes.append(
             {
@@ -264,8 +267,11 @@ def build_graph_layout(
                 "position": pos,
                 "metadata": {
                     "role": visual_role,
-                    "active_peer": state.values.get("active_peer"),
+                    "active_peer": state.values.get("active_peer")
+                    if visual_role == "ai"
+                    else None,
                     "thesis_preview": state.values.get("current_thesis", "")[:50],
+                    "has_thoughts": has_thoughts,
                 },
             }
         )
@@ -289,14 +295,6 @@ def build_graph_layout(
 
     for r_v_id in vis_roots:
         layout_vis_node(r_v_id)
-
-    # Center nodes if no saved positions
-    if not saved_positions:
-        for level, total in level_counts.items():
-            offset = (total - 1) * 220 / 2
-            for node in nodes:
-                if node["position"]["y"] == level * 140:
-                    node["position"]["x"] -= offset
 
     return nodes, edges
 
@@ -347,7 +345,7 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
 
             if not is_technical and content_str.strip():
                 # 4. Deduplicate (LangGraph creates multiple checkpoints per turn)
-                text = extract_text(content)
+                text = extract_text(content, wrap_thinking=True)
                 key = (role, text[:200])  # Use prefix for speed
                 if key not in seen_keys:
                     # 5. Heavy Duty Attribution Recovery

@@ -342,6 +342,8 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     prompt_prefix = ""
     if state["toggles"].get("strict_logic"):
         prompt_prefix = "Use Step-by-Step reasoning. "
+    if state["toggles"].get("cot_enabled"):
+        prompt_prefix += "Show your thinking process within <think></think> tags. "
 
     # RAG Context injection
     rag_context = ""

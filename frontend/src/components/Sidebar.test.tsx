@@ -9,22 +9,17 @@ jest.mock("@/lib/api", () => ({
 
 describe("Sidebar", () => {
   const mockProps = {
-    threads: [
-      { id: "t1", title: "Thread 1", updated_at: "2024-01-01T00:00:00" },
-    ],
+    threads: [{ id: "t1", title: "Thread 1" }],
     threadId: "t1",
-    activeThreadId: "t1",
     editingThreadId: null,
     editingTitle: "",
-    onSelectThread: jest.fn(),
+    onStartNewExperiment: jest.fn(),
+    onSwitchThread: jest.fn(),
     onDeleteThread: jest.fn(),
     onRenameThread: jest.fn(),
-    onJumpToNode: jest.fn(),
-    onStartNewExperiment: jest.fn(),
-    onSetEditing: jest.fn(),
-    onUpdateTitle: jest.fn(),
-    onSaveTitle: jest.fn(),
-    onCancelEdit: jest.fn(),
+    setEditingThreadId: jest.fn(),
+    setEditingTitle: jest.fn(),
+    onSwitchCheckpoint: jest.fn(),
   };
 
   it("renders threads list", () => {

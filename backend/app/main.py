@@ -450,7 +450,7 @@ def _format_messages(raw_messages: list, active_model: str) -> list:
         formatted.append(
             {
                 "role": role,
-                "content": extract_text(content),
+                "content": extract_text(content, wrap_thinking=True),
                 "type": role,
                 "model": msg_model,
                 "sources": sources,
