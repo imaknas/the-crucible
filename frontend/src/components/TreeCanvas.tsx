@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef } from "react";
-import { API_BASE } from "@/lib/api";
 import { useTheme } from "@mui/material";
 import ReactFlow, {
   Background,
@@ -15,8 +14,12 @@ import ReactFlow, {
   useReactFlow,
   ReactFlowProvider,
   useStore,
+  ControlButton,
+  Position,
 } from "reactflow";
 import CustomTreeNode from "./CustomTreeNode";
+import { Target, Wand2 } from "lucide-react";
+import dagre from "dagre";
 import "reactflow/dist/style.css";
 
 export interface CustomNode extends Node {
@@ -24,6 +27,7 @@ export interface CustomNode extends Node {
     role?: string;
     active_peer?: string;
     thesis_preview?: string;
+    has_thoughts?: boolean;
   };
 }
 
@@ -46,6 +50,48 @@ const nodeTypes = {
   custom: CustomTreeNode,
 };
 const edgeTypes = {};
+
+const dagreGraph = new dagre.graphlib.Graph();
+dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+const nodeWidth = 240;
+const nodeHeight = 120;
+
+const getLayoutedElements = (
+  nodes: Node[],
+  edges: Edge[],
+  direction = "TB",
+) => {
+  const isHorizontal = direction === "LR";
+  dagreGraph.setGraph({ rankdir: direction });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  return {
+    nodes: nodes.map((node) => {
+      const nodeWithPosition = dagreGraph.node(node.id);
+      return {
+        ...node,
+        targetPosition: isHorizontal ? Position.Left : Position.Top,
+        sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
+        // We are shifting the dagre node position (which is center-based) to top-left
+        position: {
+          x: nodeWithPosition.x - nodeWidth / 2,
+          y: nodeWithPosition.y - nodeHeight / 2,
+        },
+      };
+    }),
+    edges,
+  };
+};
 
 function getNodeColors(
   role: string,
@@ -143,13 +189,14 @@ function TreeViewInner({
 }: TreeCanvasProps) {
   const isDark = useTheme().palette.mode === "dark";
   const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   const { fitView, setViewport } = useReactFlow();
   const { width, height, transform } = useStore(selector);
 
   const prevIdsJson = useRef("");
-  const initialFitDone = useRef(false);
+  const prevActiveNodeId = useRef<string | undefined>(undefined);
+  const autoLayoutDone = useRef(false);
   const mountTime = useRef<number | null>(null);
   if (mountTime.current === null) {
     // eslint-disable-next-line react-hooks/purity
@@ -184,6 +231,7 @@ function TreeViewInner({
         data: {
           ...n.data,
           onDelete: onDeleteNode,
+          metadata: n.metadata, // Explicitly pass metadata
           styling: {
             background: isActive ? (isDark ? "#2563eb" : "#3b82f6") : colors.bg,
             border: `1px solid ${isActive ? (isDark ? "#60a5fa" : "#2563eb") : colors.border}`,
@@ -220,36 +268,147 @@ function TreeViewInner({
     }));
   }, [externalEdges, isDark]);
 
-  useEffect(() => {
-    setNodes(processedNodes);
-    setEdges(processedEdges);
-
-    // Only trigger fitView when the node set actually changes
-    const currentIdsJson = JSON.stringify(
-      externalNodes.map((n) => n.id).sort(),
+  const onLayout = useCallback(() => {
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      nodes,
+      edges,
     );
-    if (currentIdsJson !== prevIdsJson.current) {
-      prevIdsJson.current = currentIdsJson;
-      initialFitDone.current = false;
+
+    setNodes([...layoutedNodes]);
+    setEdges([...layoutedEdges]);
+
+    // Persist new positions to backend
+    if (onNodeDragStop) {
+      layoutedNodes.forEach((node) => {
+        onNodeDragStop(node.id, node.position);
+      });
     }
-  }, [processedNodes, processedEdges, externalNodes, setNodes, setEdges]);
+
+    // After layout, give React Flow a moment to update and then fit view
+    setTimeout(() => {
+      fitView({ duration: 600, padding: 0.3 });
+    }, 50);
+  }, [nodes, edges, setNodes, setEdges, fitView, onNodeDragStop]);
+
+  // Sync internal state with external props
+  useEffect(() => {
+    // Fast structural check: compare count and a simple aggregate of IDs
+    // This is much faster than JSON.stringify for large node sets
+    const structuralHash = externalNodes.map((n) => n.id).join(",");
+
+    // 1. Structural change (new nodes/edges or thread switch)
+    if (structuralHash !== prevIdsJson.current) {
+      setNodes(processedNodes);
+      setEdges(processedEdges);
+      prevIdsJson.current = structuralHash;
+      prevActiveNodeId.current = activeNodeId;
+
+      if (
+        !autoLayoutDone.current &&
+        externalNodes.length > 0 &&
+        externalNodes.every((n) => n.position.x === 0 && n.position.y === 0)
+      ) {
+        autoLayoutDone.current = true;
+        setTimeout(onLayout, 100);
+      }
+    }
+    // 2. Selection change (activeNodeId) - Only if IDs haven't changed
+    else if (activeNodeId !== prevActiveNodeId.current) {
+      prevActiveNodeId.current = activeNodeId;
+      // Use the already memoized processedNodes which contains the correct isActive styling
+      setNodes(processedNodes);
+    }
+  }, [
+    processedNodes,
+    processedEdges,
+    externalNodes,
+    setNodes,
+    setEdges,
+    onLayout,
+    activeNodeId,
+  ]);
+
+  // Reset auto-layout flag if the thread changes (new root IDs)
+  useEffect(() => {
+    // Heuristic: if the list of nodes is completely different or empty, reset
+    if (externalNodes.length === 0) {
+      autoLayoutDone.current = false;
+    }
+  }, [externalNodes.length]);
+  const fitViewAttempts = useRef(0);
+  const maxFitViewAttempts = 5;
 
   useEffect(() => {
-    if (externalNodes.length > 0 && isDimensionValid && !initialFitDone.current) {
+    if (
+      externalNodes.length > 0 &&
+      isDimensionValid &&
+      fitViewAttempts.current < maxFitViewAttempts
+    ) {
       const timeSinceMount = Date.now() - (mountTime.current || 0);
-      const delay = Math.max(0, 300 - timeSinceMount);
+      const delay = Math.max(
+        0,
+        300 + fitViewAttempts.current * 400 - timeSinceMount,
+      );
 
       const timer = setTimeout(() => {
-        try {
-          fitView({ duration: 600, padding: 0.3 });
-          initialFitDone.current = true;
-        } catch (e) {
-          console.error("[TREE] fitView failure:", e);
-        }
+        // Use requestAnimationFrame to ensure fitView runs when the browser is ready for paint
+        requestAnimationFrame(() => {
+          try {
+            // Verify if active node exists in the actual internal nodes state
+            const nodeExists = activeNodeId
+              ? nodes.some((n) => n.id === activeNodeId)
+              : true;
+
+            if (!nodeExists) {
+              fitViewAttempts.current += 0.5;
+              return;
+            }
+
+            let success = false;
+            if (activeNodeId) {
+              success = fitView({
+                duration: 800,
+                padding: 0.4,
+                nodes: [{ id: activeNodeId }],
+                minZoom: 0.2,
+                maxZoom: 0.5,
+              });
+            } else {
+              success = fitView({ duration: 800, padding: 0.3 });
+            }
+
+            if (success) {
+              fitViewAttempts.current = maxFitViewAttempts;
+            } else {
+              fitViewAttempts.current += 1;
+            }
+          } catch (e) {
+            console.error("[TREE] fitView failure:", e);
+            fitViewAttempts.current += 1;
+          }
+        });
       }, delay);
       return () => clearTimeout(timer);
     }
-  }, [externalNodes, isDimensionValid, fitView]);
+  }, [externalNodes, nodes, isDimensionValid, fitView, activeNodeId]);
+
+  // Reset attempts if the number of nodes changes significantly (e.g. new thread)
+  useEffect(() => {
+    fitViewAttempts.current = 0;
+  }, [externalNodes.length]);
+
+  const handleRecenter = useCallback(() => {
+    if (activeNodeId) {
+      fitView({
+        duration: 400,
+        padding: 0.7,
+        nodes: [{ id: activeNodeId }],
+        maxZoom: 1.2,
+      });
+    } else {
+      fitView({ duration: 400, padding: 0.3 });
+    }
+  }, [fitView, activeNodeId]);
 
   const handleNodeClick = useCallback(
     (_: any, node: Node) => onNodeClick?.(node.id),
@@ -288,7 +447,20 @@ function TreeViewInner({
                 borderRadius: "12px",
                 overflow: "hidden",
               }}
-            />
+            >
+              <ControlButton
+                onClick={onLayout}
+                title="Tidy Layout (Auto-arrange)"
+              >
+                <Wand2 size={14} />
+              </ControlButton>
+              <ControlButton
+                onClick={handleRecenter}
+                title="Recenter on Active Node"
+              >
+                <Target size={14} />
+              </ControlButton>
+            </Controls>
             <MiniMap
               style={{
                 background: isDark ? "#0f172a" : "#ffffff",

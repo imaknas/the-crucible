@@ -9,14 +9,7 @@ import {
   Tooltip,
   Chip,
 } from "@mui/material";
-import {
-  Send,
-  FileText,
-  Edit3,
-  Scale,
-  X,
-  StopCircle,
-} from "lucide-react";
+import { Send, FileText, Edit3, Scale, X, StopCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { Message } from "@/lib/types";
 

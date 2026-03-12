@@ -22,6 +22,10 @@ import {
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Message } from "@/lib/types";
 
+const thinkRegex = /<think>([\s\S]*?)(?:<\/think>|$)/i;
+const thinkGlobalRegex = /<think>[\s\S]*?<\/think>/gi;
+const thinkStreamingRegex = /<think>[\s\S]*$/gi;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 // Extracted verbatim from ChatView.tsx — zero logic or style changes.
 
@@ -100,6 +104,15 @@ export const MessageBubble = React.memo(
   ({ msg, isUser, isDark, onMount, index }: MessageBubbleProps) => {
     const modelColor = getModelColor(isUser ? undefined : msg.model);
     const modelLabel = getModelLabel(msg.model);
+
+    // Standardize content string extraction for the whole component
+    const rawContent =
+      typeof msg.content === "string"
+        ? msg.content
+        : (msg as any).text ||
+          (Array.isArray(msg.content)
+            ? JSON.stringify(msg.content)
+            : String(msg.content || ""));
 
     return (
       <Box
@@ -228,6 +241,125 @@ export const MessageBubble = React.memo(
               },
             }}
           >
+            {/* Chain of Thought (Thinking Process) Accordion */}
+            {(() => {
+              // Ensure we use the raw string even if it's arriving as an object/array partially
+              const contentStr = rawContent;
+              const thinkMatch = contentStr.match(thinkRegex);
+              if (!thinkMatch) return null;
+
+              const thinkingProcess = thinkMatch[1].trim();
+              // If we are streaming and have at least the <think> tag, or if we have finished and have content
+              if (!thinkingProcess && !msg.streaming) return null;
+
+              return (
+                <Accordion
+                  elevation={0}
+                  disableGutters
+                  defaultExpanded={true}
+                  sx={{
+                    mb: 2, // Changed from mt to mb
+                    bgcolor: isDark
+                      ? "rgba(139, 92, 246, 0.12)"
+                      : "rgba(139, 92, 246, 0.08)",
+                    borderRadius: 2,
+                    border: "1px solid",
+                    borderColor: isDark
+                      ? "rgba(139, 92, 246, 0.3)"
+                      : "rgba(139, 92, 246, 0.2)",
+                    "&:before": { display: "none" },
+                    overflow: "hidden",
+                    boxShadow: isDark
+                      ? "0 4px 12px rgba(0,0,0,0.2)"
+                      : "0 4px 12px rgba(139, 92, 246, 0.1)",
+                  }}
+                >
+                  <AccordionSummary
+                    expandIcon={<ChevronDown size={16} color="#a78bfa" />}
+                    sx={{
+                      minHeight: "44px",
+                      px: 2,
+                      ".MuiAccordionSummary-content": { m: 0 },
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#a78bfa",
+                        }}
+                      >
+                        {msg.streaming && !contentStr.includes("</think>") ? (
+                          <Box
+                            sx={{
+                              width: 14,
+                              height: 14,
+                              borderRadius: "50%",
+                              border: "2px solid",
+                              borderTopColor: "transparent",
+                              animation: "spin 1s linear infinite",
+                              "@keyframes spin": {
+                                "0%": { transform: "rotate(0deg)" },
+                                "100%": { transform: "rotate(360deg)" },
+                              },
+                            }}
+                          />
+                        ) : (
+                          <Box
+                            sx={{
+                              p: 0.5,
+                              borderRadius: 1,
+                              bgcolor: "rgba(167, 139, 250, 0.1)",
+                            }}
+                          >
+                            <ChevronDown
+                              size={14}
+                              style={{ transform: "rotate(-90deg)" }}
+                            />
+                          </Box>
+                        )}
+                      </Box>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontWeight: 800,
+                          letterSpacing: "0.1em",
+                          color: "text.secondary",
+                          textTransform: "uppercase",
+                          fontSize: "0.625rem",
+                        }}
+                      >
+                        {msg.streaming && !contentStr.includes("</think>")
+                          ? "Model Thinking…"
+                          : "Thinking Process"}
+                      </Typography>
+                    </Stack>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ px: 2, pb: 2, pt: 0 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontSize: "0.85rem",
+                        color: "text.secondary",
+                        lineHeight: 1.6,
+                        whiteSpace: "pre-wrap",
+                        fontStyle: "italic",
+                        opacity: 0.9,
+                        borderLeft: "2px solid",
+                        borderColor: "rgba(167, 139, 250, 0.3)",
+                        pl: 2,
+                        py: 0.5,
+                      }}
+                    >
+                      {thinkingProcess || "Reasoning in progress..."}
+                    </Typography>
+                  </AccordionDetails>
+                </Accordion>
+              );
+            })()}
+
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}
@@ -289,16 +421,13 @@ export const MessageBubble = React.memo(
               }}
             >
               {(() => {
-                const content =
-                  typeof msg === "string"
-                    ? msg
-                    : typeof msg.content === "string"
-                      ? msg.content
-                      : msg.content
-                        ? JSON.stringify(msg.content)
-                        : msg.streaming
-                          ? ""
-                          : "";
+                let content = rawContent;
+
+                // Remove <think> blocks for the main Markdown rendering
+                // They will be displayed separately in an Accordion
+                content = content.replace(thinkGlobalRegex, "").trim();
+                // Also handle unclosed <think> during streaming
+                content = content.replace(thinkStreamingRegex, "").trim();
 
                 // Preprocess LaTeX delimiters
                 return content

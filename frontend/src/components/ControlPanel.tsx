@@ -24,11 +24,13 @@ interface ControlPanelProps {
   toggles: {
     strict_logic: boolean;
     use_rag: boolean;
+    cot_enabled: boolean;
   };
   setToggles: React.Dispatch<
     React.SetStateAction<{
       strict_logic: boolean;
       use_rag: boolean;
+      cot_enabled: boolean;
     }>
   >;
   selectedModels: string[];
@@ -651,6 +653,19 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
                   setToggles((prev) => ({
                     ...prev,
                     strict_logic: !prev.strict_logic,
+                  }))
+                }
+              />
+              <ToggleRow
+                isDark={isDark}
+                label="Thinking Process (CoT)"
+                subtitle="Force models to expose their internal reasoning trace (the <think> block)."
+                icon={<Brain width={16} height={16} />}
+                checked={toggles.cot_enabled}
+                onChange={() =>
+                  setToggles((prev) => ({
+                    ...prev,
+                    cot_enabled: !prev.cot_enabled,
                   }))
                 }
               />

@@ -9,12 +9,7 @@ import {
   CircularProgress,
   useTheme,
 } from "@mui/material";
-import {
-  CheckCircle2,
-  Sparkles,
-  Network,
-  Scale,
-} from "lucide-react";
+import { CheckCircle2, Sparkles, Network, Scale } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatInput } from "./ChatInput";
 import { MessageBubble, getModelColor, getModelLabel } from "./MessageBubble";
@@ -78,6 +73,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   const lastUpdate = useRef(0);
   const lastInnerHeight = useRef(0);
   const resizeDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const messageCount = messages.length;
 
   // Throttled function to calculate and update marker positions
@@ -109,7 +105,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
       const thumbHeight = Math.max(clientHeight * ratio, 30);
       const travelRange = clientHeight - thumbHeight;
 
-      const newPositions = [];
+      const newPositions: { top: number; isUser: boolean; id: number }[] = [];
       for (let i = 0; i < messages.length; i++) {
         const el = messageRefs.current[i];
         if (!el) continue;
@@ -125,7 +121,11 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         });
       }
 
-      setMarkerPositions(newPositions);
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = requestAnimationFrame(() => {
+        setMarkerPositions(newPositions);
+      });
     },
     [messages, isLoading],
   );
@@ -165,6 +165,8 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
     return () => {
       observer.disconnect();
       if (resizeDebounceRef.current) clearTimeout(resizeDebounceRef.current);
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
     };
   }, []); // Empty dependency array = stabilizer observer for component lifetime
 
@@ -758,36 +760,6 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                 >
                   Council deliberating…
                 </Typography>
-                <ButtonBase
-                  onClick={stopStreaming}
-                  component={motion.button}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  sx={{
-                    ml: 1,
-                    px: 1.5,
-                    py: 0.5,
-                    borderRadius: 4,
-                    border: "1px solid",
-                    borderColor: "error.main",
-                    color: "error.main",
-                    fontSize: "0.625rem",
-                    fontWeight: 800,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    background: isDark
-                      ? "rgba(239, 68, 68, 0.1)"
-                      : "rgba(239, 68, 68, 0.05)",
-                    transition: "all 0.2s",
-                    "&:hover": {
-                      background: "error.main",
-                      color: "white",
-                      boxShadow: "0 0 15px rgba(239, 68, 68, 0.4)",
-                    },
-                  }}
-                >
-                  Stop
-                </ButtonBase>
               </Box>
             )}
           </Box>

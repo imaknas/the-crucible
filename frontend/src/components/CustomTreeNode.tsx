@@ -5,8 +5,8 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { Trash2 } from "lucide-react";
-import { useTheme } from "@mui/material/styles";
+import { Trash2, Brain } from "lucide-react";
+import { useTheme, Box, Typography } from "@mui/material";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import {
   vscDarkPlus,
@@ -17,6 +17,12 @@ export type CustomNodeData = {
   label: string;
   onDelete?: (nodeId: string) => void;
   styling?: any;
+  metadata?: {
+    role?: string;
+    active_peer?: string;
+    thesis_preview?: string;
+    has_thoughts?: boolean;
+  };
 };
 
 const CustomTreeNode = React.memo(
@@ -24,12 +30,9 @@ const CustomTreeNode = React.memo(
     const isDark = useTheme().palette.mode === "dark";
     const [isHovered, setIsHovered] = useState(false);
 
-    // Preprocess LaTeX delimiters that models often use but standard remark-math might miss
-    const processedLabel = (data.label || "")
-      .replace(/\\\[/g, "$$")
-      .replace(/\\\]/g, "$$")
-      .replace(/\\\(/g, "$")
-      .replace(/\\\)/g, "$");
+    const hasThoughts = data.metadata?.has_thoughts;
+    const modelName = data.metadata?.active_peer || "";
+    const role = data.metadata?.role || "";
 
     return (
       <div
@@ -44,16 +47,18 @@ const CustomTreeNode = React.memo(
             data.styling?.border ||
             `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
           color: data.styling?.color || (isDark ? "#fff" : "#000"),
-          borderRadius: data.styling?.borderRadius || "14px",
-          padding: data.styling?.padding || "14px",
-          fontSize: data.styling?.fontSize || "14px",
-          fontFamily: "var(--font-geist-sans), sans-serif",
-          lineHeight: data.styling?.lineHeight || "1.4",
-          width: data.styling?.width || 250,
+          borderRadius: data.styling?.borderRadius || "16px",
+          padding: data.styling?.padding || "12px 14px",
+          fontSize: data.styling?.fontSize || "13px",
+          fontFamily: "Inter, var(--font-geist-sans), sans-serif",
+          lineHeight: data.styling?.lineHeight || "1.5",
+          width: data.styling?.width || 240,
           boxShadow:
-            data.styling?.boxShadow || "0 4px 20px -8px rgba(0, 0, 0, 0.15)",
+            data.styling?.boxShadow || "0 10px 30px -10px rgba(0, 0, 0, 0.2)",
           wordWrap: "break-word",
-          overflow: "hidden",
+          overflow: "visible",
+          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          transform: isHovered ? "translateY(-2px)" : "none",
         }}
       >
         <Handle
@@ -67,14 +72,77 @@ const CustomTreeNode = React.memo(
           style={{ visibility: "hidden" }}
         />
 
+        {/* Model/Role Badge */}
+        {(modelName || role === "user") && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: -10,
+              left: 12,
+              px: 1,
+              py: 0.25,
+              borderRadius: "4px",
+              bgcolor:
+                role === "user"
+                  ? isDark
+                    ? "#1e3a8a"
+                    : "#dbeafe"
+                  : isDark
+                    ? "#1e293b"
+                    : "#f8fafc",
+              border: "1px solid",
+              borderColor:
+                role === "user" ? (isDark ? "#3b82f6" : "#bfdbfe") : "divider",
+              fontSize: "0.6rem",
+              fontWeight: 700,
+              color:
+                role === "user"
+                  ? isDark
+                    ? "#93c5fd"
+                    : "#1e40af"
+                  : "text.secondary",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              zIndex: 10,
+              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+            }}
+          >
+            {role === "user" ? "User" : modelName}
+          </Box>
+        )}
+
+        {/* Reasoning Indicator */}
+        {hasThoughts && (
+          <Box
+            sx={{
+              position: "absolute",
+              bottom: -10,
+              right: 12,
+              width: 20,
+              height: 20,
+              borderRadius: "50%",
+              bgcolor: "#a78bfa",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              boxShadow: "0 2px 8px rgba(139, 92, 246, 0.4)",
+              zIndex: 10,
+            }}
+            title="Reasoning available"
+          >
+            <Brain size={12} />
+          </Box>
+        )}
+
         {/* Delete Button Container */}
         {isHovered && data.onDelete && (
           <div
             style={{
               position: "absolute",
-              top: "6px",
-              right: "6px",
-              zIndex: 200, // Higher than handles and content
+              top: "-8px",
+              right: "-8px",
+              zIndex: 200,
             }}
           >
             <button
@@ -86,95 +154,44 @@ const CustomTreeNode = React.memo(
                 if (data.onDelete) data.onDelete(id);
               }}
               style={{
-                background: "rgba(239, 68, 68, 0.2)",
+                background: "#ef4444",
                 border: "none",
-                borderRadius: "6px",
-                padding: "6px",
+                borderRadius: "50%",
+                width: "24px",
+                height: "24px",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#ef4444",
+                color: "white",
+                boxShadow: "0 2px 8px rgba(239, 68, 68, 0.4)",
                 transition: "all 0.2s",
               }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "rgba(239, 68, 68, 0.3)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)")
-              }
               title="Delete Node and its Children"
             >
-              <Trash2 size={16} />
+              <Trash2 size={12} />
             </button>
           </div>
         )}
 
-        {/* Markdown Content */}
-        <div
-          style={{
+        {/* Simplified Content Rendering */}
+        <Typography
+          variant="body2"
+          sx={{
             fontSize: "inherit",
-            pointerEvents: "none",
+            fontWeight: 500,
+            lineHeight: "inherit",
+            color: "inherit",
+            opacity: 1,
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
           }}
-          className="prose dark:prose-invert prose-sm max-w-none"
         >
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[rehypeKatex]}
-            components={{
-              p: ({ node, ...props }) => (
-                <p style={{ margin: "0.25em 0" }} {...props} />
-              ),
-              pre: ({ children }) => (
-                <div
-                  style={{
-                    margin: "0.5em 0",
-                    borderRadius: "8px",
-                    overflow: "hidden",
-                  }}
-                >
-                  {children}
-                </div>
-              ),
-              code: ({ node, inline, className, children, ...props }: any) => {
-                const match = /language-(\w+)/.exec(className || "");
-                return !inline && match ? (
-                  <SyntaxHighlighter
-                    style={isDark ? vscDarkPlus : vs}
-                    language={match[1]}
-                    PreTag="div"
-                    customStyle={{
-                      margin: 0,
-                      padding: "12px",
-                      fontSize: "0.85em",
-                      background: isDark
-                        ? "rgba(0,0,0,0.3)"
-                        : "rgba(0,0,0,0.03)",
-                    }}
-                    {...props}
-                  >
-                    {String(children).replace(/\n$/, "")}
-                  </SyntaxHighlighter>
-                ) : (
-                  <code
-                    style={{
-                      background: "rgba(127,127,127,0.2)",
-                      padding: "2px 4px",
-                      borderRadius: "4px",
-                      fontSize: "0.9em",
-                    }}
-                    className={className}
-                    {...props}
-                  >
-                    {children}
-                  </code>
-                );
-              },
-            }}
-          >
-            {processedLabel}
-          </ReactMarkdown>
-        </div>
+          {data.label}
+        </Typography>
       </div>
     );
   },
