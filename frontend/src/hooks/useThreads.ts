@@ -66,17 +66,6 @@ export function useThreads(
     }
   };
 
-  // Restore session from localStorage after hydration (client-only).
-  // IMPORTANT: must be a separate useEffect with [] deps — NOT a useState lazy
-  // initializer — to avoid Next.js SSR hydration mismatch (server has no localStorage).
-  useEffect(() => {
-    const saved = localStorage.getItem("crucible_thread_id");
-    if (saved) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setThreadId(saved);
-    }
-  }, []); // runs once, client-side only
-
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchThreads();

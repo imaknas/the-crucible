@@ -235,9 +235,9 @@ function TreeViewInner({
   }, [processedNodes, processedEdges, externalNodes, setNodes, setEdges]);
 
   useEffect(() => {
-    if (nodes.length > 0 && isDimensionValid && !initialFitDone.current) {
+    if (externalNodes.length > 0 && isDimensionValid && !initialFitDone.current) {
       const timeSinceMount = Date.now() - (mountTime.current || 0);
-      const delay = Math.max(0, 400 - timeSinceMount);
+      const delay = Math.max(0, 300 - timeSinceMount);
 
       const timer = setTimeout(() => {
         try {
@@ -249,7 +249,7 @@ function TreeViewInner({
       }, delay);
       return () => clearTimeout(timer);
     }
-  }, [nodes.length, isDimensionValid, fitView, width, height]);
+  }, [externalNodes, isDimensionValid, fitView]);
 
   const handleNodeClick = useCallback(
     (_: any, node: Node) => onNodeClick?.(node.id),
