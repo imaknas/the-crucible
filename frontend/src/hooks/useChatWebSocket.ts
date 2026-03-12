@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import * as api from "@/lib/api";
+import { Message, Toggles } from "@/lib/types";
 
 export function useChatWebSocket({
   threadId,
@@ -16,7 +17,7 @@ export function useChatWebSocket({
   threadId: string | null;
   activeCheckpoint: string | null;
   selectedModels: string[];
-  toggles: any;
+  toggles: Toggles;
   documents: Record<string, string>;
   clearDocuments: () => void;
   onHistoryRefreshNeeded: (
@@ -28,7 +29,7 @@ export function useChatWebSocket({
   setErrorModals: React.Dispatch<React.SetStateAction<any[]>>;
   showConfirm: (title: string, message: string) => Promise<boolean>;
 }) {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
