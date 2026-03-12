@@ -5,7 +5,7 @@ The backend orchestrates the multi-model arena, managing the conversation state 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.12+
+- Python 3.13+
 - Node.js 24+ (for development tools)
 - [uv](https://github.com/astral-sh/uv) (recommended)
 

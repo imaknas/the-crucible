@@ -68,7 +68,7 @@ the-crucible/
 ### Prerequisites
 
 - **Node.js** 24+
-- **Python** 3.12+
+- **Python** 3.13+
 - **uv** (recommended) or pip
 - At least one API key: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY`
 
