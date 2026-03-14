@@ -698,8 +698,8 @@ async def run_crucible_arena(
     # (Using future-dated IDs found in app/api/models.py)
     target_models = models or [
         "claude-sonnet-4-6",
-        "gpt-5-mini",
-        "gemini-3-pro-preview",
+        "gpt-5.4",
+        "gemini-3.1-pro-preview",
     ]
 
     # Validation: If models were explicitly requested, ensure they all exist
