@@ -1,33 +1,39 @@
 #!/bin/bash
 
-# The Crucible - Development Startup Script
-# This script starts both the FastAPI backend and the Next.js frontend.
+# The Crucible - Modernized Development Startup Script
+# This script initializes the environment and launches the full stack.
 
-# Function to handle shutdown
+# ├── Diagnostic Checks ───────────────────────────────────────────
+if [ ! -f "backend/.env" ]; then
+    echo "⚠️  WARNING: backend/.env not found! AI features may not work."
+    echo "   Please copy backend/.env.example to backend/.env and add your keys."
+fi
+
+# ├── Cleanup Logic ──────────────────────────────────────────────
 cleanup() {
     echo ""
-    echo "Shutting down The Crucible..."
-    # Kill all background processes started by this script
-    kill $(jobs -p)
+    echo "🛑 Shutting down The Crucible services..."
+    # Gracefully kill background processes
+    kill $(jobs -p) 2>/dev/null
     exit
 }
 
-# Trap SIGINT (Ctrl+C) and call cleanup
 trap cleanup SIGINT
 
-echo "🚀 Starting The Crucible Development Environment..."
+echo "🚀 Starting The Crucible Ecosystem..."
 
-# 1. Start Backend
-echo "📦 Starting Backend (FastAPI on http://localhost:8000)..."
-cd backend
-uv run python -m app.main &
+# ├── 1. Backend Service ──────────────────────────────────────────
+echo "📦 [Backend] Starting FastAPI on http://localhost:8000..."
+(cd backend && uv run python -m app.main) &
 BACKEND_PID=$!
-cd ..
 
-# 2. Wait a moment for backend to initialize
-sleep 2
+# ├── 2. Wait for Backend ─────────────────────────────────────────
+sleep 1.5
 
-# 3. Start Frontend
-echo "💻 Starting Frontend (Next.js on http://localhost:3000)..."
-cd frontend
-npm run dev
+# ├── 3. Agentic Bridge (MCP) ─────────────────────────────────────
+echo "🤖 [MCP] Server ready at backend/app/mcp_server.py"
+echo "   -> Connect your agent (Claude/Cursor) to: 'uv run python -m app.mcp_server'"
+
+# ├── 4. Frontend Service ─────────────────────────────────────────
+echo "💻 [Frontend] Starting Next.js on http://localhost:3000..."
+(cd frontend && npm run dev)
