@@ -55,12 +55,12 @@ Add the following to your MCP settings file (e.g., `~/Library/Application Suppor
 
 ### Available Tools
 
-- `invoke_arena(prompt)`: Start a multi-model debate. Returns a synthesized consensus.
-- `get_thread_status(thread_id)`: Retrieve the status and latest thesis of an existing thread.
+- `invoke_arena`: Triggers the deliberation/synthesis flow (options: `use_rag`, `models`, `cot_enabled`).
+- `get_thread_summary`: Retrieves a summarized technical brief of the entire discussion path.
+- `get_thread_status`: Fetches the current thesis and active model attribution.
 - `get_graph_topology(thread_id)`: (Advanced) Get the full conversation tree structure with metadata (confidence, conflicts).
 
-> [!TIP]
-> **Troubleshooting MCP**: If your agent fails to connect, ensure the `uv` executable is in your path and use the **absolute path** for the `args` directory. You can check your backend path with `pwd` inside the `the-crucible/backend` folder.
+- `get_graph_topology(thread_id)`: (Advanced) Get the full conversation tree structure with metadata (confidence, conflicts).
 
 ---
 

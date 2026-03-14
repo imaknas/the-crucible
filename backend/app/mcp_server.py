@@ -66,6 +66,35 @@ async def invoke_arena(
 
 
 @mcp.tool()
+async def get_thread_summary(thread_id: str) -> str:
+    """
+    Retrieve a summarized technical brief of the entire conversation path.
+    Useful for agents to quickly catch up on context without reading full history.
+    """
+    try:
+        async with get_persistent_graph() as graph_app:
+            config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
+            state = await graph_app.aget_state(config)
+
+            if not state.values:
+                return f"Thread {thread_id} not found."
+
+            messages = state.values.get("messages", [])
+            # Search for the most recent system summary marker
+            summary = "No summary available yet. Run 'invoke_arena' to generate insights."
+            for msg in reversed(messages):
+                content = str(msg.content)
+                if "PREVIOUS CONTEXT SUMMARY:" in content:
+                    summary = content.split("PREVIOUS CONTEXT SUMMARY:")[1].strip()
+                    break
+            
+            thesis = state.values.get("current_thesis", "N/A")
+            return f"--- Thread Summary ({thread_id}) ---\n\nLatest Thesis: {thesis}\n\nContext Brief: {summary}"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+@mcp.tool()
 async def get_thread_status(thread_id: str) -> str:
     """
     Fetch the latest status and current thesis for an existing Crucible thread.
