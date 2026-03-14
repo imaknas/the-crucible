@@ -1,0 +1,69 @@
+from fastmcp import FastMCP
+from uuid import uuid4
+from typing import Optional
+from contextlib import asynccontextmanager
+
+from app.services.graph import workflow, run_crucible_arena
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from app.core import database as db
+
+# Initialize FastMCP
+mcp = FastMCP("The Crucible")
+
+
+@asynccontextmanager
+async def get_persistent_graph():
+    """Context manager to provide a compiled graph with a valid checkpointer."""
+    async with AsyncSqliteSaver.from_conn_string(db.DB_PATH) as saver:
+        yield workflow.compile(checkpointer=saver)
+
+
+@mcp.tool()
+async def invoke_arena(prompt: str, thread_id: Optional[str] = None) -> str:
+    """
+    Invoke the multi-model Arena for a given prompt.
+    This triggers parallel deliberation across major models (OpenAI, Anthropic, Google)
+    and returns a synthesized consensus thesis.
+    """
+    try:
+        async with get_persistent_graph() as graph_app:
+            if not thread_id:
+                thread_id = f"mcp-{uuid4().hex[:8]}"
+                db.rename_thread(thread_id, f"Arena: {prompt[:30]}...")
+
+            results = await run_crucible_arena(graph_app, prompt, thread_id)
+
+            if not results:
+                return f"Thread ID: {thread_id}\n\nArena deliberation completed, but no consensus thesis was generated."
+
+            return f"Thread ID: {thread_id}\n\nConsensus Thesis:\n{results}"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+@mcp.tool()
+async def get_thread_status(thread_id: str) -> str:
+    """
+    Fetch the latest status and current thesis for an existing Crucible thread.
+    """
+    try:
+        async with get_persistent_graph() as graph_app:
+            config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
+            state = await graph_app.aget_state(config)
+
+            if not state.values:
+                return f"Thread {thread_id} not found or has no state."
+
+            thesis = state.values.get("current_thesis", "No thesis identified.")
+            peer = state.values.get("active_peer", "None")
+
+            return (
+                f"Thread: {thread_id}\nActive Model: {peer}\nCurrent Thesis: {thesis}"
+            )
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+if __name__ == "__main__":
+    mcp.run()

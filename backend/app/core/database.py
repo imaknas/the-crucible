@@ -30,8 +30,55 @@ def init_db():
             title TEXT
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS node_metadata (
+            thread_id TEXT,
+            node_id TEXT,
+            confidence_score REAL,
+            conflict_detected BOOLEAN,
+            utility_rating REAL,
+            PRIMARY KEY (thread_id, node_id)
+        )
+    """)
     conn.commit()
     conn.close()
+
+
+def save_node_metadata(
+    thread_id, node_id, confidence=None, conflict=None, utility=None
+):
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO node_metadata (thread_id, node_id, confidence_score, conflict_detected, utility_rating)
+            VALUES (?, ?, ?, ?, ?)
+        """,
+            (thread_id, node_id, confidence, conflict, utility),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def load_node_metadata(thread_id, node_id):
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT confidence_score, conflict_detected, utility_rating FROM node_metadata WHERE thread_id = ? AND node_id = ?",
+            (thread_id, node_id),
+        )
+        row = cursor.fetchone()
+        if row:
+            return {
+                "confidence_score": row[0],
+                "conflict_detected": bool(row[1]),
+                "utility_rating": row[2],
+            }
+        return None
+    finally:
+        conn.close()
 
 
 def save_node_positions(thread_id, updates):

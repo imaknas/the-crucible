@@ -18,7 +18,49 @@ The Crucible is an open-source, full-stack research interface that lets you orch
 | **📐 LaTeX Math** | Native rendering of `$inline$` and `$$block$$` math expressions via KaTeX. |
 | **🕐 Temporal Context** | Models automatically receive the current date, time, and timezone — just like official web clients. |
 | **📎 Document Attachments** | Upload PDFs mid-conversation. Documents are parsed and indexed for retrieval. |
-| **🔍 RAG (Deep Knowledge Search)** | Enable the RAG toggle to perform semantic search across your uploaded documents. Features self-correcting retrieval grading and inline source citations. |
+| **🔍 RAG (Knowledge Search)** | Enable the RAG toggle to perform semantic search across your uploaded documents. |
+| **🤖 Agentic Bridge (MCP)** | Built-in Model Context Protocol server. Agents (Claude, Cursor) can directly trigger debates and query consensus. |
+
+---
+
+## 🤖 Agentic Integration (MCP)
+
+The Crucible includes a built-in **Model Context Protocol (MCP)** server, enabling AI agents to use The Crucible as a programmable decision-making tool.
+
+### Setup for Claude Desktop / Cursor
+
+Add the following to your MCP settings file (e.g., `~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "the-crucible": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/absolute/path/to/the-crucible/backend",
+        "run",
+        "python",
+        "app/mcp_server.py"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "your-key",
+        "ANTHROPIC_API_KEY": "your-key",
+        "GOOGLE_API_KEY": "your-key"
+      }
+    }
+  }
+}
+```
+
+### Available Tools
+
+- `invoke_arena(prompt)`: Start a multi-model debate. Returns a synthesized consensus.
+- `get_thread_status(thread_id)`: Retrieve the status and latest thesis of an existing thread.
+- `get_graph_topology(thread_id)`: (Advanced) Get the full conversation tree structure with metadata (confidence, conflicts).
+
+> [!TIP]
+> **Troubleshooting MCP**: If your agent fails to connect, ensure the `uv` executable is in your path and use the **absolute path** for the `args` directory. You can check your backend path with `pwd` inside the `the-crucible/backend` folder.
 
 ---
 

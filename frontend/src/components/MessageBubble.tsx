@@ -22,9 +22,11 @@ import {
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Message } from "@/lib/types";
 
-const thinkRegex = /<think>([\s\S]*?)(?:<\/think>|$)/i;
-const thinkGlobalRegex = /<think>[\s\S]*?<\/think>/gi;
-const thinkStreamingRegex = /<think>[\s\S]*$/gi;
+const thinkRegex =
+  /<(?:think|thinking)>([\s\S]*?)(?:<\/(?:think|thinking)>|$)/i;
+const thinkGlobalRegex = /<(?:think|thinking)>[\s\S]*?<\/(?:think|thinking)>/gi;
+const thinkStreamingRegex = /<(?:think|thinking)>[\s\S]*$/gi;
+const confidenceCleanupRegex = /\n?\s*confidence:\s*\d+%\.?\s*$/i;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 // Extracted verbatim from ChatView.tsx — zero logic or style changes.
@@ -291,7 +293,8 @@ export const MessageBubble = React.memo(
                           color: "#a78bfa",
                         }}
                       >
-                        {msg.streaming && !contentStr.includes("</think>") ? (
+                        {msg.streaming &&
+                        !/<\/(think|thinking)>/i.test(contentStr) ? (
                           <Box
                             sx={{
                               width: 14,
@@ -331,7 +334,8 @@ export const MessageBubble = React.memo(
                           fontSize: "0.625rem",
                         }}
                       >
-                        {msg.streaming && !contentStr.includes("</think>")
+                        {msg.streaming &&
+                        !/<\/(think|thinking)>/i.test(contentStr)
                           ? "Model Thinking…"
                           : "Thinking Process"}
                       </Typography>
@@ -423,11 +427,12 @@ export const MessageBubble = React.memo(
               {(() => {
                 let content = rawContent;
 
-                // Remove <think> blocks for the main Markdown rendering
-                // They will be displayed separately in an Accordion
+                // Remove <think> and <thinking> blocks for the main Markdown rendering
                 content = content.replace(thinkGlobalRegex, "").trim();
-                // Also handle unclosed <think> during streaming
+                // Handle unclosed tags during streaming
                 content = content.replace(thinkStreamingRegex, "").trim();
+                // Strip the self-reported confidence score from the visible body
+                content = content.replace(confidenceCleanupRegex, "").trim();
 
                 // Preprocess LaTeX delimiters
                 return content

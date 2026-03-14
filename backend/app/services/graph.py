@@ -12,6 +12,7 @@ from langgraph.graph import StateGraph, END
 from app.core.schema import CrucibleState
 from app.api.models import MODEL_REGISTRY
 from langchain_core.runnables import RunnableConfig
+from app.core import database as db
 
 from app.utils.helpers import extract_text
 from app.services import rag as rag_service
@@ -356,7 +357,7 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
         prompt_prefix = rag_context + prompt_prefix
 
     # Default role
-    role_description = "You are an academic research assistant."
+    role_description = "You are an academic research assistant. Always provide a confidence score at the end of your response in the format 'Confidence: X%'."
 
     # Deliberation Mode
     is_delib = state.get("is_deliberation", False)
@@ -439,9 +440,33 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
         print(f"[LLM Error] Effective Tokens: {effective_tokens}")
         raise e
 
+    # --- Step 6: Metadata Extraction (Agentic Decision Support) ---
+    content = response.content
+    confidence = 0.8  # Default
+    conflict_detected = False
+
+    # Simple regex for self-reported confidence (e.g., "Confidence: 95%")
+    import re
+
+    conf_match = re.search(r"confidence:\s*(\d+)%", str(content).lower())
+    if conf_match:
+        confidence = int(conf_match.group(1)) / 100.0
+
+    # Conflict detection (keywords)
+    conflict_keywords = ["contradict", "flaw", "incorrect", "disagree", "bias"]
+    if any(kw in str(content).lower() for kw in conflict_keywords):
+        conflict_detected = True
+
+    # We can't get the NEW checkpoint_id yet (it's created after the node returns)
+    # So we'll need to save it in a follow-up or post-processing step if we want it perfect.
+    # However, we can use a "side-effect" approach if we have access to the checkpointer.
+
     # Tag the response with the model's name for future attribution
     response.name = active_peer
     response.additional_kwargs["model_id"] = active_peer
+    response.additional_kwargs["confidence"] = confidence
+    response.additional_kwargs["conflict"] = conflict_detected
+
     if state.get("retrieved_chunks"):
         response.additional_kwargs["sources"] = state["retrieved_chunks"]
 
@@ -601,18 +626,40 @@ def should_summarize(state: CrucibleState):
     return "draft"
 
 
+def metadata_node(state: CrucibleState, config: RunnableConfig):
+    """Saves metadata for the most recent message."""
+    messages = state.get("messages", [])
+    if not messages:
+        return {}
+
+    last_msg = messages[-1]
+    thread_id = config.get("configurable", {}).get("thread_id")
+    checkpoint_id = config.get("configurable", {}).get("checkpoint_id")
+
+    if thread_id and checkpoint_id:
+        confidence = last_msg.additional_kwargs.get("confidence")
+        conflict = last_msg.additional_kwargs.get("conflict")
+        # Utility rating can be a placeholder for now
+        db.save_node_metadata(
+            thread_id, checkpoint_id, confidence=confidence, conflict=conflict
+        )
+
+    return {}
+
+
 # BUILD THE GRAPH
 workflow = StateGraph(CrucibleState)
 
 workflow.add_node("draft", drafting_node)
 workflow.add_node("branch", branching_node)
-workflow.add_node("synthesis", synthesis_node)
 workflow.add_node("summarize", summarize_history)
+workflow.add_node("metadata", metadata_node)
+workflow.add_node("synthesis", synthesis_node)
 workflow.add_node("retrieve", retrieve_node)
 workflow.add_node("grade_retrieval", grade_retrieval_node)
 
-# FLOW: Entry -> (Cond) Summarize? -> Retrieve? -> Grade? -> Draft -> Synthesis -> END
-workflow.set_entry_point("summarize")  # We start here, the node logic handles the check
+# FLOW: Entry -> (Cond) Summarize? -> Retrieve? -> Grade? -> Draft -> Metadata -> Synthesis -> END
+workflow.set_entry_point("summarize")
 
 
 def route_after_summarize(state: CrucibleState):
@@ -624,9 +671,41 @@ def route_after_summarize(state: CrucibleState):
 workflow.add_conditional_edges("summarize", route_after_summarize)
 workflow.add_edge("retrieve", "grade_retrieval")
 workflow.add_edge("grade_retrieval", "draft")
-workflow.add_edge("draft", "synthesis")
+
+# Post-processing flow
+workflow.add_edge("draft", "metadata")
+workflow.add_edge("branch", "metadata")
+workflow.add_edge("metadata", "synthesis")
 workflow.add_edge("synthesis", END)
 
-workflow.add_edge("branch", "summarize")
+
+async def run_crucible_arena(
+    graph_app, prompt: str, thread_id: str, overrides: Optional[Dict] = None
+):
+    """
+    Standard entry point for running a multi-model arena deliberation.
+    Used by MCP and potentially other async interfaces.
+    """
+    initial_state = {
+        "active_peer": "claude-sonnet-4-6",
+        "messages": [("user", prompt)],
+        "toggles": {"use_rag": False, "cot_enabled": True, **(overrides or {})},
+        "current_thesis": "",
+    }
+
+    config = {"configurable": {"thread_id": thread_id}}
+    results = []
+
+    # Run the graph and collect events
+    async for event in graph_app.astream_events(initial_state, config, version="v2"):
+        kind = event.get("event")
+        if kind == "on_chain_end":
+            if event.get("name") == "LangGraph":
+                data = event.get("data", {}).get("output", {})
+                if "current_thesis" in data:
+                    results.append(data["current_thesis"])
+
+    return results[-1] if results else None
+
 
 # Persistence configuration is handled in main.py lifespan
