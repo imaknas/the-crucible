@@ -455,11 +455,30 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     # Conflict detection (multilingual keywords)
     conflict_keywords = [
         # English
-        "contradict", "flaw", "incorrect", "disagree", "bias", "error", "misleading",
+        "contradict",
+        "flaw",
+        "incorrect",
+        "disagree",
+        "bias",
+        "error",
+        "misleading",
         # Chinese (Simplified/Traditional)
-        "矛盾", "錯誤", "漏洞", "不符合", "偏差", "反對", "質疑", "分歧",
+        "矛盾",
+        "錯誤",
+        "漏洞",
+        "不符合",
+        "偏差",
+        "反對",
+        "質疑",
+        "分歧",
         # Japanese
-        "矛盾", "誤り", "欠陥", "不一致", "バイアス", "反対", "異議",
+        "矛盾",
+        "誤り",
+        "欠陥",
+        "不一致",
+        "バイアス",
+        "反対",
+        "異議",
     ]
     if any(kw in str(content).lower() for kw in conflict_keywords):
         conflict_detected = True
@@ -718,9 +737,49 @@ async def run_crucible_arena(
             )
 
     valid_models = [m for m in target_models if m in MODEL_REGISTRY]
+
+    # New: Auto-filter by available API keys
+    import os
+    from app.api.models import FAMILY_META
+
+    def _is_key_available(model_id: str) -> bool:
+        family = MODEL_REGISTRY[model_id].get("family")
+        if not isinstance(family, str):
+            return True
+        meta = FAMILY_META.get(family)
+        if not meta:
+            return True  # Unknown family, assume available or let it fail naturally
+        return bool(os.getenv(meta["env_key"]))
+
+    # If models were explicitly requested, we validate keys strictly
+    if models:
+        for m in models:
+            if not _is_key_available(m):
+                m_info = MODEL_REGISTRY.get(m, {})
+                m_family = m_info.get("family")
+                family_label = "Unknown"
+                if isinstance(m_family, str):
+                    family_label = FAMILY_META.get(m_family, {}).get("label", "Unknown")
+
+                raise ValueError(
+                    f"API key for {family_label} is missing. Cannot invoke model: {m}"
+                )
+    else:
+        # For default triad, we just silently filter to what's available
+        valid_models = [m for m in valid_models if _is_key_available(m)]
+
     if not valid_models:
-        # Emergency fallback if something is fundamentally wrong with default list
-        valid_models = [list(MODEL_REGISTRY.keys())[0]]
+        # Check if we have ANY key available at all
+        any_key = any(os.getenv(meta["env_key"]) for meta in FAMILY_META.values())
+        if not any_key:
+            raise ValueError(
+                "No API keys found. Please set at least one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY"
+            )
+        # If we have keys but none for the default triad, just pick the first available model in registry
+        for m_id in MODEL_REGISTRY:
+            if _is_key_available(m_id):
+                valid_models = [m_id]
+                break
 
     async def _run_single(model_id: str):
         initial_state = {
