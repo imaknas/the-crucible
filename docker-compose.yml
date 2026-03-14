@@ -7,6 +7,8 @@ services:
       - "8000:8000"
     volumes:
       - crucible_data:/app/data
+      - crucible_uploads:/app/uploads
+      - crucible_chroma:/app/chroma_db
     env_file:
       - ./backend/.env
     environment:
@@ -27,3 +29,5 @@ services:
 
 volumes:
   crucible_data:
+  crucible_uploads:
+  crucible_chroma:
