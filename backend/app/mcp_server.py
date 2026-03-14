@@ -1,6 +1,6 @@
 from fastmcp import FastMCP
 from uuid import uuid4
-from typing import Optional
+from typing import Optional, List
 from contextlib import asynccontextmanager
 
 from app.services.graph import workflow, run_crucible_arena
@@ -20,11 +20,26 @@ async def get_persistent_graph():
 
 
 @mcp.tool()
-async def invoke_arena(prompt: str, thread_id: Optional[str] = None) -> str:
+async def invoke_arena(
+    prompt: str,
+    thread_id: Optional[str] = None,
+    models: Optional[List[str]] = None,
+    use_rag: bool = False,
+    cot_enabled: bool = True,
+    strict_logic: bool = False,
+) -> str:
     """
     Invoke the multi-model Arena for a given prompt.
     This triggers parallel deliberation across major models (OpenAI, Anthropic, Google)
     and returns a synthesized consensus thesis.
+
+    Args:
+        prompt: The research question or topic to deliberate.
+        thread_id: Optional existing thread ID to continue from.
+        models: Optional list of model IDs to include in the arena (e.g. ['gpt-4o', 'claude-sonnet-4-6']).
+        use_rag: Whether to search uploaded documents (RAG).
+        cot_enabled: Whether to enable Chain-of-Thought (deep reasoning).
+        strict_logic: Whether to enforce step-by-step logical constraints.
     """
     try:
         async with get_persistent_graph() as graph_app:
@@ -32,7 +47,15 @@ async def invoke_arena(prompt: str, thread_id: Optional[str] = None) -> str:
                 thread_id = f"mcp-{uuid4().hex[:8]}"
                 db.rename_thread(thread_id, f"Arena: {prompt[:30]}...")
 
-            results = await run_crucible_arena(graph_app, prompt, thread_id)
+            overrides = {
+                "use_rag": use_rag,
+                "cot_enabled": cot_enabled,
+                "strict_logic": strict_logic,
+            }
+
+            results = await run_crucible_arena(
+                graph_app, prompt, thread_id, overrides=overrides, models=models
+            )
 
             if not results:
                 return f"Thread ID: {thread_id}\n\nArena deliberation completed, but no consensus thesis was generated."

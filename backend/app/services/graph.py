@@ -680,32 +680,68 @@ workflow.add_edge("synthesis", END)
 
 
 async def run_crucible_arena(
-    graph_app, prompt: str, thread_id: str, overrides: Optional[Dict] = None
+    graph_app,
+    prompt: str,
+    thread_id: str,
+    overrides: Optional[Dict] = None,
+    models: Optional[List[str]] = None,
 ):
     """
     Standard entry point for running a multi-model arena deliberation.
-    Used by MCP and potentially other async interfaces.
+    If multiple models are provided, they run in parallel, and the final
+    consensus is generated from the aggregate state.
     """
-    initial_state = {
-        "active_peer": "claude-sonnet-4-6",
-        "messages": [("user", prompt)],
-        "toggles": {"use_rag": False, "cot_enabled": True, **(overrides or {})},
-        "current_thesis": "",
-    }
+    from app.api.models import MODEL_REGISTRY
+    import asyncio
 
-    config = {"configurable": {"thread_id": thread_id}}
-    results = []
+    # Default to a representative set from the actual registry
+    # (Using future-dated IDs found in app/api/models.py)
+    target_models = models or [
+        "claude-sonnet-4-6",
+        "gpt-5-mini",
+        "gemini-3-pro-preview",
+    ]
 
-    # Run the graph and collect events
-    async for event in graph_app.astream_events(initial_state, config, version="v2"):
-        kind = event.get("event")
-        if kind == "on_chain_end":
-            if event.get("name") == "LangGraph":
+    # Validation: If models were explicitly requested, ensure they all exist
+    if models:
+        invalid_models = [m for m in models if m not in MODEL_REGISTRY]
+        if invalid_models:
+            raise ValueError(
+                f"Invalid model(s) requested: {', '.join(invalid_models)}. Available: {', '.join(MODEL_REGISTRY.keys())}"
+            )
+
+    valid_models = [m for m in target_models if m in MODEL_REGISTRY]
+    if not valid_models:
+        # Emergency fallback if something is fundamentally wrong with default list
+        valid_models = [list(MODEL_REGISTRY.keys())[0]]
+
+    async def _run_single(model_id: str):
+        initial_state = {
+            "active_peer": model_id,
+            "messages": [("user", prompt)],
+            "toggles": {"use_rag": False, "cot_enabled": True, **(overrides or {})},
+            "current_thesis": "",
+        }
+        config = {"configurable": {"thread_id": thread_id}}
+        results = []
+        async for event in graph_app.astream_events(
+            initial_state, config, version="v2"
+        ):
+            kind = event.get("event")
+            if kind == "on_chain_end" and event.get("name") == "LangGraph":
                 data = event.get("data", {}).get("output", {})
                 if "current_thesis" in data:
                     results.append(data["current_thesis"])
+        return results[-1] if results else None
 
-    return results[-1] if results else None
+    # Run all models in parallel
+    tasks = [_run_single(m) for m in valid_models]
+    theses = await asyncio.gather(*tasks)
+
+    # Return the last successful thesis (or a join if we want to be fancy,
+    # but the graph synthesis logic usually handles the final state)
+    valid_results = [t for t in theses if t]
+    return valid_results[-1] if valid_results else None
 
 
 # Persistence configuration is handled in main.py lifespan

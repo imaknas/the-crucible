@@ -8,6 +8,20 @@ router = APIRouter(tags=["models"])
 
 MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
     # OpenAI family
+    "gpt-5.4": {
+        "family": "openai",
+        "id": "gpt-5.4",
+        "name": "GPT-5.4",
+        "desc": "Flagship",
+        "limit": 100_000,
+    },
+    "gpt-5.4-pro": {
+        "family": "openai",
+        "id": "gpt-5.4-pro",
+        "name": "GPT-5.4 Pro",
+        "desc": "Flagship",
+        "limit": 100_000,
+    },
     "gpt-5.2": {
         "family": "openai",
         "id": "gpt-5.2",
@@ -59,13 +73,6 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "limit": 40_000,  # 80% of 50k to leave runway
     },
     # Google family
-    "gemini-3-pro-preview": {
-        "family": "google",
-        "id": "gemini-3-pro-preview",
-        "name": "Gemini 3 Pro",
-        "desc": "Flagship",
-        "limit": 800_000,
-    },
     "gemini-3.1-pro-preview": {
         "family": "google",
         "id": "gemini-3.1-pro-preview",
@@ -77,6 +84,13 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "family": "google",
         "id": "gemini-3-flash-preview",
         "name": "Gemini 3 Flash",
+        "desc": "Fast",
+        "limit": 800_000,
+    },
+    "gemini-3-flash-lite-preview": {
+        "family": "google",
+        "id": "gemini-3.1-flash-lite-preview",
+        "name": "Gemini 3 Flash-Lite",
         "desc": "Fast",
         "limit": 800_000,
     },

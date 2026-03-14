@@ -25,6 +25,15 @@ async def test_mcp_invoke_arena_mock(mock_run):
     assert "Thread ID: mcp-" in result
 
 
+@pytest.mark.asyncio
+async def test_mcp_invoke_arena_invalid_model():
+    """Test MCP arena tool with invalid model name."""
+    result = await invoke_arena("Test prompt", models=["invalid-model-x"])
+    assert "Error" in result
+    assert "Invalid model" in result
+    assert "invalid-model-x" in result
+
+
 def test_api_graph_topology_empty():
     """Test topology API with non-existent thread."""
     response = client.get("/graph/non-existent-thread/topology")
