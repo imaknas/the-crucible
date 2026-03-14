@@ -452,8 +452,15 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     if conf_match:
         confidence = int(conf_match.group(1)) / 100.0
 
-    # Conflict detection (keywords)
-    conflict_keywords = ["contradict", "flaw", "incorrect", "disagree", "bias"]
+    # Conflict detection (multilingual keywords)
+    conflict_keywords = [
+        # English
+        "contradict", "flaw", "incorrect", "disagree", "bias", "error", "misleading",
+        # Chinese (Simplified/Traditional)
+        "矛盾", "錯誤", "漏洞", "不符合", "偏差", "反對", "質疑", "分歧",
+        # Japanese
+        "矛盾", "誤り", "欠陥", "不一致", "バイアス", "反対", "異議",
+    ]
     if any(kw in str(content).lower() for kw in conflict_keywords):
         conflict_detected = True
 
