@@ -2,6 +2,9 @@
   "name": "the-crucible",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "frontend"
+  ],
   "description": "Multi-model reasoning arena and deliberation graph executor.",
   "scripts": {
     "release": "release-it"
