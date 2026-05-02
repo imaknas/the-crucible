@@ -14,6 +14,7 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "GPT-5.4",
         "desc": "Flagship",
         "limit": 100_000,
+        "native_search": True,
     },
     "gpt-5.4-pro": {
         "family": "openai",
@@ -21,6 +22,7 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "GPT-5.4 Pro",
         "desc": "Flagship",
         "limit": 100_000,
+        "native_search": True,
     },
     "gpt-5.2": {
         "family": "openai",
@@ -28,6 +30,7 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "GPT-5.2",
         "desc": "Flagship",
         "limit": 100_000,
+        "native_search": True,
     },
     "gpt-5.2-pro": {
         "family": "openai",
@@ -35,6 +38,7 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "GPT-5.2 Pro",
         "desc": "Reasoning",
         "limit": 100_000,
+        "native_search": True,
     },
     "gpt-5-mini": {
         "family": "openai",
@@ -42,6 +46,7 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "GPT-5 Mini",
         "desc": "Balanced",
         "limit": 100_000,
+        "native_search": True,
     },
     "gpt-5-nano": {
         "family": "openai",
@@ -49,6 +54,7 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "GPT-5 Nano",
         "desc": "Fast",
         "limit": 100_000,
+        "native_search": True,
     },
     # Anthropic family
     "claude-opus-4-6": {
@@ -56,21 +62,24 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "id": "claude-opus-4-6",
         "name": "Claude Opus 4.6",
         "desc": "Flagship",
-        "limit": 30_000,  # 100% of standard Tier 1
+        "limit": 700_000,  # 70% of 1M window
+        "native_search": True,
     },
     "claude-sonnet-4-6": {
         "family": "anthropic",
         "id": "claude-sonnet-4-6",
         "name": "Claude Sonnet 4.6",
         "desc": "Balanced",
-        "limit": 22_500,  # 75% of 30k to leave runway for prompt/response
+        "limit": 700_000,  # 70% of 1M window
+        "native_search": True,
     },
     "claude-haiku-4-5-20251001": {
         "family": "anthropic",
         "id": "claude-haiku-4-5-20251001",
         "name": "Claude Haiku 4.5",
         "desc": "Fast",
-        "limit": 40_000,  # 80% of 50k to leave runway
+        "limit": 140_000,  # 70% of 200k window
+        "native_search": True,
     },
     # Google family
     "gemini-3.1-pro-preview": {
@@ -79,6 +88,7 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "Gemini 3.1 Pro",
         "desc": "Flagship",
         "limit": 800_000,
+        "native_search": True,
     },
     "gemini-3-flash-preview": {
         "family": "google",
@@ -86,13 +96,15 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "Gemini 3 Flash",
         "desc": "Fast",
         "limit": 800_000,
+        "native_search": True,
     },
     "gemini-3-flash-lite-preview": {
         "family": "google",
-        "id": "gemini-3.1-flash-lite-preview",
+        "id": "gemini-3-flash-lite-preview",
         "name": "Gemini 3 Flash-Lite",
         "desc": "Fast",
         "limit": 800_000,
+        "native_search": True,
     },
 }
 
@@ -124,6 +136,7 @@ def _build_families() -> List[Dict[str, Any]]:
                     "id": str(cfg["id"]),
                     "name": str(cfg["name"]),
                     "desc": str(cfg["desc"]),
+                    "native_search": cfg.get("native_search", False),
                 }
             )
 

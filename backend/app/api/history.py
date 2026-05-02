@@ -1,3 +1,4 @@
+from collections import deque
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from typing import List, Optional
@@ -25,8 +26,9 @@ async def get_history(
     raw_graph = db.get_thread_checkpoint_graph(thread_id)
     all_checkpoint_ids = [row[0] for row in raw_graph]
 
-    all_states = []
-    for cid in all_checkpoint_ids:
+    import asyncio
+
+    async def _get_one(cid):
         cfg = {
             "configurable": {
                 "thread_id": thread_id,
@@ -34,9 +36,12 @@ async def get_history(
                 "checkpoint_ns": "",
             }
         }
-        state = await graph_app.aget_state(cfg)
-        if state and state.values:
-            all_states.append(state)
+        return await graph_app.aget_state(cfg)
+
+    # Parallelize state fetching
+    tasks = [_get_one(cid) for cid in all_checkpoint_ids]
+    states = await asyncio.gather(*tasks)
+    all_states = [s for s in states if s and s.values]
 
     if not all_states:
         return {"nodes": [], "edges": [], "current_checkpoint": None}
@@ -121,9 +126,9 @@ async def delete_checkpoint(request: Request, thread_id: str, checkpoint_id: str
                     to_delete.add(cid)
 
         # 2. Recursively find all descendants of all clones
-        queue = list(to_delete)
+        queue = deque(to_delete)
         while queue:
-            curr = queue.pop(0)
+            curr = queue.popleft()
             for child in child_map.get(curr, []):
                 if child not in to_delete:
                     to_delete.add(child)
@@ -150,13 +155,11 @@ async def search_history(request: Request, thread_id: str, q: str):
     raw_graph = db.get_thread_checkpoint_graph(thread_id)
     all_checkpoint_ids = [row[0] for row in raw_graph]
 
+    import asyncio as _asyncio
     from app.utils.helpers import extract_text
     from app.services.tree import get_checkpoint_role
 
-    results = []
-    seen_content = set()  # Deduplicate within search results
-
-    for cid in all_checkpoint_ids:
+    async def _fetch_one(cid: str):
         cfg = {
             "configurable": {
                 "thread_id": thread_id,
@@ -164,8 +167,14 @@ async def search_history(request: Request, thread_id: str, q: str):
                 "checkpoint_ns": "",
             }
         }
-        state = await graph_app.aget_state(cfg)
+        return cid, await graph_app.aget_state(cfg)
 
+    states = await _asyncio.gather(*[_fetch_one(cid) for cid in all_checkpoint_ids])
+
+    results = []
+    seen_content = set()  # Deduplicate within search results
+
+    for cid, state in states:
         if not state or not state.values or "messages" not in state.values:
             continue
 
@@ -225,7 +234,7 @@ async def search_history(request: Request, thread_id: str, q: str):
                     "model": getattr(last_msg, "name", None)
                     or (last_msg.get("name") if isinstance(last_msg, dict) else None),
                     "excerpt": excerpt,
-                    "timestamp": getattr(state, "created_at", None),  # If available
+                    "timestamp": getattr(state, "created_at", None),
                 }
             )
 
