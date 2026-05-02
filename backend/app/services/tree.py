@@ -1,3 +1,4 @@
+from collections import deque
 from typing import List, Dict, Optional, Any, Set, Tuple
 from app.core.database import load_node_positions
 from app.utils.helpers import extract_text, get_preview_text
@@ -73,11 +74,11 @@ def deduplicate_checkpoints(
     merged_siblings: Dict[Tuple[Optional[str], str], str] = {}
 
     # Process nodes in topological order using BFS to avoid KeyError
-    queue = list(roots)
+    queue = deque(roots)
     processed = set()
 
     while queue:
-        cp_id = queue.pop(0)
+        cp_id = queue.popleft()
         if cp_id in processed:
             continue
         processed.add(cp_id)
@@ -96,7 +97,11 @@ def deduplicate_checkpoints(
         if merge_key in merged_siblings:
             # COLLAPSE SIBLINGS: If a sibling with same content and parent already exists
             id_to_vis[cp_id] = merged_siblings[merge_key]
-        elif p_vis and content_key == get_content_key(state_map[p_vis]):
+        elif (
+            p_vis
+            and p_vis in state_map
+            and content_key == get_content_key(state_map[p_vis])
+        ):
             # COLLAPSE INTO PARENT: Standard LangGraph redundancy
             id_to_vis[cp_id] = p_vis
         else:
