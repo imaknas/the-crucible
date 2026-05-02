@@ -9,10 +9,10 @@ def extract_text(content: Any, wrap_thinking: bool = False) -> str:
     and standard string content. Explicitly extracts "text" blocks.
     If wrap_thinking is True, converts "thinking" blocks to <think> tags.
     """
+    raw_text = ""
     if isinstance(content, str):
-        return clean_string(content)
-
-    if isinstance(content, list):
+        raw_text = clean_string(content)
+    elif isinstance(content, list):
         parts: List[str] = []
         for block in content:
             if isinstance(block, dict):
@@ -33,22 +33,55 @@ def extract_text(content: Any, wrap_thinking: bool = False) -> str:
                     parts.append(clean_string(str(block.get("text") or "")))
             else:
                 parts.append(clean_string(str(block)))
-        return "".join(parts)
-
-    if isinstance(content, dict):
+        raw_text = "".join(parts)
+    elif isinstance(content, dict):
         if content.get("type") == "text":
-            return clean_string(str(content.get("text") or ""))
-        if content.get("type") == "thinking":
+            raw_text = clean_string(str(content.get("text") or ""))
+        elif content.get("type") == "thinking":
             think_text = content.get("thinking") or content.get("text") or ""
             if wrap_thinking:
-                return f"<think>\n{clean_string(str(think_text))}\n</think>"
-            return clean_string(str(think_text))
-        val = content.get("text")
-        if val:
-            return clean_string(str(val))
-        return ""
+                raw_text = f"<think>\n{clean_string(str(think_text))}\n</think>"
+            else:
+                raw_text = clean_string(str(think_text))
+        else:
+            raw_text = clean_string(str(content.get("text") or ""))
+    else:
+        raw_text = clean_string(str(content or ""))
 
-    return clean_string(str(content or ""))
+    # Strip <metadata>, <confidence>, <...>, and other tag-like blocks entirely before returning to UI
+    text = re.sub(
+        r"<(?:metadata|confidence|\.\.\.)>[\s\S]*?</(?:metadata|confidence|\.\.\.)>",
+        "",
+        raw_text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"<(?:metadata|confidence|\.\.\.)>[\s\S]*$", "", text, flags=re.IGNORECASE
+    )  # Unclosed
+
+    # Strip legacy plain-text confidence blocks and specific metadata markers at the end
+    # We avoid common words like "理由" (Reason) alone to prevent accidental content loss.
+    # We search the tail for "Confidence: X%" or specific "Confidence Explanation:" patterns.
+    suffix_len = 500
+    if len(text) > suffix_len:
+        prefix = text[:-suffix_len]
+        suffix = text[-suffix_len:]
+        suffix = re.sub(
+            r"(?:Confidence|信心評估|信心說明|信心程度)\s*[:：].*$",
+            "",
+            suffix,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        text = prefix + suffix
+    else:
+        text = re.sub(
+            r"(?:Confidence|信心評估|信心說明|信心程度)\s*[:：].*$",
+            "",
+            text,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+
+    return text.strip()
 
 
 def get_preview_text(content: str, max_length: int = 50) -> str:

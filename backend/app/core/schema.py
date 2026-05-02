@@ -25,3 +25,6 @@ class CrucibleState(TypedDict):
 
     # RAG Context
     retrieved_chunks: Optional[List[Dict[str, str]]]
+
+    # Immediate Session Documents (non-RAG)
+    documents: Optional[Dict[str, str]]

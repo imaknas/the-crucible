@@ -14,8 +14,44 @@ from app.utils.helpers import extract_text, clean_string
 from app.api import threads, history, upload, models, graph
 
 
+# --- MONKEYPATCH for langchain_anthropic 1.3.2 bug ---
+# Fixes AttributeError: 'dict' object has no attribute 'model_dump'
+# during web-search beta event streaming.
+try:
+    import langchain_anthropic.chat_models
+
+    _original_make_chunk = (
+        langchain_anthropic.chat_models._make_message_chunk_from_anthropic_event
+    )
+
+    def _safe_make_chunk(event, *args, **kwargs):
+        if getattr(event, "type", None) == "message_delta":
+            delta = getattr(event, "delta", None)
+            if delta and getattr(delta, "container", None) is not None:
+                if isinstance(delta.container, dict):
+
+                    class MockContainer:
+                        def __init__(self, d):
+                            self.d = d
+
+                        def model_dump(self, mode=None, **kw):
+                            return self.d
+
+                    delta.container = MockContainer(delta.container)
+        return _original_make_chunk(event, *args, **kwargs)
+
+    langchain_anthropic.chat_models._make_message_chunk_from_anthropic_event = (
+        _safe_make_chunk
+    )
+except Exception:
+    pass
+# -----------------------------------------------------
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    db.init_db()
+
     # Validate environment on startup
     import os
 
@@ -41,13 +77,11 @@ async def lifespan(app: FastAPI):
         yield
 
 
-db.init_db()
 server = FastAPI(title="The Crucible API", lifespan=lifespan)
 
 server.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -156,8 +190,8 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
     renamed = False  # Only auto-rename once per connection
 
     async def _process_model(request_data: dict):
-        nonlocal renamed
         """Process a single model invocation — runs as a concurrent task."""
+        nonlocal renamed
         message = request_data.get("message")
         model = request_data.get("model", "gpt-5.2")
         toggles = request_data.get("toggles", {})
@@ -182,38 +216,21 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
                 f"[Context] Current Tokens: {count_tokens(current_msgs)}, Limit: {get_token_limit(model)}"
             )
 
-        # 3. Format uploaded documents as ephemeral text embedded directly in the message
-        safe_message = clean_string(message)
-        user_msg = safe_message
+        # 3. Handle uploaded documents — we now pass them through the state
+        # instead of appending them to the user's message to keep chat history clean.
+        user_msg = clean_string(message)
 
-        if documents:
-            docs_parts = []
-            for name, content in documents.items():
-                safe_content = clean_string(content)
-                docs_parts.append(f"--- Attached Document: {name} ---\n{safe_content}")
-            docs_text = "\n\n".join(docs_parts)
-            user_msg = f"{user_msg}\n\n{docs_text}" if user_msg else docs_text
-
-        # 4. Hard safety cap: Truncate extremely large prompts (~500k chars / 125k tokens)
-        # Anthropic Opus has a 160k-200k limit. A 2.5MB PDF is likely over 500k tokens.
-        # We truncate here to ensure the API call doesn't fail with a 400 or payload error.
-        # 4. Hard safety cap: Truncate large prompts to stay under 30k tokens
-        # 100k chars is approx 25k tokens, leaving 5k for history/response.
+        # 4. Truncate large prompts for stability
         MAX_CHAR_LIMIT = 100_000
-        if len(user_msg) > MAX_CHAR_LIMIT:
-            print(
-                f"[Safety] Truncating user_msg from {len(user_msg)} to {MAX_CHAR_LIMIT}"
-            )
-            user_msg = (
-                user_msg[:MAX_CHAR_LIMIT]
-                + "\n\n[... content truncated for stability ...]"
-            )
+        if user_msg and len(user_msg) > MAX_CHAR_LIMIT:
+            user_msg = user_msg[:MAX_CHAR_LIMIT] + "\n\n[... truncated ...]"
 
         # 5. Construct Initial State for the new turn
         initial_state = {
             "active_peer": model,
             "toggles": {**state.values.get("toggles", {}), **toggles},
             "is_deliberation": is_deliberation,
+            "documents": documents or {},  # Pass documents in the state
         }
 
         # Fallback for empty messages to prevent LLM crashes (Anthropic)
@@ -320,11 +337,13 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
 
             if not renamed and len(initial_checkpoints) == 0 and formatted_messages:
                 renamed = True
-                asyncio.create_task(
+                rename_task = asyncio.create_task(
                     auto_rename_thread(
                         thread_id, formatted_messages, websocket, ws_lock
                     )
                 )
+                active_tasks.add(rename_task)
+                rename_task.add_done_callback(active_tasks.discard)
 
         except Exception as e:
             import traceback
@@ -341,7 +360,11 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
     try:
         while True:
             data = await websocket.receive_text()
-            request_data = json.loads(data)
+            try:
+                request_data = json.loads(data)
+            except json.JSONDecodeError:
+                print(f"[WS] Malformed frame from {thread_id}, skipping.")
+                continue
             if request_data.get("type") == "stop":
                 print(
                     f"[WS] Stop requested for thread {thread_id}. Cancelling {len(active_tasks)} tasks."
@@ -448,6 +471,97 @@ def _format_messages(raw_messages: list, active_model: str) -> list:
         if not sources and isinstance(msg, dict):
             sources = msg.get("additional_kwargs", {}).get("sources")
 
+        # Native Grounding Metadata Extraction
+        if not sources:
+            extracted_sources = []
+
+            # 1. Google Gemini Grounding (`groundingMetadata` in response_metadata or additional_kwargs)
+            resp_meta = getattr(msg, "response_metadata", {})
+            add_kwargs = getattr(msg, "additional_kwargs", {})
+
+            gm = (
+                resp_meta.get("groundingMetadata")
+                or resp_meta.get("grounding_metadata")
+                or add_kwargs.get("groundingMetadata")
+                or add_kwargs.get("grounding_metadata")
+            )
+            if isinstance(gm, dict):
+                # Handle both camelCase from raw API and snake_case from some wrappers
+                chunks = gm.get("groundingChunks") or gm.get("grounding_chunks") or []
+                for chunk in chunks:
+                    web = chunk.get("web", {})
+                    if not web:
+                        # Fallback if structure is different
+                        continue
+
+                    uri = web.get("uri") or web.get("url")
+                    title = web.get("title") or "Web Result"
+                    if uri:
+                        extracted_sources.append({"text": title, "filename": uri})
+
+            # 2. OpenAI & Anthropic Native Search Extraction
+            # Models might return `content_blocks` (OpenAI Python SDK) or list-based `content`
+            c_blocks = []
+            if hasattr(msg, "content_blocks"):
+                c_blocks = msg.content_blocks
+            elif hasattr(msg, "content") and isinstance(msg.content, list):
+                c_blocks = msg.content
+            elif isinstance(msg, dict) and isinstance(msg.get("content"), list):
+                c_blocks = msg["content"]
+
+            for block in c_blocks:
+                if isinstance(block, dict) and block.get("type") in (
+                    "text",
+                    "server_tool_result",
+                ):
+                    # OpenAI uses 'annotations'
+                    if "annotations" in block:
+                        for ann in block["annotations"]:
+                            if ann.get("url"):
+                                extracted_sources.append(
+                                    {
+                                        "text": ann.get("title", "Web Source"),
+                                        "filename": ann.get("url"),
+                                    }
+                                )
+                    # Anthropic or general citation array fallback
+                    # Check for 'citations' (plural) or 'citation' (singular)
+                    citations = block.get("citations") or block.get("citation")
+                    if citations:
+                        if isinstance(citations, dict):
+                            citations = [citations]
+
+                        if isinstance(citations, list):
+                            for cit in citations:
+                                if isinstance(cit, dict):
+                                    url = (
+                                        cit.get("document_url")
+                                        or cit.get("url")
+                                        or "Web Search"
+                                    )
+                                    title = (
+                                        cit.get("document_title")
+                                        or cit.get("title")
+                                        or cit.get("source_name")
+                                        or "Web Source"
+                                    )
+                                    extracted_sources.append(
+                                        {
+                                            "text": title,
+                                            "filename": url,
+                                        }
+                                    )
+
+            if extracted_sources:
+                # Deduplicate by URL
+                unique_sources = []
+                seen = set()
+                for s in extracted_sources:
+                    if s["filename"] not in seen:
+                        seen.add(s["filename"])
+                        unique_sources.append(s)
+                sources = unique_sources
+
         formatted.append(
             {
                 "role": role,
@@ -462,5 +576,7 @@ def _format_messages(raw_messages: list, active_model: str) -> list:
 
 if __name__ == "__main__":
     import uvicorn
+    import os
 
-    uvicorn.run("app.main:server", host="0.0.0.0", port=8000, reload=True)
+    desired_port = int(os.getenv("PORT", 8000))
+    uvicorn.run("app.main:server", host="0.0.0.0", port=desired_port, reload=True)
