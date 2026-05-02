@@ -1,21 +1,29 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Dict
+from typing import Dict, Any
 import os
 import re
 
 router = APIRouter(prefix="/config", tags=["config"])
 
-_ENV_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", ".env")
-)
+_ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
 _ALLOWED_KEYS = {"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"}
 
 
+def _mask(val: str) -> str:
+    if len(val) <= 8:
+        return "•" * len(val)
+    return val[:4] + "•" * (len(val) - 8) + val[-4:]
+
+
 @router.get("/keys")
-def get_key_status() -> Dict[str, bool]:
-    return {k: bool(os.getenv(k)) for k in _ALLOWED_KEYS}
+def get_key_status() -> Dict[str, Any]:
+    result = {}
+    for k in _ALLOWED_KEYS:
+        val = os.getenv(k) or ""
+        result[k] = {"set": bool(val), "masked": _mask(val) if val else ""}
+    return result
 
 
 class KeysPayload(BaseModel):

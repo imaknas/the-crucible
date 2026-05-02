@@ -13,17 +13,7 @@ import {
   InputAdornment,
   useTheme,
 } from "@mui/material";
-import {
-  Terminal,
-  Zap,
-  Check,
-  X,
-  Edit3,
-  Trash2,
-  Search,
-  Target,
-  Settings,
-} from "lucide-react";
+import { Terminal, Zap, Check, X, Edit3, Trash2, Search } from "lucide-react";
 import { searchHistory } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -44,7 +34,6 @@ interface SidebarProps {
   setEditingThreadId: (id: string | null) => void;
   setEditingTitle: (title: string) => void;
   onSwitchCheckpoint: (id: string) => void;
-  onOpenSettings: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = React.memo(
@@ -60,7 +49,6 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
     setEditingThreadId,
     setEditingTitle,
     onSwitchCheckpoint,
-    onOpenSettings,
   }) => {
     const isDark = useTheme().palette.mode === "dark";
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -538,30 +526,6 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
               </AnimatePresence>
             </List>
           )}
-        </Box>
-
-        {/* Footer */}
-        <Box
-          sx={{
-            px: 2.5,
-            py: 2,
-            borderTop: 1,
-            borderColor: "divider",
-            display: "flex",
-            justifyContent: "flex-end",
-          }}
-        >
-          <IconButton
-            size="small"
-            onClick={onOpenSettings}
-            title="API Keys & Settings"
-            sx={{
-              color: "text.secondary",
-              "&:hover": { color: "primary.main" },
-            }}
-          >
-            <Settings width={16} height={16} />
-          </IconButton>
         </Box>
       </Drawer>
     );

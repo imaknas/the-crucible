@@ -136,15 +136,18 @@ export async function fetchModels(): Promise<{ families: ModelFamily[] }> {
 
 // ─── Config / API Keys ───────────────────────────────────────────
 
-export async function fetchKeyStatus(): Promise<Record<string, boolean>> {
+export interface KeyInfo {
+  set: boolean;
+  masked: string;
+}
+
+export async function fetchKeyStatus(): Promise<Record<string, KeyInfo>> {
   const res = await fetch(`${API_BASE}/config/keys`);
   if (!res.ok) throw new Error("Failed to fetch key status");
   return res.json();
 }
 
-export async function saveApiKeys(
-  keys: Record<string, string>,
-): Promise<void> {
+export async function saveApiKeys(keys: Record<string, string>): Promise<void> {
   const res = await fetch(`${API_BASE}/config/keys`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
