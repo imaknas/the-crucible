@@ -133,3 +133,22 @@ export async function fetchModels(): Promise<{ families: ModelFamily[] }> {
   if (!res.ok) throw new Error("Failed to fetch models");
   return res.json();
 }
+
+// ─── Config / API Keys ───────────────────────────────────────────
+
+export async function fetchKeyStatus(): Promise<Record<string, boolean>> {
+  const res = await fetch(`${API_BASE}/config/keys`);
+  if (!res.ok) throw new Error("Failed to fetch key status");
+  return res.json();
+}
+
+export async function saveApiKeys(
+  keys: Record<string, string>,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/config/keys`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ keys }),
+  });
+  if (!res.ok) throw new Error("Failed to save API keys");
+}

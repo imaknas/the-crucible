@@ -11,7 +11,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from app.core import database as db
 from app.utils.helpers import extract_text, clean_string
 
-from app.api import threads, history, upload, models, graph
+from app.api import threads, history, upload, models, graph, config
 
 
 # --- MONKEYPATCH for langchain_anthropic 1.3.2 bug ---
@@ -92,6 +92,7 @@ server.include_router(history.router)
 server.include_router(upload.router)
 server.include_router(models.router)
 server.include_router(graph.router)
+server.include_router(config.router)
 
 
 # ─── Chat & WebSocket (tightly coupled to graph_app) ─────────────

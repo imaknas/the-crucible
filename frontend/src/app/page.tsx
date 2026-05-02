@@ -9,6 +9,7 @@ import ChatView from "@/components/ChatView";
 import LandingView from "@/components/LandingView";
 import ErrorModal from "@/components/ErrorModal";
 import Toast, { ToastData } from "@/components/Toast";
+import SettingsModal from "@/components/SettingsModal";
 import { Layers, Zap, Sun, Moon } from "lucide-react";
 import {
   Box,
@@ -45,6 +46,14 @@ export default function Home() {
     { id: string; title: string; details: string; suggestion?: string }[]
   >([]);
   const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Auto-open settings if no API keys are configured
+  useEffect(() => {
+    api.fetchKeyStatus().then((status) => {
+      if (Object.values(status).every((v) => !v)) setShowSettings(true);
+    }).catch(() => {});
+  }, []);
 
   // ─── Custom confirm dialog ──────────────────────────────────────
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -340,6 +349,7 @@ export default function Home() {
         setEditingThreadId={setEditingThreadId}
         setEditingTitle={setEditingTitle}
         onSwitchCheckpoint={handleSwitchCheckpoint}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       <Box
@@ -732,6 +742,11 @@ export default function Home() {
           onDismiss={(id) => setToasts((t) => t.filter((x) => x.id !== id))}
         />
       ))}
+
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
     </Box>
   );
 }
