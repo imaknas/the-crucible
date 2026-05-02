@@ -198,14 +198,20 @@ export const MessageBubble = React.memo(
                 overflowX: "auto",
               },
               "& code": {
-                fontFamily: "monospace",
-                fontSize: "0.9em",
-                bgcolor: isDark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.05)",
-                px: 0.5,
-                py: 0.25,
+                fontFamily:
+                  "'Fira Code', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace",
+                fontSize: "0.85em",
+                bgcolor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                px: 0.6,
+                py: 0.3,
                 borderRadius: 1,
+                fontWeight: 500,
               },
-              "& pre code": { bgcolor: "transparent", p: 0 },
+              "& pre code": {
+                bgcolor: "transparent",
+                p: 0,
+                fontFamily: "inherit",
+              },
               "& ul, & ol": { pl: 3, mb: 1.5, mt: 0 },
               "& li": { mb: 0.5 },
               "& h1, & h2, & h3, & h4, & h5, & h6": {
@@ -368,9 +374,29 @@ export const MessageBubble = React.memo(
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}
               components={{
-                p: ({ node, ...props }) => (
-                  <p style={{ margin: "0.5em 0" }} {...props} />
-                ),
+                p: ({ node, children, ...props }: any) => {
+                  const contentText = String(children || "");
+                  // Detect ASCII art or table indicators to apply monospace font even outside code blocks
+                  const needsMonospace = /├|└|─|│|┌|┐|┼|┴|┬|\|/.test(
+                    contentText,
+                  );
+                  return (
+                    <p
+                      style={{
+                        margin: "0.5em 0",
+                        fontFamily: needsMonospace
+                          ? "'Fira Code', 'Menlo', 'Monaco', 'Consolas', monospace"
+                          : "inherit",
+                        whiteSpace: "pre-wrap",
+                        fontSize: needsMonospace ? "0.9em" : "inherit",
+                        letterSpacing: needsMonospace ? "0" : "inherit",
+                      }}
+                      {...props}
+                    >
+                      {children}
+                    </p>
+                  );
+                },
                 pre: ({ children }) => (
                   <div
                     style={{
@@ -399,6 +425,8 @@ export const MessageBubble = React.memo(
                         margin: 0,
                         padding: "1.25em",
                         fontSize: "0.9em",
+                        fontFamily:
+                          "'Fira Code', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace",
                         background: isDark
                           ? "rgba(0,0,0,0.3)"
                           : "rgba(0,0,0,0.03)",
@@ -434,12 +462,17 @@ export const MessageBubble = React.memo(
                 // Strip the self-reported confidence score from the visible body
                 content = content.replace(confidenceCleanupRegex, "").trim();
 
-                // Preprocess LaTeX delimiters
-                return content
-                  .replace(/\\\[/g, "$$")
-                  .replace(/\\\]/g, "$$")
-                  .replace(/\\\(/g, "$")
-                  .replace(/\\\)/g, "$");
+                // Only preprocess LaTeX delimiters IF NOT STREAMING.
+                // Doing this during streaming can block rehype-katex from rendering the whole paragraph.
+                if (!msg.streaming) {
+                  content = content
+                    .replace(/\\\[/g, "$$")
+                    .replace(/\\\]/g, "$$")
+                    .replace(/\\\(/g, "$")
+                    .replace(/\\\)/g, "$");
+                }
+
+                return content;
               })()}
             </ReactMarkdown>
             {msg.sources && msg.sources.length > 0 && (

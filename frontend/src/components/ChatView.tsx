@@ -346,7 +346,42 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
               </ButtonBase>
             </Box>
 
-            {/* Empty State */}
+            {/* Loading State (thread is active but messages haven't loaded yet) */}
+            {messages.length === 0 && isLoading && (
+              <Box
+                component={motion.div}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  py: 10,
+                  gap: 2,
+                }}
+              >
+                <CircularProgress
+                  size={28}
+                  thickness={4}
+                  sx={{ color: isDark ? "primary.light" : "primary.main" }}
+                />
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 600,
+                    color: "text.disabled",
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    fontSize: "0.65rem",
+                  }}
+                >
+                  Loading conversation…
+                </Typography>
+              </Box>
+            )}
+
+            {/* Empty State (no messages and NOT loading — fresh thread) */}
             {messages.length === 0 && !isLoading && (
               <Box
                 component={motion.div}
@@ -413,86 +448,84 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
             )}
 
             {/* Messages */}
-            <AnimatePresence initial={false}>
-              {messages.map((msg, i) => {
-                const isUser = msg.role === "user" || msg.type === "human";
-                const isLatest = i === messages.length - 1;
+            {messages.map((msg, i) => {
+              const isUser = msg.role === "user" || msg.type === "human";
+              const isLatest = i === messages.length - 1;
 
-                // Skip technical synthesis prompts
-                if (
-                  msg.type === "synthesis" ||
-                  msg.content?.startsWith(
-                    "I have received perspectives from multiple models:",
-                  )
-                ) {
-                  if (isLatest && isLoading) {
-                    return (
-                      <Box
-                        component={motion.div}
-                        key="synthesis-loading"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
+              // Skip technical synthesis prompts
+              if (
+                msg.type === "synthesis" ||
+                msg.content?.startsWith(
+                  "I have received perspectives from multiple models:",
+                )
+              ) {
+                if (isLatest && isLoading) {
+                  return (
+                    <Box
+                      component={motion.div}
+                      key="synthesis-loading"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        width: "100%",
+                        my: 2,
+                      }}
+                    >
+                      <Paper
                         sx={{
+                          px: 3,
+                          py: 1.5,
+                          borderRadius: 8,
+                          bgcolor: isDark
+                            ? "rgba(139, 92, 246, 0.1)"
+                            : "rgba(139, 92, 246, 0.05)",
+                          border: "1px solid",
+                          borderColor: isDark
+                            ? "rgba(139, 92, 246, 0.2)"
+                            : "rgba(139, 92, 246, 0.15)",
                           display: "flex",
-                          justifyContent: "center",
-                          width: "100%",
-                          my: 2,
+                          alignItems: "center",
+                          gap: 2,
                         }}
                       >
-                        <Paper
+                        <Sparkles width={16} height={16} color="#8b5cf6" />
+                        <Typography
+                          variant="body2"
                           sx={{
-                            px: 3,
-                            py: 1.5,
-                            borderRadius: 8,
-                            bgcolor: isDark
-                              ? "rgba(139, 92, 246, 0.1)"
-                              : "rgba(139, 92, 246, 0.05)",
-                            border: "1px solid",
-                            borderColor: isDark
-                              ? "rgba(139, 92, 246, 0.2)"
-                              : "rgba(139, 92, 246, 0.15)",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 2,
+                            fontWeight: 600,
+                            fontSize: "0.875rem",
+                            color: "text.primary",
+                            letterSpacing: "0.02em",
                           }}
                         >
-                          <Sparkles width={16} height={16} color="#8b5cf6" />
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              fontWeight: 600,
-                              fontSize: "0.875rem",
-                              color: "text.primary",
-                              letterSpacing: "0.02em",
-                            }}
-                          >
-                            Synthesizing Consensus...
-                          </Typography>
-                          <CircularProgress
-                            size={12}
-                            thickness={5}
-                            sx={{ color: "#8b5cf6" }}
-                          />
-                        </Paper>
-                      </Box>
-                    );
-                  }
-                  return null;
+                          Synthesizing Consensus...
+                        </Typography>
+                        <CircularProgress
+                          size={12}
+                          thickness={5}
+                          sx={{ color: "#8b5cf6" }}
+                        />
+                      </Paper>
+                    </Box>
+                  );
                 }
+                return null;
+              }
 
-                // Standard message bubble (Memoized with primitives)
-                return (
-                  <MessageBubble
-                    key={`${i}-${msg.role}-${msg.model || "user"}`}
-                    msg={msg}
-                    isUser={isUser}
-                    isDark={isDark}
-                    onMount={registerMessageRef}
-                    index={i}
-                  />
-                );
-              })}
-            </AnimatePresence>
+              const stableKey = msg.id || `msg-${i}-${msg.role}`;
+              return (
+                <MessageBubble
+                  key={stableKey}
+                  msg={msg}
+                  isUser={isUser}
+                  isDark={isDark}
+                  onMount={registerMessageRef}
+                  index={i}
+                />
+              );
+            })}
 
             {/* Council Deliberation / Arena Footer */}
             {isArenaActive && (
@@ -548,7 +581,10 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       whileTap={{ scale: 0.97 }}
                       onClick={() =>
                         onSynthesize(
-                          siblings.map((s: any) => s.data.label),
+                          siblings.map((s: any) => {
+                            const msg = messages.find((m) => m.id === s.id);
+                            return msg?.content || s.data.label;
+                          }),
                           parentId,
                         )
                       }

@@ -39,6 +39,7 @@ export default function Home() {
     strict_logic: true,
     use_rag: true,
     cot_enabled: true,
+    use_web_search: false,
   });
   const [errorModals, setErrorModals] = useState<
     { id: string; title: string; details: string; suggestion?: string }[]
@@ -65,7 +66,19 @@ export default function Home() {
   const setMessagesRef = useRef<any>(null);
 
   const handleMessagesLoaded = useCallback((msgs: any[]) => {
-    setMessagesRef.current?.(msgs);
+    setMessagesRef.current?.((prev: any[]) => {
+      return msgs.map((newMsg, idx) => {
+        const existing = prev.find((p: any) => p.id === newMsg.id) || prev[idx];
+        if (
+          existing &&
+          existing.role === newMsg.role &&
+          (existing.model === newMsg.model || !newMsg.model)
+        ) {
+          return { ...newMsg, id: existing.id || newMsg.id || `stable-${idx}` };
+        }
+        return { ...newMsg, id: newMsg.id || `stable-${idx}` };
+      });
+    });
   }, []);
 
   const handleHistoryLoaded = useCallback((data: any) => {
@@ -88,6 +101,7 @@ export default function Home() {
     setActiveCheckpoint,
     showTree,
     setShowTree,
+    isHistoryLoading,
     fetchHistory,
     clearTree,
   } = useHistoryTree(handleMessagesLoaded, handleHistoryLoaded);
@@ -601,7 +615,7 @@ export default function Home() {
                   messages={messages}
                   nodes={nodes}
                   edges={edges}
-                  isLoading={isLoading}
+                  isLoading={isLoading || isHistoryLoading}
                   input={input}
                   setInput={setInput}
                   onSendMessage={handleSendMessage}

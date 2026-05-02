@@ -96,8 +96,8 @@ describe("ChatView", () => {
       <ChatView
         {...mockProps}
         messages={[
-          { role: "user", content: "Hello", type: "human" },
-          { role: "assistant", content: "World", type: "ai" },
+          { id: "msg-1", role: "user", content: "Hello", type: "human" },
+          { id: "msg-2", role: "assistant", content: "World", type: "ai" },
         ]}
       />,
     );

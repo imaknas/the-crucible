@@ -15,6 +15,7 @@ import {
   Settings2,
   Brain,
   BookOpen,
+  Globe,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -25,12 +26,14 @@ interface ControlPanelProps {
     strict_logic: boolean;
     use_rag: boolean;
     cot_enabled: boolean;
+    use_web_search: boolean;
   };
   setToggles: React.Dispatch<
     React.SetStateAction<{
       strict_logic: boolean;
       use_rag: boolean;
       cot_enabled: boolean;
+      use_web_search: boolean;
     }>
   >;
   selectedModels: string[];
@@ -215,15 +218,35 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
   }) => {
     const isDark = useTheme().palette.mode === "dark";
     const [families, setFamilies] = useState<ModelFamily[]>([]);
+    const [modelsLoading, setModelsLoading] = useState(true);
+    const [modelsError, setModelsError] = useState(false);
     const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(
       new Set(),
     );
 
+    const loadModels = React.useCallback(() => {
+      setModelsLoading(true);
+      setModelsError(false);
+      fetchModels()
+        .then((data) => {
+          setFamilies(data.families);
+          setModelsLoading(false);
+        })
+        .catch(() => {
+          setModelsLoading(false);
+          setModelsError(true);
+        });
+    }, []);
+
     useEffect(() => {
       fetchModels()
-        .then((data) => setFamilies(data.families))
+        .then((data) => {
+          setFamilies(data.families);
+          setModelsLoading(false);
+        })
         .catch(() => {
-          // Fallback to empty — UI will show nothing
+          setModelsLoading(false);
+          setModelsError(true);
         });
     }, []);
 
@@ -418,6 +441,37 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
           {/* Council Selection — Grouped by Family */}
           <Box>
             <SectionHeader label="Council Members" />
+            {modelsLoading && (
+              <Typography
+                variant="caption"
+                sx={{ color: "text.disabled", px: 1 }}
+              >
+                Loading models…
+              </Typography>
+            )}
+            {modelsError && (
+              <Box
+                sx={{ display: "flex", alignItems: "center", gap: 1, px: 1 }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{ color: "error.main", flex: 1 }}
+                >
+                  Failed to load models.
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "primary.main",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                  }}
+                  onClick={loadModels}
+                >
+                  Retry
+                </Typography>
+              </Box>
+            )}
             <Stack spacing={1.5}>
               {families.map((family) => {
                 const isExpanded = expandedFamilies.has(family.key);
@@ -645,8 +699,8 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             <Stack spacing={1}>
               <ToggleRow
                 isDark={isDark}
-                label="Strict Logic"
-                subtitle="Enables native Extended Thinking / Reasoning for flagship models (Opus, Sonnet, GPT-5)."
+                label="Advanced Reasoning"
+                subtitle="Enables native Extended Thinking for flagship models. Consumes more tokens for higher quality."
                 icon={<Brain width={16} height={16} />}
                 checked={toggles.strict_logic}
                 onChange={() =>
@@ -658,7 +712,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
               />
               <ToggleRow
                 isDark={isDark}
-                label="Thinking Process (CoT)"
+                label="Visible Thinking Process"
                 subtitle="Force models to expose their internal reasoning trace (the <think> block)."
                 icon={<Brain width={16} height={16} />}
                 checked={toggles.cot_enabled}
@@ -679,6 +733,19 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
                   setToggles((prev) => ({
                     ...prev,
                     use_rag: !prev.use_rag,
+                  }))
+                }
+              />
+              <ToggleRow
+                isDark={isDark}
+                label="Web Search Grounding"
+                subtitle="Allows the model to access the live internet to ground its answers using its native search tool."
+                icon={<Globe width={16} height={16} />}
+                checked={toggles.use_web_search}
+                onChange={() =>
+                  setToggles((prev) => ({
+                    ...prev,
+                    use_web_search: !prev.use_web_search,
                   }))
                 }
               />
