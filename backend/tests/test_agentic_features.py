@@ -33,10 +33,12 @@ async def test_mcp_invoke_arena_invalid_model():
     assert "Invalid model" in result
     assert "invalid-model-x" in result
 
+
 @pytest.mark.asyncio
 async def test_mcp_get_thread_summary():
     """Test MCP thread summary tool with non-existent thread."""
     from app.mcp_server import get_thread_summary
+
     result = await get_thread_summary("non_existent_thread")
     assert "not found" in result
 
