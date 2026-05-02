@@ -2,6 +2,7 @@
 // Single source of truth for all shared data types across the frontend.
 
 export interface Message {
+  id: string; // Stable client-side key; updated to server checkpoint_id after stream_end
   role: string;
   content: string;
   type?: string;
@@ -14,6 +15,7 @@ export interface Toggles {
   strict_logic: boolean;
   use_rag: boolean;
   cot_enabled: boolean;
+  use_web_search: boolean;
 }
 
 export interface TreeNode {

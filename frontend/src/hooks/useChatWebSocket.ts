@@ -62,8 +62,39 @@ export function useChatWebSocket({
     const ws = new WebSocket(api.createWebSocketUrl(threadId));
     wsRef.current = ws;
 
+    ws.onerror = () => {
+      console.error("[WS] Connection error on thread", threadId);
+      setIsLoading(false);
+      pendingModelsRef.current.clear();
+      streamBufferRef.current = {};
+      expectedModelsCountRef.current = 0;
+      finishedModelsCountRef.current = 0;
+      setMessages((prev) =>
+        prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
+      );
+    };
+
+    ws.onclose = (event) => {
+      if (!event.wasClean) {
+        console.warn("[WS] Connection closed unexpectedly, code:", event.code);
+        setIsLoading(false);
+        setMessages((prev) =>
+          prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
+        );
+      }
+    };
+
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+      let data: any;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        console.warn(
+          "[WS] Malformed frame, skipping:",
+          String(event.data).slice(0, 100),
+        );
+        return;
+      }
 
       if (data.type === "stream_start") {
         streamBufferRef.current[data.model] = "";
@@ -72,6 +103,7 @@ export function useChatWebSocket({
         setMessages((prev) => [
           ...prev,
           {
+            id: `streaming-${data.model}-${Date.now()}`,
             role: "assistant",
             content: "",
             type: "ai",
@@ -113,6 +145,7 @@ export function useChatWebSocket({
               m.streaming && m.model === data.model
                 ? {
                     ...m,
+                    id: data.checkpoint_id || m.id,
                     content: streamBufferRef.current[data.model] || m.content,
                     streaming: false,
                   }
@@ -151,9 +184,9 @@ export function useChatWebSocket({
           if (streamCheckpointsRef.current.length > 0) {
             const firstCp = streamCheckpointsRef.current[0];
             setActiveCheckpointRef.current(firstCp);
-            // If we had multiple models, tell history fetcher to NOT overwrite messages
-            const skipMessages = expectedModelsCountRef.current > 1;
-            onHistoryRefreshRef.current(threadId, undefined, skipMessages);
+            // Load formatted server messages through reconciliation (no flash
+            // because we removed the pre-clear from useHistoryTree).
+            onHistoryRefreshRef.current(threadId, undefined, false);
           }
 
           streamCheckpointsRef.current = [];
@@ -177,18 +210,8 @@ export function useChatWebSocket({
           );
         }
       } else if (data.type === "title_update") {
-        // Defer refresh or skip messages if we are in a parallel context
-        const isParallelFlush =
-          expectedModelsCountRef.current > 1 ||
-          finishedModelsCountRef.current > 0;
-        if (isParallelFlush) {
-          console.log(
-            "[WS] Deferring title_update message refresh for parallel context.",
-          );
-          onHistoryRefreshRef.current(threadId, undefined, true);
-        } else {
-          onHistoryRefreshRef.current(threadId);
-        }
+        // Title updates should NEVER overwrite messages — only refresh tree/sidebar
+        onHistoryRefreshRef.current(threadId, undefined, true);
       }
     };
 
@@ -217,7 +240,12 @@ export function useChatWebSocket({
       if (userMessage) {
         setMessages((prev) => [
           ...prev,
-          { role: "user", content: userMessage, type: "human" },
+          {
+            id: `user-${Date.now()}`,
+            role: "user",
+            content: userMessage,
+            type: "human",
+          },
         ]);
       }
     } else {
@@ -269,7 +297,7 @@ export function useChatWebSocket({
       wsRef.current.send(
         JSON.stringify({
           message: synthesisPrompt,
-          model: "gemini-3-flash-preview",
+          model: selectedModels[0],
           toggles: toggles,
           documents: documents,
           parent_checkpoint_id: parentId,

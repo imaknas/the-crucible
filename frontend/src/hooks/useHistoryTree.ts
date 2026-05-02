@@ -9,11 +9,15 @@ export function useHistoryTree(
   const [edges, setEdges] = useState<any[]>([]);
   const [activeCheckpoint, setActiveCheckpoint] = useState<string | null>(null);
   const [showTree, setShowTree] = useState(true);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   const fetchHistory = useCallback(
     async (tid: string, cpId?: string, skipMessages: boolean = false) => {
       if (!tid) return;
-      // If we are switching threads or loading a new root, clear old state to prevent "ghosting"
+      setIsHistoryLoading(true);
+      // When switching threads or loading root, clear tree state.
+      // NEVER pre-clear messages to [] — this caused the "flash" bug.
+      // The reconciliation in handleMessagesLoaded preserves stable UUIDs.
       if (!cpId) {
         setNodes([]);
         setEdges([]);
@@ -37,6 +41,8 @@ export function useHistoryTree(
         }
       } catch (error) {
         console.error("Error fetching history:", error);
+      } finally {
+        setIsHistoryLoading(false);
       }
     },
     [onMessagesLoaded, onHistoryLoaded],
@@ -58,6 +64,7 @@ export function useHistoryTree(
     setActiveCheckpoint,
     showTree,
     setShowTree,
+    isHistoryLoading,
     fetchHistory,
     clearTree,
   };

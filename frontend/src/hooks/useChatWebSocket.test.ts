@@ -27,7 +27,12 @@ describe("useChatWebSocket", () => {
     threadId: "thread_1",
     activeCheckpoint: "cp_1",
     selectedModels: ["gpt-4o"],
-    toggles: { strict_logic: true, use_rag: true, cot_enabled: true },
+    toggles: {
+      strict_logic: true,
+      use_rag: true,
+      cot_enabled: true,
+      use_web_search: false,
+    },
     documents: {},
     clearDocuments: jest.fn(),
     onHistoryRefreshNeeded: jest.fn(),
@@ -67,7 +72,11 @@ describe("useChatWebSocket", () => {
 
     expect(result.current.isLoading).toBe(true);
     expect(result.current.messages).toEqual([
-      { role: "user", content: "Hello Crucible", type: "human" },
+      expect.objectContaining({
+        role: "user",
+        content: "Hello Crucible",
+        type: "human",
+      }),
     ]);
     expect(mockProps.clearDocuments).toHaveBeenCalled();
   });

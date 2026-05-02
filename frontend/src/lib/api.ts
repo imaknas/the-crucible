@@ -40,7 +40,7 @@ export async function fetchHistory(
   checkpointId?: string,
 ): Promise<HistoryResponse> {
   const url = checkpointId
-    ? `${API_BASE}/history/${threadId}?checkpoint_id=${checkpointId}`
+    ? `${API_BASE}/history/${threadId}?checkpoint_id=${encodeURIComponent(checkpointId)}`
     : `${API_BASE}/history/${threadId}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("Failed to fetch history");

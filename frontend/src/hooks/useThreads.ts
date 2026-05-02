@@ -67,9 +67,15 @@ export function useThreads(
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchThreads();
-  }, [fetchThreads]);
+    fetchThreads().then(() => {
+      const saved = localStorage.getItem("crucible_thread_id");
+      if (saved) {
+        setThreadId(saved);
+        onThreadSwitch(saved);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     threadId,
