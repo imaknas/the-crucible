@@ -1,20 +1,24 @@
 import React from "react";
-import {
-  Box,
-  Typography,
-  ButtonBase,
-  Paper,
-  Grid,
-  useTheme,
-} from "@mui/material";
+import { Box, Typography, ButtonBase, Paper, useTheme } from "@mui/material";
 import { motion } from "framer-motion";
-import { Layers, Sparkles, Network, Zap, Cpu, ShieldCheck } from "lucide-react";
+import {
+  Sparkles,
+  Network,
+  Zap,
+  Cpu,
+  ShieldCheck,
+  KeyRound,
+} from "lucide-react";
 
 interface LandingViewProps {
   onStartNewExperiment: () => void;
+  hasAnyKey: boolean | null;
 }
 
-const LandingView: React.FC<LandingViewProps> = ({ onStartNewExperiment }) => {
+const LandingView: React.FC<LandingViewProps> = ({
+  onStartNewExperiment,
+  hasAnyKey,
+}) => {
   const isDark = useTheme().palette.mode === "dark";
   return (
     <Box
@@ -267,6 +271,44 @@ const LandingView: React.FC<LandingViewProps> = ({ onStartNewExperiment }) => {
             </Typography>
           </Paper>
         </Box>
+
+        {/* No-key warning */}
+        {hasAnyKey === false && (
+          <Box
+            component={motion.div}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            sx={{
+              mb: 4,
+              px: 3,
+              py: 2,
+              borderRadius: 3,
+              border: "1px solid",
+              borderColor: "warning.dark",
+              bgcolor: isDark ? "rgba(234,179,8,0.08)" : "rgba(234,179,8,0.06)",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              maxWidth: 520,
+            }}
+          >
+            <KeyRound
+              width={18}
+              height={18}
+              color={isDark ? "#fbbf24" : "#d97706"}
+              style={{ flexShrink: 0 }}
+            />
+            <Typography
+              variant="body2"
+              sx={{ color: isDark ? "#fcd34d" : "#92400e", lineHeight: 1.5 }}
+            >
+              No API keys configured. Add at least one in the{" "}
+              <strong>Control Panel → API Keys</strong> on the right to get
+              started.
+            </Typography>
+          </Box>
+        )}
 
         {/* CTA */}
         <Box

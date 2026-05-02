@@ -45,6 +45,14 @@ export default function Home() {
     { id: string; title: string; details: string; suggestion?: string }[]
   >([]);
   const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [hasAnyKey, setHasAnyKey] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    api
+      .fetchKeyStatus()
+      .then((status) => setHasAnyKey(Object.values(status).some((v) => v.set)))
+      .catch(() => setHasAnyKey(true));
+  }, []);
 
   // ─── Custom confirm dialog ──────────────────────────────────────
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -581,7 +589,10 @@ export default function Home() {
                 transition={{ duration: 0.4 }}
                 className="absolute inset-0 w-full h-full flex"
               >
-                <LandingView onStartNewExperiment={startNewExperiment} />
+                <LandingView
+                  onStartNewExperiment={startNewExperiment}
+                  hasAnyKey={hasAnyKey}
+                />
               </motion.div>
             ) : showTree ? (
               <motion.div

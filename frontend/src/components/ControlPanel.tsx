@@ -387,9 +387,12 @@ function ApiKeysSection({
                         mb: 0.75,
                         fontFamily: "monospace",
                         fontSize: "0.72rem",
-                        letterSpacing: "0.05em",
+                        letterSpacing: "0.03em",
                         color: "text.disabled",
                         px: 0.5,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {keyInfo[FAMILY_ENV_KEY[family.key]].masked}
