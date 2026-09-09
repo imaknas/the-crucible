@@ -32,3 +32,9 @@ Thumbs.db
 *.log
 .gemini/
 .agents/
+
+# Playwright
+e2e/.fixtures/
+e2e/.report/
+test-results/
+scripts/.demo/
