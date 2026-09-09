@@ -46,6 +46,14 @@ export function getModelColor(model?: string): {
       dot: "#94a3b8",
       main: "#94a3b8",
     };
+  if (model === "synthesis")
+    return {
+      text: "#c4b5fd",
+      bg: "rgba(139, 92, 246, 0.12)",
+      border: "rgba(139, 92, 246, 0.3)",
+      dot: "#8b5cf6",
+      main: "#8b5cf6",
+    };
   const m = model.toLowerCase();
   if (m.includes("gpt"))
     return {

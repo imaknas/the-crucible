@@ -11,7 +11,7 @@ class CrucibleState(TypedDict):
     current_thesis: str
 
     # Control flow / Multi-model alignment
-    active_peer: str  # e.g., "gpt-4o", "claude-3-5-sonnet", "gemini-1.5-pro"
+    active_peer: str  # e.g., "gpt-5.4", "claude-sonnet-5", "gemini-3.1-pro-preview"
 
     # UI/logic toggles
     toggles: Dict[str, bool]  # e.g., {"strict_logic": True}

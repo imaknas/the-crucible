@@ -25,8 +25,6 @@ async def invoke_arena(
     thread_id: Optional[str] = None,
     models: Optional[List[str]] = None,
     use_rag: bool = False,
-    cot_enabled: bool = True,
-    strict_logic: bool = False,
 ) -> str:
     """
     Invoke the multi-model Arena for a given prompt.
@@ -36,10 +34,8 @@ async def invoke_arena(
     Args:
         prompt: The research question or topic to deliberate.
         thread_id: Optional existing thread ID to continue from.
-        models: Optional list of model IDs to include in the arena (e.g. ['gpt-4o', 'claude-sonnet-4-6']).
+        models: Optional list of model IDs to include in the arena (e.g. ['gpt-5.4', 'claude-sonnet-5']).
         use_rag: Whether to search uploaded documents (RAG).
-        cot_enabled: Whether to enable Chain-of-Thought (deep reasoning).
-        strict_logic: Whether to enforce step-by-step logical constraints.
     """
     try:
         async with get_persistent_graph() as graph_app:
@@ -49,8 +45,6 @@ async def invoke_arena(
 
             overrides = {
                 "use_rag": use_rag,
-                "cot_enabled": cot_enabled,
-                "strict_logic": strict_logic,
             }
 
             results = await run_crucible_arena(

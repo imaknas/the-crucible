@@ -14,17 +14,22 @@ import {
   InputAdornment,
   IconButton,
   Button,
+  Tooltip,
 } from "@mui/material";
 import {
   Settings2,
-  Brain,
   BookOpen,
   Globe,
   ChevronDown,
   ChevronRight,
   Eye,
   EyeOff,
+  Swords,
+  PanelLeftOpen,
+  PanelLeftClose,
 } from "lucide-react";
+import type { DebateDefaults } from "@/lib/types";
+import { modelFamilyColor } from "@/lib/colors";
 import {
   fetchModels,
   fetchKeyStatus,
@@ -35,16 +40,12 @@ import {
 
 interface ControlPanelProps {
   toggles: {
-    strict_logic: boolean;
     use_rag: boolean;
-    cot_enabled: boolean;
     use_web_search: boolean;
   };
   setToggles: React.Dispatch<
     React.SetStateAction<{
-      strict_logic: boolean;
       use_rag: boolean;
-      cot_enabled: boolean;
       use_web_search: boolean;
     }>
   >;
@@ -53,7 +54,14 @@ interface ControlPanelProps {
   messagesCount: number;
   threadId: string | null;
   activeCheckpointLabel: string;
+  debateDefaults: DebateDefaults;
+  setDebateDefaults: React.Dispatch<React.SetStateAction<DebateDefaults>>;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
 }
+
+/** Width of the collapsed rail. */
+export const RAIL_WIDTH = 44;
 
 // ─── Color Helpers ───────────────────────────────────────────────
 
@@ -475,8 +483,12 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
     selectedModels,
     setSelectedModels,
     messagesCount,
-    threadId,
+    threadId: _threadId,
     activeCheckpointLabel,
+    debateDefaults,
+    setDebateDefaults,
+    collapsed,
+    onCollapsedChange,
   }) => {
     const isDark = useTheme().palette.mode === "dark";
     const [families, setFamilies] = useState<ModelFamily[]>([]);
@@ -536,12 +548,70 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
       return fam.models.filter((m) => selectedModels.includes(m.id)).length;
     };
 
+    // Collapsed, the panel is a 44px rail. On a 1280px viewport that returns
+    // ~250px to the canvas — the panel is mostly static readouts and toggles
+    // set once per session, so it does not need to hold a third of the window.
+    if (collapsed) {
+      return (
+        <Drawer
+          anchor="right"
+          variant="permanent"
+          sx={{
+            width: RAIL_WIDTH,
+            flexShrink: 0,
+            "& .MuiDrawer-paper": {
+              width: RAIL_WIDTH,
+              borderLeft: "1px solid",
+              borderColor: "divider",
+              bgcolor: isDark ? "#0a0f1a" : "#fafbfc",
+              backgroundImage: "none",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 2,
+              py: 2,
+            },
+          }}
+        >
+          <Tooltip title="Show settings" placement="left" arrow>
+            <IconButton
+              onClick={() => onCollapsedChange(false)}
+              aria-label="Show settings panel"
+              size="small"
+              sx={{ color: "text.secondary" }}
+            >
+              <PanelLeftOpen width={17} height={17} />
+            </IconButton>
+          </Tooltip>
+
+          <Settings2 width={15} height={15} opacity={0.45} />
+
+          {/* Selected models stay legible on the rail as family dots. */}
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, mt: 0.5 }}>
+            {selectedModels.map((m) => (
+              <Tooltip key={m} title={m} placement="left" arrow>
+                <Box
+                  sx={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: "50%",
+                    bgcolor: modelFamilyColor(m),
+                  }}
+                />
+              </Tooltip>
+            ))}
+          </Box>
+        </Drawer>
+      );
+    }
+
     return (
       <Drawer
         anchor="right"
         variant="permanent"
         sx={{
           width: 280,
+          flexShrink: 0,
           "& .MuiDrawer-paper": {
             width: 280,
             borderLeft: "1px solid",
@@ -572,10 +642,21 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
               fontSize: "0.625rem",
               fontWeight: 900,
               letterSpacing: "0.15em",
+              flex: 1,
             }}
           >
             Control Panel
           </Typography>
+          <Tooltip title="Hide panel" placement="left" arrow>
+            <IconButton
+              onClick={() => onCollapsedChange(true)}
+              aria-label="Hide settings panel"
+              size="small"
+              sx={{ color: "text.secondary", mr: -1 }}
+            >
+              <PanelLeftClose width={16} height={16} />
+            </IconButton>
+          </Tooltip>
         </Box>
 
         <Stack
@@ -601,7 +682,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
               }}
             >
               <Stack spacing={2}>
-                <StatusRow label="Active Council">
+                <StatusRow label="Models in this arena">
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
                     {selectedModels.map((m) => {
                       const meta = getModelMetaFromId(m, families);
@@ -678,7 +759,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
                       color: "text.secondary",
                     }}
                   >
-                    Tree Size
+                    Checkpoints
                   </Typography>
                   <Box
                     sx={{
@@ -700,9 +781,9 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             </Box>
           </Box>
 
-          {/* Council Selection — Grouped by Family */}
+          {/* Model selection — grouped by family */}
           <Box>
-            <SectionHeader label="Council Members" />
+            <SectionHeader label="Available models" />
             {modelsLoading && (
               <Typography
                 variant="caption"
@@ -961,34 +1042,8 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             <Stack spacing={1}>
               <ToggleRow
                 isDark={isDark}
-                label="Advanced Reasoning"
-                subtitle="Enables native Extended Thinking for flagship models. Consumes more tokens for higher quality."
-                icon={<Brain width={16} height={16} />}
-                checked={toggles.strict_logic}
-                onChange={() =>
-                  setToggles((prev) => ({
-                    ...prev,
-                    strict_logic: !prev.strict_logic,
-                  }))
-                }
-              />
-              <ToggleRow
-                isDark={isDark}
-                label="Visible Thinking Process"
-                subtitle="Force models to expose their internal reasoning trace (the <think> block)."
-                icon={<Brain width={16} height={16} />}
-                checked={toggles.cot_enabled}
-                onChange={() =>
-                  setToggles((prev) => ({
-                    ...prev,
-                    cot_enabled: !prev.cot_enabled,
-                  }))
-                }
-              />
-              <ToggleRow
-                isDark={isDark}
-                label="Deep Knowledge Search"
-                subtitle="Enables RAG. Automatically searches your uploaded documents for relevant context before answering."
+                label="Search my documents"
+                subtitle="Looks through the documents you've uploaded and pulls in anything relevant before answering."
                 icon={<BookOpen width={16} height={16} />}
                 checked={toggles.use_rag}
                 onChange={() =>
@@ -1013,6 +1068,78 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
               />
             </Stack>
           </Box>
+          {/* Debate Defaults */}
+          <Box>
+            <SectionHeader label="Debate" />
+            <Stack spacing={1.5}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Swords width={14} height={14} style={{ color: "#8b5cf6", flexShrink: 0 }} />
+                <Typography variant="caption" sx={{ color: "text.secondary", lineHeight: 1.4 }}>
+                  Default config for autonomous multi-model debates.
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", minWidth: 80 }}>
+                  Max rounds
+                </Typography>
+                <Box
+                  component="input"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={debateDefaults.max_rounds}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setDebateDefaults((prev) => ({
+                      ...prev,
+                      max_rounds: Math.max(1, Math.min(20, parseInt(e.target.value) || 3)),
+                    }))
+                  }
+                  sx={{
+                    width: 56,
+                    px: 1,
+                    py: 0.5,
+                    borderRadius: 1.5,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "transparent",
+                    color: "text.primary",
+                    fontSize: "0.8rem",
+                    outline: "none",
+                    textAlign: "center",
+                    "&:focus": { borderColor: "primary.main" },
+                  }}
+                />
+              </Box>
+              <ToggleRow
+                isDark={isDark}
+                label="Auto-Synthesize"
+                subtitle="Automatically run a synthesis pass after all rounds complete."
+                icon={<Swords width={16} height={16} />}
+                checked={debateDefaults.auto_synthesize}
+                onChange={() =>
+                  setDebateDefaults((prev) => ({
+                    ...prev,
+                    auto_synthesize: !prev.auto_synthesize,
+                  }))
+                }
+              />
+              <ToggleRow
+                isDark={isDark}
+                label="Convergence Detection"
+                subtitle="Stop early when model responses become semantically similar."
+                icon={<Swords width={16} height={16} />}
+                checked={debateDefaults.convergence_threshold !== null}
+                onChange={() =>
+                  setDebateDefaults((prev) => ({
+                    ...prev,
+                    convergence_threshold:
+                      prev.convergence_threshold !== null ? null : 0.92,
+                  }))
+                }
+              />
+            </Stack>
+          </Box>
+
           {/* API Keys */}
           <ApiKeysSection
             families={families}

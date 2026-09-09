@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from app.core import database as db
-from app.services.tree import build_history_tree
+from app.services.tree import build_history_tree, load_thread_states
 
 router = APIRouter(prefix="/history", tags=["history"])
 
@@ -21,27 +21,9 @@ async def get_history(
 ):
     graph_app = request.app.state.graph_app
 
-    # Use direct SQL scan to discover ALL checkpoints in this thread
-    # This ensures we see parallel branches that aren't in a single lineage
-    raw_graph = db.get_thread_checkpoint_graph(thread_id)
-    all_checkpoint_ids = [row[0] for row in raw_graph]
-
-    import asyncio
-
-    async def _get_one(cid):
-        cfg = {
-            "configurable": {
-                "thread_id": thread_id,
-                "checkpoint_id": cid,
-                "checkpoint_ns": "",
-            }
-        }
-        return await graph_app.aget_state(cfg)
-
-    # Parallelize state fetching
-    tasks = [_get_one(cid) for cid in all_checkpoint_ids]
-    states = await asyncio.gather(*tasks)
-    all_states = [s for s in states if s and s.values]
+    # One saver pass for the whole thread, with an individual-fetch fallback
+    # for parallel branches outside the main lineage.
+    all_states = await load_thread_states(graph_app, thread_id)
 
     if not all_states:
         return {"nodes": [], "edges": [], "current_checkpoint": None}
@@ -151,25 +133,13 @@ async def search_history(request: Request, thread_id: str, q: str):
     query = q.lower()
     graph_app = request.app.state.graph_app
 
-    # 1. Discover all checkpoints in the thread
-    raw_graph = db.get_thread_checkpoint_graph(thread_id)
-    all_checkpoint_ids = [row[0] for row in raw_graph]
-
-    import asyncio as _asyncio
     from app.utils.helpers import extract_text
     from app.services.tree import get_checkpoint_role
 
-    async def _fetch_one(cid: str):
-        cfg = {
-            "configurable": {
-                "thread_id": thread_id,
-                "checkpoint_id": cid,
-                "checkpoint_ns": "",
-            }
-        }
-        return cid, await graph_app.aget_state(cfg)
-
-    states = await _asyncio.gather(*[_fetch_one(cid) for cid in all_checkpoint_ids])
+    states = [
+        (s.config.get("configurable", {}).get("checkpoint_id"), s)
+        for s in await load_thread_states(graph_app, thread_id)
+    ]
 
     results = []
     seen_content = set()  # Deduplicate within search results

@@ -224,7 +224,7 @@ class TestNodes:
 
         state = {
             "active_peer": "gpt-5.2",
-            "toggles": {"strict_logic": True, "cot_enabled": True},
+            "toggles": {},
             "messages": [HumanMessage(content="Hello")],
             "is_deliberation": False,
             "retrieved_chunks": [{"filename": "doc.pdf", "text": "Some facts."}],
@@ -234,8 +234,6 @@ class TestNodes:
 
         mock_get_model.assert_called_once_with("gpt-5.2", state["toggles"])
         mock_llm.invoke.assert_called_once()
-        invoked_msgs = mock_llm.invoke.call_args[0][0]
-        assert any("Step-by-Step" in str(m.content) for m in invoked_msgs)
 
         out_msg = res["messages"][0]
         assert "This is a test" in out_msg.content

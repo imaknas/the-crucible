@@ -9,7 +9,7 @@ import {
   Tooltip,
   Chip,
 } from "@mui/material";
-import { Send, FileText, Edit3, Scale, X, StopCircle } from "lucide-react";
+import { Send, FileText, Edit3, Scale, X, StopCircle, Swords, CornerUpLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { Message } from "@/lib/types";
 
@@ -30,6 +30,9 @@ interface ChatInputProps {
   showEditButton: boolean;
   isDark: boolean;
   initialInput?: string;
+  onDebateOpen?: (prompt: string) => void;
+  onDebateInject?: (message: string) => void;
+  onDebateRedirect?: (message: string) => void;
 }
 
 export const ChatInput = React.memo(
@@ -47,6 +50,9 @@ export const ChatInput = React.memo(
     showEditButton,
     isDark,
     initialInput = "",
+    onDebateOpen,
+    onDebateInject,
+    onDebateRedirect,
   }: ChatInputProps) => {
     const [localInput, setLocalInput] = React.useState(initialInput);
 
@@ -56,13 +62,29 @@ export const ChatInput = React.memo(
 
     const handleSend = () => {
       if (!localInput.trim() || isLoading) return;
-      onSendMessage(localInput);
+      if (onDebateInject) {
+        onDebateInject(localInput);
+      } else {
+        onSendMessage(localInput);
+      }
+      setLocalInput("");
+    };
+
+    const handleRedirect = () => {
+      if (!localInput.trim() || isLoading || !onDebateRedirect) return;
+      onDebateRedirect(localInput);
       setLocalInput("");
     };
 
     const handleDeliberateClick = () => {
       if (!localInput.trim() || isLoading) return;
       onDeliberate(localInput);
+      setLocalInput("");
+    };
+
+    const handleDebateClick = () => {
+      if (!localInput.trim() || isLoading || selectedModels.length < 2) return;
+      onDebateOpen?.(localInput);
       setLocalInput("");
     };
 
@@ -156,7 +178,7 @@ export const ChatInput = React.memo(
                     handleSend();
                   }
                 }}
-                placeholder="Ask the Council…"
+                placeholder="Ask the arena…"
                 variant="standard"
                 InputProps={{
                   disableUnderline: true,
@@ -282,6 +304,96 @@ export const ChatInput = React.memo(
                     </ButtonBase>
                   </span>
                 </Tooltip>
+                {onDebateOpen && (
+                  <Tooltip
+                    title={
+                      selectedModels.length < 2
+                        ? "Select 2+ models to start a debate"
+                        : !localInput.trim()
+                          ? "Type a prompt to debate"
+                          : "Start multi-model debate"
+                    }
+                    placement="top"
+                    arrow
+                  >
+                    <span>
+                      <ButtonBase
+                        component={motion.button}
+                        whileHover={
+                          selectedModels.length >= 2 && !isLoading && localInput.trim()
+                            ? { scale: 1.05 }
+                            : {}
+                        }
+                        whileTap={
+                          selectedModels.length >= 2 && !isLoading && localInput.trim()
+                            ? { scale: 0.93 }
+                            : {}
+                        }
+                        onClick={handleDebateClick}
+                        disabled={isLoading || selectedModels.length < 2 || !localInput.trim()}
+                        sx={{
+                          p: 1.25,
+                          borderRadius: 3,
+                          transition: "all 0.2s",
+                          mx: 0.5,
+                          bgcolor:
+                            isLoading || selectedModels.length < 2 || !localInput.trim()
+                              ? isDark
+                                ? "rgba(255,255,255,0.04)"
+                                : "action.disabledBackground"
+                              : "rgba(139,92,246,0.15)",
+                          color:
+                            isLoading || selectedModels.length < 2 || !localInput.trim()
+                              ? "text.disabled"
+                              : "#8b5cf6",
+                          border: "1px solid",
+                          borderColor:
+                            isLoading || selectedModels.length < 2 || !localInput.trim()
+                              ? "transparent"
+                              : "rgba(139,92,246,0.4)",
+                          "&:hover": {
+                            bgcolor:
+                              isLoading || selectedModels.length < 2 || !localInput.trim()
+                                ? ""
+                                : "rgba(139,92,246,0.25)",
+                          },
+                        }}
+                      >
+                        <Swords width={16} height={16} />
+                      </ButtonBase>
+                    </span>
+                  </Tooltip>
+                )}
+                {onDebateRedirect && (
+                  <Tooltip title="Change topic and restart debate" placement="top" arrow>
+                    <span>
+                      <ButtonBase
+                        component={motion.button}
+                        whileHover={localInput.trim() && !isLoading ? { scale: 1.05 } : {}}
+                        whileTap={localInput.trim() && !isLoading ? { scale: 0.93 } : {}}
+                        onClick={handleRedirect}
+                        disabled={isLoading || !localInput.trim()}
+                        sx={{
+                          p: 1.25,
+                          borderRadius: 3,
+                          transition: "all 0.2s",
+                          mx: 0.5,
+                          bgcolor: localInput.trim() && !isLoading
+                            ? "rgba(245,158,11,0.12)"
+                            : isDark ? "rgba(255,255,255,0.04)" : "action.disabledBackground",
+                          color: localInput.trim() && !isLoading ? "#f59e0b" : "text.disabled",
+                          border: "1px solid",
+                          borderColor: localInput.trim() && !isLoading ? "rgba(245,158,11,0.4)" : "transparent",
+                          "&:hover": {
+                            bgcolor: localInput.trim() && !isLoading ? "rgba(245,158,11,0.22)" : "",
+                          },
+                        }}
+                      >
+                        <CornerUpLeft width={15} height={15} />
+                      </ButtonBase>
+                    </span>
+                  </Tooltip>
+                )}
                 {isLoading ? (
                   <ButtonBase
                     component={motion.button}
@@ -308,37 +420,48 @@ export const ChatInput = React.memo(
                     <StopCircle width={18} height={18} />
                   </ButtonBase>
                 ) : (
-                  <ButtonBase
-                    onClick={handleSend}
-                    disabled={!localInput.trim()}
-                    component={motion.button}
-                    whileHover={localInput.trim() ? { scale: 1.05 } : {}}
-                    whileTap={localInput.trim() ? { scale: 0.95 } : {}}
-                    sx={{
-                      p: 1.25,
-                      borderRadius: "50%",
-                      bgcolor: localInput.trim()
-                        ? "primary.main"
-                        : "transparent",
-                      color: localInput.trim() ? "white" : "text.disabled",
-                      border: "1px solid",
-                      borderColor: localInput.trim()
-                        ? "primary.main"
-                        : "divider",
-                      transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                      "&:hover": {
-                        bgcolor: localInput.trim()
-                          ? "primary.dark"
-                          : "transparent",
-                        boxShadow: localInput.trim()
-                          ? "0 4px 12px rgba(37,99,235,0.3)"
-                          : "none",
-                      },
-                      "&:disabled": { cursor: "not-allowed" },
-                    }}
+                  <Tooltip
+                    title={onDebateInject ? "Inject into debate" : ""}
+                    placement="top"
+                    arrow
+                    disableHoverListener={!onDebateInject}
                   >
-                    <Send width={18} height={18} />
-                  </ButtonBase>
+                    <span>
+                      <ButtonBase
+                        onClick={handleSend}
+                        disabled={!localInput.trim()}
+                        component={motion.button}
+                        whileHover={localInput.trim() ? { scale: 1.05 } : {}}
+                        whileTap={localInput.trim() ? { scale: 0.95 } : {}}
+                        sx={{
+                          p: 1.25,
+                          borderRadius: "50%",
+                          bgcolor: localInput.trim()
+                            ? onDebateInject ? "rgba(139,92,246,0.8)" : "primary.main"
+                            : "transparent",
+                          color: localInput.trim() ? "white" : "text.disabled",
+                          border: "1px solid",
+                          borderColor: localInput.trim()
+                            ? onDebateInject ? "#8b5cf6" : "primary.main"
+                            : "divider",
+                          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                          "&:hover": {
+                            bgcolor: localInput.trim()
+                              ? onDebateInject ? "rgba(109,40,217,0.85)" : "primary.dark"
+                              : "transparent",
+                            boxShadow: localInput.trim()
+                              ? onDebateInject
+                                ? "0 4px 12px rgba(139,92,246,0.4)"
+                                : "0 4px 12px rgba(37,99,235,0.3)"
+                              : "none",
+                          },
+                          "&:disabled": { cursor: "not-allowed" },
+                        }}
+                      >
+                        <Send width={18} height={18} />
+                      </ButtonBase>
+                    </span>
+                  </Tooltip>
                 )}
               </Box>
             </Box>
@@ -381,7 +504,7 @@ export const ChatInput = React.memo(
                     color: "text.secondary",
                   }}
                 >
-                  {isLoading ? "Processing…" : "Ready"}
+                  {isLoading ? "Processing…" : onDebateInject ? "Debate Active · Inject" : "Ready"}
                 </Typography>
               </Box>
               {showEditButton && (

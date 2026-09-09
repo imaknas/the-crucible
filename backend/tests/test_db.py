@@ -37,6 +37,20 @@ def isolated_db(tmp_path):
             thread_id TEXT, checkpoint_id TEXT
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS debate_sessions (
+            session_id TEXT PRIMARY KEY,
+            parent_thread_id TEXT NOT NULL,
+            participants TEXT NOT NULL,
+            thread_ids TEXT NOT NULL,
+            current_round INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'running',
+            termination_policy TEXT NOT NULL,
+            auto_synthesize INTEGER DEFAULT 0,
+            synthesizer_model TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -194,3 +208,82 @@ class TestGetAllCheckpointIds:
 
         result = db.get_all_checkpoint_ids("nonexistent")
         assert result == set()
+
+
+class TestDebateCascadeDelete:
+    """Deleting a thread or session must not orphan its debate sub-threads."""
+
+    @staticmethod
+    def _seed(db):
+        """One parent thread with a 2-model debate and a synthesis thread."""
+        session = {
+            "session_id": "d1",
+            "parent_thread_id": "t1",
+            "participants": ["m1", "m2"],
+            "thread_ids": {"m1": "t1::m1", "m2": "t1::m2"},
+            "current_round": 0,
+            "status": "running",
+            "termination_policy": {"max_rounds": 3},
+            "auto_synthesize": False,
+            "synthesizer_model": None,
+        }
+        db.create_debate_session(session)
+
+        conn = sqlite3.connect(db.DB_PATH)
+        for tid in ("t1", "t1::m1", "t1::m2", "t1::synthesis", "t2"):
+            conn.execute("INSERT INTO checkpoints VALUES (?, 'cp1')", (tid,))
+            conn.execute("INSERT INTO writes VALUES (?, 'cp1')", (tid,))
+            conn.execute("INSERT INTO node_positions VALUES (?, 'n1', 0, 0)", (tid,))
+            conn.execute("INSERT OR IGNORE INTO thread_metadata VALUES (?, 't')", (tid,))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def _threads_left(db):
+        conn = sqlite3.connect(db.DB_PATH)
+        rows = {r[0] for r in conn.execute("SELECT DISTINCT thread_id FROM checkpoints")}
+        conn.close()
+        return rows
+
+    def test_delete_thread_removes_debate_sub_threads(self):
+        from app.core import database as db
+
+        self._seed(db)
+        db.delete_thread_data("t1")
+
+        # Unrelated threads survive; every "t1"-derived thread is gone.
+        assert self._threads_left(db) == {"t2"}
+
+        conn = sqlite3.connect(db.DB_PATH)
+        for table in ("writes", "node_positions", "thread_metadata"):
+            remaining = {
+                r[0]
+                for r in conn.execute(f"SELECT DISTINCT thread_id FROM {table}")
+            }
+            assert remaining == {"t2"}, table
+        assert conn.execute("SELECT COUNT(*) FROM debate_sessions").fetchone()[0] == 0
+        conn.close()
+
+    def test_delete_thread_does_not_match_similar_prefixes(self):
+        """Thread ids contain "_", a LIKE wildcard — prefix matching must be exact."""
+        from app.core import database as db
+
+        conn = sqlite3.connect(db.DB_PATH)
+        conn.execute("INSERT INTO checkpoints VALUES ('thread_a', 'cp1')")
+        conn.execute("INSERT INTO checkpoints VALUES ('threadXa::m1', 'cp1')")
+        conn.execute("INSERT INTO checkpoints VALUES ('thread_a::m1', 'cp1')")
+        conn.commit()
+        conn.close()
+
+        db.delete_thread_data("thread_a")
+        assert self._threads_left(db) == {"threadXa::m1"}
+
+    def test_delete_session_removes_its_checkpoints(self):
+        from app.core import database as db
+
+        self._seed(db)
+        db.delete_debate_session("d1")
+
+        # The parent thread is untouched; only the debate's own threads go.
+        assert self._threads_left(db) == {"t1", "t2"}
+        assert db.get_debate_session("d1") is None

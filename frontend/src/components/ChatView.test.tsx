@@ -107,6 +107,6 @@ describe("ChatView", () => {
 
   it("shows welcome screen when no threadId exists", () => {
     render(<ChatView {...mockProps} threadId={null} />);
-    expect(screen.getByText(/The Council awaits/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ask the arena anything/i)).toBeInTheDocument();
   });
 });

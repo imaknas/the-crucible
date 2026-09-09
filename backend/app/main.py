@@ -11,7 +11,8 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from app.core import database as db
 from app.utils.helpers import extract_text, clean_string
 
-from app.api import threads, history, upload, models, graph, config
+from app.api import threads, history, upload, models, graph, config, debate
+from app.api.models import DEFAULT_MODEL
 
 
 # --- MONKEYPATCH for langchain_anthropic 1.3.2 bug ---
@@ -74,6 +75,7 @@ async def lifespan(app: FastAPI):
 
     async with AsyncSqliteSaver.from_conn_string(db.DB_PATH) as memory:
         app.state.graph_app = workflow.compile(checkpointer=memory)
+        debate.set_graph_app(app.state.graph_app)
         yield
 
 
@@ -93,6 +95,7 @@ server.include_router(upload.router)
 server.include_router(models.router)
 server.include_router(graph.router)
 server.include_router(config.router)
+server.include_router(debate.router)
 
 
 # ─── Chat & WebSocket (tightly coupled to graph_app) ─────────────
@@ -194,7 +197,7 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
         """Process a single model invocation — runs as a concurrent task."""
         nonlocal renamed
         message = request_data.get("message")
-        model = request_data.get("model", "gpt-5.2")
+        model = request_data.get("model", DEFAULT_MODEL)
         toggles = request_data.get("toggles", {})
         documents = request_data.get("documents", {})
         parent_checkpoint_id = request_data.get("parent_checkpoint_id")
@@ -274,7 +277,7 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
                         and hasattr(chunk, "content")
                         and chunk.content is not None
                     ):
-                        token = extract_text(chunk.content)
+                        token = extract_text(chunk.content, strip=False)
                         if token != "":
                             async with ws_lock:
                                 try:

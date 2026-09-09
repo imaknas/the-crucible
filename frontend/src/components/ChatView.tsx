@@ -9,7 +9,7 @@ import {
   CircularProgress,
   useTheme,
 } from "@mui/material";
-import { CheckCircle2, Sparkles, Network, Scale } from "lucide-react";
+import { CheckCircle2, Sparkles, Network, Scale, Swords, X as XIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatInput } from "./ChatInput";
 import { MessageBubble, getModelColor, getModelLabel } from "./MessageBubble";
@@ -37,6 +37,17 @@ interface ChatViewProps {
   showEditButton: boolean;
   threadId: string | null;
   selectedModels: string[];
+  onDebateOpen?: (prompt: string) => void;
+  onDebateInject?: (message: string) => void;
+  onDebateRedirect?: (message: string) => void;
+  debateState?: {
+    round: number;
+    maxRounds: number;
+    status: "running" | "converged" | "completed";
+    convergenceScore?: number;
+  } | null;
+  onDebateStop?: () => void;
+  onDebateSynthesize?: () => void;
 }
 
 const ChatViewRaw: React.FC<ChatViewProps> = ({
@@ -61,6 +72,12 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   threadId,
   selectedModels,
   stopStreaming,
+  onDebateOpen,
+  onDebateInject,
+  onDebateRedirect,
+  debateState,
+  onDebateStop,
+  onDebateSynthesize,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerContentRef = useRef<HTMLDivElement>(null);
@@ -259,6 +276,96 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         bgcolor: "transparent",
       }}
     >
+      {/* Debate status banner */}
+      {debateState && (
+        <Box
+          sx={{
+            flexShrink: 0,
+            px: 3,
+            py: 1,
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            bgcolor: isDark ? "rgba(109,40,217,0.12)" : "rgba(109,40,217,0.07)",
+            borderBottom: "1px solid rgba(139,92,246,0.25)",
+          }}
+        >
+          <Swords width={13} height={13} color="#8b5cf6" />
+          <Typography
+            variant="overline"
+            sx={{ fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.12em", color: "#8b5cf6" }}
+          >
+            DEBATE · ROUND {debateState.round + 1}/{debateState.maxRounds}
+          </Typography>
+          {debateState.convergenceScore != null && (
+            <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
+              convergence {(debateState.convergenceScore * 100).toFixed(0)}%
+            </Typography>
+          )}
+          <Box
+            sx={{
+              px: 1,
+              py: 0.25,
+              borderRadius: 1,
+              bgcolor:
+                debateState.status === "running"
+                  ? "rgba(16,185,129,0.2)"
+                  : debateState.status === "converged"
+                    ? "rgba(139,92,246,0.2)"
+                    : "rgba(100,116,139,0.2)",
+              color:
+                debateState.status === "running"
+                  ? "#10b981"
+                  : debateState.status === "converged"
+                    ? "#a78bfa"
+                    : "text.secondary",
+              fontSize: "0.6rem",
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            {debateState.status}
+          </Box>
+          <Box sx={{ flex: 1 }} />
+          {onDebateSynthesize && debateState.status !== "running" && (
+            <ButtonBase
+              onClick={onDebateSynthesize}
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                px: 1.5,
+                py: 0.5,
+                borderRadius: 1.5,
+                fontSize: "0.65rem",
+                fontWeight: 700,
+                color: "#a78bfa",
+                border: "1px solid rgba(139,92,246,0.35)",
+                bgcolor: "rgba(139,92,246,0.1)",
+                "&:hover": { bgcolor: "rgba(139,92,246,0.2)" },
+              }}
+            >
+              <Sparkles width={11} height={11} />
+              Synthesize
+            </ButtonBase>
+          )}
+          {onDebateStop && (
+            <ButtonBase
+              onClick={onDebateStop}
+              sx={{
+                p: 0.5,
+                borderRadius: 1,
+                color: "text.disabled",
+                "&:hover": { color: "error.main" },
+              }}
+            >
+              <XIcon width={14} height={14} />
+            </ButtonBase>
+          )}
+        </Box>
+      )}
+
       <Box
         sx={{
           flex: 1,
@@ -430,7 +537,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       color: isDark ? "text.secondary" : "text.primary",
                     }}
                   >
-                    The Council awaits
+                    Ask the arena anything
                   </Typography>
                   <Typography
                     variant="caption"
@@ -450,20 +557,71 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
             {/* Messages */}
             {messages.map((msg, i) => {
               const isUser = msg.role === "user" || msg.type === "human";
-              const isLatest = i === messages.length - 1;
 
-              // Skip technical synthesis prompts
+              // Debate round separator
+              if (msg.type === "round_header") {
+                return (
+                  <Box
+                    key={msg.id}
+                    ref={(el) => registerMessageRef(el as HTMLDivElement | null, i)}
+                    sx={{ display: "flex", alignItems: "center", gap: 1.5, my: 1 }}
+                  >
+                    <Box sx={{ flex: 1, height: "1px", bgcolor: "rgba(139,92,246,0.2)" }} />
+                    <Typography
+                      variant="overline"
+                      sx={{ fontSize: "0.6rem", fontWeight: 800, letterSpacing: "0.15em", color: "rgba(139,92,246,0.7)", flexShrink: 0 }}
+                    >
+                      {msg.content}
+                    </Typography>
+                    <Box sx={{ flex: 1, height: "1px", bgcolor: "rgba(139,92,246,0.2)" }} />
+                  </Box>
+                );
+              }
+
+              // Debate inject/redirect marker
+              if (msg.type === "inject" || msg.type === "redirect") {
+                return (
+                  <Box
+                    key={msg.id}
+                    ref={(el) => registerMessageRef(el as HTMLDivElement | null, i)}
+                    sx={{ display: "flex", alignItems: "center", gap: 1, my: 0.5, px: 1 }}
+                  >
+                    <Box
+                      sx={{
+                        px: 1.5, py: 0.5, borderRadius: 2,
+                        bgcolor: msg.type === "redirect" ? "rgba(245,158,11,0.1)" : "rgba(139,92,246,0.1)",
+                        border: "1px solid",
+                        borderColor: msg.type === "redirect" ? "rgba(245,158,11,0.3)" : "rgba(139,92,246,0.3)",
+                        fontSize: "0.75rem",
+                        color: msg.type === "redirect" ? "#f59e0b" : "#a78bfa",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {msg.type === "redirect" ? "↩ Redirect: " : "→ Inject: "}
+                      <span style={{ color: "inherit", opacity: 0.8 }}>{msg.content}</span>
+                    </Box>
+                  </Box>
+                );
+              }
+
+              // Skip old-style internal synthesis prompts (not debate synthesis messages)
               if (
-                msg.type === "synthesis" ||
                 msg.content?.startsWith(
                   "I have received perspectives from multiple models:",
                 )
               ) {
-                if (isLatest && isLoading) {
+                return null;
+              }
+
+              // Debate synthesis messages: show loading indicator while streaming, full content when done
+              if (msg.type === "synthesis") {
+                const hasSynthContent = msg.content && msg.content.trim().length > 0;
+                if (!hasSynthContent) {
+                  // Still loading
                   return (
                     <Box
                       component={motion.div}
-                      key="synthesis-loading"
+                      key={msg.id || "synthesis-loading"}
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       sx={{
@@ -511,7 +669,17 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                     </Box>
                   );
                 }
-                return null;
+                // Render completed synthesis as a regular assistant message
+                return (
+                  <MessageBubble
+                    key={msg.id || `synthesis-${i}`}
+                    msg={{ ...msg, role: "assistant" } as Message}
+                    isUser={false}
+                    isDark={isDark}
+                    onMount={registerMessageRef}
+                    index={i}
+                  />
+                );
               }
 
               const stableKey = msg.id || `msg-${i}-${msg.role}`;
@@ -527,7 +695,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
               );
             })}
 
-            {/* Council Deliberation / Arena Footer */}
+            {/* Deliberation / arena footer */}
             {isArenaActive && (
               <Box
                 component={motion.div}
@@ -572,7 +740,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                           color: "text.secondary",
                         }}
                       >
-                        Council Deliberation
+                        Deliberation
                       </Typography>
                     </Box>
                     <ButtonBase
@@ -794,7 +962,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                     color: "text.secondary",
                   }}
                 >
-                  Council deliberating…
+                  Models deliberating…
                 </Typography>
               </Box>
             )}
@@ -878,6 +1046,9 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         showEditButton={showEditButton}
         isDark={isDark}
         initialInput={input}
+        onDebateOpen={onDebateOpen}
+        onDebateInject={onDebateInject}
+        onDebateRedirect={onDebateRedirect}
       />
     </Box>
   );

@@ -28,9 +28,7 @@ describe("useChatWebSocket", () => {
     activeCheckpoint: "cp_1",
     selectedModels: ["gpt-4o"],
     toggles: {
-      strict_logic: true,
       use_rag: true,
-      cot_enabled: true,
       use_web_search: false,
     },
     documents: {},

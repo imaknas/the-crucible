@@ -128,10 +128,145 @@ export interface ModelFamily {
   models: ModelInfo[];
 }
 
-export async function fetchModels(): Promise<{ families: ModelFamily[] }> {
+export async function fetchModels(): Promise<{
+  families: ModelFamily[];
+  default_model?: string;
+  default_arena_models?: string[];
+}> {
   const res = await fetch(`${API_BASE}/models`);
   if (!res.ok) throw new Error("Failed to fetch models");
   return res.json();
+}
+
+// ─── Debate Sessions ────────────────────────────────────────────
+
+import type {
+  DebateSession,
+  DebateTreeResponse,
+  TerminationPolicy,
+} from "@/lib/types";
+
+export async function createDebateSession(params: {
+  parent_thread_id: string;
+  participants: string[];
+  termination_policy: TerminationPolicy;
+  auto_synthesize: boolean;
+  synthesizer_model: string | null;
+}): Promise<DebateSession> {
+  const res = await fetch(`${API_BASE}/debate/sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error("Failed to create debate session");
+  return res.json();
+}
+
+export async function fetchDebateSession(
+  sessionId: string,
+): Promise<DebateSession> {
+  const res = await fetch(`${API_BASE}/debate/sessions/${sessionId}`);
+  if (!res.ok) throw new Error("Failed to fetch debate session");
+  return res.json();
+}
+
+export async function listDebateSessions(
+  parentThreadId?: string,
+): Promise<DebateSession[]> {
+  const url = parentThreadId
+    ? `${API_BASE}/debate/sessions?parent_thread_id=${encodeURIComponent(parentThreadId)}`
+    : `${API_BASE}/debate/sessions`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to list debate sessions");
+  return res.json();
+}
+
+// Reconstruct debate messages from sub-thread histories, interleaved by round with headers.
+export async function loadDebateMessages(session: DebateSession): Promise<import("@/lib/types").Message[]> {
+  const perModel: Record<string, import("@/lib/types").Message[]> = {};
+  let originalPrompt = "";
+
+  await Promise.all(
+    session.participants.map(async (modelId) => {
+      const subThreadId = session.thread_ids[modelId];
+      try {
+        const data = await fetchHistory(subThreadId);
+        const allMsgs = data.messages ?? [];
+        // Grab original prompt from first user message of any sub-thread
+        if (!originalPrompt) {
+          const firstUser = allMsgs.find((m: any) => m.role === "user");
+          if (firstUser) originalPrompt = firstUser.content ?? "";
+        }
+        perModel[modelId] = allMsgs
+          .filter((m: any) => m.role === "assistant")
+          .map((m: any, i: number) => ({
+            id: `restored-${modelId}-r${i}`,
+            role: "assistant" as const,
+            model: modelId,
+            content: m.content ?? "",
+            type: "ai",
+          }));
+      } catch {
+        perModel[modelId] = [];
+      }
+    }),
+  );
+
+  const maxRounds = Math.max(0, ...Object.values(perModel).map((msgs) => msgs.length));
+  const result: import("@/lib/types").Message[] = [];
+
+  // Original prompt at the top
+  if (originalPrompt) {
+    result.push({
+      id: "restored-prompt",
+      role: "user",
+      content: originalPrompt,
+      type: "human",
+    } as any);
+  }
+
+  for (let r = 0; r < maxRounds; r++) {
+    result.push({
+      id: `round-header-${r}`,
+      role: "system",
+      type: "round_header",
+      content: `Round ${r + 1}`,
+    } as any);
+    for (const modelId of session.participants) {
+      const msg = perModel[modelId]?.[r];
+      if (msg) result.push({ ...msg, id: `restored-${modelId}-r${r}` });
+    }
+  }
+
+  // Synthesis sub-thread
+  const synthId = session.thread_ids["synthesis"] ?? `${session.parent_thread_id}::synthesis`;
+  try {
+    const synthData = await fetchHistory(synthId);
+    const synthMsgs = (synthData.messages ?? []).filter((m: any) => m.role === "assistant");
+    if (synthMsgs.length > 0) {
+      result.push({
+        id: "restored-synthesis",
+        role: "assistant",
+        model: session.synthesizer_model ?? "synthesis",
+        content: synthMsgs[synthMsgs.length - 1].content ?? "",
+        type: "synthesis",
+      } as any);
+    }
+  } catch { /* no synthesis yet */ }
+
+  return result;
+}
+
+export async function fetchDebateTree(
+  sessionId: string,
+): Promise<DebateTreeResponse> {
+  const res = await fetch(`${API_BASE}/debate/sessions/${sessionId}/tree`);
+  if (!res.ok) throw new Error("Failed to fetch debate tree");
+  return res.json();
+}
+
+export function createDebateWebSocketUrl(sessionId: string): string {
+  return `${WS_BASE}/debate/ws/${sessionId}`;
 }
 
 // ─── Config / API Keys ───────────────────────────────────────────

@@ -2,7 +2,7 @@ import re
 from typing import Any, List
 
 
-def extract_text(content: Any, wrap_thinking: bool = False) -> str:
+def extract_text(content: Any, wrap_thinking: bool = False, strip: bool = True) -> str:
     """Safely extract string text from potentially structured content.
 
     Handles Gemini/Anthropic's list-of-dicts format, raw dicts,
@@ -81,7 +81,7 @@ def extract_text(content: Any, wrap_thinking: bool = False) -> str:
             flags=re.IGNORECASE | re.DOTALL,
         )
 
-    return text.strip()
+    return text.strip() if strip else text
 
 
 def get_preview_text(content: str, max_length: int = 50) -> str:

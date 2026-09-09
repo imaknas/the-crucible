@@ -105,30 +105,6 @@ class TestGraphNodes:
         assert result["messages"][0].content == "Model response"
         mock_model.invoke.assert_called_once()
 
-    def test_drafting_node_with_strict_logic(self):
-        from unittest.mock import patch
-        from app.services.graph import drafting_node
-        from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-
-        mock_model = MagicMock()
-        mock_model.invoke.return_value = AIMessage(content="Logical response")
-
-        state = {
-            "active_peer": "gpt-5.2",
-            "messages": [HumanMessage(content="Test")],
-            "toggles": {"strict_logic": True},
-            "documents": {},
-        }
-
-        with patch("app.services.graph.get_model", return_value=mock_model):
-            drafting_node(state, config={"configurable": {"thread_id": "test_thread"}})
-
-        # Check that system message includes "Step-by-Step"
-        call_args = mock_model.invoke.call_args[0][0]
-        system_msg = call_args[0]
-        assert isinstance(system_msg, SystemMessage)
-        assert "Step-by-Step" in system_msg.content
-
     def test_synthesis_node_updates_thesis(self):
         from unittest.mock import patch
         from app.services.graph import synthesis_node

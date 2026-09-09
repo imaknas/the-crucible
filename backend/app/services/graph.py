@@ -247,24 +247,7 @@ def get_model(model_name: str, toggles: Optional[Dict[str, Any]] = None):
     if not os.getenv(env_key):
         raise ValueError(f"{env_key} is not set in environment or .env file.")
 
-    reasoning_kwargs: Dict[str, Any] = {}
-    if toggles.get("strict_logic"):
-        if config["family"] == "openai":
-            reasoning_kwargs["reasoning"] = {
-                "effort": "medium",  # Can be "low", "medium", or "high"
-                "summary": "auto",  # Can be "auto", "concise", or "detailed"
-            }
-        elif config["family"] == "anthropic":
-            # Native "Adaptive Thinking" is only for flagships (Opus/Sonnet).
-            # We only enable it if strict_logic is on AND cot_enabled is also on,
-            # to match the user's desire to disable ALL thinking via the "Thinking Process" toggle.
-            if any(m in config["id"] for m in ["opus", "sonnet"]) and toggles.get(
-                "cot_enabled"
-            ):
-                reasoning_kwargs["thinking"] = {
-                    "type": "adaptive",
-                }
-    llm = constructor(model=config["id"], **reasoning_kwargs)
+    llm = constructor(model=config["id"])
 
     # Apply Native Web Search Grounding if toggled and supported
     if toggles.get("use_web_search") and config.get("native_search"):
@@ -375,14 +358,8 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     active_peer = state["active_peer"]
     model = get_model(active_peer, state.get("toggles", {}))
 
-    # Reasoning enhancement
-    prompt_prefix = ""
-    if state["toggles"].get("strict_logic"):
-        prompt_prefix = "Use Step-by-Step reasoning. "
-    if state["toggles"].get("cot_enabled"):
-        prompt_prefix += "Show your thinking process within <think></think> tags. "
-
     # RAG Context injection
+    prompt_prefix = ""
     rag_context = ""
     chunks = state.get("retrieved_chunks", [])
     if chunks:
@@ -640,12 +617,12 @@ def summarize_history(state: CrucibleState):
     try:
         # Use a FAST model for summarization regardless of the active peer
         # This prevents Opus from stalling the user experience during a summary jump
-        from app.api.models import MODEL_REGISTRY
+        from app.api.models import MODEL_REGISTRY, SUMMARIZER_MODELS
 
-        summarizer_id = "gemini-3-flash-preview"
-        if summarizer_id not in MODEL_REGISTRY:
-            # Fallback to Haiku if Gemini Flash isn't in registry
-            summarizer_id = "claude-haiku-4-5-20251001"
+        summarizer_id = next(
+            (m for m in SUMMARIZER_MODELS if m in MODEL_REGISTRY),
+            SUMMARIZER_MODELS[-1],
+        )
 
         print(f"[Summarize] Using fast model: {summarizer_id} for history compression.")
         model = get_model(summarizer_id, {})
@@ -785,13 +762,9 @@ async def run_crucible_arena(
     from app.api.models import MODEL_REGISTRY
     import asyncio
 
-    # Default to a representative set from the actual registry
-    # (Using future-dated IDs found in app/api/models.py)
-    target_models = models or [
-        "claude-sonnet-4-6",
-        "gpt-5.4",
-        "gemini-3.1-pro-preview",
-    ]
+    from app.api.models import DEFAULT_ARENA_MODELS
+
+    target_models = models or list(DEFAULT_ARENA_MODELS)
 
     # Validation: If models were explicitly requested, ensure they all exist
     if models:
@@ -850,7 +823,7 @@ async def run_crucible_arena(
         initial_state = {
             "active_peer": model_id,
             "messages": [("user", prompt)],
-            "toggles": {"use_rag": False, "cot_enabled": True, **(overrides or {})},
+            "toggles": {"use_rag": False, **(overrides or {})},
             "current_thesis": "",
         }
         config = {"configurable": {"thread_id": thread_id}}
@@ -878,13 +851,9 @@ async def run_crucible_arena(
 def _resolve_arena_models(models: Optional[List[str]] = None) -> List[str]:
     """Resolve and validate models for arena/deliberation, auto-filtering by available API keys."""
     import os
-    from app.api.models import FAMILY_META
+    from app.api.models import FAMILY_META, DEFAULT_ARENA_MODELS
 
-    target_models = models or [
-        "claude-sonnet-4-6",
-        "gpt-5.4",
-        "gemini-3.1-pro-preview",
-    ]
+    target_models = models or list(DEFAULT_ARENA_MODELS)
 
     def _is_key_available(model_id: str) -> bool:
         family = MODEL_REGISTRY[model_id].get("family")
@@ -925,7 +894,7 @@ async def run_arena_streaming(
         initial_state = {
             "active_peer": model_id,
             "messages": [("user", prompt)],
-            "toggles": {"use_rag": False, "cot_enabled": True, **(overrides or {})},
+            "toggles": {"use_rag": False, **(overrides or {})},
             "current_thesis": "",
         }
         config = {"configurable": {"thread_id": thread_id}}
@@ -1025,7 +994,7 @@ async def run_deliberation(
             initial_state = {
                 "active_peer": model_id,
                 "messages": [("user", round_prompt)],
-                "toggles": {"use_rag": False, "cot_enabled": True, **(overrides or {})},
+                "toggles": {"use_rag": False, **(overrides or {})},
                 "current_thesis": "",
             }
             config = {"configurable": {"thread_id": thread_id}}
@@ -1060,7 +1029,7 @@ async def run_deliberation(
     initial_state = {
         "active_peer": judge_model,
         "messages": [("user", synthesis_prompt)],
-        "toggles": {"use_rag": False, "cot_enabled": True, **(overrides or {})},
+        "toggles": {"use_rag": False, **(overrides or {})},
         "current_thesis": "",
     }
     config = {"configurable": {"thread_id": thread_id}}

@@ -1,9 +1,39 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v14-appRouter";
 import { lightTheme, darkTheme } from "../theme";
+
+const STORAGE_KEY = "crucible_is_dark";
+
+interface ThemeModeValue {
+  isDark: boolean;
+  toggleMode: () => void;
+}
+
+const ThemeModeContext = createContext<ThemeModeValue>({
+  isDark: true,
+  toggleMode: () => {},
+});
+
+/**
+ * Read the current mode and flip it.
+ *
+ * This is the single owner of theme state. `page.tsx` used to keep its own
+ * `isDark` and sync the two through localStorage plus a custom DOM event,
+ * which meant two sources of truth for one value.
+ */
+export function useThemeMode() {
+  return useContext(ThemeModeContext);
+}
 
 export default function ThemeRegistry({
   children,
@@ -16,44 +46,47 @@ export default function ThemeRegistry({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    const savedDark = localStorage.getItem("crucible_is_dark");
-    if (savedDark !== null) {
-      setIsDark(JSON.parse(savedDark));
-    }
-  }, []);
-
-  // Use a listener to sync theme if page.tsx toggles it
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const savedDark = localStorage.getItem("crucible_is_dark");
-      if (savedDark !== null) {
-        setIsDark(JSON.parse(savedDark));
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved !== null) {
+        setIsDark(JSON.parse(saved));
       }
-    };
-    window.addEventListener("storage", handleStorageChange);
-    // Also dispatch a custom event from page.tsx so same-window updates work instantly
-    window.addEventListener(
-      "themeChange",
-      handleStorageChange as EventListener,
-    );
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener(
-        "themeChange",
-        handleStorageChange as EventListener,
-      );
-    };
+    } catch {}
   }, []);
+
+  const toggleMode = useCallback(() => {
+    setIsDark((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  // Mirror onto the document so plain CSS can react to the mode too.
+  useEffect(() => {
+    document.documentElement.setAttribute(
+      "data-theme",
+      isDark ? "dark" : "light",
+    );
+  }, [isDark]);
+
+  const value = useMemo<ThemeModeValue>(
+    () => ({ isDark, toggleMode }),
+    [isDark, toggleMode],
+  );
 
   return (
     <AppRouterCacheProvider options={{ key: "mui" }}>
-      <ThemeProvider
-        theme={mounted ? (isDark ? darkTheme : lightTheme) : darkTheme}
-      >
-        <CssBaseline />
-        {children}
-      </ThemeProvider>
+      <ThemeModeContext.Provider value={value}>
+        <ThemeProvider
+          theme={mounted ? (isDark ? darkTheme : lightTheme) : darkTheme}
+        >
+          <CssBaseline />
+          {children}
+        </ThemeProvider>
+      </ThemeModeContext.Provider>
     </AppRouterCacheProvider>
   );
 }

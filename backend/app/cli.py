@@ -2,9 +2,9 @@
 The Crucible CLI — Multi-Model Reasoning Engine.
 
 Usage:
-    crucible arena "prompt" --models gpt-5.2 claude-sonnet-4-6 gemini-3-flash
-    crucible deliberate "topic" --models gpt-5.2 claude-sonnet-4-6 --rounds 3
-    crucible chat "prompt" --model gpt-5.2
+    crucible arena "prompt" --models gpt-5.4 claude-sonnet-5 gemini-3.1-pro-preview
+    crucible deliberate "topic" --models gpt-5.4 claude-sonnet-5 --rounds 3
+    crucible chat "prompt" --model gpt-5.4
     crucible threads
     crucible tree --thread <id>
 """
@@ -16,6 +16,8 @@ from uuid import uuid4
 
 import typer
 from rich.console import Console
+
+from app.api.models import DEFAULT_MODEL
 
 app = typer.Typer(
     name="crucible",
@@ -451,7 +453,7 @@ def chat(
     prompt: Optional[str] = typer.Argument(
         None, help="The message to send (or pipe via stdin)."
     ),
-    model: str = typer.Option("gpt-5.2", "--model", "-m", help="Model ID to use."),
+    model: str = typer.Option(DEFAULT_MODEL, "--model", "-m", help="Model ID to use."),
     thread: Optional[str] = typer.Option(
         None, "--thread", "-t", help="Existing thread to continue."
     ),
@@ -462,7 +464,7 @@ def chat(
     """
     [bold green]💬 Chat Mode[/bold green] — Single-model interactive session.
 
-    Supports stdin piping: echo "question" | crucible chat --model gpt-5.2
+    Supports stdin piping: echo "question" | crucible chat --model gpt-5.4
     """
     _load_env()
 
@@ -495,7 +497,7 @@ async def _run_chat(prompt: str, model: str, thread_id: str, web_search: bool):
         initial_state = {
             "active_peer": model,
             "messages": [("user", prompt)],
-            "toggles": {"use_web_search": web_search, "cot_enabled": True},
+            "toggles": {"use_web_search": web_search},
         }
         if not state.values:
             initial_state.update({"current_thesis": "", "branch_name": "main"})
