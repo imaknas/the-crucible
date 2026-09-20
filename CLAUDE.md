@@ -185,3 +185,10 @@ These were bugs; the fixes are load-bearing.
 - **Debate node selection is display-only.** Clicking expands the node's excerpt in place but there is no way to open the full response.
 - **`_stream_round` hardcodes a 120s per-model timeout** and `stream_end` carries a `checkpoint_id` the frontend never reads.
 - **Sidebar thread names truncate at ~12 characters** in a 288px rail, and untitled threads still show their raw `thread_xxxxxxx` id.
+
+## agent-hub memory 追蹤
+
+這個專案有跨專案 memory 追蹤機制(細節見 `.agent-memory/AGENT.md`)。工作中如果
+有值得記錄的內容(重要決定、踩到的坑、進度),append 到
+`.agent-memory/memory/YYYY-MM-DD.md`——寫原始記錄就好,不用花力氣摘要。不會
+影響這個專案本身的程式碼或 git 歷史。
