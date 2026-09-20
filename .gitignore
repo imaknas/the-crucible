@@ -38,3 +38,6 @@ e2e/.fixtures/
 e2e/.report/
 test-results/
 scripts/.demo/
+
+# agent-hub memory tracking(獨立 worktree,見 /Users/imaknas/agent-hub/bin/onboard-project.sh)
+.agent-memory/
