@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Form, BackgroundTasks, HTTPException
 import os
+import uuid
 
 from app.utils.parser import extract_text_from_pdf
 from app.services import rag as rag_service
@@ -36,14 +37,18 @@ async def upload_file(
         )
 
     os.makedirs(_UPLOAD_DIR, exist_ok=True)
-    file_path = os.path.join(_UPLOAD_DIR, safe_filename)
+    # Unique on disk: a shared name let two concurrent uploads of the same
+    # filename read back (and index into their thread) each other's content.
+    file_path = os.path.join(_UPLOAD_DIR, f"{uuid.uuid4().hex}_{safe_filename}")
 
-    # Read and size-check before writing
-    contents = await file.read()
-    if len(contents) > _MAX_FILE_BYTES:
-        raise HTTPException(
-            status_code=400, detail="File exceeds the 10 MB size limit."
-        )
+    # Read in chunks and stop at the limit instead of buffering the whole body.
+    contents = bytearray()
+    while chunk := await file.read(1024 * 1024):
+        contents.extend(chunk)
+        if len(contents) > _MAX_FILE_BYTES:
+            raise HTTPException(
+                status_code=400, detail="File exceeds the 10 MB size limit."
+            )
 
     with open(file_path, "wb") as buffer:
         buffer.write(contents)

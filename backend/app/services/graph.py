@@ -12,7 +12,6 @@ from langgraph.graph import StateGraph, END
 from app.core.schema import CrucibleState
 from app.api.models import MODEL_REGISTRY
 from langchain_core.runnables import RunnableConfig
-from app.core import database as db
 
 from app.utils.helpers import extract_text
 from app.services import rag as rag_service
@@ -155,11 +154,12 @@ def sanitize_messages(
         allowed_content.append(m)
         current_len += m_len
 
-    # Ensure the most-recent human message is always preserved even if trimming was aggressive
-    if allowed_content:
-        last_human = next((m for m in content_history if m["role"] == "human"), None)
-        if last_human and last_human not in allowed_content:
-            allowed_content.insert(0, last_human)
+    # Ensure the most-recent human message is always preserved even if trimming was aggressive.
+    # allowed_content runs newest-first, and anything newer than that message was kept,
+    # so appending places it back at its chronological position (oldest kept).
+    last_human = next((m for m in reversed(content_history) if m["role"] == "human"), None)
+    if last_human and last_human not in allowed_content:
+        allowed_content.append(last_human)
 
     # Reassemble: Systems? + Allowed Messages (restored to chronological order)
     final_list = systems + list(reversed(allowed_content))
@@ -627,8 +627,11 @@ def summarize_history(state: CrucibleState):
         print(f"[Summarize] Using fast model: {summarizer_id} for history compression.")
         model = get_model(summarizer_id, {})
 
-        # Keep the system instruction AND the last 5 messages as-is
-        to_summarize = messages[:-5]
+        # Keep the last 5 messages as-is. Anything before the previous summary
+        # is already folded into it, so start there rather than re-sending the
+        # whole raw history (which grew without bound on every summary).
+        start = last_summary_pos if last_summary_pos != -1 else 0
+        to_summarize = messages[start:-5]
 
         def format_msg(m):
             from app.utils.helpers import extract_text
@@ -695,23 +698,13 @@ def should_summarize(state: CrucibleState):
 
 
 def metadata_node(state: CrucibleState, config: RunnableConfig):
-    """Saves metadata for the most recent message."""
-    messages = state.get("messages", [])
-    if not messages:
-        return {}
+    """Pass-through, kept so existing checkpoints that point at it still replay.
 
-    last_msg = messages[-1]
-    thread_id = config.get("configurable", {}).get("thread_id")
-    checkpoint_id = config.get("configurable", {}).get("checkpoint_id")
-
-    if thread_id and checkpoint_id:
-        confidence = last_msg.additional_kwargs.get("confidence")
-        conflict = last_msg.additional_kwargs.get("conflict")
-        # Utility rating can be a placeholder for now
-        db.save_node_metadata(
-            thread_id, checkpoint_id, confidence=confidence, conflict=conflict
-        )
-
+    It used to write confidence/conflict to the node_metadata table, but a
+    node's config never carries a checkpoint_id, so nothing was ever written,
+    and nothing read the table. Confidence shown in the UI is parsed from the
+    reply's <metadata> block in api/graph.py instead.
+    """
     return {}
 
 
