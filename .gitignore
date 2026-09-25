@@ -39,5 +39,7 @@ e2e/.report/
 test-results/
 scripts/.demo/
 
-# agent-hub memory tracking(獨立 worktree,見 /Users/imaknas/agent-hub/bin/onboard-project.sh)
+# local memory worktree (not part of this repo)
 .agent-memory/
+.claude/settings.local.json
+CLAUDE.local.md
