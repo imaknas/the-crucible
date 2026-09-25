@@ -44,7 +44,11 @@ def _compute_sync(
     mean_sim = float(np.mean(similarities))
 
     if mode == "all":
-        converged = all(s >= threshold for s in similarities)
+        # A model that errored or timed out this round has no similarity; "all"
+        # must not be satisfied by the models that happened to answer.
+        converged = len(similarities) == len(models) and all(
+            s >= threshold for s in similarities
+        )
     else:  # "any"
         converged = any(s >= threshold for s in similarities)
 

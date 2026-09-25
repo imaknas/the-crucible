@@ -819,6 +819,12 @@ async def run_crucible_arena(
                 valid_models = [m_id]
                 break
 
+    from app.services.runs import resolve_fork_point, thread_config
+
+    # Every model forks from the same checkpoint; unpinned parallel runs
+    # resume from each other's half-written turns.
+    fork_point = await resolve_fork_point(graph_app, thread_id)
+
     async def _run_single(model_id: str):
         initial_state = {
             "active_peer": model_id,
@@ -826,7 +832,7 @@ async def run_crucible_arena(
             "toggles": {"use_rag": False, **(overrides or {})},
             "current_thesis": "",
         }
-        config = {"configurable": {"thread_id": thread_id}}
+        config = thread_config(thread_id, fork_point)
         results = []
         async for event in graph_app.astream_events(
             initial_state, config, version="v2"
@@ -876,6 +882,9 @@ def _resolve_arena_models(models: Optional[List[str]] = None) -> List[str]:
     return valid
 
 
+ARENA_TIMEOUT_SECONDS = 300
+
+
 async def run_arena_streaming(
     graph_app,
     prompt: str,
@@ -887,7 +896,17 @@ async def run_arena_streaming(
     Streaming variant of run_crucible_arena.
     Yields events: {"type": "token"|"end"|"synthesis", "model": str, ...}
     """
+    from app.services.runs import (
+        final_state_of_run,
+        resolve_fork_point,
+        tag_run,
+        thread_config,
+    )
+
     valid_models = _resolve_arena_models(models)
+    fork_point = await resolve_fork_point(graph_app, thread_id)
+    run_ids: Dict[str, str] = {}
+    finish_order: List[str] = []
 
     async def _stream_single(model_id: str):
         """Run one model and yield streaming events."""
@@ -897,7 +916,8 @@ async def run_arena_streaming(
             "toggles": {"use_rag": False, **(overrides or {})},
             "current_thesis": "",
         }
-        config = {"configurable": {"thread_id": thread_id}}
+        config = thread_config(thread_id, fork_point)
+        run_ids[model_id] = tag_run(config)
         buffer = ""
 
         async for event in graph_app.astream_events(
@@ -932,24 +952,47 @@ async def run_arena_streaming(
     # Start all producers
     tasks = [asyncio.create_task(_producer(m)) for m in valid_models]
 
-    # Consume events until all models are done
+    # Consume events until all models are done, bounded by one overall
+    # deadline. A per-event timeout never fired while tokens kept trickling.
     finished = set()
-    while len(finished) < len(valid_models):
-        try:
-            event = await asyncio.wait_for(main_queue.get(), timeout=120)
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + ARENA_TIMEOUT_SECONDS
+    try:
+        while len(finished) < len(valid_models):
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                break
+            try:
+                event = await asyncio.wait_for(main_queue.get(), timeout=remaining)
+            except asyncio.TimeoutError:
+                break
             yield event
             if event.get("type") == "end":
                 finished.add(event.get("model"))
-        except asyncio.TimeoutError:
+                finish_order.append(event.get("model"))
+    finally:
+        # Models still running past the deadline (or after the consumer went
+        # away) are cancelled rather than awaited.
+        for t in tasks:
+            if not t.done():
+                t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    for model_id in valid_models:
+        if model_id not in finished:
+            yield {
+                "type": "end",
+                "model": model_id,
+                "content": f"Error: timed out after {ARENA_TIMEOUT_SECONDS}s",
+            }
+
+    # The thesis from the last model to finish, as the head used to give.
+    thesis = ""
+    for model_id in reversed(finish_order):
+        state = await final_state_of_run(graph_app, thread_id, run_ids.get(model_id, ""))
+        if state and state.values.get("current_thesis"):
+            thesis = state.values["current_thesis"]
             break
-
-    # Wait for all tasks to complete
-    await asyncio.gather(*tasks, return_exceptions=True)
-
-    # Get final state for synthesis
-    config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-    state = await graph_app.aget_state(config)
-    thesis = state.values.get("current_thesis", "") if state.values else ""
 
     if thesis:
         yield {"type": "synthesis", "content": thesis}

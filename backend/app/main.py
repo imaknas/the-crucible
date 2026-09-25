@@ -13,6 +13,13 @@ from app.utils.helpers import extract_text, clean_string
 
 from app.api import threads, history, upload, models, graph, config, debate
 from app.api.models import DEFAULT_MODEL
+from app.services.runs import (
+    final_state_of_run,
+    resolve_fork_point,
+    resolve_fork_point_ex,
+    tag_run,
+    thread_config,
+)
 
 
 # --- MONKEYPATCH for langchain_anthropic 1.3.2 bug ---
@@ -129,41 +136,32 @@ class ChatRequest(BaseModel):
 @server.post("/chat")
 async def chat(request: ChatRequest):
     graph_app = server.state.graph_app
-    config = {"configurable": {"thread_id": request.thread_id, "checkpoint_ns": ""}}
+    parent_id = request.parent_checkpoint_id or await resolve_fork_point(
+        graph_app, request.thread_id
+    )
+    config = thread_config(request.thread_id, parent_id)
+    run_id = tag_run(config)
 
-    if request.parent_checkpoint_id:
-        config["configurable"]["checkpoint_id"] = request.parent_checkpoint_id
-        state = await graph_app.aget_state(config)
-        initial_state = {
-            "messages": [("user", request.message)],
-            "active_peer": request.model,
-            "toggles": {**state.values.get("toggles", {}), **request.toggles},
-        }
-    else:
-        state = await graph_app.aget_state(config)
-        initial_state = {
-            "messages": [("user", request.message)],
-            "active_peer": request.model,
-            "toggles": request.toggles,
-        }
-        if not state.values:
-            initial_state.update(
-                {
-                    "current_thesis": "",
-                    "documents": request.documents or {},
-                    "branch_name": "main",
-                }
-            )
+    state = await graph_app.aget_state(config)
+    initial_state = {
+        "messages": [("user", request.message)],
+        "active_peer": request.model,
+        "toggles": {**state.values.get("toggles", {}), **request.toggles},
+    }
+    if request.documents:
+        initial_state["documents"] = request.documents
 
     try:
         result = await graph_app.ainvoke(initial_state, config)
-        new_state = await graph_app.aget_state(config)
+        new_state = await final_state_of_run(graph_app, request.thread_id, run_id)
 
         formatted_messages = _format_messages(result.get("messages", []), request.model)
         return {
             "messages": formatted_messages,
             "thread_id": request.thread_id,
-            "checkpoint_id": new_state.config["configurable"]["checkpoint_id"],
+            "checkpoint_id": new_state.config["configurable"]["checkpoint_id"]
+            if new_state
+            else None,
         }
     except Exception as e:
         import traceback
@@ -216,14 +214,14 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
         model = request_data.get("model", DEFAULT_MODEL)
         toggles = request_data.get("toggles", {})
         documents = request_data.get("documents", {})
-        parent_checkpoint_id = request_data.get("parent_checkpoint_id")
+        parent_checkpoint_id = request_data["parent_checkpoint_id"]
         is_deliberation = request_data.get("is_deliberation", False)
+        is_new_thread = request_data.get("_new_thread", False)
 
-        config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-
-        # 1. Establish the precise parent node we are branching/continuing from
-        if parent_checkpoint_id:
-            config["configurable"]["checkpoint_id"] = parent_checkpoint_id
+        # 1. Pin the parent every model in this turn forks from (resolved in
+        # the receive loop), and tag the run so its own result can be found.
+        config = thread_config(thread_id, parent_checkpoint_id)
+        run_id = tag_run(config)
 
         state = await graph_app.aget_state(config)
 
@@ -265,16 +263,6 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
                 ("user", "Please review the conversation and provide your analysis.")
             ]
 
-        if not state.values:
-            initial_state.update(
-                {
-                    "current_thesis": "",
-                    "branch_name": "main",
-                }
-            )
-
-        initial_checkpoints = db.get_all_checkpoint_ids(thread_id)
-
         try:
             async with ws_lock:
                 await websocket.send_json({"type": "stream_start", "model": model})
@@ -304,11 +292,13 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
                                             "model": model,
                                         }
                                     )
-                                except RuntimeError:
+                                except (RuntimeError, WebSocketDisconnect):
                                     # Socket closed
                                     return
 
-            new_state = await graph_app.aget_state(config)
+            new_state = await final_state_of_run(graph_app, thread_id, run_id)
+            if new_state is None:
+                raise RuntimeError(f"{model} finished without writing a checkpoint")
             # NEW: Graph-Path Reconstruction for final emission
             # We walk back the parents of new_state to get un-truncated history
             full_path_states = {}
@@ -352,10 +342,10 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
                             "checkpoint_id": active_cid,
                         }
                     )
-                except RuntimeError:
+                except (RuntimeError, WebSocketDisconnect):
                     return
 
-            if not renamed and len(initial_checkpoints) == 0 and formatted_messages:
+            if not renamed and is_new_thread and formatted_messages:
                 renamed = True
                 rename_task = asyncio.create_task(
                     auto_rename_thread(
@@ -374,8 +364,16 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
                     await websocket.send_json(
                         {"type": "error", "message": str(e), "model": model}
                     )
-                except RuntimeError:
+                except (RuntimeError, WebSocketDisconnect):
                     pass
+
+    # Models sent together share one parent. The frontend sends a turn's
+    # messages back to back and waits for every model before the next turn,
+    # so a message without a parent that arrives while models are still
+    # running belongs to that same turn.
+    batch_parent: Optional[str] = None
+    batch_new_thread = False
+    model_tasks: Set[asyncio.Task] = set()
 
     try:
         while True:
@@ -394,10 +392,22 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
                 active_tasks.clear()
                 continue
 
+            if request_data.get("parent_checkpoint_id"):
+                batch_parent = request_data["parent_checkpoint_id"]
+                batch_new_thread = False
+            elif not (model_tasks and batch_parent):
+                batch_parent, batch_new_thread = await resolve_fork_point_ex(
+                    graph_app, thread_id
+                )
+            request_data["parent_checkpoint_id"] = batch_parent
+            request_data["_new_thread"] = batch_new_thread
+
             # Spawn as concurrent task — don't block the loop
             task = asyncio.create_task(_process_model(request_data))
             active_tasks.add(task)
+            model_tasks.add(task)
             task.add_done_callback(active_tasks.discard)
+            task.add_done_callback(model_tasks.discard)
 
     except WebSocketDisconnect:
         print(f"WebSocket disconnected for thread {thread_id}")
@@ -405,6 +415,10 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
         import traceback
 
         traceback.print_exc()
+    finally:
+        # Nobody is listening any more; stop billing for model calls.
+        for t in active_tasks:
+            t.cancel()
 
 
 # ─── Shared Helpers ───────────────────────────────────────────────

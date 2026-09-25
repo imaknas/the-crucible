@@ -410,7 +410,11 @@ class TestOrchestrators:
             async def aget_state(self, config):
                 mock_state = MagicMock()
                 mock_state.values = {"current_thesis": "Final Consensus"}
+                mock_state.config = {"configurable": {"checkpoint_id": "head"}}
                 return mock_state
+
+            async def aget_state_history(self, config, filter=None, limit=None):
+                yield await self.aget_state(config)
 
         return MockApp()
 

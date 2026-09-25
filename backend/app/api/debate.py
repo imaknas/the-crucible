@@ -156,13 +156,27 @@ async def debate_websocket(websocket: WebSocket, session_id: str):
 
     ws_lock = asyncio.Lock()
     active_task: Optional[asyncio.Task] = None
+    control = debate_svc.DebateControl()
 
     async def _send(event: dict):
         async with ws_lock:
             try:
                 await websocket.send_json(event)
-            except RuntimeError:
+            except (RuntimeError, WebSocketDisconnect):
                 pass
+
+    def _debate_running() -> bool:
+        return active_task is not None and not active_task.done()
+
+    async def _cancel_active():
+        nonlocal active_task
+        if _debate_running():
+            active_task.cancel()
+            try:
+                await active_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        active_task = None
 
     async def _run_debate(data: dict):
         session = db.get_debate_session(session_id)
@@ -176,6 +190,7 @@ async def debate_websocket(websocket: WebSocket, session_id: str):
             toggles=data.get("toggles", {}),
             documents=data.get("documents", {}),
             parent_checkpoint_id=data.get("parent_checkpoint_id"),
+            control=control,
         ):
             await _send(event)
 
@@ -221,6 +236,8 @@ async def debate_websocket(websocket: WebSocket, session_id: str):
             toggles=data.get("toggles", {}),
         ):
             await _send(event)
+        db.update_debate_session(session_id, status="completed")
+        await _send({"type": "debate_session_status", "session_id": session_id, "status": "completed"})
 
     try:
         while True:
@@ -233,36 +250,57 @@ async def debate_websocket(websocket: WebSocket, session_id: str):
             msg_type = data.get("type")
 
             if msg_type == "debate_start":
-                if active_task and not active_task.done():
-                    active_task.cancel()
+                await _cancel_active()
+                control = debate_svc.DebateControl()
                 active_task = asyncio.create_task(_run_debate(data))
 
             elif msg_type == "debate_inject":
-                await debate_svc.inject_message(session_id, data.get("message", ""))
+                message = (data.get("message") or "").strip()
+                if not message:
+                    continue
+                if not _debate_running():
+                    await _send({"type": "error", "session_id": session_id, "message": "No debate is running to add that to."})
+                    continue
+                control.inject(message)
                 await _send({"type": "debate_session_status", "session_id": session_id, "status": "inject_queued"})
 
             elif msg_type == "debate_redirect":
-                if active_task and not active_task.done():
-                    active_task.cancel()
+                # A redirect restarts the debate on the new prompt, from each
+                # model's current thread head.
+                await _cancel_active()
+                control = debate_svc.DebateControl()
                 data["prompt"] = data.get("message", "")
+                data["parent_checkpoint_id"] = None
                 active_task = asyncio.create_task(_run_debate(data))
 
             elif msg_type == "debate_control":
                 action = data.get("action")
-                if action == "stop" and active_task:
-                    active_task.cancel()
+                if action == "stop":
+                    await _cancel_active()
                     db.update_debate_session(session_id, status="completed")
                     await _send({"type": "debate_session_status", "session_id": session_id, "status": "completed"})
-                elif action == "pause":
-                    db.update_debate_session(session_id, status="paused")
-                    await _send({"type": "debate_session_status", "session_id": session_id, "status": "paused"})
+                elif action == "pause" and _debate_running():
+                    # Takes effect when the current round finishes; run_debate
+                    # reports "paused" at that point.
+                    control.pause()
+                    await _send({"type": "debate_session_status", "session_id": session_id, "status": "pausing"})
                 elif action == "resume":
-                    db.update_debate_session(session_id, status="running")
-                    await _send({"type": "debate_session_status", "session_id": session_id, "status": "running"})
+                    control.resume()
+                    if _debate_running():
+                        db.update_debate_session(session_id, status="running")
+                        await _send({"type": "debate_session_status", "session_id": session_id, "status": "running"})
 
             elif msg_type == "debate_synthesize":
+                # Synthesising ends the debate: stop the rounds first so the
+                # old task can't be orphaned beyond the reach of stop/disconnect.
+                await _cancel_active()
                 active_task = asyncio.create_task(_run_synthesis(data))
 
     except WebSocketDisconnect:
-        if active_task:
+        pass
+    finally:
+        # The debate cannot outlive its socket. Record that it was cut short so
+        # a reload doesn't restore it as "running" with nothing behind it.
+        if active_task and not active_task.done():
             active_task.cancel()
+            db.update_debate_session(session_id, status="interrupted")

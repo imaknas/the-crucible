@@ -211,6 +211,11 @@ def test_chat_endpoint(client, mock_graph_app):
 
     mock_graph_app.aget_state = mock_aget_state
 
+    async def mock_history(*args, **kwargs):
+        yield mock_state
+
+    mock_graph_app.aget_state_history = mock_history
+
     response = client.post("/chat", json={"message": "Hello", "thread_id": "t1"})
 
     assert response.status_code == 200

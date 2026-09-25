@@ -9,16 +9,56 @@ Yields typed event dicts consumed by the WebSocket handler in main.py.
 """
 
 import asyncio
+from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Optional
 from uuid import uuid4
 
 from app.core import database as db
 from app.services.convergence import compute_convergence, llm_judge_converged
+from app.services.runs import final_state_of_run, tag_run, thread_config
 from app.utils.helpers import extract_text
 
 # ─── Constants ───────────────────────────────────────────────────────────────
 
 SYNTHESIS_THREAD_SUFFIX = "::synthesis"
+
+# Per-model budget for one round's graph run (summarise → draft → metadata →
+# synthesis). A reply whose draft already finished is kept even if the later
+# bookkeeping nodes run past it.
+MODEL_TIMEOUT_SECONDS = 120
+
+
+@dataclass
+class DebateControl:
+    """Live controls for a running debate, owned by its WebSocket connection.
+
+    Pause takes effect between rounds; injected messages are added to the
+    next round's prompts. Both live in memory because a debate only runs
+    while its socket is connected.
+    """
+
+    resumed: asyncio.Event = field(default_factory=asyncio.Event)
+    injected: list[str] = field(default_factory=list)
+
+    def __post_init__(self):
+        self.resumed.set()
+
+    @property
+    def paused(self) -> bool:
+        return not self.resumed.is_set()
+
+    def pause(self) -> None:
+        self.resumed.clear()
+
+    def resume(self) -> None:
+        self.resumed.set()
+
+    def inject(self, message: str) -> None:
+        self.injected.append(message)
+
+    def take_injected(self) -> list[str]:
+        taken, self.injected = self.injected, []
+        return taken
 
 
 def make_thread_id(parent_thread_id: str, model_id: str) -> str:
@@ -66,6 +106,7 @@ async def run_debate(
     toggles: dict[str, Any],
     documents: dict[str, str],
     parent_checkpoint_id: Optional[str] = None,
+    control: Optional[DebateControl] = None,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """
     Main debate generator. Yields WS-ready event dicts:
@@ -100,10 +141,14 @@ async def run_debate(
     prev_round_responses: dict[str, str] = {}
     curr_round_responses: dict[str, str] = {}
 
+    control = control or DebateControl()
+
     for round_num in range(max_rounds):
-        if session.get("status") == "paused":
+        if control.paused:
+            db.update_debate_session(session_id, status="paused")
             yield {"type": "debate_session_status", "session_id": session_id, "status": "paused"}
-            return
+            await control.resumed.wait()
+            yield {"type": "debate_session_status", "session_id": session_id, "status": "running"}
 
         db.update_debate_session(session_id, current_round=round_num, status="running")
         yield {"type": "debate_round_start", "session_id": session_id, "round": round_num}
@@ -116,6 +161,7 @@ async def run_debate(
             prompt=prompt,
             participants=participants,
             prev_round_responses=prev_round_responses,
+            injected=control.take_injected(),
         )
 
         # Stream all models concurrently
@@ -174,6 +220,15 @@ async def run_debate(
             }
             break
 
+    unused = control.take_injected()
+    if unused:
+        yield {
+            "type": "error",
+            "session_id": session_id,
+            "message": "The debate ended before your injected message could be used: "
+            + " / ".join(unused),
+        }
+
     # Auto-synthesize if configured
     if session.get("auto_synthesize") and session.get("synthesizer_model"):
         async for event in _stream_synthesis(
@@ -198,8 +253,28 @@ def _build_round_prompts(
     prompt: str,
     participants: list[str],
     prev_round_responses: dict[str, str],
+    injected: Optional[list[str]] = None,
 ) -> dict[str, str]:
-    """Round 0: original prompt. Round 1+: each model sees all peers' previous responses."""
+    """Round 0: original prompt. Round 1+: each model sees all peers' previous responses.
+
+    Messages the user injected since the last round are appended to every prompt.
+    """
+    prompts = _base_round_prompts(round_num, prompt, participants, prev_round_responses)
+    if injected:
+        note = "\n\n".join(injected)
+        prompts = {
+            m: f"{p}\n\nThe user has added this to the debate; take it into account:\n{note}"
+            for m, p in prompts.items()
+        }
+    return prompts
+
+
+def _base_round_prompts(
+    round_num: int,
+    prompt: str,
+    participants: list[str],
+    prev_round_responses: dict[str, str],
+) -> dict[str, str]:
     if round_num == 0:
         return {m: prompt for m in participants}
 
@@ -240,6 +315,8 @@ async def _stream_round(
         thread_id = thread_ids[model_id]
         model_prompt = model_prompts[model_id]
         buffer = ""
+        draft_done = False
+        run_id = ""
         try:
             initial_state = {
                 "active_peer": model_id,
@@ -249,12 +326,10 @@ async def _stream_round(
                 "current_thesis": "",
                 "documents": documents,
             }
-            langgraph_config = {
-                "configurable": {
-                    "thread_id": thread_id,
-                    **({"checkpoint_id": parent_checkpoint_id} if parent_checkpoint_id and round_num == 0 else {}),
-                }
-            }
+            langgraph_config = thread_config(
+                thread_id, parent_checkpoint_id if round_num == 0 else None
+            )
+            run_id = tag_run(langgraph_config)
 
             await queue.put({
                 "type": "stream_start",
@@ -263,9 +338,11 @@ async def _stream_round(
                 "round": round_num,
             })
 
-            async with asyncio.timeout(120):
+            async with asyncio.timeout(MODEL_TIMEOUT_SECONDS):
                 async for event in graph_app.astream_events(initial_state, langgraph_config, version="v2"):
                     kind = event.get("event")
+                    if kind == "on_chain_end" and event.get("name") == "draft":
+                        draft_done = True
                     if kind == "on_chat_model_stream":
                         node_name = event.get("metadata", {}).get("langgraph_node", "")
                         if node_name != "draft":
@@ -284,9 +361,9 @@ async def _stream_round(
                     elif kind == "on_chain_end" and event.get("name") == "LangGraph":
                         data = event.get("data", {}).get("output", {})
                         msgs = data.get("messages", [])
+                        final = await final_state_of_run(graph_app, thread_id, run_id)
                         checkpoint_id = (
-                            event.get("metadata", {}).get("checkpoint_id") or
-                            event.get("data", {}).get("output", {}).get("checkpoint_id", "")
+                            final.config["configurable"]["checkpoint_id"] if final else ""
                         )
                         await queue.put({
                             "type": "stream_end",
@@ -303,8 +380,21 @@ async def _stream_round(
                         curr_round_responses[model_id] = buffer
 
         except asyncio.TimeoutError:
-            await queue.put({"type": "error", "model": model_id, "session_id": session_id, "message": f"{model_id} timed out after 120s"})
-            curr_round_responses[model_id] = ""
+            if draft_done and buffer:
+                # The answer is complete; only the post-draft bookkeeping ran long.
+                await queue.put({
+                    "type": "stream_end",
+                    "model": model_id,
+                    "session_id": session_id,
+                    "round": round_num,
+                    "checkpoint_id": "",
+                    "content": buffer,
+                    "messages": [],
+                })
+                curr_round_responses[model_id] = buffer
+            else:
+                await queue.put({"type": "error", "model": model_id, "session_id": session_id, "message": f"{model_id} timed out after {MODEL_TIMEOUT_SECONDS}s"})
+                curr_round_responses[model_id] = ""
         except Exception as e:
             await queue.put({"type": "error", "model": model_id, "session_id": session_id, "message": str(e)})
             curr_round_responses[model_id] = ""
@@ -313,15 +403,20 @@ async def _stream_round(
 
     tasks = [asyncio.create_task(_model_producer(m)) for m in participants]
 
-    while len(finished) < len(participants):
-        event = await queue.get()
-        if event["type"] == "__done__":
-            finished.add(event["model"])
-        else:
-            yield event
-
-    for t in tasks:
-        t.cancel()
+    try:
+        while len(finished) < len(participants):
+            event = await queue.get()
+            if event["type"] == "__done__":
+                finished.add(event["model"])
+            else:
+                yield event
+    finally:
+        # On stop/disconnect the consumer is cancelled at queue.get(); without
+        # this the producers kept streaming and billing until their timeout.
+        for t in tasks:
+            if not t.done():
+                t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 # ─── Convergence check ───────────────────────────────────────────────────────
@@ -406,12 +501,13 @@ async def _stream_synthesis(
         "current_thesis": "",
         "documents": {},
     }
-    config = {"configurable": {"thread_id": synthesis_thread_id}}
+    config = thread_config(synthesis_thread_id)
+    run_id = tag_run(config)
     buffer = ""
     checkpoint_id = ""
 
     try:
-      async with asyncio.timeout(120):
+      async with asyncio.timeout(MODEL_TIMEOUT_SECONDS):
         async for event in graph_app.astream_events(initial_state, config, version="v2"):
             kind = event.get("event")
             if kind == "on_chat_model_stream":
@@ -430,10 +526,9 @@ async def _stream_synthesis(
                             "session_id": session_id,
                         }
             elif kind == "on_chain_end" and event.get("name") == "LangGraph":
-                checkpoint_id = (
-                    event.get("metadata", {}).get("checkpoint_id") or
-                    event.get("data", {}).get("output", {}).get("checkpoint_id", "")
-                )
+                final = await final_state_of_run(graph_app, synthesis_thread_id, run_id)
+                if final:
+                    checkpoint_id = final.config["configurable"]["checkpoint_id"]
     except asyncio.TimeoutError:
         pass  # Still emit synthesis_end with whatever was buffered
 
@@ -445,54 +540,3 @@ async def _stream_synthesis(
         "content": buffer,
         "synthesis_thread_id": synthesis_thread_id,
     }
-
-
-# ─── Inject / Redirect ───────────────────────────────────────────────────────
-
-
-async def inject_message(
-    session_id: str,
-    message: str,
-) -> dict[str, Any]:
-    """
-    Mark an injected user message in session metadata.
-    The coordinator will include it as context in the next round's prompts.
-    Returns the updated session.
-    """
-    session = db.get_debate_session(session_id)
-    if not session:
-        return {"error": f"Session {session_id} not found"}
-    policy = session["termination_policy"]
-    policy["_inject_queue"] = policy.get("_inject_queue", []) + [message]
-    db.update_debate_session(session_id, termination_policy=policy)
-    return session
-
-
-async def redirect_debate(
-    graph_app,
-    session_id: str,
-    new_prompt: str,
-    toggles: dict[str, Any],
-    documents: dict[str, str],
-) -> AsyncGenerator[dict[str, Any], None]:
-    """
-    Redirect: treat new_prompt as a fresh Round 0, reset round counter.
-    Creates new sub-branches from the current checkpoint of each model's thread.
-    """
-    session = db.get_debate_session(session_id)
-    if not session:
-        yield {"type": "error", "message": f"Session {session_id} not found"}
-        return
-
-    db.update_debate_session(session_id, current_round=0, status="running")
-
-    # Re-run the full debate with the new prompt from current thread state
-    async for event in run_debate(
-        graph_app=graph_app,
-        session_id=session_id,
-        prompt=new_prompt,
-        toggles=toggles,
-        documents=documents,
-        parent_checkpoint_id=None,
-    ):
-        yield event
