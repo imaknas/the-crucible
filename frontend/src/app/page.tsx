@@ -31,7 +31,13 @@ import { useThreads } from "@/hooks/useThreads";
 import { useHistoryTree } from "@/hooks/useHistoryTree";
 import { useChatWebSocket } from "@/hooks/useChatWebSocket";
 import { useDebateTree } from "@/hooks/useDebateTree";
-import type { Message, DebateDefaults } from "@/lib/types";
+import type { Message, DebateDefaults, DebateSession, DebateUiStatus } from "@/lib/types";
+
+// A session loaded from the server has no socket in this tab, so it cannot be
+// running here: the backend cancels a debate when its socket closes.
+function restoredDebateStatus(status: DebateSession["status"]): DebateUiStatus {
+  return status === "completed" ? "completed" : "interrupted";
+}
 import { modelFamilyColor } from "@/lib/colors";
 import { modelDisplayName } from "@/lib/modelNames";
 
@@ -91,8 +97,9 @@ export default function Home() {
   const [debateMessages, setDebateMessages] = useState<Message[]>([]);
   const [debateRound, setDebateRound] = useState(0);
   const [debateMaxRounds, setDebateMaxRounds] = useState(3);
-  const [debateStatus, setDebateStatus] = useState<"running" | "converged" | "completed">("running");
+  const [debateStatus, setDebateStatus] = useState<DebateUiStatus>("running");
   const [debateConvergenceScore, setDebateConvergenceScore] = useState<number | undefined>();
+  const [debateSessions, setDebateSessions] = useState<DebateSession[]>([]);
 
   const debateWsRef = useRef<WebSocket | null>(null);
   const debateStreamBufferRef = useRef<Record<string, string>>({});
@@ -281,7 +288,35 @@ export default function Home() {
     stopPolling: stopDebatePolling,
     addPendingNode,
     resolvePendingNode,
+    clearPendingNodes,
   } = useDebateTree();
+
+  const pushToast = useCallback((message: string, model?: string) => {
+    setToasts((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, message, model },
+    ]);
+  }, []);
+
+  // Tear down whatever socket and polling belong to the debate on screen.
+  // Called before showing a different debate, so the old one can't keep
+  // appending bubbles or overwriting the tree of the new one.
+  const closeDebateSocket = useCallback(() => {
+    const ws = debateWsRef.current;
+    debateWsRef.current = null;
+    if (ws) {
+      ws.onmessage = null;
+      ws.onclose = null;
+      ws.close();
+    }
+    stopDebatePolling();
+    if (debateRafRef.current) {
+      cancelAnimationFrame(debateRafRef.current);
+      debateRafRef.current = null;
+    }
+    debateStreamBufferRef.current = {};
+    debateMsgIdMapRef.current = {};
+  }, [stopDebatePolling]);
 
   // ─── Debate Helpers ──────────────────────────────────────────────
   const flushDebateBuffer = useCallback(() => {
@@ -368,7 +403,7 @@ export default function Home() {
             );
             delete debateMsgIdMapRef.current[msg.model];
           }
-          resolvePendingNode(msg.model, sessionId);
+          resolvePendingNode(msg.model, sessionId, msg.round ?? 0);
           break;
         }
 
@@ -424,14 +459,46 @@ export default function Home() {
             setDebateStatus("completed");
             stopDebatePolling();
             fetchDebateTree(sessionId);
+            clearPendingNodes();
             // Reset regular messages so post-debate chat starts clean below the debate view
             setMessages([]);
+          } else if (msg.status === "pausing" || msg.status === "paused" || msg.status === "running") {
+            setDebateStatus(msg.status);
+          } else if (msg.status === "inject_queued") {
+            pushToast("Added — the models will see it in the next round.");
           }
           break;
 
-        case "error":
-          console.error("[Debate WS] error:", msg.message);
+        case "error": {
+          // A model that errors or times out never sends stream_end: close
+          // its bubble and drop its "Thinking…" node, or both spin forever.
+          if (msg.model) {
+            flushDebateBuffer();
+            const targetId = debateMsgIdMapRef.current[msg.model];
+            if (targetId) {
+              setDebateMessages((prev) =>
+                prev.map((m) =>
+                  m.id === targetId
+                    ? {
+                        ...m,
+                        content: m.content
+                          ? `${m.content}\n\n_(stopped: ${msg.message})_`
+                          : `_(no response: ${msg.message})_`,
+                        streaming: false,
+                      }
+                    : m,
+                ),
+              );
+              delete debateMsgIdMapRef.current[msg.model];
+            }
+            resolvePendingNode(msg.model, sessionId, msg.round ?? 0);
+          }
+          pushToast(
+            msg.message ?? "Debate error",
+            msg.model ? modelDisplayName(msg.model, allModelsRef.current) : undefined,
+          );
           break;
+        }
       }
     },
     [
@@ -439,10 +506,46 @@ export default function Home() {
       scheduleDebateFlush,
       flushDebateBuffer,
       resolvePendingNode,
+      clearPendingNodes,
       fetchDebateTree,
       stopDebatePolling,
       setMessages,
+      pushToast,
     ],
+  );
+
+  // One socket per debate session. firstFrame is sent once it opens.
+  const connectDebateSocket = useCallback(
+    (sessionId: string, firstFrame: Record<string, unknown>, onOpen?: () => void) => {
+      const ws = new WebSocket(api.createDebateWebSocketUrl(sessionId));
+      debateWsRef.current = ws;
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify(firstFrame));
+        onOpen?.();
+      };
+
+      ws.onmessage = (ev) => {
+        try {
+          handleDebateMessage(JSON.parse(ev.data), sessionId);
+        } catch {}
+      };
+
+      ws.onerror = () => console.error("[Debate WS] connection error");
+      ws.onclose = () => {
+        // A late close from a previous socket must not disconnect the
+        // controls of the debate that replaced it.
+        if (debateWsRef.current !== ws) return;
+        debateWsRef.current = null;
+        stopDebatePolling();
+        clearPendingNodes();
+        setDebateStatus((prev) =>
+          prev === "completed" || prev === "converged" ? prev : "interrupted",
+        );
+      };
+      return ws;
+    },
+    [handleDebateMessage, stopDebatePolling, clearPendingNodes],
   );
 
   const handleDebateOpen = useCallback((prompt: string) => {
@@ -450,24 +553,40 @@ export default function Home() {
     setDebateDialogOpen(true);
   }, []);
 
+  const debateSocketOpen = useCallback(() => {
+    if (debateWsRef.current?.readyState === WebSocket.OPEN) return true;
+    pushToast("This debate is no longer connected. Start a new debate to continue.");
+    return false;
+  }, [pushToast]);
+
   const handleDebateInject = useCallback((message: string) => {
-    if (!debateWsRef.current || debateWsRef.current.readyState !== WebSocket.OPEN) return;
-    debateWsRef.current.send(JSON.stringify({ type: "debate_inject", message }));
+    if (!debateSocketOpen()) return;
+    debateWsRef.current?.send(JSON.stringify({ type: "debate_inject", message }));
     setDebateMessages((prev) => [
       ...prev,
       { id: `inject-${Date.now()}`, role: "user", content: message, type: "inject" },
     ]);
-  }, []);
+  }, [debateSocketOpen]);
 
   const handleDebateRedirect = useCallback((message: string) => {
-    if (!debateWsRef.current || debateWsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!debateSocketOpen()) return;
     pendingDebatePromptRef.current = message;
-    debateWsRef.current.send(JSON.stringify({ type: "debate_redirect", message }));
+    debateWsRef.current?.send(JSON.stringify({ type: "debate_redirect", message }));
     setDebateMessages((prev) => [
       ...prev,
       { id: `redirect-${Date.now()}`, role: "user", content: message, type: "redirect" },
     ]);
-  }, []);
+  }, [debateSocketOpen]);
+
+  const handleDebatePause = useCallback(() => {
+    if (!debateSocketOpen()) return;
+    debateWsRef.current?.send(JSON.stringify({ type: "debate_control", action: "pause" }));
+  }, [debateSocketOpen]);
+
+  const handleDebateResume = useCallback(() => {
+    if (!debateSocketOpen()) return;
+    debateWsRef.current?.send(JSON.stringify({ type: "debate_control", action: "resume" }));
+  }, [debateSocketOpen]);
 
   const handleDebateStop = useCallback(() => {
     if (debateWsRef.current && debateWsRef.current.readyState === WebSocket.OPEN) {
@@ -477,21 +596,24 @@ export default function Home() {
   }, []);
 
   const handleDebateSynthesize = useCallback(() => {
-    if (!debateWsRef.current || debateWsRef.current.readyState !== WebSocket.OPEN) return;
-    debateWsRef.current.send(
-      JSON.stringify({
-        type: "debate_synthesize",
-        synthesizer_model: debateDefaults.synthesizer_model || debateParticipantsRef.current[0],
-        prompt: pendingDebatePromptRef.current,
-        toggles,
-      }),
-    );
-  }, [debateDefaults.synthesizer_model, toggles]);
+    const frame = {
+      type: "debate_synthesize",
+      synthesizer_model: debateDefaults.synthesizer_model || debateParticipantsRef.current[0],
+      prompt: pendingDebatePromptRef.current,
+      toggles,
+    };
+    if (debateWsRef.current?.readyState === WebSocket.OPEN) {
+      debateWsRef.current.send(JSON.stringify(frame));
+    } else if (activeDebateSession) {
+      // A restored or finished debate has no socket; synthesis needs only one
+      // for its own stream.
+      connectDebateSocket(activeDebateSession, frame);
+    }
+  }, [debateDefaults.synthesizer_model, toggles, activeDebateSession, connectDebateSocket]);
 
   // Clear debate when switching threads or exiting debate mode
   const clearDebateSession = useCallback(() => {
-    debateWsRef.current?.close();
-    debateWsRef.current = null;
+    closeDebateSocket();
     setActiveDebateSession(null);
     setDebateMessages([]);
     setDebateRound(0);
@@ -499,7 +621,25 @@ export default function Home() {
     setDebateConvergenceScore(undefined);
     setActiveDebateNode(null);
     clearDebateTree();
-  }, [clearDebateTree]);
+  }, [clearDebateTree, closeDebateSocket]);
+
+  const handleDeleteDebateSession = useCallback(
+    async (sessionId: string) => {
+      const ok = await showConfirm(
+        "Delete Debate",
+        "This removes the debate and every model's responses in it. This action cannot be undone.",
+      );
+      if (!ok) return;
+      try {
+        await api.deleteDebateSession(sessionId);
+        if (sessionId === activeDebateSession) clearDebateSession();
+        setDebateSessions((prev) => prev.filter((d) => d.session_id !== sessionId));
+      } catch {
+        pushToast("Couldn't delete the debate.");
+      }
+    },
+    [showConfirm, activeDebateSession, clearDebateSession, pushToast],
+  );
 
   // Drop the debate view when switching to a DIFFERENT thread (not on mount).
   //
@@ -520,16 +660,18 @@ export default function Home() {
     }
   }
 
-  useEffect(() => {
-    return () => {
-      debateWsRef.current?.close();
-      debateWsRef.current = null;
-      stopDebatePolling();
-    };
-  }, [threadId, stopDebatePolling]);
+  useEffect(() => closeDebateSocket, [threadId, closeDebateSocket]);
 
-  // Persist active debate session to localStorage
+  // Persist active debate session to localStorage. Skips the mount run: during
+  // hydration activeDebateSession is still null (the stored value is adopted on
+  // the next render), and writing that null erased the session before it could
+  // be restored.
+  const persistDebateReadyRef = useRef(false);
   useEffect(() => {
+    if (!persistDebateReadyRef.current) {
+      persistDebateReadyRef.current = true;
+      return;
+    }
     writeStoredValue("crucible_active_debate", activeDebateSession);
   }, [activeDebateSession]);
 
@@ -550,7 +692,7 @@ export default function Home() {
           return;
         }
         fetchDebateTree(activeDebateSession);
-        setDebateStatus(s.status === "completed" ? "completed" : s.status === "running" ? "running" : "converged");
+        setDebateStatus(restoredDebateStatus(s.status));
         setDebateRound(s.current_round);
         setDebateMaxRounds(s.termination_policy.max_rounds);
         debateParticipantsRef.current = s.participants;
@@ -578,7 +720,6 @@ export default function Home() {
   }, []);
 
   // Fetch debate sessions for sidebar whenever thread list changes
-  const [debateSessions, setDebateSessions] = useState<import("@/lib/types").DebateSession[]>([]);
   useEffect(() => {
     api.listDebateSessions()
       .then(setDebateSessions)
@@ -601,8 +742,9 @@ export default function Home() {
         setActiveDebateSession(s.session_id);
         setDebateRound(s.current_round);
         setDebateMaxRounds(s.termination_policy.max_rounds);
-        setDebateStatus(s.status === "completed" ? "completed" : "running");
+        setDebateStatus(restoredDebateStatus(s.status));
         debateParticipantsRef.current = s.participants;
+        restoredDebateRef.current = s.session_id;
         setShowTree(true);
         fetchDebateTree(s.session_id);
         api.loadDebateMessages(s).then(setDebateMessages).catch(() => {});
@@ -710,11 +852,13 @@ export default function Home() {
         ),
       );
 
-      api.saveNodePositions(threadId, [
-        { node_id: nodeId, x: position.x, y: position.y },
-      ]);
+      api
+        .saveNodePositions(threadId, [
+          { node_id: nodeId, x: position.x, y: position.y },
+        ])
+        .catch(() => pushToast("Couldn't save the node position."));
     },
-    [threadId, setNodes],
+    [threadId, setNodes, pushToast],
   );
 
   // "Tidy Layout" moves every node at once — one request, not one per node.
@@ -728,9 +872,11 @@ export default function Home() {
           return u ? { ...n, position: { x: u.x, y: u.y } } : n;
         });
       });
-      api.saveNodePositions(threadId, updates);
+      api
+        .saveNodePositions(threadId, updates)
+        .catch(() => pushToast("Couldn't save the new layout."));
     },
-    [threadId, setNodes],
+    [threadId, setNodes, pushToast],
   );
 
   // Deliberately does not call setShowTree. Sending used to yank you out of the
@@ -792,13 +938,27 @@ export default function Home() {
         onSwitchCheckpoint={handleSwitchCheckpoint}
         debateSessions={debateSessions}
         activeDebateSessionId={activeDebateSession}
+        modelLabel={(id) => modelDisplayName(id, allModelsRef.current)}
+        onDeleteDebateSession={handleDeleteDebateSession}
         onSwitchDebateSession={(sessionId) => {
+          if (sessionId === activeDebateSession) {
+            // Re-selecting the debate on screen: refresh it, but keep its
+            // socket, or a live debate would be cancelled by its own click.
+            fetchDebateTree(sessionId);
+            setShowTree(true);
+            return;
+          }
+          // Leaving a live debate: its socket closing cancels it server-side.
+          closeDebateSocket();
+          restoredDebateRef.current = sessionId;
           setActiveDebateSession(sessionId);
+          setDebateMessages([]);
+          setDebateConvergenceScore(undefined);
           fetchDebateTree(sessionId);
           api.fetchDebateSession(sessionId).then((s) => {
             setDebateRound(s.current_round);
             setDebateMaxRounds(s.termination_policy.max_rounds);
-            setDebateStatus(s.status === "completed" ? "completed" : "running");
+            setDebateStatus(restoredDebateStatus(s.status));
             debateParticipantsRef.current = s.participants;
             api.loadDebateMessages(s).then(setDebateMessages).catch(() => {});
           }).catch(() => {});
@@ -1178,15 +1338,24 @@ export default function Home() {
                   onDebateStop={
                     activeDebateSession
                       ? () => {
-                          if (debateStatus === "running") handleDebateStop();
+                          if (["running", "pausing", "paused"].includes(debateStatus)) handleDebateStop();
                           clearDebateSession();
                         }
                       : undefined
                   }
                   onDebateSynthesize={
-                    activeDebateSession && debateMessages.length > 0 && debateStatus !== "running"
+                    activeDebateSession &&
+                    debateMessages.length > 0 &&
+                    debateStatus !== "running" &&
+                    debateStatus !== "pausing"
                       ? handleDebateSynthesize
                       : undefined
+                  }
+                  onDebatePause={
+                    activeDebateSession && debateStatus === "running" ? handleDebatePause : undefined
+                  }
+                  onDebateResume={
+                    activeDebateSession && debateStatus === "paused" ? handleDebateResume : undefined
                   }
                 />
               </motion.div>
@@ -1229,7 +1398,13 @@ export default function Home() {
               synthesizer_model: config.synthesizer_model,
             });
 
+            // A new debate replaces whatever was on screen, live or not.
+            closeDebateSocket();
+            // Mark it as already loaded so the restore effect doesn't swap
+            // the live stream for an empty server snapshot.
+            restoredDebateRef.current = session.session_id;
             setActiveDebateSession(session.session_id);
+            fetchDebateTree(session.session_id);
             setDebateMaxRounds(config.max_rounds);
             setDebateRound(0);
             setDebateStatus("running");
@@ -1238,32 +1413,17 @@ export default function Home() {
             debateParticipantsRef.current = session.participants;
             setShowTree(true);
 
-            const ws = new WebSocket(api.createDebateWebSocketUrl(session.session_id));
-            debateWsRef.current = ws;
-
-            ws.onopen = () => {
-              ws.send(
-                JSON.stringify({
-                  type: "debate_start",
-                  prompt: pendingDebatePromptRef.current,
-                  toggles,
-                  documents,
-                  parent_checkpoint_id: activeCheckpoint,
-                }),
-              );
-              startDebatePolling(session.session_id);
-            };
-
-            ws.onmessage = (ev) => {
-              try {
-                handleDebateMessage(JSON.parse(ev.data), session.session_id);
-              } catch {}
-            };
-
-            ws.onerror = () => console.error("[Debate WS] connection error");
-            ws.onclose = () => {
-              debateWsRef.current = null;
-            };
+            connectDebateSocket(
+              session.session_id,
+              {
+                type: "debate_start",
+                prompt: pendingDebatePromptRef.current,
+                toggles,
+                documents,
+                parent_checkpoint_id: activeCheckpoint,
+              },
+              () => startDebatePolling(session.session_id),
+            );
           } catch (e) {
             console.error("Failed to create debate session:", e);
           }

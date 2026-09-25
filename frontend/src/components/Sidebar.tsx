@@ -39,6 +39,9 @@ interface SidebarProps {
   debateSessions?: DebateSession[];
   activeDebateSessionId?: string | null;
   onSwitchDebateSession?: (sessionId: string) => void;
+  onDeleteDebateSession?: (sessionId: string) => void;
+  /** Human-facing model name; raw IDs belong in tooltips only. */
+  modelLabel?: (modelId: string) => string;
 }
 
 const Sidebar: React.FC<SidebarProps> = React.memo(
@@ -57,6 +60,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
     debateSessions = [],
     activeDebateSessionId,
     onSwitchDebateSession,
+    onDeleteDebateSession,
+    modelLabel = (id: string) => id,
   }) => {
     const isDark = useTheme().palette.mode === "dark";
     const [expandedDebateThreads, setExpandedDebateThreads] = React.useState<Set<string>>(new Set());
@@ -400,12 +405,22 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                                           <Box sx={{ width: "100%" }}>
                                             <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.2 }}>
                                               <Swords width={10} height={10} color="#8b5cf6" />
-                                              <Typography variant="caption" sx={{ fontWeight: 700, color: isActiveDebate ? "#a78bfa" : "text.primary", fontSize: "0.68rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                                {s.participants.join(" vs ")}
+                                              <Typography variant="caption" title={s.participants.join(" vs ")} sx={{ fontWeight: 700, color: isActiveDebate ? "#a78bfa" : "text.primary", fontSize: "0.68rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                {s.participants.map(modelLabel).join(" vs ")}
                                               </Typography>
-                                              <Box sx={{ px: 0.75, py: 0.1, borderRadius: 1, fontSize: "0.55rem", fontWeight: 700, bgcolor: s.status === "completed" ? "rgba(100,116,139,0.15)" : "rgba(16,185,129,0.15)", color: s.status === "completed" ? "text.secondary" : "#10b981" }}>
+                                              <Box sx={{ px: 0.75, py: 0.1, borderRadius: 1, fontSize: "0.55rem", fontWeight: 700, bgcolor: s.status === "running" ? "rgba(16,185,129,0.15)" : "rgba(100,116,139,0.15)", color: s.status === "running" ? "#10b981" : "text.secondary" }}>
                                                 {s.status}
                                               </Box>
+                                              {onDeleteDebateSession && (
+                                                <IconButton
+                                                  size="small"
+                                                  aria-label="Delete debate"
+                                                  onClick={(e) => { e.stopPropagation(); onDeleteDebateSession(s.session_id); }}
+                                                  sx={{ p: 0.25, color: "text.disabled", "&:hover": { color: "error.main" } }}
+                                                >
+                                                  <Trash2 width={11} height={11} />
+                                                </IconButton>
+                                              )}
                                             </Box>
                                             <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.62rem" }}>
                                               {s.termination_policy.max_rounds} rounds

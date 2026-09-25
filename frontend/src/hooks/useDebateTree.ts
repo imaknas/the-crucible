@@ -12,7 +12,10 @@ import type {
 export const LANE_WIDTH = 300;
 export const ROUND_HEIGHT = 160;
 
-const TERMINAL_STATUSES = new Set(["completed", "failed"]);
+const TERMINAL_STATUSES = new Set(["completed", "failed", "interrupted"]);
+
+const pendingId = (modelId: string, roundNum: number) =>
+  `${modelId}::pending-r${roundNum}`;
 
 export function useDebateTree() {
   const [serverNodes, setServerNodes] = useState<TreeNode[]>([]);
@@ -28,6 +31,9 @@ export function useDebateTree() {
   // from the render that created it (always null), which is why polling used to
   // run forever. A ref is always current.
   const statusRef = useRef<string | null>(null);
+  // The session the canvas is showing. A response for any other session (a
+  // poll or refetch still in flight from the one we just left) is dropped.
+  const sessionRef = useRef<string | null>(null);
 
   const stopPolling = useCallback(() => {
     if (pollIntervalRef.current) {
@@ -36,10 +42,11 @@ export function useDebateTree() {
     }
   }, []);
 
-  const fetchTree = useCallback(async (sessionId: string) => {
+  const loadTree = useCallback(async (sessionId: string) => {
     try {
       setLoading(true);
       const data = await fetchDebateTree(sessionId);
+      if (sessionRef.current !== sessionId) return;
       // Only the server-owned slice is replaced; pending nodes live separately
       // so a poll landing mid-round can no longer wipe the "Thinking…" markers.
       setServerNodes(data.nodes);
@@ -54,6 +61,18 @@ export function useDebateTree() {
     }
   }, []);
 
+  // An explicit fetch selects the session; polls only refresh the current one.
+  const fetchTree = useCallback(
+    async (sessionId: string) => {
+      if (sessionRef.current !== sessionId) {
+        sessionRef.current = sessionId;
+        setPendingNodes([]);
+      }
+      await loadTree(sessionId);
+    },
+    [loadTree],
+  );
+
   const clearTree = useCallback(() => {
     setServerNodes([]);
     setEdges([]);
@@ -61,6 +80,7 @@ export function useDebateTree() {
     setSessionMeta(null);
     setPendingNodes([]);
     statusRef.current = null;
+    sessionRef.current = null;
     stopPolling();
   }, [stopPolling]);
 
@@ -68,14 +88,19 @@ export function useDebateTree() {
   const startPolling = useCallback(
     (sessionId: string, intervalMs = 3000) => {
       stopPolling();
+      sessionRef.current = sessionId;
       pollIntervalRef.current = setInterval(async () => {
-        await fetchTree(sessionId);
+        if (sessionRef.current !== sessionId) {
+          stopPolling();
+          return;
+        }
+        await loadTree(sessionId);
         if (statusRef.current && TERMINAL_STATUSES.has(statusRef.current)) {
           stopPolling();
         }
       }, intervalMs);
     },
-    [fetchTree, stopPolling],
+    [loadTree, stopPolling],
   );
 
   // Never leave an interval running past unmount.
@@ -91,7 +116,7 @@ export function useDebateTree() {
       modelName?: string,
     ) => {
       const pendingNode: TreeNode = {
-        id: `${modelId}::pending-r${roundNum}`,
+        id: pendingId(modelId, roundNum),
         data: { label: "Thinking…" },
         position: { x: laneIndex * LANE_WIDTH, y: roundNum * ROUND_HEIGHT },
         metadata: {
@@ -112,15 +137,19 @@ export function useDebateTree() {
     [],
   );
 
+  // Removes exactly one round's placeholder. Filtering by model alone raced
+  // the next round: its fresh pending node, added while this fetch was in
+  // flight, was deleted along with the old one.
   const resolvePendingNode = useCallback(
-    async (modelId: string, sessionId: string) => {
+    async (modelId: string, sessionId: string, roundNum: number) => {
       await fetchTree(sessionId);
-      setPendingNodes((prev) =>
-        prev.filter((n) => n.metadata?.active_peer !== modelId),
-      );
+      const id = pendingId(modelId, roundNum);
+      setPendingNodes((prev) => prev.filter((n) => n.id !== id));
     },
     [fetchTree],
   );
+
+  const clearPendingNodes = useCallback(() => setPendingNodes([]), []);
 
   // A pending node is dropped as soon as the server has a real node for the
   // same model and round, so the two never render on top of each other.
@@ -181,5 +210,6 @@ export function useDebateTree() {
     stopPolling,
     addPendingNode,
     resolvePendingNode,
+    clearPendingNodes,
   };
 }

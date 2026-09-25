@@ -61,7 +61,7 @@ The same session in Arena view: round separators, per-model attribution, and the
 | **📎 Document Attachments** | Upload PDFs mid-conversation. Documents are parsed and indexed for retrieval. |
 | **🔍 RAG (Knowledge Search)** | Enable the RAG toggle to perform semantic search across your uploaded documents. |
 | **🌐 Web Search Grounding** | Let models access the live internet via their native search tool (Google Search, Bing, Anthropic web search). |
-| **🤖 Agentic Bridge (MCP)** | Built-in Model Context Protocol server. Agents (Claude, Cursor) can directly trigger debates and query consensus. |
+| **🤖 Agentic Bridge (MCP)** | Built-in Model Context Protocol server. Agents (Claude, Cursor) can run a multi-model arena and query a thread's thesis and summary. |
 
 ---
 
@@ -100,7 +100,8 @@ Add the following to your MCP settings file (e.g., `~/Library/Application Suppor
 - `invoke_arena`: Triggers the deliberation/synthesis flow (options: `use_rag`, `models`).
 - `get_thread_summary`: Retrieves a summarized technical brief of the entire discussion path.
 - `get_thread_status`: Fetches the current thesis and active model attribution.
-- `get_graph_topology(thread_id)`: (Advanced) Get the full conversation tree structure with metadata (confidence, conflicts).
+
+The conversation tree with per-node metadata (confidence, conflicts) is available over REST rather than MCP: `GET /graph/{thread_id}/topology`.
 
 ---
 
@@ -228,8 +229,13 @@ The easiest way to run the entire stack is using Docker Compose.
 | `ANTHROPIC_API_KEY` | At least one* | Anthropic API key |
 | `GOOGLE_API_KEY` | At least one* | Google AI API key |
 | `NEXT_PUBLIC_API_URL` | No | Backend URL (defaults to `http://localhost:8000`) |
+| `HOST` | No | Backend bind address (defaults to `127.0.0.1`) |
+| `CORS_ORIGINS` | No | Extra allowed browser origins, comma-separated. `localhost` / `127.0.0.1` on any port are always allowed |
+| `CRUCIBLE_ALLOW_REMOTE_CONFIG` | No | Let non-loopback clients use `/config/keys`. Docker Compose sets it, since it publishes ports on `127.0.0.1` only |
 
-> \* Keys can also be set at runtime via **Control Panel → API Keys** in the UI, which writes them to `backend/.env` automatically.
+> \* Keys can also be set at runtime via **Control Panel → API Keys** in the UI, which writes them to `backend/.env` automatically. That endpoint only accepts requests from the local machine.
+
+> **The API has no authentication.** It binds to loopback by default; if you set `HOST=0.0.0.0` to reach it from another machine, anyone on that network can use your API keys.
 
 ---
 

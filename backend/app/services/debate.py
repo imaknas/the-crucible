@@ -393,10 +393,10 @@ async def _stream_round(
                 })
                 curr_round_responses[model_id] = buffer
             else:
-                await queue.put({"type": "error", "model": model_id, "session_id": session_id, "message": f"{model_id} timed out after {MODEL_TIMEOUT_SECONDS}s"})
+                await queue.put({"type": "error", "model": model_id, "session_id": session_id, "round": round_num, "message": f"{model_id} timed out after {MODEL_TIMEOUT_SECONDS}s"})
                 curr_round_responses[model_id] = ""
         except Exception as e:
-            await queue.put({"type": "error", "model": model_id, "session_id": session_id, "message": str(e)})
+            await queue.put({"type": "error", "model": model_id, "session_id": session_id, "round": round_num, "message": str(e)})
             curr_round_responses[model_id] = ""
         finally:
             await queue.put({"type": "__done__", "model": model_id})

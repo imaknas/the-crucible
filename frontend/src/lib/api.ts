@@ -13,12 +13,12 @@ export async function listThreads(): Promise<{
 }
 
 export async function deleteThread(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/threads/${id}`, { method: "DELETE" });
+  const res = await fetch(`${API_BASE}/threads/${encodeURIComponent(id)}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete thread");
 }
 
 export async function renameThread(id: string, title: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/threads/${id}/rename`, {
+  const res = await fetch(`${API_BASE}/threads/${encodeURIComponent(id)}/rename`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
@@ -40,8 +40,8 @@ export async function fetchHistory(
   checkpointId?: string,
 ): Promise<HistoryResponse> {
   const url = checkpointId
-    ? `${API_BASE}/history/${threadId}?checkpoint_id=${encodeURIComponent(checkpointId)}`
-    : `${API_BASE}/history/${threadId}`;
+    ? `${API_BASE}/history/${encodeURIComponent(threadId)}?checkpoint_id=${encodeURIComponent(checkpointId)}`
+    : `${API_BASE}/history/${encodeURIComponent(threadId)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("Failed to fetch history");
   return res.json();
@@ -59,7 +59,7 @@ export async function searchHistory(
   }[];
 }> {
   const res = await fetch(
-    `${API_BASE}/history/${threadId}/search?q=${encodeURIComponent(query)}`,
+    `${API_BASE}/history/${encodeURIComponent(threadId)}/search?q=${encodeURIComponent(query)}`,
   );
   if (!res.ok) throw new Error("Search failed");
   return res.json();
@@ -69,11 +69,12 @@ export async function saveNodePositions(
   threadId: string,
   positions: { node_id: string; x: number; y: number }[],
 ): Promise<void> {
-  await fetch(`${API_BASE}/history/${threadId}/positions`, {
+  const res = await fetch(`${API_BASE}/history/${encodeURIComponent(threadId)}/positions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(positions),
   });
+  if (!res.ok) throw new Error("Failed to save node positions");
 }
 
 export async function deleteCheckpoint(
@@ -81,7 +82,7 @@ export async function deleteCheckpoint(
   checkpointId: string,
 ): Promise<void> {
   const res = await fetch(
-    `${API_BASE}/history/${threadId}/checkpoints/${checkpointId}`,
+    `${API_BASE}/history/${encodeURIComponent(threadId)}/checkpoints/${encodeURIComponent(checkpointId)}`,
     {
       method: "DELETE",
     },
@@ -109,7 +110,7 @@ export async function uploadDocument(
 // ─── WebSocket ──────────────────────────────────────────────────
 
 export function createWebSocketUrl(threadId: string): string {
-  return `${WS_BASE}/ws/${threadId}`;
+  return `${WS_BASE}/ws/${encodeURIComponent(threadId)}`;
 }
 
 // ─── Models ─────────────────────────────────────────────────────
@@ -165,7 +166,7 @@ export async function createDebateSession(params: {
 export async function fetchDebateSession(
   sessionId: string,
 ): Promise<DebateSession> {
-  const res = await fetch(`${API_BASE}/debate/sessions/${sessionId}`);
+  const res = await fetch(`${API_BASE}/debate/sessions/${encodeURIComponent(sessionId)}`);
   if (!res.ok) throw new Error("Failed to fetch debate session");
   return res.json();
 }
@@ -257,16 +258,23 @@ export async function loadDebateMessages(session: DebateSession): Promise<import
   return result;
 }
 
+export async function deleteDebateSession(sessionId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/debate/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete debate session");
+}
+
 export async function fetchDebateTree(
   sessionId: string,
 ): Promise<DebateTreeResponse> {
-  const res = await fetch(`${API_BASE}/debate/sessions/${sessionId}/tree`);
+  const res = await fetch(`${API_BASE}/debate/sessions/${encodeURIComponent(sessionId)}/tree`);
   if (!res.ok) throw new Error("Failed to fetch debate tree");
   return res.json();
 }
 
 export function createDebateWebSocketUrl(sessionId: string): string {
-  return `${WS_BASE}/debate/ws/${sessionId}`;
+  return `${WS_BASE}/debate/ws/${encodeURIComponent(sessionId)}`;
 }
 
 // ─── Config / API Keys ───────────────────────────────────────────
@@ -288,5 +296,12 @@ export async function saveApiKeys(keys: Record<string, string>): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ keys }),
   });
-  if (!res.ok) throw new Error("Failed to save API keys");
+  if (!res.ok) {
+    // The backend explains rejections (e.g. localhost-only, invalid characters).
+    const detail = await res
+      .json()
+      .then((b) => (typeof b?.detail === "string" ? b.detail : null))
+      .catch(() => null);
+    throw new Error(detail ?? `Failed to save API keys (HTTP ${res.status})`);
+  }
 }

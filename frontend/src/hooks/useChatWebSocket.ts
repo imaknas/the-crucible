@@ -31,6 +31,8 @@ export function useChatWebSocket({
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // Bumped after an unexpected close so the effect below opens a new socket.
+  const [reconnectKey, setReconnectKey] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const streamBufferRef = useRef<Record<string, string>>({});
@@ -61,6 +63,8 @@ export function useChatWebSocket({
 
     const ws = new WebSocket(api.createWebSocketUrl(threadId));
     wsRef.current = ws;
+    let disposed = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
     ws.onerror = () => {
       console.error("[WS] Connection error on thread", threadId);
@@ -75,12 +79,15 @@ export function useChatWebSocket({
     };
 
     ws.onclose = (event) => {
-      if (!event.wasClean) {
+      if (!event.wasClean && !disposed) {
         console.warn("[WS] Connection closed unexpectedly, code:", event.code);
         setIsLoading(false);
         setMessages((prev) =>
           prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
         );
+        // e.g. the backend restarted; reconnect instead of staying dead
+        // until the user switches threads.
+        reconnectTimer = setTimeout(() => setReconnectKey((k) => k + 1), 1500);
       }
     };
 
@@ -194,21 +201,6 @@ export function useChatWebSocket({
           finishedModelsCountRef.current = 0;
           setIsLoading(false);
         }
-      } else if (data.type === "chat_update") {
-        // Only allow chat_update to overwrite if we are not currently in a multi-model stream
-        if (
-          expectedModelsCountRef.current === 0 ||
-          finishedModelsCountRef.current >= expectedModelsCountRef.current
-        ) {
-          setMessages(data.messages);
-          setActiveCheckpointRef.current(data.checkpoint_id);
-          onHistoryRefreshRef.current(threadId);
-          setIsLoading(false);
-        } else {
-          console.log(
-            "[WS] Ignoring chat_update during parallel streaming to prevent bubble flickering.",
-          );
-        }
       } else if (data.type === "title_update") {
         // Title updates should NEVER overwrite messages — only refresh tree/sidebar
         onHistoryRefreshRef.current(threadId, undefined, true);
@@ -217,6 +209,8 @@ export function useChatWebSocket({
 
     const pendingModels = pendingModelsRef.current;
     return () => {
+      disposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       ws.close();
       wsRef.current = null;
       if (rafRef.current) {
@@ -225,10 +219,14 @@ export function useChatWebSocket({
       }
       streamBufferRef.current = {};
       pendingModels.clear();
+      streamCheckpointsRef.current = [];
       expectedModelsCountRef.current = 0;
       finishedModelsCountRef.current = 0;
+      // A self-initiated close is "clean", so onclose won't reset this; without
+      // it, switching threads mid-stream left the new thread stuck loading.
+      setIsLoading(false);
     };
-  }, [threadId, setErrorModals]); // Extreme stability: only reconnect if threadId changes
+  }, [threadId, setErrorModals, reconnectKey]); // Reconnect only on thread change or after a dropped socket
 
   const sendInteractiveMessage = async (
     input: string,
@@ -236,47 +234,47 @@ export function useChatWebSocket({
   ) => {
     if (isLoading) return;
     const userMessage = input.trim();
-    if (userMessage || isDeliberation) {
-      if (userMessage) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `user-${Date.now()}`,
-            role: "user",
-            content: userMessage,
-            type: "human",
-          },
-        ]);
-      }
-    } else {
-      return; // nothing to do
+    if (!userMessage && !isDeliberation) return; // nothing to do
+
+    // Check the socket before echoing the message, or a failed send leaves a
+    // user bubble that was never delivered.
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      showConfirm(
+        "Connection Lost",
+        "Not connected to the backend. It will reconnect automatically; try again in a moment.",
+      );
+      return;
+    }
+
+    if (userMessage) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `user-${Date.now()}`,
+          role: "user",
+          content: userMessage,
+          type: "human",
+        },
+      ]);
     }
 
     setIsLoading(true);
     expectedModelsCountRef.current = selectedModels.length;
     finishedModelsCountRef.current = 0;
 
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      selectedModels.forEach((model) => {
-        wsRef.current?.send(
-          JSON.stringify({
-            message: userMessage,
-            model: model,
-            toggles: toggles,
-            documents: documents,
-            parent_checkpoint_id: activeCheckpointRef.current,
-            is_deliberation: isDeliberation,
-          }),
-        );
-      });
-      clearDocuments();
-    } else {
-      setIsLoading(false);
-      showConfirm(
-        "Connection Lost",
-        "WebSocket is not connected. Please refresh the page or select a thread.",
+    selectedModels.forEach((model) => {
+      wsRef.current?.send(
+        JSON.stringify({
+          message: userMessage,
+          model: model,
+          toggles: toggles,
+          documents: documents,
+          parent_checkpoint_id: activeCheckpointRef.current,
+          is_deliberation: isDeliberation,
+        }),
       );
-    }
+    });
+    clearDocuments();
   };
 
   const synthesizeConsensus = async (

@@ -247,6 +247,7 @@ function ApiKeysSection({
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [keySaving, setKeySaving] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
 
   const refreshKeyInfo = () => {
     fetchKeyStatus()
@@ -278,6 +279,7 @@ function ApiKeysSection({
     }
     if (!Object.keys(payload).length) return;
     setKeySaving(true);
+    setKeyError(null);
     try {
       await saveApiKeys(payload);
       setKeyInputs({});
@@ -285,6 +287,8 @@ function ApiKeysSection({
       setTimeout(() => setKeySaved(false), 2000);
       refreshKeyInfo();
       onSaved();
+    } catch (e) {
+      setKeyError(e instanceof Error ? e.message : "Failed to save API keys");
     } finally {
       setKeySaving(false);
     }
@@ -469,6 +473,15 @@ function ApiKeysSection({
         >
           {keySaved ? "Saved!" : keySaving ? "Saving…" : "Save Keys"}
         </Button>
+      )}
+      {keyError && (
+        <Typography
+          role="alert"
+          variant="caption"
+          sx={{ display: "block", mt: 1, color: "error.main", fontSize: "0.7rem" }}
+        >
+          {keyError}
+        </Typography>
       )}
     </Box>
   );

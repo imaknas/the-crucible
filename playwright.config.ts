@@ -12,8 +12,10 @@ import path from "path";
 const ROOT = __dirname;
 const FIXTURE_DB = path.join(ROOT, "e2e", ".fixtures", "e2e.sqlite");
 
-const BACKEND_PORT = 8123;
-const FRONTEND_PORT = 3123;
+// Override when something else already holds these ports: with
+// reuseExistingServer, Playwright would otherwise test against that process.
+const BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? 8123);
+const FRONTEND_PORT = Number(process.env.E2E_FRONTEND_PORT ?? 3123);
 
 export default defineConfig({
   testDir: "./e2e/tests",

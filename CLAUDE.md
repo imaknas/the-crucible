@@ -64,7 +64,15 @@ Copy `.env.example` to `backend/.env` and set at least one of: `OPENAI_API_KEY`,
 **Entry point — `main.py`**
 FastAPI server. On startup, compiles the LangGraph workflow with an `AsyncSqliteSaver` checkpointer. Two core endpoints:
 - `POST /chat` — non-streaming, for REST usage
-- `WebSocket /ws/{thread_id}` — primary endpoint; spawns each model as a concurrent `asyncio.Task`, streams tokens, then emits `stream_end` with fully formatted messages
+- `WebSocket /ws/{thread_id}` — primary endpoint; spawns each model as a concurrent `asyncio.Task`, streams tokens, then emits `stream_end` with fully formatted messages. A disconnect cancels the in-flight tasks.
+
+**Parallel runs — `services/runs.py`**
+Any code that runs several graph invocations on one thread at once must go through these helpers:
+- **Pin the fork point.** Every model in a turn gets the same `checkpoint_id`. Unpinned concurrent runs resume from the thread head, i.e. from each other's half-written turns (B saw A's prompt; only one reply reached the head). `resolve_fork_point()` returns the head, or seeds an empty root checkpoint for a new thread. The WS handler resolves it once per turn in the receive loop: a message without a parent that arrives while models are still running reuses that turn's parent.
+- **Tag the run.** `tag_run(config)` puts a run id in the config's `metadata`, which LangGraph copies into checkpoint metadata; `final_state_of_run()` finds the run's own last checkpoint. Re-reading the pinned config after the run returns the **parent**, which is what `stream_end` used to report.
+
+**Network exposure**
+The API has no authentication. The backend binds `127.0.0.1` unless `HOST` is set (the Docker image sets `0.0.0.0` and compose publishes ports on `127.0.0.1`). CORS allows localhost origins on any port plus `CORS_ORIGINS`, never `*`. `/config/keys` additionally rejects non-loopback clients unless `CRUCIBLE_ALLOW_REMOTE_CONFIG` is set, and rejects key values containing quotes, backslashes, whitespace or `$` so a value cannot add lines to `.env`.
 
 **LangGraph workflow — `services/graph.py`**
 
@@ -72,9 +80,9 @@ The graph flow is: `summarize → (route) → [retrieve → grade_retrieval →]
 
 - `summarize_history`: compresses history using a fast model (Gemini Flash / Haiku fallback) when token count exceeds the active model's limit; non-destructive (appends a `PREVIOUS CONTEXT SUMMARY:` system message rather than removing messages, letting large-context models use full history)
 - `retrieve_node` / `grade_retrieval_node`: RAG path, only active when `use_rag` toggle is on; retrieves from ChromaDB then LLM-grades each chunk for relevance
-- `drafting_node`: the core generation node. Handles Deliberation mode (wraps all history with `[Model]: ...` attribution), RAG context injection, attached documents, reasoning toggles (`strict_logic`, `cot_enabled`), native web search via `bind_tools`, and `sanitize_messages` for context pruning
+- `drafting_node`: the core generation node. Handles Deliberation mode (wraps all history with `[Model]: ...` attribution), RAG context injection, attached documents, native web search via `bind_tools` (the only toggles the backend reads are `use_rag` and `use_web_search`), and `sanitize_messages` for context pruning
 - `synthesis_node`: updates a rolling `current_thesis` using the last 5 messages
-- `metadata_node`: saves confidence score and conflict flag to SQLite
+- `metadata_node`: a pass-through kept so existing checkpoints still replay. Its old write to `node_metadata` never ran (a node's config has no `checkpoint_id`); confidence shown in the UI is parsed from the reply's `<metadata>` block in `api/graph.py`
 
 **Model registry — `api/models.py`**
 `MODEL_REGISTRY` dict (keyed by lowercase model ID) is the single source of truth for supported models, their family, token limits, and native search support. `get_model()` in `graph.py` looks up this registry to construct the correct LangChain LLM instance.
@@ -118,7 +126,9 @@ Multi-round structured debate between ≥2 models. Key design points:
 - Convergence detection: cosine similarity via `run_in_executor` (reuses `rag.get_embeddings()`), optional LLM judge, configurable `mode: "any"|"all"`
 - `api/debate.py` uses a module-level `set_graph_app` / `_get_graph_app` pattern because FastAPI routers can't access `server.state` directly
 - REST: `POST /debate/sessions`, `GET /debate/sessions/{id}`, `GET /debate/sessions/{id}/tree`, `DELETE /debate/sessions/{id}`
-- WebSocket: `WS /debate/ws/{session_id}` — handles `debate_start`, `debate_inject`, `debate_redirect`, `debate_control`, `debate_synthesize`
+- WebSocket: `WS /debate/ws/{session_id}` — handles `debate_start`, `debate_inject`, `debate_redirect`, `debate_control` (`stop`/`pause`/`resume`), `debate_synthesize`
+- Live controls are a per-connection `DebateControl`: pause takes effect **between rounds** (the handler acks `pausing`, `run_debate` reports `paused` then `running`), and injected messages are appended to the next round's prompts; one that arrives after the final round is reported as an `error`, not dropped. Synthesize and redirect cancel a running debate first. A debate cannot outlive its socket: disconnect cancels it and sets `status="interrupted"`, so a restored session is never shown as running.
+- `MODEL_TIMEOUT_SECONDS` bounds each model's whole graph run per round, but a reply whose `draft` node already finished is kept if later nodes run long. Convergence `mode="all"` is never satisfied while any participant failed that round.
 - `database.py` stores debate sessions in a `debate_sessions` table; `tree.py` has `build_debate_tree` which computes deterministic lane layout (no dagre): `x = lane_index × 300`, `y = round_num × 160`
 - Debate lanes render **AI responses only**. Each round also writes a human checkpoint (the generated cross-examination prompt); rendering those duplicated the question in every lane and made `round_num` count checkpoint depth instead of debate rounds. The original question is emitted once as a shared `debate::prompt` node above all lanes, with edges fanning out to each lane's round 0.
 - `LANE_WIDTH` / `ROUND_HEIGHT` are mirrored in `frontend/src/hooks/useDebateTree.ts` so optimistic pending nodes land exactly where the real node will appear. Change both together.
@@ -173,15 +183,18 @@ These were bugs; the fixes are load-bearing.
 - **Canvas assertions must wait for idle.** Auto-fit animates the viewport for 500ms and Playwright refuses to click a moving element; use `waitForCanvasIdle()`. Auto-fit on the debate fixture also lands within rounding distance of `LOD_THRESHOLD`, so anything asserting on node *text* must call `ensureDetailZoom()` first or it will flip on layout noise.
 - **Utility labels say what they do.** The themed vocabulary ("Quantum Nexus Online", "Council", "Deep Knowledge Search") was replaced with plain labels and a real connection/key status. "The Crucible", "Arena", "Deliberation" and "Synthesis" are kept — they name real mechanics.
 - **Persisted debate session** (`crucible_active_debate`): only restore it once a thread is open and only if `parent_thread_id` matches, or a stale session hijacks the tree view of an unrelated thread. `listDebateSessions` returns **newest-first** — index 0, not `length - 1`.
+- **Debate socket lifecycle** (`page.tsx`): anything that puts a different debate on screen (sidebar switch, new start, thread switch) calls `closeDebateSocket()` first, which detaches and closes the old socket and stops polling; otherwise the old stream keeps appending bubbles and its poll overwrites the new tree. A socket's `onclose` only clears `debateWsRef` if it is still the current socket. Code that loads a session itself sets `restoredDebateRef.current` so the restore effect does not replace a live stream with a server snapshot. `useDebateTree` drops responses for any session other than the last one fetched, and `resolvePendingNode` removes one round's placeholder by id, not every placeholder for the model.
+- **Debate model errors** arrive as `{type:"error", model, round}` with no `stream_end`; the handler must close that bubble and resolve its pending node itself.
+- **The persisted-debate write skips its mount run.** During hydration `activeDebateSession` is still null; writing it erased the stored session before it could be adopted.
 - **Theme state has one owner**: `ThemeRegistry.tsx`, exposed via `useThemeMode()`. Do not reintroduce a second `isDark` in `page.tsx`.
 - **localStorage hydration** goes through `hooks/useStoredValue.ts` (`useSyncExternalStore`). A `useState` + mount effect trips `react-hooks/set-state-in-effect`; a lazy `useState` initializer mismatches SSR.
 - `LANE_WIDTH` (300) and `ROUND_HEIGHT` (160) are duplicated in `services/tree.py`, `useDebateTree.ts` and `TreeCanvas.tsx`. Change all three together or optimistic pending nodes land on top of real ones.
 
 ### Still open
 
-- **No unit tests for the visualization modules** (`TreeCanvas`, `useDebateTree`, `CustomTreeNode`). They are covered end-to-end by `e2e/tests/tree.spec.ts` (auto-fit, tidy-tree centring, the LOD threshold, the anti-overlap cap, theme repaint) but not in isolation.
-- **No tests for `api/debate.py` (REST or WebSocket).** `services/debate.py` has one happy-path streaming test, `test_run_debate_event_sequence` in `tests/test_debate.py`, which drives `run_debate` → `_stream_round` against a fake graph; timeouts, model errors and convergence-triggered stops are untested.
+- **No unit tests for `TreeCanvas` / `CustomTreeNode`.** They are covered end-to-end by `e2e/tests/tree.spec.ts` (auto-fit, tidy-tree centring, the LOD threshold, the anti-overlap cap, theme repaint) but not in isolation. `useDebateTree` has unit tests for the pending-node race and stale-session responses.
+- **The debate REST endpoints are untested**; the WebSocket controls are covered by `tests/test_debate_ws.py`.
 - **First paint is slow in dev.** The app needs several seconds before `threadId` resolves and the tree mounts; the canvas shows its empty state until then.
 - **Debate node selection is display-only.** Clicking expands the node's excerpt in place but there is no way to open the full response.
-- **`_stream_round` hardcodes a 120s per-model timeout** and `stream_end` carries a `checkpoint_id` the frontend never reads.
+- **The debate `stream_end.checkpoint_id` is not read by the frontend** (the chat `stream_end` one is).
 - **Sidebar thread names truncate at ~12 characters** in a 288px rail, and untitled threads still show their raw `thread_xxxxxxx` id.

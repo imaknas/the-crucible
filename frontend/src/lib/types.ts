@@ -66,11 +66,21 @@ export interface DebateSession {
   participants: string[];
   thread_ids: Record<string, string>;
   current_round: number;
-  status: "running" | "paused" | "completed";
+  // "interrupted": the socket driving it closed mid-debate; nothing is running.
+  status: "running" | "paused" | "completed" | "interrupted";
   termination_policy: TerminationPolicy;
   auto_synthesize: boolean;
   synthesizer_model: string | null;
 }
+
+/** Debate status as the UI tracks it. "pausing" = pause requested, current round finishing. */
+export type DebateUiStatus =
+  | "running"
+  | "pausing"
+  | "paused"
+  | "converged"
+  | "completed"
+  | "interrupted";
 
 export interface DebateRoundState {
   round: number;
