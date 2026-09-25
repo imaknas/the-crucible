@@ -105,10 +105,10 @@ Walks LangGraph checkpoint parent-child links to build a deduplicated conversati
 - `tidy_tree_layout()` is a Reingold-Tilford style layout: one column per leaf, each parent centred over its children, computed iteratively so deep threads can't blow the stack. Positions saved via `node_positions` override it per node without shifting siblings.
 
 **CLI — `app/cli.py`**
-Typer CLI installed as `crucible`. Commands: `arena`, `deliberate`, `chat`, `threads`, `tree`.
+Typer CLI installed as `crucible`. Commands: `arena`, `deliberate`, `synthesize`, `chat`, `threads`, `tree`.
 
 **MCP server — `app/mcp_server.py`**
-FastMCP server exposing tools for external agents: `invoke_arena`, `get_thread_summary`, `get_thread_status`, `get_graph_topology`.
+FastMCP server exposing tools for external agents: `invoke_arena`, `get_thread_summary`, `get_thread_status`. Graph topology is a REST endpoint (`GET /graph/{thread_id}/topology` in `api/graph.py`), not an MCP tool.
 
 **Debate system — `services/debate.py`, `services/convergence.py`, `api/debate.py`**
 Multi-round structured debate between ≥2 models. Key design points:
@@ -130,7 +130,7 @@ Single large component that owns all cross-cutting state (selected models, toggl
 
 **Custom hooks**
 - `useChatWebSocket.ts`: manages the WebSocket connection per thread, dispatches parallel model requests (one per selected model), buffers streaming tokens via `requestAnimationFrame` for smooth rendering, and handles `stream_start` / `stream_token` / `stream_end` / `title_update` / `error` messages
-- `useHistoryTree.ts`: fetches checkpoint tree from `GET /history/{thread_id}/tree` for TreeCanvas
+- `useHistoryTree.ts`: fetches checkpoint tree from `GET /history/{thread_id}` (optional `?checkpoint_id=`) for TreeCanvas
 - `useThreads.ts`: manages thread list CRUD
 - `useDebateTree.ts`: manages debate tree state; fetches from `GET /debate/sessions/{id}/tree`; handles optimistic pending nodes during streaming rounds
 
@@ -180,7 +180,7 @@ These were bugs; the fixes are load-bearing.
 ### Still open
 
 - **No unit tests for the visualization modules** (`TreeCanvas`, `useDebateTree`, `CustomTreeNode`). They are covered end-to-end by `e2e/tests/tree.spec.ts` (auto-fit, tidy-tree centring, the LOD threshold, the anti-overlap cap, theme repaint) but not in isolation.
-- **No tests for `services/debate.py`'s streaming path or `api/debate.py`.** `run_debate`'s event stream in particular is untested.
+- **No tests for `api/debate.py` (REST or WebSocket).** `services/debate.py` has one happy-path streaming test, `test_run_debate_event_sequence` in `tests/test_debate.py`, which drives `run_debate` → `_stream_round` against a fake graph; timeouts, model errors and convergence-triggered stops are untested.
 - **First paint is slow in dev.** The app needs several seconds before `threadId` resolves and the tree mounts; the canvas shows its empty state until then.
 - **Debate node selection is display-only.** Clicking expands the node's excerpt in place but there is no way to open the full response.
 - **`_stream_round` hardcodes a 120s per-model timeout** and `stream_end` carries a `checkpoint_id` the frontend never reads.
