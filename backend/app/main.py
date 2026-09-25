@@ -81,9 +81,25 @@ async def lifespan(app: FastAPI):
 
 server = FastAPI(title="The Crucible API", lifespan=lifespan)
 
+
+def _cors_settings() -> dict:
+    """Local frontends on any port by default; CORS_ORIGINS adds explicit origins.
+
+    A wildcard let any web page the user visited drive the API, including
+    /config/keys, from their browser.
+    """
+    import os
+
+    extra = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+    return {
+        "allow_origins": extra,
+        "allow_origin_regex": r"https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?",
+    }
+
+
 server.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    **_cors_settings(),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -104,7 +120,7 @@ server.include_router(debate.router)
 class ChatRequest(BaseModel):
     message: str
     thread_id: str
-    model: str = "gpt-4o"
+    model: str = DEFAULT_MODEL
     toggles: Dict[str, bool] = {}
     documents: Optional[Dict[str, str]] = None
     parent_checkpoint_id: Optional[str] = None
@@ -583,4 +599,7 @@ if __name__ == "__main__":
     import os
 
     desired_port = int(os.getenv("PORT", 8000))
-    uvicorn.run("app.main:server", host="0.0.0.0", port=desired_port, reload=True)
+    # Loopback by default; the Docker image sets HOST=0.0.0.0 and compose
+    # publishes the port on 127.0.0.1 only.
+    host = os.getenv("HOST", "127.0.0.1")
+    uvicorn.run("app.main:server", host=host, port=desired_port, reload=True)

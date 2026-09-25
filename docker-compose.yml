@@ -4,7 +4,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "${CRUCIBLE_BACKEND_PORT:-8000}:8000"
+      - "127.0.0.1:${CRUCIBLE_BACKEND_PORT:-8000}:8000"
     volumes:
       - crucible_data:/app/data
       - crucible_uploads:/app/uploads
@@ -14,6 +14,9 @@ services:
     environment:
       - DATABASE_PATH=/app/data/checkpoints.sqlite
       - PORT=8000
+      # Requests arrive from the Docker bridge, not loopback. Safe only because
+      # the port above is published on 127.0.0.1.
+      - CRUCIBLE_ALLOW_REMOTE_CONFIG=1
     restart: unless-stopped
 
   frontend:
@@ -21,7 +24,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "${CRUCIBLE_FRONTEND_PORT:-3000}:3000"
+      - "127.0.0.1:${CRUCIBLE_FRONTEND_PORT:-3000}:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:${CRUCIBLE_BACKEND_PORT:-8000}
       - PORT=3000

@@ -26,6 +26,8 @@ EXPOSE 8000
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV DATABASE_PATH=/app/data/checkpoints.sqlite
+# Listen on all interfaces inside the container; compose publishes on 127.0.0.1.
+ENV HOST=0.0.0.0
 
 # Create persistent data directories
 RUN mkdir -p /app/data /app/uploads /app/chroma_db
