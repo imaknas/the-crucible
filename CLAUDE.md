@@ -100,7 +100,7 @@ The graph flow is: `summarize → (route) → [retrieve → grade_retrieval →]
 
 - **Verify any ID before adding it.** Presence in a provider's `/models` listing is not sufficient — some listed IDs are not chat models. `gpt-5.4-pro`, `gpt-5.5-pro` and `gpt-5-pro` 404 on `v1/chat/completions`, and `gemini-3-flash-lite-preview` no longer exists; all shipped in the registry as broken entries. Confirm with a real one-token completion.
 - `limit` is a **soft** threshold that triggers summarisation in `get_token_limit()`, not the hard API window. Anthropic values are 70% of `max_input_tokens` from `GET /v1/models/{id}`.
-- `DEFAULT_MODEL`, `DEFAULT_ARENA_MODELS` and `SUMMARIZER_MODELS` live here and are the only copies. `GET /models` returns `default_model`/`default_arena_models` so the frontend does not hardcode one — the previous hardcoded default in `page.tsx` is how it drifted onto a legacy model.
+- `DEFAULT_MODEL`, `DEFAULT_ARENA_MODELS` and `SUMMARIZER_MODELS` live here and are the only copies. `GET /models` returns `default_model`/`default_arena_models` so the frontend does not hardcode one — a previously hardcoded frontend default is how it drifted onto a legacy model (the selection is seeded in `useModelCatalog`).
 - Entries marked `"desc": "Legacy"` are retained because existing checkpoints reference them; removing one breaks replay of those threads.
 
 **Message sanitizer — `graph.py:sanitize_messages()`**
@@ -152,14 +152,18 @@ Multi-round structured debate between ≥2 models. Key design points:
 
 ### Frontend (`frontend/src/`)
 
-**State orchestrator — `app/page.tsx`**
-Single large component that owns all cross-cutting state (selected models, toggles, active thread/checkpoint, documents). Wires together all custom hooks and renders the layout (Sidebar + TreeCanvas | ChatView + ControlPanel).
+**App shell — `app/page.tsx`**
+Composition only: calls the hooks below, keeps the few pieces of UI state that belong to no hook (composer input, documents, toggles, error modals, panel collapse) and lays out Sidebar | AppHeader + TreeCanvas/ChatView | ControlPanel. New behaviour goes into a hook or component, not back into the page — it was a 1,500-line component before the split.
 
 **Custom hooks**
 - `useChatWebSocket.ts`: manages the WebSocket connection per thread, dispatches parallel model requests (one per selected model), buffers streaming tokens via `requestAnimationFrame` for smooth rendering, and handles `stream_start` / `stream_token` / `stream_end` / `title_update` / `error` messages
 - `useHistoryTree.ts`: fetches checkpoint tree from `GET /history/{thread_id}` (optional `?checkpoint_id=`) for TreeCanvas
 - `useThreads.ts`: manages thread list CRUD
 - `useDebateTree.ts`: manages debate tree state; fetches from `GET /debate/sessions/{id}/tree`; handles optimistic pending nodes during streaming rounds
+- `useDebateSession.ts`: everything about the debate on screen — active session (persisted), transcript, status, the debate WebSocket, the sidebar's session list, and the actions (start, inject, redirect, pause/resume, synthesize, close, delete, switch). Wraps `useDebateTree`.
+- `lib/debateTranscript.ts`: **pure** `transcriptReducer` turning debate events into chat bubbles, plus `debateControls(status)` (which buttons exist in which state) and `restoredDebateStatus`. Unit-tested; put event→bubble logic here, not in the hook.
+- `useTreeActions.ts`: checkpoint actions for the conversation tree (select, delete, edit-and-rebranch, drag, tidy layout)
+- Small single-purpose hooks: `useToasts`, `useConfirm` (promise-based, rendered by `ConfirmDialog`), `useBackendStatus` (header connection line), `useModelCatalog` (GET /models + the arena selection + `modelLabel`), `useDebateDefaults` (persisted Control Panel defaults)
 
 **Key components**
 - `ChatView.tsx`: renders messages with `react-markdown` + KaTeX for LaTeX, syntax highlighting, thinking-block collapsing, and source citations; when `debateState` prop is set, shows a debate status banner (round, convergence score, stop/synthesize controls)
@@ -168,12 +172,13 @@ Single large component that owns all cross-cutting state (selected models, toggl
 - `DebateConfigDialog.tsx`: per-session debate config overlay (overrides ControlPanel defaults for a single run)
 - `SynthesisTreeNode.tsx`: purple gradient React Flow node for synthesis checkpoints
 - `LandingView.tsx`: initial welcome screen before any thread is active
+- `AppHeader.tsx`: title (returns to landing), connection/key status, selected models, Tree/Arena switch, theme toggle
 
 **Branching / Arena flow**
 Multi-model Arena: `useChatWebSocket` sends one WS message per selected model simultaneously. Branching: `activeCheckpoint` (a LangGraph checkpoint ID) is passed as `parent_checkpoint_id` in every WS request, telling the backend which node to branch from.
 
 **Debate flow**
-User selects ≥2 models → types prompt → clicks Swords button in ChatInput → `DebateConfigDialog` opens → on Start: `POST /debate/sessions` creates session, WS connects to `/debate/ws/{session_id}`, `debate_start` frame is sent. `page.tsx` owns the debate WS lifecycle: `debateMessages` state (RAF-buffered streaming), `debateRound`/`debateStatus`/`debateConvergenceScore` state, `useDebateTree` for the tree canvas. TreeCanvas switches to debate mode when `activeDebateSession` is set.
+User selects ≥2 models → types prompt → clicks Swords button in ChatInput → `DebateConfigDialog` opens → on Start: `POST /debate/sessions` creates session, WS connects to `/debate/ws/{session_id}`, `debate_start` frame is sent. `useDebateSession` owns the debate WS lifecycle: the transcript (tokens RAF-batched per model, applied through `transcriptReducer`), round/status/convergence state, and `useDebateTree` for the tree canvas. TreeCanvas switches to debate mode when there is an active session.
 
 ## Key Conventions
 
@@ -196,14 +201,14 @@ These were bugs; the fixes are load-bearing.
 - **Absolutely-positioned overlay rows need an explicit `height`** (`DebateLaneHeaders`, `DebateRoundBands`) — otherwise the row collapses to zero height and `overflow` clips every child away.
 - **Level of detail** (`CustomTreeNode.tsx`): below `LOD_THRESHOLD` (0.6) a node renders as a chip — colour bar, model name, word count — because a 40-char preview at 12px is unreadable once auto-fit drops the canvas to ~0.35. The chip is counter-scaled to stay legible, and that boost **must** stay capped (`LOD_MAX_BOOST` 1.35 against `LOD_CHIP_WIDTH` 190) or chips overlap the next column: the tightest layout pitch is `NODE_SPACING_X` 260. This applies to the selected node too — exempting it made the node you care about the least readable at that scale; its active styling still marks it.
 - **Never print a raw model ID in UI a person reads.** The backend ships `metadata.model_name` on every node and `label` on every debate lane, from `display_name()` in `api/models.py`; `lib/modelNames.ts` covers frontend-created optimistic nodes. The exact ID belongs in a `title` tooltip.
-- **The view never switches itself.** `handleSendMessage` / `handleDeliberate` deliberately do not call `setShowTree`; sending used to yank you out of the tree. The one legitimate exception is `editAndRebranch`, where moving to the composer is the point of the action.
+- **The view never switches itself.** `handleSendMessage` / `handleDeliberate` (page.tsx) deliberately do not call `setShowTree`; sending used to yank you out of the tree. The exceptions: `editAndRebranch` (useTreeActions), where moving to the composer is the point, and opening a debate, which shows its tree.
 - **Canvas assertions must wait for idle.** Auto-fit animates the viewport for 500ms and Playwright refuses to click a moving element; use `waitForCanvasIdle()`. Auto-fit on the debate fixture also lands within rounding distance of `LOD_THRESHOLD`, so anything asserting on node *text* must call `ensureDetailZoom()` first or it will flip on layout noise.
 - **Utility labels say what they do.** The themed vocabulary ("Quantum Nexus Online", "Council", "Deep Knowledge Search") was replaced with plain labels and a real connection/key status. "The Crucible", "Arena", "Deliberation" and "Synthesis" are kept — they name real mechanics.
 - **Persisted debate session** (`crucible_active_debate`): only restore it once a thread is open and only if `parent_thread_id` matches, or a stale session hijacks the tree view of an unrelated thread. `listDebateSessions` returns **newest-first** — index 0, not `length - 1`.
-- **Debate socket lifecycle** (`page.tsx`): anything that puts a different debate on screen (sidebar switch, new start, thread switch) calls `closeDebateSocket()` first, which detaches and closes the old socket and stops polling; otherwise the old stream keeps appending bubbles and its poll overwrites the new tree. A socket's `onclose` only clears `debateWsRef` if it is still the current socket. Code that loads a session itself sets `restoredDebateRef.current` so the restore effect does not replace a live stream with a server snapshot. `useDebateTree` drops responses for any session other than the last one fetched, and `resolvePendingNode` removes one round's placeholder by id, not every placeholder for the model.
-- **Debate model errors** arrive as `{type:"error", model, round}` with no `stream_end`; the handler must close that bubble and resolve its pending node itself.
-- **The persisted-debate write skips its mount run.** During hydration `activeDebateSession` is still null; writing it erased the stored session before it could be adopted.
-- **Theme state has one owner**: `ThemeRegistry.tsx`, exposed via `useThemeMode()`. Do not reintroduce a second `isDark` in `page.tsx`.
+- **Debate socket lifecycle** (`useDebateSession`): anything that puts a different debate on screen (sidebar switch, new start, thread switch) calls `closeSocket()` first, which detaches and closes the old socket and stops polling; otherwise the old stream keeps appending bubbles and its poll overwrites the new tree. A socket's `onclose` only clears `wsRef` if it is still the current socket, and `onmessage` calls the *latest* handler through a ref. Code that loads a session itself sets `restoredRef.current` so the restore effect does not replace a live stream with a server snapshot. `useDebateTree` drops responses for any session other than the last one fetched, and `resolvePendingNode` removes one round's placeholder by id, not every placeholder for the model.
+- **Debate model errors** arrive as `{type:"error", model, round}` with no `stream_end`; `transcriptReducer` closes that bubble and the hook resolves its pending node.
+- **The persisted-debate write skips its mount run.** During hydration the active session is still null; writing it erased the stored session before it could be adopted.
+- **Theme state has one owner**: `ThemeRegistry.tsx`, exposed via `useThemeMode()`. Do not reintroduce a second `isDark` anywhere (AppHeader and ConfirmDialog read it from the hook).
 - **localStorage hydration** goes through `hooks/useStoredValue.ts` (`useSyncExternalStore`). A `useState` + mount effect trips `react-hooks/set-state-in-effect`; a lazy `useState` initializer mismatches SSR.
 - `LANE_WIDTH` (300) and `ROUND_HEIGHT` (160) are duplicated in `services/tree.py`, `useDebateTree.ts` and `TreeCanvas.tsx`. Change all three together or optimistic pending nodes land on top of real ones.
 
@@ -211,7 +216,7 @@ These were bugs; the fixes are load-bearing.
 
 - **No unit tests for `TreeCanvas` / `CustomTreeNode`.** They are covered end-to-end by `e2e/tests/tree.spec.ts` (auto-fit, tidy-tree centring, the LOD threshold, the anti-overlap cap, theme repaint) but not in isolation. `useDebateTree` has unit tests for the pending-node race and stale-session responses.
 - **The debate REST endpoints are untested**; the WebSocket controls are covered by `tests/test_debate_ws.py`, and the full debate lifecycle end to end by `e2e/tests/live.spec.ts`.
-- **Frontend unit coverage is ~28%** (Jest counts every file via `collectCoverageFrom`). `page.tsx`, `TreeCanvas`, `ControlPanel` and `DebateConfigDialog` have no unit tests; they are exercised by the Playwright suite instead.
+- **Frontend unit coverage is ~28%** (Jest counts every file via `collectCoverageFrom`). `page.tsx`, `useDebateSession`, `TreeCanvas`, `ControlPanel` and `DebateConfigDialog` have no unit tests; they are exercised by the Playwright suite instead. The debate event logic itself is unit-tested in `lib/debateTranscript.test.ts`.
 - **First paint is slow in dev.** The app needs several seconds before `threadId` resolves and the tree mounts; the canvas shows its empty state until then.
 - **Debate node selection is display-only.** Clicking expands the node's excerpt in place but there is no way to open the full response.
 - **The debate `stream_end.checkpoint_id` is not read by the frontend** (the chat `stream_end` one is).
