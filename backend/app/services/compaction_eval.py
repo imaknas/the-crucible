@@ -450,7 +450,26 @@ class EvalModelFactory:
             return AvailabilityOracle(facts=self.facts)
         if self.inner is None:
             return FirstSentenceSummarizer()
-        return self.inner.chat(model_id, toggles)
+        base, level = split_thinking(model_id)
+        model = self.inner.chat(base, toggles)
+        return model.bind(thinking_level=level) if level else model
+
+
+def split_thinking(model_id: str) -> tuple[str, Optional[str]]:
+    """"gemini-3.5-flash@minimal" -> ("gemini-3.5-flash", "minimal").
+
+    Experiments only: a summarizer condition with a fixed Gemini thinking
+    level (minimal, low, medium, high), applied per call with .bind().
+    """
+    base, _, level = model_id.partition("@")
+    if level and level not in THINKING_LEVELS:
+        raise ValueError(f"thinking level must be one of {', '.join(THINKING_LEVELS)}")
+    if level and not base.startswith("gemini-"):
+        raise ValueError("a thinking level (@...) is only supported for Gemini models")
+    return base, level or None
+
+
+THINKING_LEVELS = ("minimal", "low", "medium", "high")
 
 
 class FirstSentenceSummarizer(BaseChatModel):

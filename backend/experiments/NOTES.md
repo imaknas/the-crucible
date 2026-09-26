@@ -196,3 +196,53 @@ subject and the value in the same sentence.
 
 **Cost** roughly $3–4 (Haiku reading the compacted context ~$2, flash
 summaries ~$1.3).
+
+## 2026-09-27 — Pilot 2c: summarizer thinking level
+
+**Command:** `uv run crucible compaction-eval --no-baseline -t 8000 -s gemini-3.5-flash@minimal -s gemini-3.5-flash@medium --out experiments/results/pilot2c-thinking-2026-09-27.json`
+Reference: the default-thinking flash condition of pilot 2b (same scenarios,
+models, threshold and policy), merged by probe key for the comparisons.
+`model@level` binds Gemini's `thinking_level` per call (experiments only).
+
+One summary of 60 exchanges, measured directly: default 11.4k reasoning /
+15.0k output tokens (the default behaves like `high`: 14.2k / 18.2k);
+`medium` 6.7k / 9.6k; `low` and `minimal` no reasoning, ~3k output.
+
+| answering model | high (default, 2b) | medium | minimal |
+|---|---|---|---|
+| gpt-5.4-nano | 0.986 | 0.972 | 0.806 |
+| claude-haiku-4-5 | 1.000 | 0.986 | 0.819 |
+| gemini-3.5-flash-lite | 1.000 | 0.986 | 0.819 |
+| oracle | 1.000 | 1.000 | 0.861 |
+
+| summarizer | summaries | median summary size | output tokens per summary |
+|---|---|---|---|
+| flash high (default) | 23 | 12.8k | ~21.6k |
+| flash medium | 22 | 8.8k | ~18.1k |
+| flash minimal | 20 | 6.6k | ~5.9k |
+| flash-lite (pilot 2) | — | ~3k | — |
+
+- **medium ≈ high** for every model ("equivalent" within ±0.1, intervals
+  within [−0.09, +0.05]) at ~16% less summarizer output.
+- **minimal loses ~18 points** (all three models, intervals exclude 0) but
+  costs ~¼ of high per summary. The loss is in the summaries (oracle 0.86)
+  and concentrated in plain facts (27/36) and facts through 4 summaries
+  (15/24); distractor/update facts survived (35/36).
+
+**The confound this exposes: summary size.** flash's default summaries are
+~12.8k tokens of a ~23k-token conversation — barely compression, and larger
+than the 8,000-token threshold itself. Haiku read 1.40M input tokens under
+flash summaries vs 1.61M never compacting (−13%); under minimal 0.80M,
+under flash-lite 0.53M. Retention so far tracks summary size (12.8k → 1.00,
+8.8k → 1.00, 6.6k → 0.86, ~3k → ~0.5), so "flash is a better summarizer"
+and "flash writes longer summaries" are not yet separated. Pilot 2's
+"a good summary beats the raw history" still holds (consolidation removes
+stale values), but most of flash's retention is bought with size.
+
+**Next.** A length target in the summary prompt (e.g. 1.5k / 3k / 6k
+tokens) for flash and flash-lite: recall per summary token, which is the
+number a policy needs. With several conditions on the same probe set, apply
+adaptive-iteration's winner's-curse correction (0.9.0,
+`core.shrinkage.estimate_prior`) before reporting the best one.
+
+**Cost** roughly $3–4 (Haiku ~$2, flash summaries ~$1.3).

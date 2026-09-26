@@ -643,7 +643,7 @@ def compaction_eval(
         None, "--threshold", "-t", help="Compaction thresholds in tokens (repeat). Default: 6000 (dense), 2000 and 4000 (basic)."
     ),
     summarizers: Optional[List[str]] = typer.Option(
-        None, "--summarizer", "-s", help="Summarizer models to compare (repeat); one condition per threshold and summarizer. Default: the app's."
+        None, "--summarizer", "-s", help="Summarizer models to compare (repeat); one condition per threshold and summarizer. Default: the app's. Gemini takes a thinking level: gemini-3.5-flash@minimal."
     ),
     scenario: str = typer.Option("dense", "--scenario", help="dense: specifics everywhere, distractors and updates. basic: pilot 1's generic filler."),
     facts: int = typer.Option(24, "--facts", help="Planted facts per scenario (dense only)."),
@@ -676,7 +676,13 @@ def compaction_eval(
     if oracle and ORACLE not in model_ids:
         model_ids.append(ORACLE)
     if not dry_run:
-        _validate_models([m for m in model_ids if m != ORACLE] + list(summarizers or []), as_json)
+        from app.services.compaction_eval import split_thinking
+
+        try:
+            bases = [split_thinking(s)[0] for s in summarizers or []]
+        except ValueError as e:
+            _fail(str(e), as_json)
+        _validate_models([m for m in model_ids if m != ORACLE] + bases, as_json)
     options = {
         "scenario": scenario,
         "facts": facts,

@@ -312,3 +312,25 @@ async def test_live_replay_with_a_growing_summary_does_not_thrash():
     summaries = sum(graph_mod.SUMMARY_MARKER in m.content for m in messages if m.type == "system")
     # ~10k tokens at >=1k new per summary: about ten, not one per user turn (60).
     assert 3 <= summaries <= 12
+
+
+def test_eval_factory_applies_a_gemini_thinking_level():
+    from app.services.compaction_eval import EvalModelFactory, split_thinking
+
+    bound = []
+
+    class Model:
+        def bind(self, **kw):
+            bound.append(kw)
+            return self
+
+    inner = CallableModelFactory(lambda m, _t: Model())
+    factory = EvalModelFactory([], inner=inner)
+    factory.chat("gemini-3.5-flash@minimal")
+    factory.chat("gemini-3.5-flash")
+    assert bound == [{"thinking_level": "minimal"}]
+    assert split_thinking("gemini-3.5-flash") == ("gemini-3.5-flash", None)
+    with pytest.raises(ValueError):
+        split_thinking("gemini-3.5-flash@huge")
+    with pytest.raises(ValueError):
+        split_thinking("gpt-5.4-nano@low")
