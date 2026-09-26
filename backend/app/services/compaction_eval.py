@@ -14,14 +14,15 @@ Two stand-in models make the pipeline testable and give an upper bound:
   but deterministic lossy summary.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any, Iterable, List, Optional, Sequence
 
+from langchain_core.callbacks import UsageMetadataCallbackHandler
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
-from app.compaction import CompactionPolicy, PlantedFact, Scenario, is_correct
+from app.compaction import CompactionPolicy, PlantedFact, Scenario, compare_recall, is_correct
 from app.services.graph import SUMMARY_MARKER, compaction_policy_from, context_snapshot, model_budget
 from app.services.runs import final_state_of_run, tag_run, thread_config
 from app.utils.helpers import extract_text
@@ -46,6 +47,15 @@ class ProbeResult:
     # Whether any summary existed on the branch when the probe was answered.
     summarized: bool
     answer: str
+    # Token usage of every model call this probe triggered (answer, summary,
+    # thesis update), keyed by the provider's model name. Raw counts, so cost
+    # can be computed later with whatever prices apply.
+    usage: dict = field(default_factory=dict)
+
+    @property
+    def key(self) -> str:
+        """Pairs the same probe across conditions."""
+        return f"{self.model}:{self.fact}"
 
 
 async def seed_scenario(graph_app, thread_id: str, scenario: Scenario, model_id: str) -> str:
@@ -85,6 +95,8 @@ async def run_condition(
         config["configurable"]["compaction_policy"] = condition.policy
         if model_factory is not None:
             config["configurable"]["model_factory"] = model_factory
+        usage = UsageMetadataCallbackHandler()
+        config["callbacks"] = [usage]
 
         await graph_app.ainvoke(
             {
@@ -116,6 +128,7 @@ async def run_condition(
             pruned=pruned,
             summarized=summarized,
             answer=answer[:200],
+            usage={name: dict(u) for name, u in usage.usage_metadata.items()},
         ))
         parent = final.config["configurable"]["checkpoint_id"]
     return results
@@ -155,6 +168,15 @@ def summarize_results(results: Iterable[ProbeResult]) -> dict[str, Any]:
     return table
 
 
+def compare_conditions(
+    results: Iterable[ProbeResult], a: str, b: str, *, min_effect: float = 0.1
+):
+    """Does condition `b` recall more than `a`? Paired by (model, fact)."""
+    results = list(results)
+    arm = lambda name: {r.key: r.correct for r in results if r.condition == name}  # noqa: E731
+    return compare_recall(arm(a), arm(b), min_effect=min_effect, label=f"{a} vs {b}")
+
+
 def results_as_dicts(results: Iterable[ProbeResult]) -> list[dict[str, Any]]:
     return [asdict(r) for r in results]
 
@@ -184,7 +206,15 @@ class AvailabilityOracle(BaseChatModel):
             context = _visible_text(messages).lower()
             found = next((a for a in fact.answers if a.lower() in context), None)
             reply = found if found else "I don't know."
-        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=reply))])
+        # Report roughly how much it had to read (~4 chars/token), so a dry
+        # run shows the input-token side of the trade-off too.
+        read = sum(len(extract_text(m.content)) for m in messages) // 4
+        message = AIMessage(
+            content=reply,
+            response_metadata={"model_name": self._llm_type},
+            usage_metadata={"input_tokens": read, "output_tokens": 1, "total_tokens": read + 1},
+        )
+        return ChatResult(generations=[ChatGeneration(message=message)])
 
 
 class FirstSentenceSummarizer(BaseChatModel):

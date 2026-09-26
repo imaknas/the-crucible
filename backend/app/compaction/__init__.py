@@ -7,6 +7,7 @@ package only decides and measures.
 
 - policy.py   CompactionPolicy strategies: when to summarize, when to prune
 - probe.py    Detail-retention scenarios: planted facts, filler, probes, scoring
+- judge.py    Paired comparison of two policies (uses adaptive-iteration, lazily)
 """
 
 from app.compaction.policy import (
@@ -19,6 +20,7 @@ from app.compaction.policy import (
     fixed_tokens,
     fraction_of_limit,
 )
+from app.compaction.judge import compare_recall, recall_rate
 from app.compaction.probe import (
     DEFAULT_FACTS,
     PlantedFact,
@@ -43,4 +45,6 @@ __all__ = [
     "Turn",
     "build_scenario",
     "is_correct",
+    "compare_recall",
+    "recall_rate",
 ]

@@ -24,6 +24,7 @@ from app.services.compaction_eval import (
     AvailabilityOracle,
     Condition,
     FirstSentenceSummarizer,
+    compare_conditions,
     run_experiment,
     summarize_results,
 )
@@ -135,6 +136,16 @@ async def test_summarizing_past_the_threshold_drops_buried_details(eval_setup):
     assert "vendor" in kept
     assert {"budget", "reviewer", "key_label", "no_kafka", "freeze", "port", "quote"} <= lost
 
+    # Judged as a paired comparison: never-compacting recalls more.
+    verdict = compare_conditions(results, "t2000", "never", min_effect=0.1)
+    assert verdict.outcome.value == "b_better"
+    assert verdict.interval[0] > 0
+
+    # And the cost side: compacted calls read far fewer input tokens.
+    def read(cond):
+        return sum(u["input_tokens"] for r in results if r.condition == cond for u in r.usage.values())
+    assert read("t2000") < read("never") / 2
+
 
 def test_resummarizing_folds_in_the_previous_verbatim_window():
     """The window a summary leaves verbatim must reach the next summary, or it
@@ -169,3 +180,16 @@ def test_resummarizing_folds_in_the_previous_verbatim_window():
     assert "later 0" in prompt and "later 7" not in prompt  # newest 5 stay verbatim
     assert "ancient" not in prompt  # already inside the old summary
     assert "new summary" in out["messages"][0].content
+
+
+def test_compare_recall_outcomes():
+    from app.compaction import compare_recall
+
+    keys = [f"f{i}" for i in range(20)]
+    worse = {k: i < 6 for i, k in enumerate(keys)}
+    better = {k: i < 18 for i, k in enumerate(keys)}
+    assert compare_recall(worse, better).outcome.value == "b_better"
+    assert compare_recall(better, worse).outcome.value == "a_better"
+    # Identical results carry no evidence either way: not "equivalent".
+    same = compare_recall(better, better)
+    assert same.outcome.value in ("insufficient", "no_detectable_diff")
