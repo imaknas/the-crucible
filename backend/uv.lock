@@ -7,18 +7,6 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "adaptive-iteration"
-version = "0.6.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "scipy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/29/fc/0d0e7770515840364f1a7ccf0f4f31b7ece9cb10590a664f61f16ec486f9/adaptive_iteration-0.6.0.tar.gz", hash = "sha256:6f76f89c6623591183a49f1262d1188e72311be482ef36923d6e1368fd7a1f31", size = 206973, upload-time = "2026-09-26T07:13:43.694Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/67/a1/0706a40e13fea00367a4bd9f5e128edcefeafb67a0a02abf4fbfafff0395/adaptive_iteration-0.6.0-py3-none-any.whl", hash = "sha256:97e780b1b45f9b19fc3dad8b9f3c90e155e427fbab7663e8c1a193012321c0d3", size = 48333, upload-time = "2026-09-26T07:13:41.794Z" },
-]
-
-[[package]]
 name = "aiofile"
 version = "3.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -212,7 +200,6 @@ name = "backend"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
-    { name = "adaptive-iteration" },
     { name = "aiosqlite" },
     { name = "chromadb" },
     { name = "fastapi" },
@@ -228,6 +215,7 @@ dependencies = [
     { name = "langgraph-checkpoint" },
     { name = "langgraph-checkpoint-sqlite" },
     { name = "mcp" },
+    { name = "ordal" },
     { name = "pydantic" },
     { name = "pymupdf" },
     { name = "python-dotenv" },
@@ -254,7 +242,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "adaptive-iteration", specifier = ">=0.6.0" },
     { name = "aiosqlite", specifier = ">=0.22.1" },
     { name = "chromadb", specifier = ">=1.5.2" },
     { name = "fastapi", specifier = ">=0.128.4" },
@@ -270,6 +257,7 @@ requires-dist = [
     { name = "langgraph-checkpoint", specifier = ">=4.0.0" },
     { name = "langgraph-checkpoint-sqlite", specifier = ">=3.0.3" },
     { name = "mcp", specifier = ">=1.26.0" },
+    { name = "ordal", specifier = ">=0.11" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pymupdf", specifier = ">=1.26.7" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
@@ -2592,6 +2580,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/6d/c0/4ae7973f3c2cfd2b6e321f1675626f0dab0a97027cc7a297474c9c8f3d04/opentelemetry_semantic_conventions-0.61b0.tar.gz", hash = "sha256:072f65473c5d7c6dc0355b27d6c9d1a679d63b6d4b4b16a9773062cb7e31192a", size = 145755, upload-time = "2026-03-04T14:17:32.664Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b2/37/cc6a55e448deaa9b27377d087da8615a3416d8ad523d5960b78dbeadd02a/opentelemetry_semantic_conventions-0.61b0-py3-none-any.whl", hash = "sha256:fa530a96be229795f8cef353739b618148b0fe2b4b3f005e60e262926c4d38e2", size = 231621, upload-time = "2026-03-04T14:17:19.33Z" },
+]
+
+[[package]]
+name = "ordal"
+version = "0.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/82/d7/17151404b561bdd0ba334ea00d4e7b9b7df2d213dde02f6bb30643d2829c/ordal-0.11.0.tar.gz", hash = "sha256:e2ff33d1476b283ba6a488972ce617b8fc537cea2d15862f16d1c820eb428713", size = 240978, upload-time = "2026-09-26T18:01:40.37Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/db/cc/33b4b3ffc9efd1a847acd7725573f7d8fa1cabf574624ee6e1ad044376c5/ordal-0.11.0-py3-none-any.whl", hash = "sha256:69b3a88f16981d2fadc829677dbd7621733c96d1f564ff0d971c8ad494b0b8f2", size = 64713, upload-time = "2026-09-26T18:01:38.153Z" },
 ]
 
 [[package]]

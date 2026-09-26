@@ -242,7 +242,7 @@ stale values), but most of flash's retention is bought with size.
 **Next.** A length target in the summary prompt (e.g. 1.5k / 3k / 6k
 tokens) for flash and flash-lite: recall per summary token, which is the
 number a policy needs. With several conditions on the same probe set, apply
-adaptive-iteration's winner's-curse correction (0.9.0,
-`core.shrinkage.estimate_prior`) before reporting the best one.
+Ordal's winner's-curse correction (`ordal.shrinkage.estimate_prior`;
+Ordal is adaptive-iteration renamed) before reporting the best one.
 
 **Cost** roughly $3–4 (Haiku ~$2, flash summaries ~$1.3).

@@ -7,7 +7,7 @@ package only decides and measures.
 
 - policy.py   CompactionPolicy strategies: when to summarize, when to prune
 - probe.py    Detail-retention scenarios: planted facts, filler, probes, scoring
-- judge.py    Paired comparison of two policies (uses adaptive-iteration, lazily)
+- judge.py    Paired comparison of two policies (uses Ordal, lazily)
 """
 
 from app.compaction.policy import (
