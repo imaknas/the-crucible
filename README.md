@@ -97,11 +97,34 @@ Add the following to your MCP settings file (e.g., `~/Library/Application Suppor
 
 ### Available Tools
 
-- `invoke_arena`: Triggers the deliberation/synthesis flow (options: `use_rag`, `models`).
-- `get_thread_summary`: Retrieves a summarized technical brief of the entire discussion path.
-- `get_thread_status`: Fetches the current thesis and active model attribution.
+All tools return structured JSON and raise an MCP error on failure.
+
+- `list_models`: Model IDs and whether each has an API key configured.
+- `invoke_arena`: Ask several models the same question in parallel; returns every model's answer (with its checkpoint id) plus an optional synthesis written by one more model.
+- `run_debate`: Multi-round structured debate between two or more models, with optional convergence stopping and a final synthesis. The session also shows up in the web UI.
+- `list_threads` / `get_thread_status` / `get_thread_summary`: Find threads and read their latest model, thesis and context summary.
+- `get_thread_messages`: Read one path of a thread — pass a `checkpoint_id` from `invoke_arena` to read a specific model's branch.
+- `get_branch_answers`: The latest answer on every branch of a thread.
 
 The conversation tree with per-node metadata (confidence, conflicts) is available over REST rather than MCP: `GET /graph/{thread_id}/topology`.
+
+---
+
+## ⌨️ CLI
+
+The backend installs a `crucible` command (run it from `backend/` with `uv run`). Repeat `-m` once per model.
+
+```bash
+uv run crucible models                                   # model IDs and which have keys
+uv run crucible arena "Is P = NP?" -m gpt-5.4 -m claude-sonnet-5
+uv run crucible deliberate "Topic" -m gpt-5.4 -m claude-sonnet-5 --rounds 3 --threshold 0.92
+uv run crucible synthesize --thread <thread_id>          # or --debate <session_id>
+uv run crucible chat "Follow-up" -m gpt-5.4 --thread <thread_id>
+uv run crucible tree --thread <thread_id> [--open]       # --open shows it in the web UI
+uv run crucible threads
+```
+
+`arena`, `deliberate`, `synthesize`, `chat`, `threads` and `models` accept `--format json`: stdout then carries only the JSON document, and failures exit non-zero with the message on stderr. `deliberate` uses the same debate engine as the web UI, so CLI debates appear there too.
 
 ---
 

@@ -327,6 +327,17 @@ def list_threads():
         conn.close()
 
 
+def get_thread_title(thread_id):
+    conn = get_db_connection()
+    try:
+        row = conn.execute(
+            "SELECT title FROM thread_metadata WHERE thread_id = ?", (thread_id,)
+        ).fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
+
+
 def rename_thread(thread_id, title):
     conn = get_db_connection()
     try:

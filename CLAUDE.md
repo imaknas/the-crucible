@@ -22,7 +22,7 @@ uv run pytest tests/ -v           # run all tests
 uv run pytest tests/test_graph.py -v   # run a single test file
 uv run ruff check .               # lint
 uv run crucible arena "prompt"    # CLI: run multi-model arena
-uv run crucible deliberate "topic" --models gpt-5.4 claude-sonnet-5 --rounds 3
+uv run crucible deliberate "topic" -m gpt-5.4 -m claude-sonnet-5 --rounds 3   # repeat -m per model
 ```
 
 ### Frontend
@@ -112,11 +112,16 @@ Walks LangGraph checkpoint parent-child links to build a deduplicated conversati
 - `build_significant_forest()` collapses pass-through checkpoints (synthesis prompts, summarisation) so each significant node is re-parented onto its nearest significant ancestor.
 - `tidy_tree_layout()` is a Reingold-Tilford style layout: one column per leaf, each parent centred over its children, computed iteratively so deep threads can't blow the stack. Positions saved via `node_positions` override it per node without shifting siblings.
 
+**CLI and MCP share `services/arena.py`**
+Everything that drives the graph outside the web UI goes through it: `open_graph()` (compiled graph on the SQLite checkpointer, as a context manager), `resolve_models()` (validation + key check, raises `ValueError` with a caller-facing message), `run_arena()` (parallel answers forked from one checkpoint, then an **explicit** synthesis call as another branch — the per-model rolling `current_thesis` is not a cross-model synthesis and must not be presented as one), `synthesize_thread()` / `latest_branch_answers()`, `thread_messages()`. Debates go through `services/debate.py` (`run_debate`, `synthesize_session`), the same engine the WebSocket uses. Do not reintroduce separate orchestrators in `graph.py`.
+- The graph nodes log with `print()`. Wrap anything whose stdout is machine-read in `stdout_to_stderr()`: CLI `--format json` and every MCP tool (the stdio transport **is** stdout).
+
 **CLI — `app/cli.py`**
-Typer CLI installed as `crucible`. Commands: `arena`, `deliberate`, `synthesize`, `chat`, `threads`, `tree`.
+Typer CLI installed as `crucible`. Commands: `arena`, `deliberate`, `synthesize` (`--thread` or `--debate`), `chat`, `threads`, `tree` (`--open` uses `?thread=`, honoured by `useThreads`), `models`. List options repeat the flag (`-m a -m b`). `--format json` puts only the JSON document on stdout; errors exit 1 with the message on stderr. `deliberate` marks its session `interrupted` if it doesn't finish.
 
 **MCP server — `app/mcp_server.py`**
-FastMCP server exposing tools for external agents: `invoke_arena`, `get_thread_summary`, `get_thread_status`. Graph topology is a REST endpoint (`GET /graph/{thread_id}/topology` in `api/graph.py`), not an MCP tool.
+FastMCP tools returning dicts: `list_models`, `invoke_arena`, `run_debate`, `list_threads`, `get_thread_messages`, `get_branch_answers`, `get_thread_summary`, `get_thread_status`. Failures raise `ToolError` (never an `"Error: ..."` string). Graph topology is a REST endpoint (`GET /graph/{thread_id}/topology`), not an MCP tool.
+- CLI and MCP are tested against the real graph with a fake LLM in `tests/test_cli_mcp.py`. Don't go back to mocking `open_graph`: the old mocked tests hid a crash in every command's cleanup.
 
 **Debate system — `services/debate.py`, `services/convergence.py`, `api/debate.py`**
 Multi-round structured debate between ≥2 models. Key design points:

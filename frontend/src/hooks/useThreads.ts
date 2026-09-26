@@ -68,7 +68,22 @@ export function useThreads(
 
   useEffect(() => {
     fetchThreads().then(() => {
-      const saved = localStorage.getItem("crucible_thread_id");
+      // ?thread=<id> (e.g. from `crucible tree --open`) wins over the last
+      // thread opened here, and is then dropped from the URL so a reload
+      // doesn't keep forcing it.
+      const params = new URLSearchParams(window.location.search);
+      const linked = params.get("thread");
+      if (linked) {
+        params.delete("thread");
+        const query = params.toString();
+        window.history.replaceState(
+          null,
+          "",
+          `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+        );
+        localStorage.setItem("crucible_thread_id", linked);
+      }
+      const saved = linked ?? localStorage.getItem("crucible_thread_id");
       if (saved) {
         setThreadId(saved);
         onThreadSwitch(saved);

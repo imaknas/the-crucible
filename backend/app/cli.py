@@ -2,16 +2,24 @@
 The Crucible CLI — Multi-Model Reasoning Engine.
 
 Usage:
-    crucible arena "prompt" --models gpt-5.4 claude-sonnet-5 gemini-3.1-pro-preview
-    crucible deliberate "topic" --models gpt-5.4 claude-sonnet-5 --rounds 3
+    crucible arena "prompt" --models gpt-5.4 --models claude-sonnet-5
+    crucible deliberate "topic" --models gpt-5.4 --models claude-sonnet-5 --rounds 3
+    crucible synthesize --thread <id>          # or --debate <session_id>
     crucible chat "prompt" --model gpt-5.4
     crucible threads
     crucible tree --thread <id>
+    crucible models
+
+Every command that produces results takes ``--format json`` for scripting:
+the JSON document is the only thing written to stdout, and failures exit
+non-zero with the message on stderr.
 """
 
 import asyncio
+import json
+import os
 import sys
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 import typer
@@ -28,6 +36,8 @@ app = typer.Typer(
 
 console = Console()
 
+FORMAT_HELP = "Output format: rich or json."
+
 
 # ─── Shared Utilities ────────────────────────────────────────────
 
@@ -39,41 +49,55 @@ def _load_env():
     load_dotenv()
 
 
-async def _get_graph():
-    """Get a compiled graph with persistent checkpointer. Caller must call saver.__aexit__ in a finally block."""
-    from app.services.graph import workflow
-    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-    from app.core import database as db
-
-    ctx = AsyncSqliteSaver.from_conn_string(db.DB_PATH)
-    saver = await ctx.__aenter__()
-    try:
-        return workflow.compile(checkpointer=saver), saver
-    except Exception:
-        await ctx.__aexit__(*__import__("sys").exc_info())
-        raise
-
-
 def _gen_thread_id(prefix: str = "cli") -> str:
     return f"{prefix}-{uuid4().hex[:8]}"
 
 
-def _parse_models(models: Optional[List[str]]) -> List[str]:
-    """Validate and return models, or use defaults."""
-    from app.api.models import MODEL_REGISTRY
+def _check_format(fmt: str) -> bool:
+    if fmt not in ("rich", "json"):
+        raise typer.BadParameter("must be 'rich' or 'json'", param_hint="--format")
+    return fmt == "json"
 
-    if not models:
-        return []  # Will use service-layer defaults
 
-    invalid = [m for m in models if m not in MODEL_REGISTRY]
-    if invalid:
+def _fail(message: str, as_json: bool) -> None:
+    if as_json:
+        typer.echo(json.dumps({"error": message}), err=True)
+    else:
         from app.cli_display import print_error
 
-        print_error(f"Invalid model(s): {', '.join(invalid)}")
-        available = ", ".join(MODEL_REGISTRY.keys())
-        console.print(f"[dim]Available: {available}[/dim]")
-        raise typer.Exit(1)
-    return models
+        print_error(message)
+    raise typer.Exit(1)
+
+
+def _run(coro, as_json: bool):
+    """asyncio.run with user-facing errors (bad model, missing thread) as exit 1.
+
+    In JSON mode the graph's diagnostic prints go to stderr, so stdout carries
+    only the JSON document.
+    """
+    from contextlib import nullcontext
+
+    from app.services.arena import stdout_to_stderr
+
+    try:
+        with stdout_to_stderr() if as_json else nullcontext():
+            return asyncio.run(coro)
+    except ValueError as e:
+        _fail(str(e), as_json)
+
+
+def _emit_json(data: Dict[str, Any]) -> None:
+    typer.echo(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def _validate_models(models: Optional[List[str]], as_json: bool) -> List[str]:
+    from app.services.arena import resolve_models
+
+    try:
+        return resolve_models(models)
+    except ValueError as e:
+        _fail(str(e), as_json)
+        return []  # unreachable
 
 
 # ─── ARENA Command ───────────────────────────────────────────────
@@ -81,114 +105,97 @@ def _parse_models(models: Optional[List[str]]) -> List[str]:
 
 @app.command()
 def arena(
-    prompt: str = typer.Argument(
-        ..., help="The research question or topic to deliberate."
-    ),
+    prompt: str = typer.Argument(..., help="The question to put to every model."),
     models: Optional[List[str]] = typer.Option(
-        None, "--models", "-m", help="Model IDs to include in the arena."
+        None, "--models", "-m", help="Model IDs to include (repeat the flag)."
     ),
     thread: Optional[str] = typer.Option(
         None, "--thread", "-t", help="Existing thread ID to continue."
     ),
+    judge: Optional[str] = typer.Option(
+        None, "--judge", "-j", help="Model that synthesizes the answers (default: the first model)."
+    ),
+    no_synthesize: bool = typer.Option(
+        False, "--no-synthesize", help="Only collect the individual answers."
+    ),
     web_search: bool = typer.Option(
         False, "--web-search", "-w", help="Enable web search grounding."
     ),
-    format_output: str = typer.Option(
-        "rich", "--format", "-f", help="Output format: rich or json."
-    ),
+    format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
-    [bold green]⚔️  Arena Mode[/bold green] — Multi-model parallel deliberation.
+    [bold green]⚔️  Arena Mode[/bold green] — Multi-model parallel answers.
 
-    Sends the prompt to multiple models simultaneously and synthesizes a consensus.
+    Every model answers the same prompt independently (each on its own branch),
+    then one model synthesizes the answers.
     """
+    as_json = _check_format(format_output)
     _load_env()
-    from app.cli_display import print_header, print_info
-
-    validated_models = _parse_models(models)
+    resolved = _validate_models(models, as_json)
+    synthesizer = None if no_synthesize else (judge or resolved[0])
+    if synthesizer:
+        _validate_models([synthesizer], as_json)
     thread_id = thread or _gen_thread_id("arena")
 
-    if format_output == "rich":
+    result = _run(
+        _run_arena(prompt, resolved, thread_id, synthesizer, {"use_web_search": web_search}, as_json),
+        as_json,
+    )
+    if as_json:
+        _emit_json(result)
+    if result["answers"] and all(a["error"] for a in result["answers"].values()):
+        raise typer.Exit(1)
+
+
+async def _run_arena(prompt, models, thread_id, synthesizer, toggles, as_json):
+    from app.core import database as db
+    from app.services.arena import open_graph, run_arena
+    from app.cli_display import ArenaDisplay, print_header, print_info, print_success, print_error, render_synthesis
+
+    result: Dict[str, Any] = {"thread_id": thread_id, "prompt": prompt, "answers": {}, "synthesis": None}
+    display = None
+    if not as_json:
         print_header()
         print_info(f"Thread: [dim]{thread_id}[/dim]")
+        print_info(f"Models: {', '.join(models)}")
+        console.print()
+        display = ArenaDisplay(models)
+        display.start()
 
-    asyncio.run(
-        _run_arena(prompt, validated_models, thread_id, web_search, format_output)
-    )
-
-
-async def _run_arena(
-    prompt: str,
-    models: List[str],
-    thread_id: str,
-    web_search: bool,
-    format_output: str,
-):
-    from app.services.graph import run_arena_streaming
-    from app.core import database as db
-    from app.cli_display import (
-        ArenaDisplay,
-        render_synthesis,
-        print_success,
-        print_info,
-    )
-    import json
-
-    graph_app, saver = await _get_graph()
-
-    try:
-        overrides = {"use_web_search": web_search}
-
-        # Resolve models for display
-        actual_models = models
-        if not actual_models:
-            from app.services.graph import _resolve_arena_models
-
-            actual_models = _resolve_arena_models(models)
-
-        if format_output == "rich":
-            print_info(f"Models: {', '.join(actual_models)}")
-            console.print()
-            display = ArenaDisplay(actual_models)
-            display.start()
-        else:
-            display = None
-
-        results = {}
-        async for event in run_arena_streaming(
-            graph_app, prompt, thread_id, models=models, overrides=overrides
-        ):
-            model = event.get("model", "")
-            etype = event.get("type", "")
-
-            if etype == "token" and display:
-                display.update_token(model, event.get("token", ""))
-            elif etype == "end":
-                if display:
-                    display.finish_model(model)
-                results[model] = event.get("content", "")
-            elif etype == "synthesis":
-                if display:
+    async with open_graph() as graph_app:
+        is_new = not (await graph_app.aget_state({"configurable": {"thread_id": thread_id}})).values
+        try:
+            async for event in run_arena(graph_app, prompt, thread_id, models, toggles, synthesizer):
+                kind = event["type"]
+                if kind == "token" and display:
+                    display.update_token(event["model"], event["token"])
+                elif kind == "end":
+                    result["answers"][event["model"]] = {k: event[k] for k in ("content", "checkpoint_id", "error")}
+                    if display:
+                        if event["error"]:
+                            display.update_token(event["model"], f"\n[error] {event['error']}")
+                        display.finish_model(event["model"])
+                elif kind == "synthesis_start" and display:
                     display.stop()
-                    render_synthesis(event.get("content", ""))
-                else:
-                    # JSON mode
-                    output = {
-                        "thread_id": thread_id,
-                        "models": results,
-                        "synthesis": event.get("content", ""),
-                    }
-                    console.print(json.dumps(output, ensure_ascii=False, indent=2))
+                    display = None
+                    console.print()
+                    print_info(f"Synthesizing with {event['model']}…")
+                elif kind == "synthesis":
+                    result["synthesis"] = {k: event[k] for k in ("model", "content", "checkpoint_id", "error")}
+                    if not as_json:
+                        if event["error"]:
+                            print_error(f"Synthesis failed: {event['error']}")
+                        else:
+                            render_synthesis(event["content"], event["model"])
+        finally:
+            if display:
+                display.stop()
 
-        if display:
-            display.stop()
-
-        # Auto-title the thread
-        db.rename_thread(thread_id, f"Arena: {prompt[:40]}...")
-        if format_output == "rich":
-            print_success(f"Thread saved: {thread_id}")
-    finally:
-        await saver.__aexit__(None, None, None)
+    if is_new:
+        db.rename_thread(thread_id, f"Arena: {prompt[:40]}")
+    if not as_json:
+        print_success(f"Thread saved: {thread_id}")
+    return result
 
 
 # ─── DELIBERATE Command ─────────────────────────────────────────
@@ -196,96 +203,160 @@ async def _run_arena(
 
 @app.command()
 def deliberate(
-    prompt: str = typer.Argument(..., help="The topic for adversarial debate."),
+    prompt: str = typer.Argument(..., help="The topic for the debate."),
     models: Optional[List[str]] = typer.Option(
-        None, "--models", "-m", help="Model IDs to debate."
+        None, "--models", "-m", help="Model IDs to debate (repeat the flag; at least two)."
     ),
-    rounds: int = typer.Option(2, "--rounds", "-r", help="Number of debate rounds."),
+    rounds: int = typer.Option(2, "--rounds", "-r", min=1, help="Maximum number of rounds."),
     judge: Optional[str] = typer.Option(
-        None, "--judge", "-j", help="Model ID to synthesize the final verdict."
+        None, "--judge", "-j", help="Model that writes the final synthesis (default: the first model)."
+    ),
+    no_synthesize: bool = typer.Option(False, "--no-synthesize", help="Skip the final synthesis."),
+    threshold: Optional[float] = typer.Option(
+        None, "--threshold", help="Stop early when round-over-round similarity reaches this (0-1)."
+    ),
+    mode: str = typer.Option("all", "--mode", help="Convergence mode: all or any model must converge."),
+    convergence_judge: Optional[str] = typer.Option(
+        None, "--convergence-judge", help="Model that judges whether the debate has converged."
+    ),
+    thread: Optional[str] = typer.Option(
+        None, "--thread", "-t", help="Parent thread for the debate (default: a new one)."
     ),
     web_search: bool = typer.Option(
         False, "--web-search", "-w", help="Enable web search grounding."
     ),
+    format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
-    [bold yellow]🗣️  Deliberation Mode[/bold yellow] — Multi-round adversarial debate.
+    [bold yellow]🗣️  Deliberation Mode[/bold yellow] — Multi-round structured debate.
 
-    Models debate the topic across multiple rounds, responding to each other's arguments.
+    Runs the same debate engine as the web UI: each model debates on its own
+    branch, sees its peers' previous answers every round, and the debate can
+    stop early on convergence. The session shows up in the web UI.
     """
+    as_json = _check_format(format_output)
     _load_env()
-    validated_models = _parse_models(models)
-    thread_id = _gen_thread_id("debate")
+    if mode not in ("all", "any"):
+        raise typer.BadParameter("must be 'all' or 'any'", param_hint="--mode")
+    resolved = _validate_models(models, as_json)
+    if len(resolved) < 2:
+        _fail("A debate needs at least two models with API keys.", as_json)
+    synthesizer = None if no_synthesize else (judge or resolved[0])
+    for extra in filter(None, [synthesizer, convergence_judge]):
+        _validate_models([extra], as_json)
 
-    from app.cli_display import print_header, print_info
-
-    print_header()
-    print_info(f"Thread: [dim]{thread_id}[/dim]")
-    print_info(f"Rounds: {rounds}")
-
-    asyncio.run(
-        _run_deliberate(prompt, validated_models, thread_id, rounds, judge, web_search)
+    policy = {
+        "max_rounds": rounds,
+        "convergence_threshold": threshold,
+        "llm_judge": convergence_judge,
+        "mode": mode,
+    }
+    result = _run(
+        _run_deliberate(
+            prompt, resolved, thread or _gen_thread_id("debate"), policy, synthesizer,
+            {"use_web_search": web_search}, as_json,
+        ),
+        as_json,
     )
+    if as_json:
+        _emit_json(result)
 
 
-async def _run_deliberate(
-    prompt: str,
-    models: List[str],
-    thread_id: str,
-    rounds: int,
-    judge: Optional[str],
-    web_search: bool,
-):
-    from app.services.graph import run_deliberation
+async def _run_deliberate(prompt, models, thread_id, policy, synthesizer, toggles, as_json):
     from app.core import database as db
-    from app.cli_display import (
-        DeliberationDisplay,
-        render_synthesis,
-        print_success,
-        print_info,
-    )
+    from app.services import debate as debate_svc
+    from app.services.arena import open_graph
+    from app.cli_display import ArenaDisplay, print_header, print_info, print_success, print_error, render_synthesis
 
-    graph_app, saver = await _get_graph()
+    async with open_graph() as graph_app:
+        session = debate_svc.create_session(
+            parent_thread_id=thread_id,
+            participants=models,
+            termination_policy=policy,
+            auto_synthesize=bool(synthesizer),
+            synthesizer_model=synthesizer,
+        )
+        session_id = session["session_id"]
+        if not db.get_thread_title(thread_id):
+            db.rename_thread(thread_id, f"Debate: {prompt[:40]}")
 
-    try:
-        overrides = {"use_web_search": web_search}
+        result: Dict[str, Any] = {
+            "session_id": session_id,
+            "thread_id": thread_id,
+            "prompt": prompt,
+            "models": models,
+            "rounds": [],
+            "converged": None,
+            "synthesis": None,
+            "errors": [],
+        }
+        if not as_json:
+            print_header()
+            print_info(f"Thread: [dim]{thread_id}[/dim]  Session: [dim]{session_id}[/dim]")
+            print_info(f"Models: {', '.join(models)}  ·  up to {policy['max_rounds']} round(s)")
 
-        # Resolve models
-        if not models:
-            from app.services.graph import _resolve_arena_models
+        display = None
+        current: Optional[Dict[str, Any]] = None
+        finished = False
+        try:
+            async for event in debate_svc.run_debate(graph_app, session_id, prompt, toggles, {}):
+                kind = event["type"]
+                if kind == "debate_round_start":
+                    current = {"round": event["round"], "responses": {}, "errors": {}, "convergence_score": None}
+                    result["rounds"].append(current)
+                    if not as_json:
+                        console.print()
+                        console.rule(f"Round {event['round'] + 1}")
+                        display = ArenaDisplay(models)
+                        display.start()
+                elif kind == "stream_token" and display and current is not None:
+                    display.update_token(event["model"], event["token"])
+                elif kind == "stream_end" and current is not None:
+                    current["responses"][event["model"]] = event.get("content", "")
+                    if display:
+                        display.finish_model(event["model"])
+                elif kind == "error":
+                    if event.get("model") and current is not None:
+                        current["errors"][event["model"]] = event["message"]
+                        if display:
+                            display.update_token(event["model"], f"\n[error] {event['message']}")
+                            display.finish_model(event["model"])
+                    else:
+                        result["errors"].append(event["message"])
+                        if not as_json:
+                            print_error(event["message"])
+                elif kind == "debate_round_end":
+                    if display:
+                        display.stop()
+                        display = None
+                    if current is not None:
+                        current["convergence_score"] = event.get("convergence_score")
+                    if not as_json and event.get("convergence_score") is not None:
+                        print_info(f"Convergence: {event['convergence_score']:.3f}")
+                elif kind == "debate_converged":
+                    result["converged"] = {k: event.get(k) for k in ("round", "score", "reason", "method")}
+                    if not as_json:
+                        print_success(f"Converged after round {event['round'] + 1} ({event.get('reason')})")
+                elif kind == "debate_synthesis_start" and not as_json:
+                    console.print()
+                    print_info(f"Synthesizing with {event['model']}…")
+                elif kind == "debate_synthesis_end":
+                    result["synthesis"] = {"model": event["model"], "content": event["content"], "checkpoint_id": event.get("checkpoint_id")}
+                    if not as_json:
+                        render_synthesis(event["content"], event["model"])
+                elif kind == "debate_session_status" and event.get("status") == "completed":
+                    finished = True
+        finally:
+            if display:
+                display.stop()
+            if not finished:
+                # Ctrl-C or a crash mid-debate: don't leave it marked running.
+                db.update_debate_session(session_id, status="interrupted")
 
-            models = _resolve_arena_models(None)
-
-        print_info(f"Models: {', '.join(models)}")
+    if not as_json:
         console.print()
-
-        display = DeliberationDisplay(models, rounds)
-
-        async for event in run_deliberation(
-            graph_app,
-            prompt,
-            thread_id,
-            models=models,
-            rounds=rounds,
-            judge=judge,
-            overrides=overrides,
-        ):
-            etype = event.get("type", "")
-            if etype == "round_start":
-                display.start_round(event["round"])
-            elif etype == "model_start":
-                display.start_model(event["model"])
-            elif etype == "token":
-                display.update_token(event.get("token", ""))
-            elif etype == "model_end":
-                display.finish_model()
-            elif etype == "synthesis":
-                render_synthesis(event.get("content", ""), judge)
-
-        db.rename_thread(thread_id, f"Debate: {prompt[:40]}...")
-        print_success(f"Thread saved: {thread_id}")
-    finally:
-        await saver.__aexit__(None, None, None)
+        print_success(f"Debate saved: {session_id} (thread {thread_id})")
+    return result
 
 
 # ─── SYNTHESIZE Command ─────────────────────────────────────────
@@ -293,46 +364,82 @@ async def _run_deliberate(
 
 @app.command()
 def synthesize(
-    thread: str = typer.Option(..., "--thread", "-t", help="Thread ID to synthesize."),
+    thread: Optional[str] = typer.Option(None, "--thread", "-t", help="Thread whose branch answers to synthesize."),
+    debate: Optional[str] = typer.Option(None, "--debate", "-d", help="Debate session to synthesize."),
     judge: Optional[str] = typer.Option(
-        None, "--judge", "-j", help="Model to use as judge for synthesis."
+        None, "--judge", "-j", help=f"Model that writes the synthesis (default: {DEFAULT_MODEL}, or the debate's own synthesizer)."
     ),
+    format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
-    [bold cyan]🔬 Synthesize[/bold cyan] — Generate consensus from an existing thread.
+    [bold cyan]🔬 Synthesize[/bold cyan] — Combine existing answers into one.
+
+    With --thread: the latest answer on every branch of the thread (e.g. each
+    model's arena answer) is synthesized, and the result is added to the
+    thread. With --debate: each participant's final answer is synthesized.
     """
+    as_json = _check_format(format_output)
     _load_env()
-    asyncio.run(_run_synthesize(thread, judge))
+    if bool(thread) == bool(debate):
+        raise typer.BadParameter("pass exactly one of --thread or --debate")
+    if judge:
+        _validate_models([judge], as_json)
+
+    if debate:
+        result = _run(_run_synthesize_debate(debate, judge, as_json), as_json)
+    else:
+        result = _run(_run_synthesize_thread(thread, judge or DEFAULT_MODEL, as_json), as_json)
+    if as_json:
+        _emit_json(result)
+    if not result.get("synthesis") or result["synthesis"].get("error"):
+        raise typer.Exit(1)
 
 
-async def _run_synthesize(thread_id: str, judge: Optional[str]):
-    from app.cli_display import render_synthesis, print_info, print_header
+async def _run_synthesize_thread(thread_id, judge, as_json):
+    from app.services.arena import open_graph, synthesize_thread
+    from app.cli_display import print_header, print_info, print_error, render_synthesis
 
-    print_header()
+    result: Dict[str, Any] = {"thread_id": thread_id, "answers": {}, "synthesis": None}
+    if not as_json:
+        print_header()
+    async with open_graph() as graph_app:
+        async for event in synthesize_thread(graph_app, thread_id, judge):
+            if event["type"] == "end":
+                result["answers"][event["checkpoint_id"]] = {"model": event["model"], "content": event["content"]}
+            elif event["type"] == "synthesis_start" and not as_json:
+                print_info(f"Synthesizing {len(result['answers'])} branch answers with {event['model']}…")
+            elif event["type"] == "synthesis":
+                result["synthesis"] = {k: event[k] for k in ("model", "content", "checkpoint_id", "error")}
+                if not as_json:
+                    if event["error"]:
+                        print_error(f"Synthesis failed: {event['error']}")
+                    else:
+                        render_synthesis(event["content"], event["model"])
+    return result
 
-    graph_app, saver = await _get_graph()
-    try:
-        config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-        state = await graph_app.aget_state(config)
 
-        if not state.values:
-            from app.cli_display import print_error
+async def _run_synthesize_debate(session_id, judge, as_json):
+    from app.core import database as db
+    from app.services import debate as debate_svc
+    from app.services.arena import open_graph
+    from app.cli_display import print_header, print_info, render_synthesis
 
-            print_error(f"Thread {thread_id} not found.")
-            raise typer.Exit(1)
-
-        thesis = state.values.get("current_thesis", "")
-        if thesis:
-            print_info("Current thesis found in thread state:")
-            render_synthesis(thesis, judge)
-        else:
-            from app.cli_display import print_error
-
-            print_error(
-                "No thesis found in this thread. Run 'arena' or 'deliberate' first."
-            )
-    finally:
-        await saver.__aexit__(None, None, None)
+    result: Dict[str, Any] = {"session_id": session_id, "synthesis": None}
+    async with open_graph() as graph_app:
+        if not db.get_debate_session(session_id):
+            raise ValueError(f"Debate session {session_id} not found.")
+        if not as_json:
+            print_header()
+        async for event in debate_svc.synthesize_session(graph_app, session_id, prompt="", synthesizer=judge):
+            if event["type"] == "error":
+                raise ValueError(event["message"])
+            if event["type"] == "debate_synthesis_start" and not as_json:
+                print_info(f"Synthesizing with {event['model']}…")
+            elif event["type"] == "debate_synthesis_end":
+                result["synthesis"] = {"model": event["model"], "content": event["content"], "checkpoint_id": event.get("checkpoint_id"), "error": None}
+                if not as_json:
+                    render_synthesis(event["content"], event["model"])
+    return result
 
 
 # ─── TREE Command ────────────────────────────────────────────────
@@ -342,7 +449,7 @@ async def _run_synthesize(thread_id: str, judge: Optional[str]):
 def tree(
     thread: str = typer.Option(..., "--thread", "-t", help="Thread ID to visualize."),
     open_browser: bool = typer.Option(
-        False, "--open", "-o", help="Open in browser (Web UI)."
+        False, "--open", "-o", help="Open the thread in the web UI instead."
     ),
 ):
     """
@@ -351,58 +458,35 @@ def tree(
     _load_env()
     if open_browser:
         import webbrowser
+        from urllib.parse import quote
 
-        webbrowser.open(f"http://localhost:3000?thread={thread}")
+        base = os.getenv("CRUCIBLE_WEB_URL", "http://localhost:3000").rstrip("/")
+        webbrowser.open(f"{base}/?thread={quote(thread)}")
         from app.cli_display import print_success
 
         print_success("Opened in browser.")
         return
 
-    asyncio.run(_render_tree(thread))
+    _run(_render_tree(thread), False)
 
 
 async def _render_tree(thread_id: str):
-    from app.core import database as db
-    from app.services.tree import build_history_tree
+    from app.services.arena import open_graph
+    from app.services.tree import build_history_tree, load_thread_states
     from app.cli_display import render_ascii_tree, print_header, print_info
 
-    print_header()
-
-    graph_app, saver = await _get_graph()
-    try:
-        raw_graph = db.get_thread_checkpoint_graph(thread_id)
-        all_checkpoint_ids = [row[0] for row in raw_graph]
-
-        if not all_checkpoint_ids:
-            from app.cli_display import print_error
-
-            print_error(f"Thread {thread_id} not found.")
-            raise typer.Exit(1)
-
-        all_states = []
-        for cid in all_checkpoint_ids:
-            cfg = {
-                "configurable": {
-                    "thread_id": thread_id,
-                    "checkpoint_id": cid,
-                    "checkpoint_ns": "",
-                }
-            }
-            state = await graph_app.aget_state(cfg)
-            if state and state.values:
-                all_states.append(state)
-
-        active_config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-        active_state = await graph_app.aget_state(active_config)
-
+    async with open_graph() as graph_app:
+        all_states = await load_thread_states(graph_app, thread_id)
+        if not all_states:
+            raise ValueError(f"Thread {thread_id} not found.")
+        active_state = await graph_app.aget_state({"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}})
         tree_data = build_history_tree(thread_id, all_states, active_state)
 
-        active_id = active_state.config.get("configurable", {}).get("checkpoint_id")
-        print_info(f"Thread: {thread_id} ({len(tree_data['nodes'])} nodes)")
-        console.print()
-        render_ascii_tree(tree_data["nodes"], tree_data["edges"], active_id)
-    finally:
-        await saver.__aexit__(None, None, None)
+    print_header()
+    active_id = active_state.config.get("configurable", {}).get("checkpoint_id")
+    print_info(f"Thread: {thread_id} ({len(tree_data['nodes'])} nodes)")
+    console.print()
+    render_ascii_tree(tree_data["nodes"], tree_data["edges"], active_id)
 
 
 # ─── THREADS Command ────────────────────────────────────────────
@@ -415,10 +499,13 @@ def threads(
         None, "--title", help="New title (used with --rename)."
     ),
     delete: Optional[str] = typer.Option(None, "--delete", help="Thread ID to delete."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Don't ask before deleting."),
+    format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
     [bold]🧪 Threads[/bold] — List, rename, or delete experiments.
     """
+    as_json = _check_format(format_output)
     _load_env()
     from app.core import database as db
     from app.cli_display import (
@@ -427,22 +514,57 @@ def threads(
         print_header,
     )
 
-    if rename and title:
+    db.init_db()
+    if rename:
+        if not title:
+            raise typer.BadParameter("--rename needs --title")
         db.rename_thread(rename, title)
         print_success(f"Renamed {rename} → {title}")
         return
 
     if delete:
-        if not typer.confirm(f"Delete thread {delete}? This cannot be undone."):
+        if not yes and not typer.confirm(f"Delete thread {delete}? This cannot be undone."):
             return
         db.delete_thread_data(delete)
         print_success(f"Deleted {delete}")
         return
 
-    # Default: list all threads
-    print_header()
     thread_list = db.list_threads()
+    if as_json:
+        _emit_json({"threads": thread_list})
+        return
+    print_header()
     render_threads_table(thread_list)
+
+
+# ─── MODELS Command ─────────────────────────────────────────────
+
+
+@app.command()
+def models(
+    format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
+    all_models: bool = typer.Option(False, "--all", help="Include legacy models."),
+):
+    """
+    [bold]🧠 Models[/bold] — List model IDs and whether their API key is set.
+    """
+    as_json = _check_format(format_output)
+    _load_env()
+    from app.services.arena import list_models
+
+    rows = [m for m in list_models() if all_models or not m["legacy"]]
+    if as_json:
+        _emit_json({"models": rows})
+        return
+    from rich.table import Table
+
+    table = Table(box=None)
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Name")
+    table.add_column("Key", justify="center")
+    for m in rows:
+        table.add_row(m["id"], m["name"], "✓" if m["key_available"] else "[dim]–[/dim]")
+    console.print(table)
 
 
 # ─── CHAT Command ────────────────────────────────────────────────
@@ -460,93 +582,70 @@ def chat(
     web_search: bool = typer.Option(
         False, "--web-search", "-w", help="Enable web search."
     ),
+    format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
-    [bold green]💬 Chat Mode[/bold green] — Single-model interactive session.
+    [bold green]💬 Chat Mode[/bold green] — Single-model turn.
 
     Supports stdin piping: echo "question" | crucible chat --model gpt-5.4
     """
+    as_json = _check_format(format_output)
     _load_env()
 
-    # Handle stdin piping
     if prompt is None:
         if not sys.stdin.isatty():
             prompt = sys.stdin.read().strip()
         if not prompt:
-            console.print(
-                "[red]No prompt provided. Pass a message or pipe via stdin.[/red]"
-            )
-            raise typer.Exit(1)
+            _fail("No prompt provided. Pass a message or pipe via stdin.", as_json)
 
-    _parse_models([model])  # Validate model exists
+    _validate_models([model], as_json)
     thread_id = thread or _gen_thread_id("chat")
+    result = _run(_run_chat(prompt, model, thread_id, {"use_web_search": web_search}, as_json), as_json)
+    if as_json:
+        _emit_json(result)
 
-    asyncio.run(_run_chat(prompt, model, thread_id, web_search))
 
+async def _run_chat(prompt: str, model: str, thread_id: str, toggles, as_json: bool):
+    from rich.live import Live
+    from rich.markdown import Markdown
+    from rich.text import Text
 
-async def _run_chat(prompt: str, model: str, thread_id: str, web_search: bool):
-    from app.utils.helpers import extract_text
-    from app.cli_display import print_info, get_model_color, get_model_icon
+    from app.core import database as db
+    from app.services.arena import open_graph, stream_run
+    from app.services.runs import resolve_fork_point_ex
+    from app.cli_display import print_info, print_success, get_model_color, get_model_icon
 
-    graph_app, saver = await _get_graph()
-
-    try:
-        config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-        state = await graph_app.aget_state(config)
-
-        initial_state = {
-            "active_peer": model,
-            "messages": [("user", prompt)],
-            "toggles": {"use_web_search": web_search},
-        }
-        if not state.values:
-            initial_state.update({"current_thesis": "", "branch_name": "main"})
-
+    live = None
+    if not as_json:
         color = get_model_color(model)
-        icon = get_model_icon(model)
         print_info(f"Thread: [dim]{thread_id}[/dim]")
-        console.print(f"\n{icon} [bold {color}]{model}[/bold {color}]:\n")
-
-        from rich.live import Live
-        from rich.text import Text
-
-        buffer = ""
-        live = Live(
-            Text("▌", style="dim"),
-            console=console,
-            refresh_per_second=8,
-            transient=True,
-        )
+        console.print(f"\n{get_model_icon(model)} [bold {color}]{model}[/bold {color}]:\n")
+        live = Live(Text("▌", style="dim"), console=console, refresh_per_second=8, transient=True)
         live.__enter__()
 
-        try:
-            async for event in graph_app.astream_events(
-                initial_state, config, version="v2"
-            ):
-                kind = event.get("event")
-                if kind == "on_chat_model_stream":
-                    node_name = event.get("metadata", {}).get("langgraph_node", "")
-                    if node_name != "draft":
-                        continue
-                    chunk = event.get("data", {}).get("chunk")
-                    if chunk and hasattr(chunk, "content") and chunk.content:
-                        token = extract_text(chunk.content)
-                        if token:
-                            buffer += token
-                            live.update(Text(buffer + "▌"))
-        finally:
+    result: Dict[str, Any] = {"thread_id": thread_id, "model": model}
+    buffer = ""
+    try:
+        async with open_graph() as graph_app:
+            parent, is_new = await resolve_fork_point_ex(graph_app, thread_id)
+            async for event in stream_run(graph_app, thread_id, parent, model, prompt, toggles):
+                if event["type"] == "token":
+                    buffer += event["token"]
+                    if live:
+                        live.update(Text(buffer + "▌"))
+                else:
+                    result["content"] = event["content"]
+                    result["checkpoint_id"] = event["checkpoint_id"]
+    finally:
+        if live:
             live.__exit__(None, None, None)
 
-        # Print final content as markdown
-        from rich.markdown import Markdown
-
-        console.print(Markdown(buffer))
-
-        from app.cli_display import print_success
-
+    if is_new:
+        db.rename_thread(thread_id, prompt.strip().split("\n")[0][:40])
+    if not as_json:
+        console.print(Markdown(result.get("content", buffer)))
         print_success(f"Thread saved: {thread_id}")
-    finally:
-        await saver.__aexit__(None, None, None)
+    return result
 
 
 if __name__ == "__main__":

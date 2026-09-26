@@ -90,4 +90,21 @@ describe("useThreads", () => {
     expect(api.deleteThread).toHaveBeenCalledWith("thread_1");
     expect(api.listThreads).toHaveBeenCalled();
   });
+
+  it("opens the thread named in ?thread= and clears it from the URL", async () => {
+    localStorage.setItem("crucible_thread_id", "thread_old");
+    window.history.replaceState(null, "", "/?thread=cli-abc123");
+
+    const { result } = renderHook(() =>
+      useThreads(mockOnThreadClear, mockOnThreadSwitch, mockShowConfirm),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.threadId).toBe("cli-abc123");
+    expect(mockOnThreadSwitch).toHaveBeenCalledWith("cli-abc123");
+    expect(window.location.search).toBe("");
+    expect(localStorage.getItem("crucible_thread_id")).toBe("cli-abc123");
+  });
 });

@@ -195,48 +195,14 @@ async def debate_websocket(websocket: WebSocket, session_id: str):
             await _send(event)
 
     async def _run_synthesis(data: dict):
-        session = db.get_debate_session(session_id)
-        if not session:
-            await _send({"type": "error", "message": f"Session {session_id} not found"})
-            return
-        model = data.get("synthesizer_model") or session.get("synthesizer_model")
-        if not model:
-            await _send({"type": "error", "message": "No synthesizer model specified"})
-            return
-        # Build last round responses from thread states
-        participants = session["participants"]
-        thread_ids = session["thread_ids"]
-        last_responses: dict[str, str] = {}
-        for m_id in participants:
-            tid = thread_ids.get(m_id)
-            if not tid:
-                continue
-            cfg = {"configurable": {"thread_id": tid}}
-            try:
-                state = await graph_app.aget_state(cfg)
-                if state and state.values:
-                    msgs = state.values.get("messages", [])
-                    last_ai = next(
-                        (msg for msg in reversed(msgs) if getattr(msg, "type", "") == "ai"),
-                        None,
-                    )
-                    if last_ai:
-                        from app.utils.helpers import extract_text
-                        last_responses[m_id] = extract_text(last_ai.content)
-            except Exception:
-                pass
-
-        session["synthesizer_model"] = model
-        async for event in debate_svc._stream_synthesis(
-            graph_app=graph_app,
-            session_id=session_id,
-            session=session,
+        async for event in debate_svc.synthesize_session(
+            graph_app,
+            session_id,
             prompt=data.get("prompt", ""),
-            all_responses=last_responses,
+            synthesizer=data.get("synthesizer_model"),
             toggles=data.get("toggles", {}),
         ):
             await _send(event)
-        db.update_debate_session(session_id, status="completed")
         await _send({"type": "debate_session_status", "session_id": session_id, "status": "completed"})
 
     try:

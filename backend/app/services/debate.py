@@ -468,6 +468,72 @@ async def _check_convergence(
 # ─── Synthesis ───────────────────────────────────────────────────────────────
 
 
+async def latest_responses(graph_app, session: dict[str, Any]) -> dict[str, str]:
+    """Each participant's most recent reply, read from its sub-thread head."""
+    responses: dict[str, str] = {}
+    for model_id in session["participants"]:
+        thread_id = session["thread_ids"].get(model_id)
+        if not thread_id:
+            continue
+        try:
+            state = await graph_app.aget_state(thread_config(thread_id))
+        except Exception:
+            continue
+        msgs = state.values.get("messages", []) if state and state.values else []
+        last_ai = next((m for m in reversed(msgs) if getattr(m, "type", "") == "ai"), None)
+        if last_ai is not None:
+            responses[model_id] = extract_text(last_ai.content)
+    return responses
+
+
+async def _original_question(graph_app, session: dict[str, Any]) -> str:
+    """The round-0 prompt, which every participant's sub-thread starts with.
+
+    Sessions don't store it; the web UI passes it along, the CLI recovers it.
+    """
+    for model_id in session["participants"]:
+        thread_id = session["thread_ids"].get(model_id)
+        if not thread_id:
+            continue
+        state = await graph_app.aget_state(thread_config(thread_id))
+        msgs = state.values.get("messages", []) if state and state.values else []
+        first = next((m for m in msgs if getattr(m, "type", "") == "human"), None)
+        if first is not None:
+            return extract_text(first.content)
+    return ""
+
+
+async def synthesize_session(
+    graph_app,
+    session_id: str,
+    prompt: str,
+    synthesizer: Optional[str] = None,
+    toggles: Optional[dict[str, Any]] = None,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """Synthesize a finished (or interrupted) debate from its latest responses."""
+    session = db.get_debate_session(session_id)
+    if not session:
+        yield {"type": "error", "session_id": session_id, "message": f"Session {session_id} not found"}
+        return
+    model = synthesizer or session.get("synthesizer_model")
+    if not model:
+        yield {"type": "error", "session_id": session_id, "message": "No synthesizer model specified"}
+        return
+    responses = await latest_responses(graph_app, session)
+    if not prompt:
+        prompt = await _original_question(graph_app, session)
+    async for event in _stream_synthesis(
+        graph_app=graph_app,
+        session_id=session_id,
+        session={**session, "synthesizer_model": model},
+        prompt=prompt,
+        all_responses=responses,
+        toggles=toggles or {},
+    ):
+        yield event
+    db.update_debate_session(session_id, status="completed")
+
+
 async def _stream_synthesis(
     graph_app,
     session_id: str,

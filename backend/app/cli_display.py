@@ -117,56 +117,6 @@ class ArenaDisplay:
         return all(self.finished.values())
 
 
-# ─── Deliberation Display ───────────────────────────────────────
-
-
-class DeliberationDisplay:
-    """Displays multi-round adversarial debate."""
-
-    def __init__(self, models: List[str], rounds: int):
-        self.models = models
-        self.rounds = rounds
-        self.current_round = 0
-        self._live: Optional[Live] = None
-        self.current_model = ""
-        self.current_buffer = ""
-
-    def start_round(self, round_num: int):
-        self.current_round = round_num
-        console.rule(
-            f"[bold cyan]Round {round_num}/{self.rounds}[/bold cyan]",
-            style="dim",
-        )
-
-    def start_model(self, model: str):
-        self.current_model = model
-        self.current_buffer = ""
-        color = get_model_color(model)
-        icon = get_model_icon(model)
-        console.print(f"\n{icon} [bold {color}]{model}[/bold {color}]:")
-
-        self._live = Live(
-            Text("▌", style="dim"),
-            console=console,
-            refresh_per_second=8,
-            transient=True,
-        )
-        self._live.__enter__()
-
-    def update_token(self, token: str):
-        self.current_buffer += token
-        if self._live:
-            self._live.update(Text(self.current_buffer + "▌"))
-
-    def finish_model(self):
-        if self._live:
-            self._live.__exit__(None, None, None)
-            self._live = None
-        # Print the final content as markdown
-        console.print(Markdown(self.current_buffer))
-        self.current_buffer = ""
-
-
 # ─── Tree Rendering ─────────────────────────────────────────────
 
 
