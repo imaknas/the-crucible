@@ -283,7 +283,8 @@ async def test_live_replay_summarizes_repeatedly_and_shares_summaries(eval_setup
     )
     never = [r for r in results if r.condition == "never"]
     live = [r for r in results if r.condition == "t1500"]
-    assert all(r.correct and r.compactions == 0 for r in never)
+    assert all(r.correct and r.compactions == 0 and r.summary_tokens == 0 for r in never)
+    assert all(r.summary_tokens > 0 for r in live)
     # Early facts went through several summaries; the stand-in keeps none of them.
     assert max(r.compactions for r in live) >= 3
     assert not any(r.correct for r in live if r.compactions >= 2)

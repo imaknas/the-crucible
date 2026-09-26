@@ -593,6 +593,13 @@ def synthesis_node(state: CrucibleState, config: RunnableConfig):
         return {"current_thesis": state.get("current_thesis", "")}
 
 
+def default_summarizer() -> str:
+    """The model that writes summaries unless a run names another."""
+    from app.api.models import SUMMARIZER_MODELS
+
+    return next((m for m in SUMMARIZER_MODELS if m in MODEL_REGISTRY), SUMMARIZER_MODELS[-1])
+
+
 def summarize_history(state: CrucibleState, config: RunnableConfig):
     """Compresses conversation history to fit within model context windows."""
     messages = state["messages"]
@@ -609,12 +616,7 @@ def summarize_history(state: CrucibleState, config: RunnableConfig):
     try:
         # Use a FAST model for summarization regardless of the active peer
         # This prevents Opus from stalling the user experience during a summary jump
-        from app.api.models import MODEL_REGISTRY, SUMMARIZER_MODELS
-
-        summarizer_id = ((config or {}).get("configurable") or {}).get(SUMMARIZER_CONFIG_KEY) or next(
-            (m for m in SUMMARIZER_MODELS if m in MODEL_REGISTRY),
-            SUMMARIZER_MODELS[-1],
-        )
+        summarizer_id = ((config or {}).get("configurable") or {}).get(SUMMARIZER_CONFIG_KEY) or default_summarizer()
 
         print(f"[Summarize] Using fast model: {summarizer_id} for history compression.")
         model = model_factory_from(config).chat(summarizer_id, {})

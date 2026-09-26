@@ -276,3 +276,33 @@ No model ever answered correctly when the value was detached. Two findings:
 - The pilot 2b gap between models and the oracle under flash-lite summaries
   is therefore attention, not lost association (H2): models miss ~14% of the
   facts a terse summary did keep, against ~0.5% under flash's long summaries.
+
+## 2026-09-27 — What these runs cost, and budget control
+
+The earlier "cost" lines in these notes used guessed prices and were far too
+low (gemini-3.5-flash was assumed $2.50/1M output; it is $9.00). At official
+prices (`app/catalog/data/prices.json`, checked 2026-09-27), from each run's
+recorded usage:
+
+| run | cost | of which gemini-3.5-flash (summarizer) | Haiku |
+|---|---|---|---|
+| pilot 1 | $1.90 | $1.22 | $0.53 |
+| pilot 2 | $22.61 | $15.98 | $4.50 |
+| pilot 2b | $7.81 | $4.88 | $2.00 |
+| pilot 2c | $8.28 | $5.27 | $2.18 |
+
+About $41 in total, plus the unrecorded smoke/calibration calls and the
+length-target run stopped at 27 of 1,080 probes (61 summaries written). The
+summarizer's reasoning tokens at $9/1M are most of it.
+
+Price facts that change experiment defaults: gpt-6-luna ($0.10/$0.50) is half
+of gpt-5.4-nano ($0.20/$1.25); gemini-3.8-flash ($0.75/$3.75 until
+2026-12-31, then $1.50/$7.50) is cheaper than gemini-3.5-flash ($1.50/$9.00)
+and, in one measured summary, reasoned half as much ($0.025 vs $0.088 per
+summary, both keeping 5/5 planted facts); gemini-3.1-flash-lite
+($0.25/$1.50) undercuts 3.5-flash-lite.
+
+`compaction-eval` now requires `--budget`: calibration calls, a dry-run
+estimate, refusal above budget, and a hard stop. Back-test on pilot 2c's
+settings: estimate $6.27, actual $8.28 — the planning figure is the
+estimate × 1.35.

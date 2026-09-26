@@ -31,3 +31,12 @@ def test_model_budget_reads_the_window_from_the_catalog():
     budget = model_budget("claude-sonnet-5")
     assert budget.context_window == CATALOG["claude-sonnet-5"].input_limit
     assert budget.soft_limit == MODEL_REGISTRY["claude-sonnet-5"]["limit"]
+
+
+def test_every_offered_model_has_a_price():
+    """Cost estimates and budgets need a price for every model the app offers."""
+    from app.catalog import PriceBook, load_prices
+
+    prices = PriceBook(load_prices(), "2026-09-27")
+    missing = [m for m in MODEL_REGISTRY if prices.price(m) is None]
+    assert not missing, f"add these to app/catalog/data/prices.json: {missing}"

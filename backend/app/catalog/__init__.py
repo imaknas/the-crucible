@@ -8,6 +8,7 @@ Self-contained like app/compaction: nothing here imports from `app.*`.
 - sync.py       Merge the previous catalog, fresh listings, manual overrides
                 and probe results into a new catalog, with a diff
 - store.py      Read/write the committed JSON snapshot and overrides
+- prices.py     What a call costs: the hand-maintained price list, by day
 
 Facts come from first-party sources only: the providers' model endpoints,
 our own probes, and hand-maintained overrides (each with its source) for
@@ -15,10 +16,16 @@ what no API exposes, such as OpenAI context windows.
 """
 
 from app.catalog.entry import CatalogEntry, Verification
+from app.catalog.prices import DEFAULT_PRICES, ModelPrice, Price, PriceBook, load_prices
 from app.catalog.store import DEFAULT_CATALOG, DEFAULT_OVERRIDES, load_catalog, load_overrides, save_catalog
 from app.catalog.sync import CatalogDiff, sync_catalog
 
 __all__ = [
+    "DEFAULT_PRICES",
+    "ModelPrice",
+    "Price",
+    "PriceBook",
+    "load_prices",
     "CatalogEntry",
     "Verification",
     "CatalogDiff",

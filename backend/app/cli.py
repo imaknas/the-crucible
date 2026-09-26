@@ -630,14 +630,11 @@ def catalog_sync(
 # ─── COMPACTION-EVAL Command ────────────────────────────────────
 
 
-CHEAP_MODELS = ["gpt-5.4-nano", "claude-haiku-4-5-20251001", "gemini-3.5-flash-lite"]
-
-
 @app.command("compaction-eval")
 def compaction_eval(
     models: Optional[List[str]] = typer.Option(
         None, "--models", "-m",
-        help=f"Models that answer the probes (default: {', '.join(CHEAP_MODELS)}). 'oracle' answers iff the value is still in context.",
+        help="Models that answer the probes (default: the cheapest offered model of each provider, by the price list). 'oracle' answers iff the value is still in context.",
     ),
     thresholds: Optional[List[int]] = typer.Option(
         None, "--threshold", "-t", help="Compaction thresholds in tokens (repeat). Default: 6000 (dense), 2000 and 4000 (basic)."
@@ -660,6 +657,8 @@ def compaction_eval(
     db: str = typer.Option("experiments/compaction.sqlite", "--db", help="Separate database for experiment threads."),
     out: Optional[str] = typer.Option(None, "--out", help="Write every probe result as JSON here."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Only the oracle answers, with a lossy stand-in summarizer; no API calls."),
+    budget: Optional[float] = typer.Option(None, "--budget", help="Hard spending cap in USD for a real run (required). The run is refused if the estimate exceeds it, and stops starting new calls once reached."),
+    estimate_only: bool = typer.Option(False, "--estimate", help="Only estimate the cost (a few cents of calibration calls) and exit."),
     format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
@@ -675,7 +674,9 @@ def compaction_eval(
     _load_env()
     if scenario not in ("dense", "basic") or compaction not in ("live", "once"):
         _fail("--scenario is dense|basic and --compaction is live|once", as_json)
-    model_ids = [ORACLE] if dry_run else list(models or CHEAP_MODELS)
+    if not dry_run and budget is None and not estimate_only:
+        _fail("a real run needs --budget (USD); use --estimate to see what it would cost", as_json)
+    model_ids = [ORACLE] if dry_run else list(models or _cheapest_models())
     if oracle:
         model_ids += [o for o in ORACLES if o not in model_ids]
     if not dry_run:
@@ -698,8 +699,10 @@ def compaction_eval(
         "baseline": baseline,
         "concurrency": concurrency,
     }
-    result = _run(_run_compaction_eval(model_ids, options, min_effect, db, out, dry_run), as_json)
-    if as_json:
+    result = _run(_run_compaction_eval(model_ids, options, min_effect, db, out, dry_run, budget, estimate_only), as_json)
+    if as_json or estimate_only:
+        if estimate_only and not as_json:
+            return
         _emit_json(result)
         return
     from rich.table import Table
@@ -716,11 +719,36 @@ def compaction_eval(
         console.print(f"  {c['model']}: {c['a']} vs {c['b']}: [bold]{c['outcome']}[/bold] "
                       f"effect {c['effect']} interval {c['interval']}")
     console.print(f"\nUsage: {json.dumps(result['usage'], indent=1)}")
+    if result.get("spend"):
+        sp = result["spend"]
+        console.print(f"Spent ${sp['total']:.2f} of ${sp['budget']:.2f} (estimate was ${sp['estimate']:.2f})"
+                      + (" — [bold]stopped at the budget[/bold]" if sp["stopped_by_budget"] else ""))
     if out:
         console.print(f"Wrote {out}")
 
 
-async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry_run):
+def _cheapest_models() -> List[str]:
+    from datetime import date
+
+    from app.api.models import MODEL_REGISTRY
+    from app.catalog import PriceBook, load_catalog, load_prices
+    from app.services.compaction_eval import cheapest_models
+
+    return cheapest_models(MODEL_REGISTRY, load_catalog(), PriceBook(load_prices(), date.today().isoformat()))
+
+
+def _print_estimate(est, budget) -> None:
+    lines = [f"Estimated cost: ${est.total:.2f} (plan for up to ${est.high:.2f}), "
+             f"calibration already spent ${est.calibration:.2f}"]
+    lines += [f"  {name}: ${cost:.2f}" + (f" ({est.summaries[name]:.0f} summaries)" if name in est.summaries else "")
+              for name, cost in est.by_condition.items()]
+    lines += ["  by model: " + ", ".join(f"{m} ${c:.2f}" for m, c in sorted(est.by_model.items(), key=lambda kv: -kv[1]))]
+    if budget is not None:
+        lines.append(f"  budget: ${budget:.2f}")
+    typer.echo("\n".join(lines), err=True)
+
+
+async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry_run, budget=None, estimate_only=False):
     from datetime import datetime, timezone
     from itertools import combinations
     from pathlib import Path
@@ -757,9 +785,36 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
 
     prefix = "compaction-eval-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     grid = ce.run_live_grid if options["compaction"] == "live" else ce.run_grid
+    spend, estimate = None, None
     async with open_graph() as graph_app:
+        if not dry_run:
+            from app.catalog import PriceBook, load_prices
+
+            prices = PriceBook(load_prices(), datetime.now(timezone.utc).date().isoformat())
+            real = [m for m in model_ids if m not in ce.ORACLES]
+            unpriced = sorted({m for m in real + [ce.split_thinking(ce.summarizer_of(c))[0] for c in conditions]
+                               if prices.price(m) is None})
+            if unpriced:
+                raise ValueError(f"no price for {', '.join(unpriced)}: add it to app/catalog/data/prices.json")
+            if options["compaction"] != "live":
+                raise ValueError("cost estimates cover --compaction live only")
+            spend = ce.Spend(prices)
+            sample = max(options["thresholds"])
+            summ_profiles = {c.name: await ce.calibrate_summarizer(c, factory, spend, sample)
+                             for c in conditions if not isinstance(c.policy, NeverCompact)}
+            answer_profiles = {m: await ce.calibrate_answerer(graph_app, m, factory, spend, prefix) for m in real}
+            estimate = await ce.estimate_cost(graph_app, scenarios, model_ids, conditions, prices, answer_profiles,
+                                              summ_profiles, thread_prefix=prefix, calibration_cost=spend.total)
+            _print_estimate(estimate, budget)
+            if estimate_only:
+                return {"estimate": {"total": round(estimate.total, 2), "high": round(estimate.high, 2),
+                                     "by_condition": estimate.by_condition, "by_model": estimate.by_model,
+                                     "summaries": estimate.summaries, "calibration": round(estimate.calibration, 3)}}
+            if estimate.high + spend.total > budget:
+                raise ValueError(f"estimated ${estimate.high:.2f} (+${spend.total:.2f} calibration) exceeds --budget ${budget:.2f}; nothing was run")
+            spend.limit = budget
         results = await grid(graph_app, scenarios, model_ids, conditions, thread_prefix=prefix,
-                             model_factory=factory, concurrency=options["concurrency"])
+                             model_factory=factory, concurrency=options["concurrency"], spend=spend)
 
     comparisons = []
     for model_id in model_ids:
@@ -784,6 +839,15 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
         "comparisons": comparisons,
         "usage": ce.usage_totals(results),
     }
+    if spend:
+        summary["spend"] = {
+            "total": round(spend.total, 4),
+            "budget": budget,
+            "estimate": round(estimate.total, 4),
+            "by_model": {m: round(c, 4) for m, c in spend.by_model.items()},
+            "unpriced_calls": spend.unpriced,
+            "stopped_by_budget": spend.exhausted,
+        }
     if out:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         Path(out).write_text(json.dumps({**summary, "probes": ce.results_as_dicts(results)}, ensure_ascii=False, indent=1))
