@@ -1,8 +1,8 @@
 # The Crucible ⚔️
 
-**A multi-model AI arena for non-linear debate, deliberation, and consensus.**
+**A multi-model AI arena for branching conversations, structured debate and synthesis.**
 
-The Crucible is an open-source, full-stack research interface that lets you orchestrate conversations across OpenAI, Anthropic, and Google models — simultaneously. Unlike traditional linear chat apps, every conversation is a **tree**: you can branch, rewind, pit models against each other, and synthesize their best ideas into a unified thesis.
+The Crucible is a full-stack research interface for putting the same question to OpenAI, Anthropic and Google models at once. Every conversation is a **tree**: you can branch from any point, compare models side by side, have them debate each other over several rounds, and synthesize the results. It also runs headless, as a CLI and as an MCP server for other agents.
 
 ![Three models debating across parallel lanes, converging into a synthesis node](docs/screenshots/debate-lanes.png)
 
@@ -32,7 +32,7 @@ Ask once, then fork. Here one answer branches into two lines of enquiry — a fo
 
 **Read the debate as a transcript**
 
-The same session in Arena view: round separators, per-model attribution, and the running debate status with a one-click Synthesize. Switch between tree and transcript at any time — the view never moves on its own.
+The same session in Arena view: round separators, per-model attribution, and the debate status with its controls. Switch between tree and transcript at any time — the view never moves on its own.
 
 </td>
 <td width="50%">
@@ -49,42 +49,119 @@ The same session in Arena view: round separators, per-model attribution, and the
 
 ## ✨ Features
 
-| Feature | Description |
+| Feature | What it does |
 |---|---|
-| **🌳 Conversation Trees** | Every message is a node. Branch off any point, explore alternate timelines, and navigate visually via a React Flow canvas. |
-| **⚔️ Arena Mode** | Select multiple models and fire a single prompt. Each model responds in parallel, creating side-by-side branches for instant comparison. |
-| **⚖️ Deliberation** | Invite a different model to critically review an existing conversation thread — with full speaker attribution so it knows who said what. |
-| **🤝 Consensus Engine** | Select divergent responses and synthesize them into a single, cohesive academic brief. |
-| **🧠 Smart Compression** | Automatic context management via `tiktoken`. When token counts approach a model's limit, older history is compressed into a technical brief — with speaker attribution preserved. |
-| **📐 LaTeX Math** | Native rendering of `$inline$` and `$$block$$` math expressions via KaTeX. |
-| **🕐 Temporal Context** | Models automatically receive the current date, time, and timezone — just like official web clients. |
-| **📎 Document Attachments** | Upload PDFs mid-conversation. Documents are parsed and indexed for retrieval. |
-| **🔍 RAG (Knowledge Search)** | Enable the RAG toggle to perform semantic search across your uploaded documents. |
-| **🌐 Web Search Grounding** | Let models access the live internet via their native search tool (Google Search, Bing, Anthropic web search). |
-| **🤖 Agentic Bridge (MCP)** | Built-in Model Context Protocol server. Agents (Claude, Cursor) can run a multi-model arena and query a thread's thesis and summary. |
+| **🌳 Conversation trees** | Every message is a checkpoint. Branch from any node, edit a question and re-ask it, and navigate the whole tree on a React Flow canvas. |
+| **⚔️ Arena** | Send one prompt to several models. Each answers in parallel on its own branch of the tree, for side-by-side comparison. |
+| **🗣️ Debate** | Two or more models argue over several rounds, each seeing the others' previous answers. Stop early on convergence (embedding similarity and/or an LLM judge), pause between rounds, add a note mid-debate, change the topic, and synthesize at the end. |
+| **⚖️ Deliberation** | Ask a model to critically review the thread so far, with every earlier message attributed to the model that wrote it. |
+| **🤝 Synthesis** | Combine divergent answers into one, stating where the models agree and where they don't. |
+| **📎 Documents & RAG** | Attach PDF, TXT, Markdown or CSV files (up to 10 MB). With *Search my documents* on, relevant passages are retrieved and graded before the model answers, with citations. |
+| **🌐 Web search** | Let models that support it use their provider's native web-search tool. |
+| **🧠 Context management** | When a thread outgrows a model's budget, older history is summarized (keeping who said what) instead of being cut off. |
+| **📐 LaTeX** | `$inline$` and `$$block$$` math rendered with KaTeX. |
+| **⌨️ CLI & 🤖 MCP** | Run arenas, debates and syntheses from the terminal or from another agent, against the same database as the web UI. |
 
 ---
 
-## 🤖 Agentic Integration (MCP)
+## 🚀 Quick Start
 
-The Crucible includes a built-in **Model Context Protocol (MCP)** server, enabling AI agents to use The Crucible as a programmable decision-making tool.
+### Prerequisites
 
-### Setup for Claude Desktop / Cursor
+- **Node.js** 24+
+- **Python** 3.13+ and [**uv**](https://docs.astral.sh/uv/)
+- An API key for at least one of OpenAI, Anthropic or Google
 
-Add the following to your MCP settings file (e.g., `~/Library/Application Support/Claude/claude_desktop_config.json`):
+### Run locally
+
+```bash
+git clone https://github.com/imaknas/the-crucible.git
+cd the-crucible
+
+(cd backend && uv sync)          # backend dependencies
+(cd frontend && npm install)     # frontend dependencies
+
+./start_dev.sh                   # backend on :8000, frontend on :3000
+```
+
+Open **http://localhost:3000**. `start_dev.sh` picks free ports if 8000 or 3000 are taken; `Ctrl+C` stops both servers.
+
+**API keys:** enter them in the app under **Control Panel → API Keys**, or copy `.env.example` to `backend/.env` and fill them in before starting.
+
+<details>
+<summary>Start the two servers separately</summary>
+
+```bash
+cd backend && uv run python -m app.main     # terminal 1
+cd frontend && npm run dev                  # terminal 2
+```
+
+</details>
+
+### Run with Docker
+
+```bash
+cp .env.example backend/.env     # add your keys (or set them in the app later)
+docker compose up --build
+```
+
+Frontend on http://localhost:3000, API on http://localhost:8000. Both are published on `127.0.0.1` only. Threads, uploads and the vector store persist in Docker volumes.
+
+| Use | When |
+|---|---|
+| `./start_dev.sh` | Development: hot reload, fast restarts, easy debugging |
+| `docker compose` | Trying it out or running it long-term: no local toolchain needed |
+
+---
+
+## 🔑 Configuration
+
+| Variable | Required | Description |
+|---|---|---|
+| `OPENAI_API_KEY` | At least one* | OpenAI API key |
+| `ANTHROPIC_API_KEY` | At least one* | Anthropic API key |
+| `GOOGLE_API_KEY` | At least one* | Google AI API key |
+| `NEXT_PUBLIC_API_URL` | No | Backend URL for the frontend (default `http://localhost:8000`) |
+| `HOST` | No | Backend bind address (default `127.0.0.1`) |
+| `CORS_ORIGINS` | No | Extra browser origins, comma-separated. `localhost` / `127.0.0.1` on any port are always allowed |
+| `DATABASE_PATH` | No | SQLite file for threads and checkpoints (default `backend/checkpoints.sqlite`) |
+| `CHROMA_DIR` | No | Vector store directory (default `backend/chroma_db`) |
+| `CRUCIBLE_ALLOW_REMOTE_CONFIG` | No | Let non-loopback clients use the API-key endpoint. Docker Compose sets it, since it publishes on `127.0.0.1` only |
+
+\* Keys can also be set at runtime in **Control Panel → API Keys**, which writes them to `backend/.env`. That endpoint only accepts requests from the local machine.
+
+> **⚠️ The API has no authentication.** It listens on loopback by default. If you set `HOST=0.0.0.0` to reach it from another machine, anyone on that network can use your API keys.
+
+---
+
+## ⌨️ CLI
+
+The backend installs a `crucible` command. Run it from `backend/` with `uv run`, and repeat `-m` once per model.
+
+```bash
+uv run crucible models                                    # model IDs and which have keys
+uv run crucible arena "Is P = NP?" -m gpt-5.4 -m claude-sonnet-5
+uv run crucible deliberate "Topic" -m gpt-5.4 -m claude-sonnet-5 --rounds 3 --threshold 0.92
+uv run crucible synthesize --thread <thread_id>           # or --debate <session_id>
+uv run crucible chat "Follow-up" -m gpt-5.4 --thread <thread_id>
+uv run crucible tree --thread <thread_id> [--open]        # --open shows it in the web UI
+uv run crucible threads
+```
+
+`arena`, `deliberate`, `synthesize`, `chat`, `threads` and `models` accept `--format json`: stdout then carries only the JSON document, and failures exit non-zero with the message on stderr. Everything the CLI creates appears in the web UI.
+
+---
+
+## 🤖 MCP Server
+
+The Crucible can act as a tool for other agents over the [Model Context Protocol](https://modelcontextprotocol.io). Add it to your client's MCP settings (for Claude Desktop, `~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "the-crucible": {
       "command": "uv",
-      "args": [
-        "--directory",
-        "/absolute/path/to/the-crucible/backend",
-        "run",
-        "python",
-        "app/mcp_server.py"
-      ],
+      "args": ["--directory", "/absolute/path/to/the-crucible/backend", "run", "python", "app/mcp_server.py"],
       "env": {
         "OPENAI_API_KEY": "your-key",
         "ANTHROPIC_API_KEY": "your-key",
@@ -95,36 +172,18 @@ Add the following to your MCP settings file (e.g., `~/Library/Application Suppor
 }
 ```
 
-### Available Tools
+All tools return structured JSON and raise an MCP error on failure:
 
-All tools return structured JSON and raise an MCP error on failure.
+| Tool | Purpose |
+|---|---|
+| `list_models` | Model IDs and whether each has an API key configured |
+| `invoke_arena` | Ask several models the same question in parallel; returns each answer (with its checkpoint id) and an optional synthesis |
+| `run_debate` | Multi-round debate between two or more models, with optional convergence stopping and a final synthesis |
+| `list_threads`, `get_thread_status`, `get_thread_summary` | Find threads and read their latest model, thesis and context summary |
+| `get_thread_messages` | Read one path of a thread; pass a `checkpoint_id` from `invoke_arena` to read one model's branch |
+| `get_branch_answers` | The latest answer on every branch of a thread |
 
-- `list_models`: Model IDs and whether each has an API key configured.
-- `invoke_arena`: Ask several models the same question in parallel; returns every model's answer (with its checkpoint id) plus an optional synthesis written by one more model.
-- `run_debate`: Multi-round structured debate between two or more models, with optional convergence stopping and a final synthesis. The session also shows up in the web UI.
-- `list_threads` / `get_thread_status` / `get_thread_summary`: Find threads and read their latest model, thesis and context summary.
-- `get_thread_messages`: Read one path of a thread — pass a `checkpoint_id` from `invoke_arena` to read a specific model's branch.
-- `get_branch_answers`: The latest answer on every branch of a thread.
-
-The conversation tree with per-node metadata (confidence, conflicts) is available over REST rather than MCP: `GET /graph/{thread_id}/topology`.
-
----
-
-## ⌨️ CLI
-
-The backend installs a `crucible` command (run it from `backend/` with `uv run`). Repeat `-m` once per model.
-
-```bash
-uv run crucible models                                   # model IDs and which have keys
-uv run crucible arena "Is P = NP?" -m gpt-5.4 -m claude-sonnet-5
-uv run crucible deliberate "Topic" -m gpt-5.4 -m claude-sonnet-5 --rounds 3 --threshold 0.92
-uv run crucible synthesize --thread <thread_id>          # or --debate <session_id>
-uv run crucible chat "Follow-up" -m gpt-5.4 --thread <thread_id>
-uv run crucible tree --thread <thread_id> [--open]       # --open shows it in the web UI
-uv run crucible threads
-```
-
-`arena`, `deliberate`, `synthesize`, `chat`, `threads` and `models` accept `--format json`: stdout then carries only the JSON document, and failures exit non-zero with the message on stderr. `deliberate` uses the same debate engine as the web UI, so CLI debates appear there too.
+The conversation tree with per-node metadata is also available over REST: `GET /graph/{thread_id}/topology`.
 
 ---
 
@@ -132,154 +191,57 @@ uv run crucible threads
 
 ```
 the-crucible/
-├── backend/           # FastAPI + LangGraph + SQLite
-│   ├── app/           # Modular application package
-│   │   ├── api/       # FastAPI route modules (threads, history, models, etc.)
-│   │   ├── core/      # Database logic, schema, and core config
-│   │   ├── services/  # LangGraph, RAG, and tree reconstruction logic
-│   │   ├── utils/     # Parsers and helper functions
-│   │   └── main.py    # WebSocket server & entry point
-│   ├── tests/         # Pytest suite
-│   ├── chroma_db/     # Persistent vector storage (git-ignored)
-│   └── Dockerfile     # Optimized for Python 3.13 + uv
-└── frontend/          # Next.js + MUI + React Flow
-    └── src/
-        ├── app/
-        │   ├── layout.tsx
-        │   └── page.tsx    # Main orchestrator (WS, state, routing)
-        ├── components/
-        │   ├── ChatView.tsx      # Markdown + LaTeX message renderer
-        │   ├── TreeCanvas.tsx    # React Flow conversation tree
-        │   ├── ControlPanel.tsx  # Model selector + toggles
-        │   ├── Sidebar.tsx       # Thread list
-        │   ├── LandingView.tsx   # Welcome screen
-        │   └── ...
-        ├── lib/api.ts    # Centralized API client
-        └── theme.ts      # MUI theme configuration
+├── backend/                 FastAPI + LangGraph + SQLite
+│   └── app/
+│       ├── main.py          App assembly only (lifespan, CORS, routers)
+│       ├── api/             HTTP & WebSocket routes — transport only
+│       ├── services/        Behaviour: chat turns, debates, convergence, tree, RAG
+│       ├── llm/             Model providers and the ModelFactory
+│       ├── core/            SQLite persistence and the graph state schema
+│       ├── cli.py           `crucible` command
+│       └── mcp_server.py    MCP tools
+├── frontend/                Next.js + MUI + React Flow
+│   └── src/
+│       ├── app/page.tsx     App shell: composes hooks and components
+│       ├── hooks/           State and sockets (chat, debate session, tree, threads…)
+│       ├── components/      UI (TreeCanvas, ChatView, ControlPanel sections…)
+│       └── lib/             API client, pure reducers, shared types
+├── e2e/                     Playwright suite and its fixture builder
+└── scripts/                 Demo data and screenshot capture
 ```
 
-### Tech Stack
+- **One LangGraph workflow** handles every turn: summarize if needed → optional retrieval and grading → draft → update the thread's running thesis. State lives in SQLite checkpoints, which is what makes branching from any node possible.
+- **Parallel models fork from one checkpoint.** Every model in a turn is pinned to the same parent, so answers land on sibling branches instead of reading each other's half-finished turn.
+- **Models come from a factory.** Each provider is a small strategy class in `backend/app/llm/providers.py`; nothing else in the code branches on the provider, and tests inject scripted models instead of patching globals.
+- **Debates run per model.** Each participant gets its own sub-thread, all stream concurrently each round, and convergence checks are interchangeable strategies.
+
+[`CLAUDE.md`](CLAUDE.md) is the detailed maintainer guide: design invariants, where each kind of change belongs, and how to test it.
+
+### Tech stack
 
 | Layer | Stack |
 |---|---|
-| **Frontend** | Next.js 16, React, MUI, React Flow, Framer Motion, react-markdown, KaTeX |
-| **Backend** | FastAPI, LangGraph, LangChain, ChromaDB, SQLite, WebSockets, tiktoken |
-| **Embeddings** | HuggingFace (local `all-MiniLM-L6-v2`) |
-| **AI Providers** | OpenAI, Anthropic, Google (via `langchain-*` SDKs) |
+| **Frontend** | Next.js 16, React 19, MUI 7, React Flow, Framer Motion, react-markdown, KaTeX |
+| **Backend** | FastAPI, LangGraph, LangChain, SQLite, ChromaDB, tiktoken |
+| **Embeddings** | Local HuggingFace `all-MiniLM-L6-v2` |
+| **Providers** | OpenAI, Anthropic, Google (via `langchain-*`) |
 
 ---
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- **Node.js** 24+
-- **Python** 3.13+
-- **uv** (recommended) or pip
-- At least one API key: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY`
-
-### Setup
+## 🧪 Testing
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/YOUR_USERNAME/the-crucible.git
-cd the-crucible
+(cd backend && uv run pytest tests/ -q)     # backend unit + integration
+(cd frontend && npm test)                   # frontend unit (Jest)
 
-# 2. Backend
-cd backend
-uv venv && source .venv/bin/activate
-uv sync
-cd ..
-
-# 4. Frontend
-cd frontend
-npm install
-cd ..
-
-# 5. Launch everything
-chmod +x start_dev.sh
-./start_dev.sh
+npm install && npx playwright install chromium   # once, at the repo root
+npm run test:e2e                                 # end-to-end (Playwright)
 ```
 
-Open **http://localhost:3000** and step into The Crucible.
+The end-to-end suite builds its own fixture database (`e2e/seed_db.py`) and starts both servers against it with **scripted models** (`CRUCIBLE_FAKE_LLM=1`): replies stream like a real provider's, so it can send messages and run whole debates without network access or cost, and it never touches your real data. If ports 8123/3123 are taken, set `E2E_BACKEND_PORT` / `E2E_FRONTEND_PORT`.
 
-> **Tip:** `start_dev.sh` starts both the FastAPI backend (port 8000) and Next.js frontend (port 3000) in a single terminal. Press `Ctrl+C` to shut down both.
-
-> **API Keys:** You can configure your OpenAI, Anthropic, and Google API keys directly in the app via **Control Panel → API Keys** — no `.env` file required. Alternatively, copy `.env.example` to `backend/.env` and set the keys there before starting.
-
-### Manual Start (if you prefer)
-
-```bash
-# Terminal 1 — Backend
-cd backend && uv run python -m app.main
-
-# Terminal 2 — Frontend
-cd frontend && npm run dev
-```
-
-### 🐳 Run with Docker (Recommended)
-
-The easiest way to run the entire stack is using Docker Compose.
-
-1. **Configure environment**: 
-   Copy `.env.example` to `backend/.env` and set your API keys (or configure them in the app after launch).
-2. **Launch**:
-   ```bash
-   docker compose up --build
-   ```
-3. **Access**:
-   - Frontend: [http://localhost:3000](http://localhost:3000)
-   - Backend API: [http://localhost:8000](http://localhost:8000)
-
-> **Note:** The SQLite database is persisted in a Docker volume named `crucible_data`.
-
----
-
-## 🛠️ Choosing Your Environment
-
-| Method | Recommended For | Perks |
-|---|---|---|
-| **`./start_dev.sh`** | **Active Development** | Hot reloading, fast startup, easy debugging. |
-| **`docker compose`** | **Evaluation & Deployment** | Zero-config env, high stability, exact production parity. |
-
----
-
-## 🔑 Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `OPENAI_API_KEY` | At least one* | OpenAI API key |
-| `ANTHROPIC_API_KEY` | At least one* | Anthropic API key |
-| `GOOGLE_API_KEY` | At least one* | Google AI API key |
-| `NEXT_PUBLIC_API_URL` | No | Backend URL (defaults to `http://localhost:8000`) |
-| `HOST` | No | Backend bind address (defaults to `127.0.0.1`) |
-| `CORS_ORIGINS` | No | Extra allowed browser origins, comma-separated. `localhost` / `127.0.0.1` on any port are always allowed |
-| `CRUCIBLE_ALLOW_REMOTE_CONFIG` | No | Let non-loopback clients use `/config/keys`. Docker Compose sets it, since it publishes ports on `127.0.0.1` only |
-
-> \* Keys can also be set at runtime via **Control Panel → API Keys** in the UI, which writes them to `backend/.env` automatically. That endpoint only accepts requests from the local machine.
-
-> **The API has no authentication.** It binds to loopback by default; if you set `HOST=0.0.0.0` to reach it from another machine, anyone on that network can use your API keys.
-
----
-
-## 🧪 Running Tests
-
-```bash
-# Backend — pytest
-cd backend && uv run pytest tests/ -v
-
-# Frontend — jest
-cd frontend && npm test
-
-# End-to-end — Playwright (seeds an isolated fixture DB, then drives both servers)
-npm run test:e2e
-```
-
-The E2E suite runs against `e2e/.fixtures/e2e.sqlite`, built by `e2e/seed_db.py`
-with the LLM stubbed — it never touches your real database and never calls a
-model. See `CLAUDE.md` for details.
-
-### Regenerating the screenshots
+<details>
+<summary>Regenerating the screenshots</summary>
 
 ```bash
 uv run --project backend python scripts/seed_demo.py     # makes real model calls
@@ -289,29 +251,21 @@ cd frontend && NEXT_PUBLIC_API_URL=http://127.0.0.1:8200 npx next dev --port 320
 node scripts/capture_screenshots.mjs
 ```
 
+</details>
+
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Whether it's adding a new model, improving the tree layout, or fixing a bug, your help is appreciated.
+Contributions are welcome — a new model, a better tree layout, a bug fix.
 
-This project follows the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages.
-
-1. Clone the repository and create a branch:
-   ```bash
-   git checkout -b feat/amazing-feature
-   ```
-2. Commit your changes following the format:
-   - `feat:` for new features
-   - `fix:` for bug fixes
-   - `docs:` for documentation updates
-   - `refactor:` for code restructurings
-   - `test:` for adding/updating tests
-   - *Example: `git commit -m "feat: add support for DeepSeek models"`*
-3. Push to your branch and open a Pull Request.
+1. Create a branch: `git checkout -b feat/your-feature`
+2. Make the change; [`CLAUDE.md`](CLAUDE.md) lists where each kind of change belongs. Run the tests above.
+3. Commit using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`), e.g. `feat: add support for DeepSeek models`
+4. Push and open a pull request.
 
 ---
 
 ## 📝 License
 
-This project is licensed under the [MIT License](LICENSE).
+[MIT](LICENSE)
