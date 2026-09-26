@@ -1,5 +1,5 @@
 import asyncio
-from typing import List
+from typing import List, Optional
 from dotenv import load_dotenv
 import tiktoken
 
@@ -12,6 +12,46 @@ from langchain_core.runnables import RunnableConfig
 from app.utils.helpers import extract_text
 from app.services import rag as rag_service
 from app.llm import model_factory_from
+from app.compaction import ContextSnapshot, ModelBudget, ThresholdPolicy
+
+SUMMARY_MARKER = "PREVIOUS CONTEXT SUMMARY:"
+# Messages kept verbatim after a summary: left out of the summary when it is
+# written, and shown as-is before everything newer on every later turn.
+KEEP_VERBATIM = 5
+POLICY_CONFIG_KEY = "compaction_policy"
+_DEFAULT_POLICY = ThresholdPolicy()
+
+
+def compaction_policy_from(config: Optional[RunnableConfig]):
+    """The run's injected CompactionPolicy, else the default threshold policy."""
+    injected = ((config or {}).get("configurable") or {}).get(POLICY_CONFIG_KEY)
+    return injected or _DEFAULT_POLICY
+
+
+def model_budget(model_id: str) -> ModelBudget:
+    return ModelBudget(model_id=model_id, soft_limit=get_token_limit(model_id))
+
+
+def _last_summary_index(messages: list) -> int:
+    for i in range(len(messages) - 1, -1, -1):
+        try:
+            if SUMMARY_MARKER in extract_text(messages[i].content):
+                return i
+        except Exception:
+            pass
+    return -1
+
+
+def context_snapshot(messages: list) -> ContextSnapshot:
+    """Token and message counts a CompactionPolicy decides on."""
+    last = _last_summary_index(messages)
+    total = count_tokens(messages)
+    return ContextSnapshot(
+        total_tokens=total,
+        tokens_since_summary=count_tokens(messages[last:]) if last != -1 else total,
+        total_messages=len(messages),
+        messages_since_summary=(len(messages) - 1 - last) if last != -1 else None,
+    )
 
 load_dotenv()
 
@@ -94,17 +134,18 @@ def sanitize_messages(
         # BUT: Ensure the summary itself is the FIRST message after system instructions.
         tail_messages = processed[summary_index:]
 
-        # 3. Message Recovery: If the summary is the VERY LAST message (just appended by
-        # summarize_history node), recover the KEEP_N messages before it that were
-        # intentionally kept unsummarized.
-        KEEP_N = 5  # must match the window used in summarize_history
-        recovery = []
-        if len(tail_messages) == 1:  # Only the summary is in the tail
-            for j in range(max(0, summary_index - KEEP_N), summary_index):
-                msg = processed[j]
-                if msg["role"] in ("human", "ai"):
-                    recovery.append(msg)
-            print(f"[Sanitizer] Recovered {len(recovery)} messages before summary")
+        # 3. Recovery: the KEEP_VERBATIM messages just before the summary were
+        # deliberately left out of it, so they must stay visible verbatim — on
+        # every later turn, not only the turn the summary was written. (This
+        # used to run only while the summary was the last message, so from the
+        # next turn on those messages were in neither the summary nor the
+        # context: silently lost.)
+        recovery = [
+            msg
+            for msg in processed[max(0, summary_index - KEEP_VERBATIM):summary_index]
+            if msg["role"] in ("human", "ai")
+        ]
+        print(f"[Sanitizer] Kept {len(recovery)} verbatim messages before the summary")
 
         # Reassemble: System -> Summary (from tail) -> Recovered Human -> Rest of Tail
         # This ensures the human message the user JUST sent remains the latest human prompt.
@@ -389,19 +430,15 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     else:
         messages = [system_msg] + list(state["messages"])
 
-    # Selective Pruning: Only prune if the FULL history exceeds this model's limit
-    full_tokens = count_tokens(messages)
-    limit = get_token_limit(active_peer)
-
-    do_prune = full_tokens > limit
-    if do_prune:
-        print(
-            f"[Selective Pruning] Active for {active_peer} (Full: {full_tokens}, Limit: {limit})"
-        )
-    else:
-        print(
-            f"[Selective Pruning] High-fidelity mode for {active_peer} (Full: {full_tokens}, Limit: {limit})"
-        )
+    # Whether this call sees the raw history or jumps to the latest summary is
+    # the compaction policy's call (default: prune once over the soft limit).
+    decision = compaction_policy_from(config).should_prune(
+        context_snapshot(messages), model_budget(active_peer)
+    )
+    do_prune = decision.act
+    print(
+        f"[Selective Pruning] {'Active' if do_prune else 'High-fidelity mode'} for {active_peer} ({decision.reason})"
+    )
 
     sanitized_messages = sanitize_messages(messages, prune_history=do_prune)
     effective_tokens = count_tokens(sanitized_messages)
@@ -535,38 +572,13 @@ def summarize_history(state: CrucibleState, config: RunnableConfig):
     messages = state["messages"]
     from app.utils.helpers import extract_text
 
-    KEEP_N = 5  # messages kept unsummarized; must match sanitize_messages
-
-    if len(messages) <= KEEP_N:
+    last_summary_pos = _last_summary_index(messages)
+    decision = compaction_policy_from(config).should_summarize(
+        context_snapshot(messages), model_budget(state["active_peer"])
+    )
+    if not decision.act:
         return {"messages": []}
-
-    # Find the most recent summary and how many messages have been added since it.
-    # This is the correct stop-churn check: messages[-1] is always the new human
-    # message (add_messages appends), so checking messages[-1] directly never works.
-    last_summary_pos = -1
-    for i, m in enumerate(messages):
-        try:
-            if "PREVIOUS CONTEXT SUMMARY:" in extract_text(m.content):
-                last_summary_pos = i
-        except Exception:
-            pass
-
-    if last_summary_pos != -1:
-        msgs_since_summary = len(messages) - 1 - last_summary_pos
-        if msgs_since_summary < KEEP_N:
-            return {"messages": []}  # Not enough new messages to warrant re-summarizing
-        # Count tokens on effective context (from last summary onward) — the raw
-        # state grows unboundedly but the LLM only sees from the last summary.
-        effective_messages = messages[last_summary_pos:]
-    else:
-        effective_messages = messages
-
-    model_id = state["active_peer"]
-    limit = get_token_limit(model_id)
-    current_tokens = count_tokens(effective_messages)
-
-    if current_tokens <= limit:
-        return {"messages": []}  # No change needed
+    print(f"[Summarize] {decision.reason}")
 
     try:
         # Use a FAST model for summarization regardless of the active peer
@@ -584,8 +596,19 @@ def summarize_history(state: CrucibleState, config: RunnableConfig):
         # Keep the last 5 messages as-is. Anything before the previous summary
         # is already folded into it, so start there rather than re-sending the
         # whole raw history (which grew without bound on every summary).
-        start = last_summary_pos if last_summary_pos != -1 else 0
-        to_summarize = messages[start:-5]
+        # The new summary folds in: the previous summary, the verbatim window
+        # that the previous summary left out (it sits just before it), and
+        # everything since — except the newest KEEP_VERBATIM messages, which
+        # stay verbatim. Starting at the previous summary alone dropped that
+        # window from every summary once it scrolled out of view.
+        if last_summary_pos != -1:
+            carried = [
+                m for m in messages[max(0, last_summary_pos - KEEP_VERBATIM):last_summary_pos]
+                if SUMMARY_MARKER not in extract_text(m.content)
+            ]
+            to_summarize = [messages[last_summary_pos]] + carried + messages[last_summary_pos + 1:-KEEP_VERBATIM]
+        else:
+            to_summarize = messages[:-KEEP_VERBATIM]
 
         def format_msg(m):
             from app.utils.helpers import extract_text

@@ -81,6 +81,7 @@ Copy `.env.example` to `backend/.env` and set at least one of: `OPENAI_API_KEY`,
 | Transport | `api/*.py` | Parse/validate, call a service, shape the response. Routers get the graph via `Depends(get_graph_app)` (`api/deps.py`), never a global. |
 | Behaviour | `services/*.py` | No FastAPI/WebSocket imports. `chat.py` (one chat turn: `build_turn_input`, `stream_turn`, `auto_title`), `debate.py`, `convergence.py`, `arena.py` (CLI/MCP entry points), `runs.py`, `tree.py`, `rag.py`, `message_format.py`. |
 | Models | `llm/` | The only place clients are built. Everything asks a `ModelFactory`. |
+| Compaction research | `compaction/` | When to summarize/prune and how much detail survives. **Imports nothing from `app.*`** (a test enforces it) so it can become its own project. |
 | Persistence | `core/database.py` | SQLite helpers; LangGraph owns its own checkpoint tables. |
 
 **Chat transport — `api/chat.py`**
@@ -99,7 +100,9 @@ The API has no authentication. The backend binds `127.0.0.1` unless `HOST` is se
 
 The graph flow is: `summarize → (route) → [retrieve → grade_retrieval →] draft → metadata → synthesis → END`
 
-- `summarize_history`: compresses history using a fast model (Gemini Flash / Haiku fallback) when token count exceeds the active model's limit; non-destructive (appends a `PREVIOUS CONTEXT SUMMARY:` system message rather than removing messages, letting large-context models use full history)
+- `summarize_history`: compresses history using a fast model (Gemini Flash / Haiku fallback) when the run's `CompactionPolicy` says so; non-destructive (appends a `PREVIOUS CONTEXT SUMMARY:` system message rather than removing messages). `drafting_node` asks the same policy whether this call sees the raw history or jumps to the summary.
+- **Compaction policy** (`app/compaction/policy.py`): `ThresholdPolicy` (default: the model's registry `limit`, i.e. the original behaviour), `NeverCompact`, and pluggable thresholds (`fixed_tokens`, `fraction_of_limit`). Inject per run with `config["configurable"]["compaction_policy"]`; the graph passes it a `ContextSnapshot` (token/message counts) and a `ModelBudget` (model facts).
+- **The verbatim window** (`KEEP_VERBATIM` = 5 in `graph.py`): the newest messages are left out of a summary and must stay visible verbatim on *every* later turn, and be folded into the *next* summary. Both used to fail — recovery ran only on the turn the summary was written, and re-summarizing started at the previous summary — so those messages ended up in neither the summary nor the context. `tests/test_compaction.py` guards both.
 - `retrieve_node` / `grade_retrieval_node`: RAG path, only active when `use_rag` toggle is on; retrieves from ChromaDB then LLM-grades each chunk for relevance
 - `drafting_node`: the core generation node. Handles Deliberation mode (wraps all history with `[Model]: ...` attribution), RAG context injection, attached documents, native web search via `bind_tools` (the only toggles the backend reads are `use_rag` and `use_web_search`), and `sanitize_messages` for context pruning
 - `synthesis_node`: updates a rolling `current_thesis` using the last 5 messages
@@ -218,6 +221,8 @@ Where a change goes, so it lands in one place:
 | A REST route needing the graph | `graph_app=Depends(get_graph_app)`. |
 | A CLI command / MCP tool | Call `services/arena.py` / `services/debate.py`; don't orchestrate in `cli.py` or `mcp_server.py`. |
 | A Control Panel section | A component in `components/control-panel/`, composed in `ControlPanel.tsx`. |
+| A compaction policy | A class with `should_summarize` / `should_prune` in `app/compaction/policy.py` (no `app.*` imports). |
+| A detail-retention experiment | Facts/scenarios in `app/compaction/probe.py`; run them with `services/compaction_eval.run_experiment`, which forks one branch per policy from the same seeded checkpoint. `AvailabilityOracle` measures what compaction removed, independent of a real model's attention. |
 
 ## Dependency injection & testing
 

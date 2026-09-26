@@ -136,25 +136,35 @@ class TestSanitizeMessages:
         assert res[2].type == "human" and "H1\n\n---\n\nH2" in res[2].content
         assert res[3].type == "ai" and "A1\n\n---\n\nA2" in res[3].content
 
-    def test_prune_history(self):
-        from app.services.graph import sanitize_messages
+    def test_prune_history_keeps_the_verbatim_window(self):
+        """The messages just before a summary were left out of it, so they stay
+        visible on every later turn; older ones are covered by the summary."""
+        from app.services.graph import KEEP_VERBATIM, sanitize_messages
         from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
+        old = [
+            (HumanMessage if i % 2 == 0 else AIMessage)(content=f"Old {i}")
+            for i in range(10)
+        ]
         messages = [
             SystemMessage(content="Base Rule"),
-            HumanMessage(content="Old 1"),
-            AIMessage(content="Old 2"),
+            *old,
             SystemMessage(content="PREVIOUS CONTEXT SUMMARY: We talked about X"),
-            HumanMessage(content="New 1"),
+            AIMessage(content="Reply after summary"),
+            HumanMessage(content="New question"),
         ]
         res = sanitize_messages(messages)
-        # Should keep Base Rule, jump to Summary, and keep New 1. Old 1 & 2 dropped but Old 1 might be recovered if it was right before summary
-        assert any(m.type == "system" and "Base Rule" in m.content for m in res)
-        assert any(
-            m.type == "system" and "PREVIOUS CONTEXT SUMMARY:" in m.content for m in res
-        )
-        assert any(m.type == "human" and "New 1" in m.content for m in res)
-        assert not any(m.type == "ai" and "Old 2" in m.content for m in res)
+        # Consecutive same-role messages get merged for strict alternation, so
+        # match on content within the joined transcript.
+        transcript = "\n".join(m.content for m in res)
+        assert res[0].content == "Base Rule"
+        kept = [f"Old {i}" for i in range(10 - KEEP_VERBATIM, 10)]
+        dropped = [f"Old {i}" for i in range(10 - KEEP_VERBATIM)]
+        assert all(k in transcript for k in kept)
+        assert not any(f"{d}\n" in transcript + "\n" or transcript.endswith(d) for d in dropped)
+        # Chronological: summary, then the verbatim window, then newer turns.
+        positions = [transcript.index(x) for x in ["PREVIOUS CONTEXT SUMMARY", *kept, "Reply after summary", "New question"]]
+        assert positions == sorted(positions)
 
 
 # ─── Token Limits ────────────────────────────────────────────────
