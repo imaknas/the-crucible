@@ -1,0 +1,1590 @@
+{
+ "models": [
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": true,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": true,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Fable 5",
+   "id": "claude-fable-5",
+   "input_limit": 1000000,
+   "output_limit": 128000,
+   "provider": "anthropic",
+   "released": "2026-06-07",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": true,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": true,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Fable 5.1",
+   "id": "claude-fable-5-1",
+   "input_limit": 1000000,
+   "output_limit": 128000,
+   "provider": "anthropic",
+   "released": "2026-08-28",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": false,
+    "context_management": true,
+    "effort": false,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": false,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Haiku 4.5",
+   "id": "claude-haiku-4-5-20251001",
+   "input_limit": 200000,
+   "output_limit": 64000,
+   "provider": "anthropic",
+   "released": "2025-10-15",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": true,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": false,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Opus 4.5",
+   "id": "claude-opus-4-5-20251101",
+   "input_limit": 200000,
+   "output_limit": 64000,
+   "provider": "anthropic",
+   "released": "2025-11-24",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": true,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": true,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Opus 4.6",
+   "id": "claude-opus-4-6",
+   "input_limit": 1000000,
+   "output_limit": 128000,
+   "provider": "anthropic",
+   "released": "2026-02-04",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": true,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": true,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Opus 4.7",
+   "id": "claude-opus-4-7",
+   "input_limit": 1000000,
+   "output_limit": 128000,
+   "provider": "anthropic",
+   "released": "2026-04-14",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": true,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": true,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Opus 4.8",
+   "id": "claude-opus-4-8",
+   "input_limit": 1000000,
+   "output_limit": 128000,
+   "provider": "anthropic",
+   "released": "2026-05-28",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": true,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": true,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Opus 5",
+   "id": "claude-opus-5",
+   "input_limit": 1000000,
+   "output_limit": 128000,
+   "provider": "anthropic",
+   "released": "2026-07-24",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": true,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": true,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Opus 5.5",
+   "id": "claude-opus-5-5",
+   "input_limit": 1000000,
+   "output_limit": 128000,
+   "provider": "anthropic",
+   "released": "2026-09-21",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": false,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": false,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Sonnet 4.5",
+   "id": "claude-sonnet-4-5-20250929",
+   "input_limit": 1000000,
+   "output_limit": 64000,
+   "provider": "anthropic",
+   "released": "2025-09-29",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": true,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": true,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Sonnet 4.6",
+   "id": "claude-sonnet-4-6",
+   "input_limit": 1000000,
+   "output_limit": 128000,
+   "provider": "anthropic",
+   "released": "2026-02-17",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": true,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": true,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Sonnet 5",
+   "id": "claude-sonnet-5",
+   "input_limit": 1000000,
+   "output_limit": 128000,
+   "provider": "anthropic",
+   "released": "2026-06-29",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini 2.5 Flash",
+   "id": "gemini-2.5-flash",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini 2.5 Flash-Lite",
+   "id": "gemini-2.5-flash-lite",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": false,
+    "error": "HTTP 404: This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to u",
+    "web_search_checked": null,
+    "web_search_ok": null
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini 2.5 Pro",
+   "id": "gemini-2.5-pro",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": false,
+    "error": "HTTP 404: This model models/gemini-2.5-pro is no longer available to new users. Please update your code to use models/gemini-3.1-pro-preview for the latest features and improvements. We recommend you to use the",
+    "web_search_checked": null,
+    "web_search_ok": null
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini 3 Flash Preview",
+   "id": "gemini-3-flash-preview",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini 3.1 Flash Lite",
+   "id": "gemini-3.1-flash-lite",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini 3.1 Flash Lite Preview",
+   "id": "gemini-3.1-flash-lite-preview",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini 3.1 Pro Preview",
+   "id": "gemini-3.1-pro-preview",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini 3.5 Flash",
+   "id": "gemini-3.5-flash",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini 3.5 Flash Lite",
+   "id": "gemini-3.5-flash-lite",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini 3.6 Flash",
+   "id": "gemini-3.6-flash",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini 3.7 Flash",
+   "id": "gemini-3.7-flash",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini 3.8 Flash",
+   "id": "gemini-3.8-flash",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini Flash Latest",
+   "id": "gemini-flash-latest",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini Flash-Lite Latest",
+   "id": "gemini-flash-lite-latest",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": false,
+    "thinking": true
+   },
+   "display_name": "Gemini Omni 1.1 Flash",
+   "id": "gemini-omni-1.1-flash",
+   "input_limit": 131072,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": false,
+    "error": "HTTP 400: This model only supports Interactions API.",
+    "web_search_checked": null,
+    "web_search_ok": null
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": false,
+    "thinking": true
+   },
+   "display_name": "Gemini Omni Flash Preview",
+   "id": "gemini-omni-flash-preview",
+   "input_limit": 131072,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": false,
+    "error": "HTTP 400: This model only supports Interactions API.",
+    "web_search_checked": null,
+    "web_search_ok": null
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": true,
+    "thinking": true
+   },
+   "display_name": "Gemini Pro Latest",
+   "id": "gemini-pro-latest",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "gpt-3.5-turbo",
+   "id": "gpt-3.5-turbo",
+   "input_limit": 12289,
+   "output_limit": 4096,
+   "provider": "openai",
+   "released": "2023-02-28",
+   "shutdown_date": "2026-10-23",
+   "sources": {
+    "input_limit": "openai docs (16,385 context window − 4,096 max output): https://developers.openai.com/api/docs/models/gpt-3.5-turbo",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-3.5-turbo"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-3.5-turbo.",
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": false
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "gpt-3.5-turbo-0125",
+   "id": "gpt-3.5-turbo-0125",
+   "input_limit": null,
+   "output_limit": null,
+   "provider": "openai",
+   "released": "2024-01-23",
+   "shutdown_date": "2026-10-23",
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-3.5-turbo-0125.",
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": false
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "gpt-3.5-turbo-1106",
+   "id": "gpt-3.5-turbo-1106",
+   "input_limit": null,
+   "output_limit": null,
+   "provider": "openai",
+   "released": "2023-11-02",
+   "shutdown_date": "2026-09-28",
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-3.5-turbo-1106.",
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": false
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "gpt-3.5-turbo-16k",
+   "id": "gpt-3.5-turbo-16k",
+   "input_limit": null,
+   "output_limit": null,
+   "provider": "openai",
+   "released": "2023-05-10",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-3.5-turbo-16k.",
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": false
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-3.5-turbo-instruct",
+   "id": "gpt-3.5-turbo-instruct",
+   "input_limit": 0,
+   "output_limit": 4096,
+   "provider": "openai",
+   "released": "2023-08-24",
+   "shutdown_date": "2026-09-28",
+   "sources": {
+    "input_limit": "openai docs (4,096 context window − 4,096 max output): https://developers.openai.com/api/docs/models/gpt-3.5-turbo-instruct",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-3.5-turbo-instruct"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": false,
+    "error": "HTTP 404: This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?; responses: HTTP 400: The requested model 'gpt-3.5-turbo-instruct' is not supported with the Responses API.",
+    "web_search_checked": null,
+    "web_search_ok": null
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-3.5-turbo-instruct-0914",
+   "id": "gpt-3.5-turbo-instruct-0914",
+   "input_limit": null,
+   "output_limit": null,
+   "provider": "openai",
+   "released": "2023-09-07",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": false,
+    "error": "HTTP 404: This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?; responses: HTTP 400: The requested model 'gpt-3.5-turbo-instruct-0914' is not supported with the Responses API.",
+    "web_search_checked": null,
+    "web_search_ok": null
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "gpt-4",
+   "id": "gpt-4",
+   "input_limit": 0,
+   "output_limit": 8192,
+   "provider": "openai",
+   "released": "2023-06-27",
+   "shutdown_date": "2026-10-23",
+   "sources": {
+    "input_limit": "openai docs (8,192 context window − 8,192 max output): https://developers.openai.com/api/docs/models/gpt-4",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-4"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-4.",
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": false
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "gpt-4-0613",
+   "id": "gpt-4-0613",
+   "input_limit": null,
+   "output_limit": null,
+   "provider": "openai",
+   "released": "2023-06-12",
+   "shutdown_date": "2026-10-23",
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-4-0613.",
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": false
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "gpt-4-turbo",
+   "id": "gpt-4-turbo",
+   "input_limit": 123904,
+   "output_limit": 4096,
+   "provider": "openai",
+   "released": "2024-04-05",
+   "shutdown_date": "2026-10-23",
+   "sources": {
+    "input_limit": "openai docs (128,000 context window − 4,096 max output): https://developers.openai.com/api/docs/models/gpt-4-turbo",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-4-turbo"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-4-turbo.",
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": false
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-4.1",
+   "id": "gpt-4.1",
+   "input_limit": 1014808,
+   "output_limit": 32768,
+   "provider": "openai",
+   "released": "2025-04-10",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,047,576 context window − 32,768 max output): https://developers.openai.com/api/docs/models/gpt-4.1",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-4.1"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-4.1-mini",
+   "id": "gpt-4.1-mini",
+   "input_limit": 1014808,
+   "output_limit": 32768,
+   "provider": "openai",
+   "released": "2025-04-10",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,047,576 context window − 32,768 max output): https://developers.openai.com/api/docs/models/gpt-4.1-mini",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-4.1-mini"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "gpt-4.1-nano",
+   "id": "gpt-4.1-nano",
+   "input_limit": 1014808,
+   "output_limit": 32768,
+   "provider": "openai",
+   "released": "2025-04-10",
+   "shutdown_date": "2026-10-23",
+   "sources": {
+    "input_limit": "openai docs (1,047,576 context window − 32,768 max output): https://developers.openai.com/api/docs/models/gpt-4.1-nano",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-4.1-nano"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-4.1-nano.",
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": false
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-4o",
+   "id": "gpt-4o",
+   "input_limit": 111616,
+   "output_limit": 16384,
+   "provider": "openai",
+   "released": "2024-05-10",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (128,000 context window − 16,384 max output): https://developers.openai.com/api/docs/models/gpt-4o",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-4o"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-4o-mini",
+   "id": "gpt-4o-mini",
+   "input_limit": 111616,
+   "output_limit": 16384,
+   "provider": "openai",
+   "released": "2024-07-16",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (128,000 context window − 16,384 max output): https://developers.openai.com/api/docs/models/gpt-4o-mini",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-4o-mini"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-5",
+   "id": "gpt-5",
+   "input_limit": 272000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2025-08-05",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-5-mini",
+   "id": "gpt-5-mini",
+   "input_limit": 272000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2025-08-05",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5-mini",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5-mini"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-5-nano",
+   "id": "gpt-5-nano",
+   "input_limit": 272000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2025-08-05",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5-nano",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5-nano"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "responses"
+   },
+   "display_name": "gpt-5-pro",
+   "id": "gpt-5-pro",
+   "input_limit": 128000,
+   "output_limit": 272000,
+   "provider": "openai",
+   "released": "2025-10-03",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (400,000 context window − 272,000 max output): https://developers.openai.com/api/docs/models/gpt-5-pro",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5-pro"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 429: Rate limit reached for gpt-5-pro in organization org-… on tokens per min (TPM): Limit 200000, Used 192391, Requested 15491. Please try again in 2.364s. Visit https://platform.openai.com/account/rate-l",
+    "web_search_checked": null,
+    "web_search_ok": null
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-5.1",
+   "id": "gpt-5.1",
+   "input_limit": 272000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2025-11-10",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.1",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.1"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-5.2",
+   "id": "gpt-5.2",
+   "input_limit": 272000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2025-12-09",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.2",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.2"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "responses"
+   },
+   "display_name": "gpt-5.2-pro",
+   "id": "gpt-5.2-pro",
+   "input_limit": 272000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2025-12-10",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.2-pro",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.2-pro"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 429: Rate limit reached for gpt-5.2-pro in organization org-… on tokens per min (TPM): Limit 200000, Used 190416, Requested 19273. Please try again in 2.906s. Visit https://platform.openai.com/account/rate",
+    "web_search_checked": null,
+    "web_search_ok": null
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-5.4",
+   "id": "gpt-5.4",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-03-05",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.4",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.4"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-5.4-mini",
+   "id": "gpt-5.4-mini",
+   "input_limit": 272000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-03-14",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.4-mini"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-5.4-nano",
+   "id": "gpt-5.4-nano",
+   "input_limit": 272000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-03-14",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.4-nano",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.4-nano"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "responses"
+   },
+   "display_name": "gpt-5.4-pro",
+   "id": "gpt-5.4-pro",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-03-04",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.4-pro",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.4-pro"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 429: Rate limit reached for gpt-5.4-pro in organization org-… on tokens per min (TPM): Limit 200000, Used 199085, Requested 17703. Please try again in 5.036s. Visit https://platform.openai.com/account/rate",
+    "web_search_checked": null,
+    "web_search_ok": null
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-5.5",
+   "id": "gpt-5.5",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-04-22",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.5",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.5"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "responses"
+   },
+   "display_name": "gpt-5.5-pro",
+   "id": "gpt-5.5-pro",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-04-22",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.5-pro",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.5-pro"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 429: Rate limit reached for gpt-5.5-pro in organization org-… on tokens per min (TPM): Limit 500000, Used 450661, Requested 53503. Please try again in 499ms. Visit https://platform.openai.com/account/rate-",
+    "web_search_checked": null,
+    "web_search_ok": null
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-5.6-luna",
+   "id": "gpt-5.6-luna",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-06-23",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-5.6-sol",
+   "id": "gpt-5.6-sol",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-06-23",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.6-sol"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-5.6-terra",
+   "id": "gpt-5.6-terra",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-06-23",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.6-terra"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-6-astra",
+   "id": "gpt-6-astra",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-08-27",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-6-astra",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-6-astra"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-6-luna",
+   "id": "gpt-6-luna",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-09-14",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-6-luna",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-6-luna"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "gpt-6-sol",
+   "id": "gpt-6-sol",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-09-14",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-6-sol",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-6-sol"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "o1",
+   "id": "o1",
+   "input_limit": 100000,
+   "output_limit": 100000,
+   "provider": "openai",
+   "released": "2024-12-16",
+   "shutdown_date": "2026-10-23",
+   "sources": {
+    "input_limit": "openai docs (200,000 context window − 100,000 max output): https://developers.openai.com/api/docs/models/o1",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/o1"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with o1.",
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": false
+   }
+  },
+  {
+   "capabilities": {
+    "api": "responses"
+   },
+   "display_name": "o1-pro",
+   "id": "o1-pro",
+   "input_limit": 100000,
+   "output_limit": 100000,
+   "provider": "openai",
+   "released": "2025-03-17",
+   "shutdown_date": "2026-10-23",
+   "sources": {
+    "input_limit": "openai docs (200,000 context window − 100,000 max output): https://developers.openai.com/api/docs/models/o1-pro",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/o1-pro"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with o1-pro.",
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": false
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "o3",
+   "id": "o3",
+   "input_limit": 100000,
+   "output_limit": 100000,
+   "provider": "openai",
+   "released": "2025-04-09",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (200,000 context window − 100,000 max output): https://developers.openai.com/api/docs/models/o3",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/o3"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "o3-mini",
+   "id": "o3-mini",
+   "input_limit": 100000,
+   "output_limit": 100000,
+   "provider": "openai",
+   "released": "2025-01-17",
+   "shutdown_date": "2026-10-23",
+   "sources": {
+    "input_limit": "openai docs (200,000 context window − 100,000 max output): https://developers.openai.com/api/docs/models/o3-mini",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/o3-mini"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with o3-mini.",
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": false
+   }
+  },
+  {
+   "capabilities": {},
+   "display_name": "o4-mini",
+   "id": "o4-mini",
+   "input_limit": 100000,
+   "output_limit": 100000,
+   "provider": "openai",
+   "released": "2025-04-09",
+   "shutdown_date": "2026-10-23",
+   "sources": {
+    "input_limit": "openai docs (200,000 context window − 100,000 max output): https://developers.openai.com/api/docs/models/o4-mini",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/o4-mini"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-09-26",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  }
+ ],
+ "synced": "2026-09-26"
+}

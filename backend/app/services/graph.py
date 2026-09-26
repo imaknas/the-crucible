@@ -1,4 +1,5 @@
 import asyncio
+import functools
 from typing import List, Optional
 from dotenv import load_dotenv
 import tiktoken
@@ -28,8 +29,21 @@ def compaction_policy_from(config: Optional[RunnableConfig]):
     return injected or _DEFAULT_POLICY
 
 
+@functools.lru_cache(maxsize=1)
+def _catalog():
+    from app.catalog import load_catalog
+
+    return load_catalog()
+
+
 def model_budget(model_id: str) -> ModelBudget:
-    return ModelBudget(model_id=model_id, soft_limit=get_token_limit(model_id))
+    """Policy threshold from the registry; the real input window from the catalog."""
+    entry = _catalog().get(model_id.strip().lower())
+    return ModelBudget(
+        model_id=model_id,
+        soft_limit=get_token_limit(model_id),
+        context_window=entry.input_limit if entry else None,
+    )
 
 
 def _last_summary_index(messages: list) -> int:

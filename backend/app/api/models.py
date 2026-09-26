@@ -111,7 +111,9 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "GPT-5.2 Pro",
         "desc": "Reasoning",
         "limit": 100_000,
-        "native_search": True,
+        # Answers only on the Responses API. Its web-search probe exceeds the
+        # account's per-minute token limit, so search is unverified: off.
+        "native_search": False,
     },
     "gpt-5-mini": {
         "family": "openai",

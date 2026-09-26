@@ -42,8 +42,15 @@ class AnthropicProvider:
         return ChatAnthropic(model=model_id)
 
     def with_web_search(self, llm: Any) -> Runnable:
-        # web_search_20260209 supports dynamic filtering on Opus/Sonnet 4.6+.
-        return llm.bind_tools([{"name": "web_search", "type": "web_search_20260209", "max_uses": 3}])
+        # Models without code execution (e.g. Haiku 4.5) reject the dynamic-
+        # filtering search tool unless it is called directly; the catalog says
+        # which models have it, and unknown models get the safe direct form.
+        from app.catalog import load_catalog
+        from app.catalog.sources import anthropic_web_search_tool
+
+        entry = load_catalog().get(getattr(llm, "model", ""))
+        code_execution = entry.capabilities.get("code_execution") if entry else None
+        return llm.bind_tools([anthropic_web_search_tool(code_execution)])
 
 
 class GoogleProvider:

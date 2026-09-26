@@ -81,6 +81,7 @@ Copy `.env.example` to `backend/.env` and set at least one of: `OPENAI_API_KEY`,
 | Transport | `api/*.py` | Parse/validate, call a service, shape the response. Routers get the graph via `Depends(get_graph_app)` (`api/deps.py`), never a global. |
 | Behaviour | `services/*.py` | No FastAPI/WebSocket imports. `chat.py` (one chat turn: `build_turn_input`, `stream_turn`, `auto_title`), `debate.py`, `convergence.py`, `arena.py` (CLI/MCP entry points), `runs.py`, `tree.py`, `rag.py`, `message_format.py`. |
 | Models | `llm/` | The only place clients are built. Everything asks a `ModelFactory`. |
+| Model facts | `catalog/` | What each provider model *is* (limits, capabilities, verified callable, web search works), built from first-party sources only. **Imports nothing from `app.*`.** |
 | Compaction research | `compaction/` | When to summarize/prune and how much detail survives. **Imports nothing from `app.*`** (a test enforces it) so it can become its own project. |
 | Persistence | `core/database.py` | SQLite helpers; LangGraph owns its own checkpoint tables. |
 
@@ -108,8 +109,15 @@ The graph flow is: `summarize → (route) → [retrieve → grade_retrieval →]
 - `synthesis_node`: updates a rolling `current_thesis` using the last 5 messages
 - `metadata_node`: a pass-through kept so existing checkpoints still replay. Its old write to `node_metadata` never ran (a node's config has no `checkpoint_id`); confidence shown in the UI is parsed from the reply's `<metadata>` block in `api/graph.py`
 
-**Model registry — `api/models.py`**
-`MODEL_REGISTRY` dict (keyed by lowercase model ID) is the single source of truth for supported models, their family, token limits, and native search support. `FAMILY_META` maps each family to its label, colour and `env_key`.
+**Model registry — `api/models.py` (policy) and catalog — `app/catalog/` (facts)**
+`MODEL_REGISTRY` is *policy*: which models the app offers, their display names, soft `limit`, `native_search`, defaults, legacy entries. `FAMILY_META` maps each family to its label, colour and `env_key`.
+The catalog is *facts*, committed as `app/catalog/data/catalog.json` and refreshed with `uv run crucible catalog-sync`:
+- Sources are first-party only — no LiteLLM / models.dev. Each provider is a `ProviderSource` strategy (`catalog/sources.py`): the providers' own `/models` endpoints (Anthropic and Google report limits and capabilities; OpenAI only ids), OpenAI's own docs pages for OpenAI context windows (window − max output), and `data/overrides.json` for anything else, each value with a `source`.
+- Every model is probed with a real minimal call (chat, then web search). OpenAI ids that 404 on chat/completions are retried on the Responses API (LangChain routes several "-pro" models there) and recorded as `capabilities.api`. Timeouts, 429 and 5xx are *inconclusive*: never a verdict, retried next sync; an inconclusive result keeps an earlier success but clears an earlier failure. `--probe new|failed|all|none`.
+- Error text is committed: account identifiers (`org-…`) are redacted in `sources._redact`.
+- `tests/test_registry_catalog.py` fails if the registry offers a model the catalog hasn't verified, or claims `native_search` the probe disagrees with — that is the signal to run `catalog-sync` or fix the registry.
+- `graph.model_budget()` takes `context_window` from the catalog, the soft limit from the registry.
+- Anthropic web search: `web_search_20260209` needs programmatic tool calling, which models without `code_execution` (Haiku 4.5) reject with a 400; `anthropic_web_search_tool()` adds `allowed_callers=["direct"]` for them (and for unknown models). The app provider and the catalog probe share it.
 
 **Model construction — `llm/`**
 - `providers.py`: one `ChatProvider` strategy per family (`create(model_id)`, `with_web_search(llm)`), registered in `PROVIDERS`. Nothing else branches on the provider.
@@ -211,8 +219,8 @@ Where a change goes, so it lands in one place:
 
 | To add… | Do this |
 |---|---|
-| A model | Entry in `MODEL_REGISTRY` (verify the ID with a real one-token call first). |
-| A provider family | `FAMILY_META` entry + a `ChatProvider` in `llm/providers.py` registered in `PROVIDERS` + its models. |
+| A model | `uv run crucible catalog-sync` (lists and probes it), then an entry in `MODEL_REGISTRY`; `test_registry_catalog.py` enforces the order. |
+| A provider family | `FAMILY_META` entry + a `ChatProvider` in `llm/providers.py` (`PROVIDERS`) + a `ProviderSource` in `catalog/sources.py` (`SOURCES`) + its models. |
 | A convergence rule | A class with `async evaluate(previous, current) -> Verdict` in `services/convergence.py`, wired into `build_convergence_check`. |
 | A debate client command | A `DebateConnection.on_*` handler in `api/debate.py`, registered in `COMMANDS`; the frontend sends it from `useDebateSession`. |
 | A debate event shown in the transcript | Handle it in `lib/debateTranscript.ts` (`transcriptReducer`, unit-tested) and route it in `useDebateSession.handleEvent`. |
