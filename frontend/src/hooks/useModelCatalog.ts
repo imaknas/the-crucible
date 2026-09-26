@@ -2,33 +2,57 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "@/lib/api";
 import { modelDisplayName } from "@/lib/modelNames";
 
+export type CatalogStatus = "loading" | "ready" | "error";
+
 /**
- * The model catalogue from GET /models, plus the arena's model selection.
+ * The model catalogue from GET /models (the only place the frontend fetches
+ * it), plus the arena's model selection.
  *
  * The selection is seeded from the backend's `default_model` rather than a
  * hardcoded ID, which is how a previous default drifted onto a legacy model.
  */
 export function useModelCatalog() {
+  const [families, setFamilies] = useState<api.ModelFamily[]>([]);
+  const [status, setStatus] = useState<CatalogStatus>("loading");
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
-  const [allModelIds, setAllModelIds] = useState<string[]>([]);
   // A ref as well, so long-lived socket handlers resolve names without
   // re-subscribing whenever the catalogue loads.
   const familiesRef = useRef<api.ModelFamily[]>([]);
 
-  useEffect(() => {
-    api
+  const load = useCallback(() => {
+    return api
       .fetchModels()
       .then((data) => {
         familiesRef.current = data.families;
-        setAllModelIds(data.families.flatMap((f) => f.models.map((m) => m.id)));
+        setFamilies(data.families);
+        setStatus("ready");
         if (data.default_model) {
           setSelectedModels((prev) => (prev.length ? prev : [data.default_model as string]));
         }
       })
-      .catch(() => {});
+      .catch(() => setStatus("error"));
   }, []);
 
-  const modelLabel = useCallback((id: string) => modelDisplayName(id, familiesRef.current), []);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  return { selectedModels, setSelectedModels, allModelIds, modelLabel };
+  /** Refetch, e.g. after an API key is saved and a family becomes available. */
+  const reloadModels = useCallback(() => {
+    setStatus("loading");
+    load();
+  }, [load]);
+
+  const modelLabel = useCallback((id: string) => modelDisplayName(id, familiesRef.current), []);
+  const allModelIds = families.flatMap((f) => f.models.map((m) => m.id));
+
+  return {
+    families,
+    status,
+    reloadModels,
+    selectedModels,
+    setSelectedModels,
+    allModelIds,
+    modelLabel,
+  };
 }

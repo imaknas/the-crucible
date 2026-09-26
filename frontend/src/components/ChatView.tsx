@@ -12,6 +12,7 @@ import {
 import { CheckCircle2, Sparkles, Network, Scale, Swords, X as XIcon, Pause, Play } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatInput } from "./ChatInput";
+import DebateBanner, { type DebateBannerState } from "./DebateBanner";
 import { MessageBubble, getModelColor, getModelLabel } from "./MessageBubble";
 import { DebateUiStatus, Message } from "@/lib/types";
 
@@ -40,26 +41,13 @@ interface ChatViewProps {
   onDebateOpen?: (prompt: string) => void;
   onDebateInject?: (message: string) => void;
   onDebateRedirect?: (message: string) => void;
-  debateState?: {
-    round: number;
-    maxRounds: number;
-    status: DebateUiStatus;
-    convergenceScore?: number;
-  } | null;
+  debateState?: DebateBannerState | null;
   onDebateStop?: () => void;
   onDebateSynthesize?: () => void;
   onDebatePause?: () => void;
   onDebateResume?: () => void;
 }
 
-const DEBATE_STATUS_STYLE: Record<DebateUiStatus, { bg: string; fg: string }> = {
-  running: { bg: "rgba(16,185,129,0.2)", fg: "#10b981" },
-  pausing: { bg: "rgba(245,158,11,0.2)", fg: "#f59e0b" },
-  paused: { bg: "rgba(245,158,11,0.2)", fg: "#f59e0b" },
-  converged: { bg: "rgba(139,92,246,0.2)", fg: "#a78bfa" },
-  completed: { bg: "rgba(100,116,139,0.2)", fg: "text.secondary" },
-  interrupted: { bg: "rgba(100,116,139,0.2)", fg: "text.secondary" },
-};
 
 const ChatViewRaw: React.FC<ChatViewProps> = ({
   messages,
@@ -289,109 +277,14 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         bgcolor: "transparent",
       }}
     >
-      {/* Debate status banner */}
       {debateState && (
-        <Box
-          sx={{
-            flexShrink: 0,
-            px: 3,
-            py: 1,
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-            bgcolor: isDark ? "rgba(109,40,217,0.12)" : "rgba(109,40,217,0.07)",
-            borderBottom: "1px solid rgba(139,92,246,0.25)",
-          }}
-        >
-          <Swords width={13} height={13} color="#8b5cf6" />
-          <Typography
-            variant="overline"
-            sx={{ fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.12em", color: "#8b5cf6" }}
-          >
-            DEBATE · ROUND {debateState.round + 1}/{debateState.maxRounds}
-          </Typography>
-          {debateState.convergenceScore != null && (
-            <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
-              convergence {(debateState.convergenceScore * 100).toFixed(0)}%
-            </Typography>
-          )}
-          <Box
-            sx={{
-              px: 1,
-              py: 0.25,
-              borderRadius: 1,
-              bgcolor: DEBATE_STATUS_STYLE[debateState.status].bg,
-              color: DEBATE_STATUS_STYLE[debateState.status].fg,
-              fontSize: "0.6rem",
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-            }}
-          >
-            {debateState.status === "pausing" ? "pausing after this round" : debateState.status}
-          </Box>
-          <Box sx={{ flex: 1 }} />
-          {(onDebatePause || onDebateResume) && (
-            <ButtonBase
-              onClick={onDebatePause ?? onDebateResume}
-              aria-label={onDebatePause ? "Pause debate" : "Resume debate"}
-              title={onDebatePause ? "Pause after the current round" : "Resume"}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-                px: 1.25,
-                py: 0.5,
-                borderRadius: 1.5,
-                fontSize: "0.65rem",
-                fontWeight: 700,
-                color: "#f59e0b",
-                border: "1px solid rgba(245,158,11,0.35)",
-                "&:hover": { bgcolor: "rgba(245,158,11,0.12)" },
-              }}
-            >
-              {onDebatePause ? <Pause width={11} height={11} /> : <Play width={11} height={11} />}
-              {onDebatePause ? "Pause" : "Resume"}
-            </ButtonBase>
-          )}
-          {onDebateSynthesize && (
-            <ButtonBase
-              onClick={onDebateSynthesize}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-                px: 1.5,
-                py: 0.5,
-                borderRadius: 1.5,
-                fontSize: "0.65rem",
-                fontWeight: 700,
-                color: "#a78bfa",
-                border: "1px solid rgba(139,92,246,0.35)",
-                bgcolor: "rgba(139,92,246,0.1)",
-                "&:hover": { bgcolor: "rgba(139,92,246,0.2)" },
-              }}
-            >
-              <Sparkles width={11} height={11} />
-              Synthesize
-            </ButtonBase>
-          )}
-          {onDebateStop && (
-            <ButtonBase
-              onClick={onDebateStop}
-              aria-label="Close debate"
-              title="Close debate (stops it if running)"
-              sx={{
-                p: 0.5,
-                borderRadius: 1,
-                color: "text.disabled",
-                "&:hover": { color: "error.main" },
-              }}
-            >
-              <XIcon width={14} height={14} />
-            </ButtonBase>
-          )}
-        </Box>
+        <DebateBanner
+          state={debateState}
+          onPause={onDebatePause}
+          onResume={onDebateResume}
+          onSynthesize={onDebateSynthesize}
+          onClose={onDebateStop}
+        />
       )}
 
       <Box

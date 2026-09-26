@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import * as api from "@/lib/api";
 import { Message, Toggles } from "@/lib/types";
+import { isOpen, useSocketFactory } from "@/lib/transport";
 
 export function useChatWebSocket({
   threadId,
@@ -29,6 +30,7 @@ export function useChatWebSocket({
   setErrorModals: React.Dispatch<React.SetStateAction<any[]>>;
   showConfirm: (title: string, message: string) => Promise<boolean>;
 }) {
+  const openSocket = useSocketFactory();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // Bumped after an unexpected close so the effect below opens a new socket.
@@ -61,7 +63,7 @@ export function useChatWebSocket({
   useEffect(() => {
     if (!threadId) return;
 
-    const ws = new WebSocket(api.createWebSocketUrl(threadId));
+    const ws = openSocket(api.createWebSocketUrl(threadId));
     wsRef.current = ws;
     let disposed = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -226,7 +228,7 @@ export function useChatWebSocket({
       // it, switching threads mid-stream left the new thread stuck loading.
       setIsLoading(false);
     };
-  }, [threadId, setErrorModals, reconnectKey]); // Reconnect only on thread change or after a dropped socket
+  }, [threadId, setErrorModals, reconnectKey, openSocket]); // Reconnect only on thread change or after a dropped socket
 
   const sendInteractiveMessage = async (
     input: string,
@@ -238,7 +240,7 @@ export function useChatWebSocket({
 
     // Check the socket before echoing the message, or a failed send leaves a
     // user bubble that was never delivered.
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+    if (!isOpen(wsRef.current)) {
       showConfirm(
         "Connection Lost",
         "Not connected to the backend. It will reconnect automatically; try again in a moment.",
@@ -291,8 +293,8 @@ export function useChatWebSocket({
       .join("\n\n");
     const synthesisPrompt = `I have received perspectives from multiple models:\n${formattedContents}\n\nPlease act as the Crucible Lead. Synthesize these viewpoints into a single, cohesive consensus that resolves contradictions and extracts the highest quality insights. Maintain an academic and rigorous tone.`;
 
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
+    if (isOpen(wsRef.current)) {
+      wsRef.current?.send(
         JSON.stringify({
           message: synthesisPrompt,
           model: selectedModels[0],
@@ -309,8 +311,8 @@ export function useChatWebSocket({
   };
 
   const stopStreaming = useCallback(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "stop" }));
+    if (isOpen(wsRef.current)) {
+      wsRef.current?.send(JSON.stringify({ type: "stop" }));
     }
     // Optimistic UI reset
     setIsLoading(false);

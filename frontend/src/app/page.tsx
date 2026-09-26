@@ -54,7 +54,15 @@ export default function Home() {
   const { toasts, pushToast, dismissToast } = useToasts();
   const { confirm: showConfirm, request: confirmRequest, answer: answerConfirm } = useConfirm();
   const { connection, hasAnyKey } = useBackendStatus();
-  const { selectedModels, setSelectedModels, allModelIds, modelLabel } = useModelCatalog();
+  const {
+    families,
+    status: modelsStatus,
+    reloadModels,
+    selectedModels,
+    setSelectedModels,
+    allModelIds,
+    modelLabel,
+  } = useModelCatalog();
   const { debateDefaults, setDebateDefaults } = useDebateDefaults();
 
   // ─── Conversation tree, threads, chat ───────────────────────────
@@ -378,10 +386,12 @@ export default function Home() {
       <ControlPanel
         toggles={toggles}
         setToggles={setToggles}
+        families={families}
+        modelsStatus={modelsStatus}
+        onReloadModels={reloadModels}
         selectedModels={selectedModels}
         setSelectedModels={setSelectedModels}
         messagesCount={nodes.length}
-        threadId={threadId}
         activeCheckpointLabel={activeCheckpointNode?.data?.label || "START"}
         debateDefaults={debateDefaults}
         setDebateDefaults={setDebateDefaults}

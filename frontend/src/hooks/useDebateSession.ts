@@ -11,6 +11,7 @@ import {
 import type { DebateDefaults, DebateSession, DebateUiStatus, Toggles } from "@/lib/types";
 import { useDebateTree } from "@/hooks/useDebateTree";
 import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
+import { isOpen, useSocketFactory } from "@/lib/transport";
 
 const STORAGE_KEY = "crucible_active_debate";
 
@@ -65,6 +66,7 @@ export function useDebateSession({
   confirm,
   modelLabel,
 }: Options) {
+  const openSocket = useSocketFactory();
   const tree = useDebateTree();
   const {
     fetchTree,
@@ -277,7 +279,7 @@ export function useDebateSession({
   // One socket per debate session. firstFrame is sent once it opens.
   const connect = useCallback(
     (sessionId: string, firstFrame: Record<string, unknown>, onOpen?: () => void) => {
-      const ws = new WebSocket(api.createDebateWebSocketUrl(sessionId));
+      const ws = openSocket(api.createDebateWebSocketUrl(sessionId));
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -285,6 +287,8 @@ export function useDebateSession({
         onOpen?.();
       };
       ws.onmessage = (ev) => {
+        // Same guard as onclose: a replaced socket must not touch this debate.
+        if (wsRef.current !== ws) return;
         try {
           handleEventRef.current(JSON.parse(ev.data), sessionId);
         } catch {}
@@ -300,7 +304,7 @@ export function useDebateSession({
       };
       return ws;
     },
-    [stopPolling, clearPendingNodes, refreshSessions],
+    [openSocket, stopPolling, clearPendingNodes, refreshSessions],
   );
 
   // ─── Loading an existing session ─────────────────────────────
@@ -383,7 +387,7 @@ export function useDebateSession({
 
   // ─── Actions ─────────────────────────────────────────────────
   const socketOpen = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return true;
+    if (isOpen(wsRef.current)) return true;
     pushToast("This debate is no longer connected. Start a new debate to continue.");
     return false;
   }, [pushToast]);
@@ -488,7 +492,7 @@ export function useDebateSession({
         prompt: promptRef.current,
         toggles,
       };
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
+      if (isOpen(wsRef.current)) {
         send(frame);
       } else if (activeSessionId) {
         // A restored or finished debate has no socket; synthesis opens one
@@ -512,7 +516,7 @@ export function useDebateSession({
 
   /** The banner's close button: stop the debate if it is still going, then drop it. */
   const close = useCallback(() => {
-    if (debateControls(status, true).stopOnClose && wsRef.current?.readyState === WebSocket.OPEN) {
+    if (debateControls(status, true).stopOnClose && isOpen(wsRef.current)) {
       send({ type: "debate_control", action: "stop" });
     }
     clear();
