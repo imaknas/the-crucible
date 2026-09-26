@@ -7,7 +7,7 @@ router = APIRouter(tags=["models"])
 # ─── Hardcoded Catalog ─────────────────────────────────────────
 
 # Every ID here is verified against the provider's live model list and a real
-# chat completion. Two entries previously shipped broken: `gpt-5.4-pro` and
+# chat completion (last full check: 2026-09-26, all entries). Two entries previously shipped broken: `gpt-5.4-pro` and
 # `gpt-5.5-pro` are not chat models (404 on v1/chat/completions), and
 # `gemini-3-flash-lite-preview` no longer exists.
 #
@@ -21,6 +21,22 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "id": "gpt-6-astra",
         "name": "GPT-6 Astra",
         "desc": "Flagship",
+        "limit": 100_000,
+        "native_search": True,
+    },
+    "gpt-6-sol": {
+        "family": "openai",
+        "id": "gpt-6-sol",
+        "name": "GPT-6 Sol",
+        "desc": "Balanced",
+        "limit": 100_000,
+        "native_search": True,
+    },
+    "gpt-6-luna": {
+        "family": "openai",
+        "id": "gpt-6-luna",
+        "name": "GPT-6 Luna",
+        "desc": "Fast",
         "limit": 100_000,
         "native_search": True,
     },
@@ -114,6 +130,14 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "native_search": True,
     },
     # ─── Anthropic ─────────────────────────────────────────────
+    "claude-opus-5-5": {
+        "family": "anthropic",
+        "id": "claude-opus-5-5",
+        "name": "Claude Opus 5.5",
+        "desc": "Flagship",
+        "limit": 700_000,  # 70% of 1M window
+        "native_search": True,
+    },
     "claude-opus-5": {
         "family": "anthropic",
         "id": "claude-opus-5",
@@ -192,6 +216,14 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "family": "google",
         "id": "gemini-3.5-flash",
         "name": "Gemini 3.5 Flash",
+        "desc": "Fast",
+        "limit": 800_000,
+        "native_search": True,
+    },
+    "gemini-3.5-flash-lite": {
+        "family": "google",
+        "id": "gemini-3.5-flash-lite",
+        "name": "Gemini 3.5 Flash-Lite",
         "desc": "Fast",
         "limit": 800_000,
         "native_search": True,

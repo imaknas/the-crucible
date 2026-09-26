@@ -95,8 +95,9 @@ test.describe("application shell", () => {
     // Guards the registry refresh: names come from MODEL_REGISTRY, and the two
     // IDs that 404 on the providers must not reappear.
     await page.getByRole("button", { name: /^Anthropic \d+ models$/ }).click();
-    await expect(page.getByText("Claude Opus 5")).toBeVisible();
-    await expect(page.getByText("Claude Sonnet 5")).toBeVisible();
+    for (const name of ["Claude Opus 5.5", "Claude Opus 5", "Claude Sonnet 5"]) {
+      await expect(page.getByText(name, { exact: true })).toBeVisible();
+    }
 
     const body = await page.locator("body").innerText();
     expect(body).not.toContain("gpt-5.4-pro");
