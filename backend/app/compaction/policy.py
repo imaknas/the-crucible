@@ -36,6 +36,13 @@ class ContextSnapshot:
     total_messages: int
     # Messages after the latest summary; None when nothing was summarized yet.
     messages_since_summary: Optional[int] = None
+    # Size of the latest summary itself (included in tokens_since_summary).
+    summary_tokens: int = 0
+
+    @property
+    def new_tokens(self) -> int:
+        """Tokens written since the latest summary, the summary excluded."""
+        return self.tokens_since_summary - self.summary_tokens
 
 
 @dataclass(frozen=True)
@@ -74,12 +81,26 @@ class ThresholdPolicy:
     With the defaults this is The Crucible's original behaviour: threshold =
     the model's soft limit, keep the last `keep_recent` messages verbatim, and
     don't re-summarize until at least that many new messages have arrived.
+
+    Re-summarizing waits for new material, not just a full context: the
+    next summary is due when the summary plus what came after it passes the
+    threshold, but never before `min_new_fraction` of the threshold is new.
+    Without that floor, a summary that grows past the threshold makes every
+    eligible turn re-summarize (pilot 2: 132 summaries instead of ~20), each
+    one re-compressing the last for almost nothing new.
     """
 
-    def __init__(self, threshold: Threshold = fraction_of_limit(1.0), keep_recent: int = 5, name: str = ""):
+    def __init__(
+        self,
+        threshold: Threshold = fraction_of_limit(1.0),
+        keep_recent: int = 5,
+        name: str = "",
+        min_new_fraction: float = 0.5,
+    ):
         self.threshold = threshold
         self.keep_recent = keep_recent
         self.name = name or "threshold"
+        self.min_new_fraction = min_new_fraction
 
     def should_summarize(self, ctx: ContextSnapshot, budget: ModelBudget) -> Decision:
         if ctx.total_messages <= self.keep_recent:
@@ -87,9 +108,15 @@ class ThresholdPolicy:
         if ctx.messages_since_summary is not None and ctx.messages_since_summary < self.keep_recent:
             return Decision(False, "summarized recently")
         limit = self.threshold(budget)
-        if ctx.tokens_since_summary <= limit:
-            return Decision(False, f"{ctx.tokens_since_summary} <= {limit}")
-        return Decision(True, f"{ctx.tokens_since_summary} > {limit}")
+        if ctx.messages_since_summary is None:
+            if ctx.tokens_since_summary <= limit:
+                return Decision(False, f"{ctx.tokens_since_summary} <= {limit}")
+            return Decision(True, f"{ctx.tokens_since_summary} > {limit}")
+        # Same as tokens_since_summary > limit while the summary is small.
+        due = max(limit - ctx.summary_tokens, int(limit * self.min_new_fraction))
+        if ctx.new_tokens <= due:
+            return Decision(False, f"{ctx.new_tokens} new <= {due} (summary {ctx.summary_tokens})")
+        return Decision(True, f"{ctx.new_tokens} new > {due} (summary {ctx.summary_tokens})")
 
     def should_prune(self, ctx: ContextSnapshot, budget: ModelBudget) -> Decision:
         limit = self.threshold(budget)

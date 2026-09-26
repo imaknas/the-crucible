@@ -32,8 +32,8 @@ from app.services.compaction_eval import (
 BUDGET = ModelBudget("gpt-5.4", soft_limit=10_000)
 
 
-def snap(total, since=None, messages=20, since_msgs=None):
-    return ContextSnapshot(total, total if since is None else since, messages, since_msgs)
+def snap(total, since=None, messages=20, since_msgs=None, summary=0):
+    return ContextSnapshot(total, total if since is None else since, messages, since_msgs, summary)
 
 
 # ─── The package stays portable ──────────────────────────────────
@@ -62,6 +62,20 @@ def test_threshold_policy_matches_the_original_rules():
     assert p.should_summarize(snap(50_000, since=12_000, since_msgs=8), BUDGET)
     assert not p.should_summarize(snap(50_000, since=8_000, since_msgs=8), BUDGET)
     assert p.should_prune(snap(10_001), BUDGET) and not p.should_prune(snap(10_000), BUDGET)
+
+
+def test_a_summary_larger_than_the_threshold_does_not_retrigger_itself():
+    p = ThresholdPolicy()  # limit 10,000
+    # Small summary: due when summary + new passes the limit, as before.
+    assert not p.should_summarize(snap(30_000, since=10_000, since_msgs=8, summary=2_000), BUDGET)
+    assert p.should_summarize(snap(30_000, since=10_001, since_msgs=8, summary=2_000), BUDGET)
+    # A 12k summary alone is over the limit; still wait for half a limit of new text.
+    assert not p.should_summarize(snap(30_000, since=13_000, since_msgs=8, summary=12_000), BUDGET)
+    assert not p.should_summarize(snap(30_000, since=17_000, since_msgs=8, summary=12_000), BUDGET)
+    assert p.should_summarize(snap(30_000, since=17_001, since_msgs=8, summary=12_000), BUDGET)
+    # The floor is a knob.
+    eager = ThresholdPolicy(min_new_fraction=0.1)
+    assert eager.should_summarize(snap(30_000, since=13_001, since_msgs=8, summary=12_000), BUDGET)
 
 
 def test_thresholds_are_pluggable():
@@ -272,3 +286,29 @@ async def test_live_replay_summarizes_repeatedly_and_shares_summaries(eval_setup
     # Early facts went through several summaries; the stand-in keeps none of them.
     assert max(r.compactions for r in live) >= 3
     assert not any(r.correct for r in live if r.compactions >= 2)
+
+
+@pytest.mark.asyncio
+async def test_live_replay_with_a_growing_summary_does_not_thrash():
+    """A summarizer whose output keeps growing past the threshold (as
+    gemini-3.5-flash's did in pilot 2) must not re-summarize every turn."""
+    from langchain_core.messages import AIMessage
+
+    from app.compaction import build_dense_scenario
+    from app.services.compaction_eval import replay_with_compaction
+
+    class Bloated:
+        calls = 0
+
+        def invoke(self, _msgs):
+            Bloated.calls += 1
+            return AIMessage(content="kept detail " * (1_000 + 200 * Bloated.calls))
+
+    scenario = build_dense_scenario(n_facts=8, exchanges=60, seed=2)  # ~10k tokens
+    factory = CallableModelFactory(lambda *_: Bloated())
+    messages, _ = await replay_with_compaction(
+        scenario, Condition("t2000", ThresholdPolicy(fixed_tokens(2_000))), "gpt-5.4", factory
+    )
+    summaries = sum(graph_mod.SUMMARY_MARKER in m.content for m in messages if m.type == "system")
+    # ~10k tokens at >=1k new per summary: about ten, not one per user turn (60).
+    assert 3 <= summaries <= 12

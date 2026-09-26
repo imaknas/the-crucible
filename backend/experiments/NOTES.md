@@ -136,3 +136,26 @@ cost roughly $8–10 at list prices, about twice the planned $5.
   retention at a fraction of its cost?
 - Larger answering models: is the never-compact deficit (point 1) only a
   small-model effect?
+
+## 2026-09-26 — Fix: re-summarize thrash
+
+`ThresholdPolicy.should_summarize` compared `tokens_since_summary` (summary
+included) with the threshold. gemini-3.5-flash summaries grew from 4.1k to
+8.3k tokens over a pilot 2 conversation, so once one passed 8,000 the policy
+fired on every eligible turn (every 5 messages, including during probing).
+
+Now `ContextSnapshot.summary_tokens` is reported and re-summarizing is due
+when `new_tokens > max(threshold − summary_tokens, min_new_fraction ×
+threshold)` (default 0.5). While the summary is small this is exactly the old
+rule. Replay check with a summarizer whose output grows 480 tokens per call
+(60 exchanges, t=2000): 16 summaries before, 8 after. At pilot 2's t=8000
+the floor is 4,000 new tokens, so probing (≈50 tokens per probe) no longer
+re-summarizes at all.
+
+Not fixed: the summary itself still grows without bound (the prompt asks
+for a "detailed" brief and sets no length). A length target is a separate
+condition to test — it trades cost against the retention flash showed.
+
+Pilot 2's flash-vs-flash-lite comparison was made under the old rule
+(flash: 10–29 summaries per fact, flash-lite: 1–5). Re-run it before
+attributing flash's advantage to the model rather than to the refreshes.

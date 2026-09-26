@@ -67,6 +67,7 @@ def context_snapshot(messages: list) -> ContextSnapshot:
         tokens_since_summary=count_tokens(messages[last:]) if last != -1 else total,
         total_messages=len(messages),
         messages_since_summary=(len(messages) - 1 - last) if last != -1 else None,
+        summary_tokens=count_tokens([messages[last]]) if last != -1 else 0,
     )
 
 load_dotenv()
