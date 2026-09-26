@@ -45,3 +45,6 @@ CLAUDE.local.md
 # Coverage
 .coverage
 coverage/
+
+# Experiment databases (results JSON under backend/experiments/results is kept)
+backend/experiments/*.sqlite*

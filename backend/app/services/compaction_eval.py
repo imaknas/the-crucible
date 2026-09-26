@@ -51,11 +51,13 @@ class ProbeResult:
     # thesis update), keyed by the provider's model name. Raw counts, so cost
     # can be computed later with whatever prices apply.
     usage: dict = field(default_factory=dict)
+    # Which scenario (e.g. its seed) the probe came from.
+    scenario: str = "0"
 
     @property
     def key(self) -> str:
         """Pairs the same probe across conditions."""
-        return f"{self.model}:{self.fact}"
+        return f"{self.model}:{self.scenario}:{self.fact}"
 
 
 async def seed_scenario(graph_app, thread_id: str, scenario: Scenario, model_id: str) -> str:
@@ -85,6 +87,7 @@ async def run_condition(
     model_id: str,
     condition: Condition,
     model_factory=None,
+    scenario_label: str = "0",
 ) -> list[ProbeResult]:
     """Ask every probe, in order, on one branch forked from the seeded checkpoint."""
     results: list[ProbeResult] = []
@@ -129,6 +132,7 @@ async def run_condition(
             summarized=summarized,
             answer=answer[:200],
             usage={name: dict(u) for name, u in usage.usage_metadata.items()},
+            scenario=scenario_label,
         ))
         parent = final.config["configurable"]["checkpoint_id"]
     return results
@@ -151,6 +155,54 @@ async def run_experiment(
         for condition in conditions:
             results += await run_condition(graph_app, thread_id, base, scenario, model_id, condition, model_factory)
     return results
+
+
+async def run_grid(
+    graph_app,
+    scenarios: dict[str, Scenario],
+    model_ids: Sequence[str],
+    conditions: Sequence[Condition],
+    *,
+    thread_prefix: str = "compaction-eval",
+    model_factory=None,
+    concurrency: int = 4,
+) -> list[ProbeResult]:
+    """Every (model, scenario) in parallel; conditions within one run in order.
+
+    Each (model, scenario) gets its own thread, seeded once; every condition
+    is a branch from that same checkpoint, so conditions see identical input.
+    """
+    import asyncio
+
+    sem = asyncio.Semaphore(concurrency)
+
+    async def one(model_id: str, label: str, scenario: Scenario) -> list[ProbeResult]:
+        async with sem:
+            thread_id = f"{thread_prefix}::{label}::{model_id}"
+            base = await seed_scenario(graph_app, thread_id, scenario, model_id)
+            out: list[ProbeResult] = []
+            for condition in conditions:
+                out += await run_condition(
+                    graph_app, thread_id, base, scenario, model_id, condition, model_factory, label
+                )
+            return out
+
+    batches = await asyncio.gather(
+        *(one(m, label, sc) for m in model_ids for label, sc in scenarios.items())
+    )
+    return [r for batch in batches for r in batch]
+
+
+def usage_totals(results: Iterable[ProbeResult]) -> dict[str, dict[str, int]]:
+    """Summed token usage per condition and provider model name."""
+    totals: dict[str, dict[str, int]] = {}
+    for r in results:
+        for name, u in r.usage.items():
+            row = totals.setdefault(f"{r.condition} / {name}", {"input_tokens": 0, "output_tokens": 0, "cache_read": 0})
+            row["input_tokens"] += u.get("input_tokens", 0)
+            row["output_tokens"] += u.get("output_tokens", 0)
+            row["cache_read"] += (u.get("input_token_details") or {}).get("cache_read", 0) or 0
+    return totals
 
 
 def summarize_results(results: Iterable[ProbeResult]) -> dict[str, Any]:

@@ -567,6 +567,184 @@ def models(
     console.print(table)
 
 
+# ─── CATALOG-SYNC Command ───────────────────────────────────────
+
+
+@app.command("catalog-sync")
+def catalog_sync(
+    probe: str = typer.Option("new", "--probe", help="Which models get a real test call: new (new/changed/untested), failed (last verdict was a failure), all, or none."),
+    no_search: bool = typer.Option(False, "--no-search", help="Skip the web-search probe."),
+    workers: int = typer.Option(6, "--workers", min=1, help="Parallel probes; lower it if a provider rate-limits."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would change without writing catalog.json."),
+    format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
+):
+    """
+    [bold]📚 Catalog sync[/bold] — Refresh the model catalog from the providers' own APIs.
+
+    Lists models from OpenAI, Anthropic and Google, applies overrides.json,
+    probes models with a real one-token call (and a web search), and writes
+    app/catalog/data/catalog.json. Probes cost a few cents; --probe none is free.
+    """
+    as_json = _check_format(format_output)
+    if probe not in ("new", "failed", "all", "none"):
+        raise typer.BadParameter("must be new, failed, all or none", param_hint="--probe")
+    _load_env()
+    from datetime import date
+
+    from app.catalog import load_catalog, load_overrides, save_catalog, sync_catalog
+    from app.catalog.sources import SOURCES
+
+    today = date.today().isoformat()
+    keys = {name: os.getenv(src.env_key) for name, src in SOURCES.items()}
+    catalog, diff = sync_catalog(
+        load_catalog(), keys, overrides=load_overrides(), today=today,
+        probe=probe, probe_web_search=not no_search, workers=workers,
+    )
+    if not dry_run:
+        save_catalog(catalog, synced=today)
+    report = {
+        "written": not dry_run,
+        "models": len(catalog),
+        "added": diff.added,
+        "unlisted": diff.unlisted,
+        "changed": diff.changed,
+        "probed": diff.probed,
+        "skipped_providers": diff.skipped_providers,
+    }
+    if as_json:
+        _emit_json(report)
+        return
+    from app.cli_display import print_info, print_success
+
+    print_info(f"{len(catalog)} models; added {len(diff.added)}, unlisted {len(diff.unlisted)}, changed {len(diff.changed)}")
+    for mid, r in diff.probed.items():
+        mark = "✓" if r["chat"] else "✗"
+        search = {True: "search ✓", False: "search ✗", None: ""}[r["web_search"]]
+        console.print(f"  {mark} {mid} {search} {r['error'] or ''}")
+    if diff.skipped_providers:
+        print_info(f"No key, left unchanged: {', '.join(diff.skipped_providers)}")
+    if not dry_run:
+        print_success("Wrote app/catalog/data/catalog.json")
+
+
+# ─── COMPACTION-EVAL Command ────────────────────────────────────
+
+
+CHEAP_MODELS = ["gpt-5.4-nano", "claude-haiku-4-5-20251001", "gemini-3.5-flash-lite"]
+
+
+@app.command("compaction-eval")
+def compaction_eval(
+    models: Optional[List[str]] = typer.Option(
+        None, "--models", "-m", help=f"Models that answer the probes (default: {', '.join(CHEAP_MODELS)})."
+    ),
+    thresholds: Optional[List[int]] = typer.Option(
+        None, "--threshold", "-t", help="Compaction thresholds in tokens (repeat). Default: 2000 and 4000."
+    ),
+    seeds: int = typer.Option(3, "--seeds", help="Number of scenarios (different filler and ordering)."),
+    exchanges: int = typer.Option(40, "--exchanges", help="User/assistant pairs per scenario."),
+    min_effect: float = typer.Option(0.1, "--min-effect", help="Smallest recall difference that matters (0.1 = 10 points)."),
+    db: str = typer.Option("experiments/compaction.sqlite", "--db", help="Separate database for experiment threads."),
+    out: Optional[str] = typer.Option(None, "--out", help="Write every probe result as JSON here."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Use the availability oracle and a lossy stand-in summarizer; no API calls."),
+    format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
+):
+    """
+    [bold]🧪 Compaction eval[/bold] — How much planted detail survives summarization?
+
+    Every condition (never compact, and each threshold) answers the same
+    probes on a branch forked from the same seeded conversation. Real runs
+    call the chosen models; results include raw token usage.
+    """
+    as_json = _check_format(format_output)
+    _load_env()
+    model_ids = models or CHEAP_MODELS
+    if not dry_run:
+        _validate_models(model_ids, as_json)
+    result = _run(
+        _run_compaction_eval(model_ids, thresholds or [2000, 4000], seeds, exchanges, min_effect, db, out, dry_run),
+        as_json,
+    )
+    if as_json:
+        _emit_json(result)
+        return
+    from rich.table import Table
+
+    table = Table(title="Recall by condition", box=None)
+    for col in ("condition / model", "recall", "n", "by kind"):
+        table.add_column(col)
+    for name, row in result["recall"].items():
+        kinds = ", ".join(f"{k} {c}/{n}" for k, (c, n) in sorted(row["by_kind"].items()))
+        table.add_row(name, f"{row['recall']:.2f}", str(row["n"]), kinds)
+    console.print(table)
+    for c in result["comparisons"]:
+        console.print(f"  {c['model']}: never vs {c['condition']}: [bold]{c['outcome']}[/bold] "
+                      f"effect {c['effect']} interval {c['interval']}")
+    console.print(f"\nUsage: {json.dumps(result['usage'], indent=1)}")
+    if out:
+        console.print(f"Wrote {out}")
+
+
+async def _run_compaction_eval(model_ids, thresholds, seeds, exchanges, min_effect, db_path, out, dry_run):
+    from pathlib import Path
+
+    from app.compaction import NeverCompact, ThresholdPolicy, build_scenario, fixed_tokens
+    from app.core import database as db
+    from app.llm import CallableModelFactory
+    from app.services import compaction_eval as ce
+    from app.services.arena import open_graph
+
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    db.DB_PATH = db_path  # experiment threads never touch the app's database
+    scenarios = {str(s): build_scenario(exchanges=exchanges, seed=s) for s in range(seeds)}
+    conditions = [ce.Condition("never", NeverCompact())] + [
+        ce.Condition(f"t{t}", ThresholdPolicy(fixed_tokens(t), name=f"t{t}")) for t in thresholds
+    ]
+    factory = None
+    if dry_run:
+        from app.api.models import SUMMARIZER_MODELS
+        from app.compaction import DEFAULT_FACTS
+
+        factory = CallableModelFactory(
+            lambda m, _t: ce.FirstSentenceSummarizer() if m in SUMMARIZER_MODELS else ce.AvailabilityOracle(facts=DEFAULT_FACTS)
+        )
+    from datetime import datetime, timezone
+
+    prefix = "compaction-eval-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    async with open_graph() as graph_app:
+        results = await ce.run_grid(graph_app, scenarios, model_ids, conditions,
+                                    thread_prefix=prefix, model_factory=factory)
+
+    comparisons = []
+    for model_id in model_ids:
+        mine = [r for r in results if r.model == model_id]
+        for cond in conditions[1:]:
+            verdict = ce.compare_conditions(mine, "never", cond.name, min_effect=min_effect)
+            comparisons.append({
+                "model": model_id,
+                "condition": cond.name,
+                "outcome": verdict.outcome.value,
+                "effect": None if verdict.effect is None else round(verdict.effect, 3),
+                "interval": None if verdict.interval is None else [round(x, 3) for x in verdict.interval],
+                "reason": verdict.reason,
+            })
+    summary = {
+        "run": prefix,
+        "models": list(model_ids),
+        "thresholds": thresholds,
+        "seeds": seeds,
+        "exchanges": exchanges,
+        "dry_run": dry_run,
+        "recall": ce.summarize_results(results),
+        "comparisons": comparisons,
+        "usage": ce.usage_totals(results),
+    }
+    if out:
+        Path(out).parent.mkdir(parents=True, exist_ok=True)
+        Path(out).write_text(json.dumps({**summary, "probes": ce.results_as_dicts(results)}, ensure_ascii=False, indent=1))
+    return summary
+
+
 # ─── CHAT Command ────────────────────────────────────────────────
 
 

@@ -9,10 +9,10 @@ data yet" instead of eyeballing two recall rates.
 adaptive-iteration is imported lazily: the policies in this package don't
 need it, only judging does.
 
-Rule: WelchIntervalRule in paired mode is a stopgap — a t interval on 0/1
-differences is rough at small n and when few pairs disagree. It will be
-replaced by a paired-proportion rule (McNemar / Newcombe) once
-adaptive-iteration ships one.
+Rule: PairedProportionRule (adaptive-iteration >= 0.5), Newcombe's paired
+score interval for p_B − p_A. Unlike a t interval on 0/1 differences it stays
+sane at small n and when few or no pairs disagree, and zero discordant pairs
+at small n stay undecided rather than "equivalent".
 """
 
 from typing import Mapping, Optional
@@ -33,15 +33,14 @@ def compare_recall(
     recall difference (0.1 = 10 points) that matters. Probes present in only
     one arm are left out.
     """
-    from adaptive_iteration import MetricSpec, WelchIntervalRule
-    from adaptive_iteration.core.decision import DecisionContext, Sample
+    from adaptive_iteration import DecisionContext, MetricSpec, PairedProportionRule, Sample
 
     keys = sorted(set(a) & set(b))
     sample_a = Sample(values=tuple(float(a[k]) for k in keys), unit_ids=tuple(f"a:{k}" for k in keys), pair_ids=tuple(keys))
     sample_b = Sample(values=tuple(float(b[k]) for k in keys), unit_ids=tuple(f"b:{k}" for k in keys), pair_ids=tuple(keys))
     spec = MetricSpec(name="recall", min_effect=min_effect)
     ctx = DecisionContext(experiment_id=label, paired=True, checkpoint=1, max_checkpoints=1)
-    return (rule or WelchIntervalRule()).decide(sample_a, sample_b, spec, ctx)
+    return (rule or PairedProportionRule()).decide(sample_a, sample_b, spec, ctx)
 
 
 def recall_rate(results: Mapping[str, bool]) -> Optional[float]:

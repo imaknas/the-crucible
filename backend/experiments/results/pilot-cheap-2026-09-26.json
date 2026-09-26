@@ -1,0 +1,6134 @@
+{
+ "run": "compaction-eval-20260926T064805",
+ "models": [
+  "gpt-5.4-nano",
+  "claude-haiku-4-5-20251001",
+  "gemini-3.5-flash-lite"
+ ],
+ "thresholds": [
+  2000,
+  4000
+ ],
+ "seeds": 3,
+ "exchanges": 40,
+ "dry_run": false,
+ "recall": {
+  "never / gpt-5.4-nano": {
+   "n": 24,
+   "correct": 24,
+   "by_kind": {
+    "number": [
+     3,
+     3
+    ],
+    "name": [
+     3,
+     3
+    ],
+    "identifier": [
+     6,
+     6
+    ],
+    "negation": [
+     3,
+     3
+    ],
+    "date": [
+     3,
+     3
+    ],
+    "quote": [
+     3,
+     3
+    ],
+    "choice": [
+     3,
+     3
+    ]
+   },
+   "recall": 1.0
+  },
+  "t2000 / gpt-5.4-nano": {
+   "n": 24,
+   "correct": 24,
+   "by_kind": {
+    "number": [
+     3,
+     3
+    ],
+    "name": [
+     3,
+     3
+    ],
+    "identifier": [
+     6,
+     6
+    ],
+    "negation": [
+     3,
+     3
+    ],
+    "date": [
+     3,
+     3
+    ],
+    "quote": [
+     3,
+     3
+    ],
+    "choice": [
+     3,
+     3
+    ]
+   },
+   "recall": 1.0
+  },
+  "t4000 / gpt-5.4-nano": {
+   "n": 24,
+   "correct": 24,
+   "by_kind": {
+    "number": [
+     3,
+     3
+    ],
+    "name": [
+     3,
+     3
+    ],
+    "identifier": [
+     6,
+     6
+    ],
+    "negation": [
+     3,
+     3
+    ],
+    "date": [
+     3,
+     3
+    ],
+    "quote": [
+     3,
+     3
+    ],
+    "choice": [
+     3,
+     3
+    ]
+   },
+   "recall": 1.0
+  },
+  "never / claude-haiku-4-5-20251001": {
+   "n": 24,
+   "correct": 24,
+   "by_kind": {
+    "number": [
+     3,
+     3
+    ],
+    "name": [
+     3,
+     3
+    ],
+    "identifier": [
+     6,
+     6
+    ],
+    "negation": [
+     3,
+     3
+    ],
+    "date": [
+     3,
+     3
+    ],
+    "quote": [
+     3,
+     3
+    ],
+    "choice": [
+     3,
+     3
+    ]
+   },
+   "recall": 1.0
+  },
+  "t2000 / claude-haiku-4-5-20251001": {
+   "n": 24,
+   "correct": 24,
+   "by_kind": {
+    "number": [
+     3,
+     3
+    ],
+    "name": [
+     3,
+     3
+    ],
+    "identifier": [
+     6,
+     6
+    ],
+    "negation": [
+     3,
+     3
+    ],
+    "date": [
+     3,
+     3
+    ],
+    "quote": [
+     3,
+     3
+    ],
+    "choice": [
+     3,
+     3
+    ]
+   },
+   "recall": 1.0
+  },
+  "t4000 / claude-haiku-4-5-20251001": {
+   "n": 24,
+   "correct": 24,
+   "by_kind": {
+    "number": [
+     3,
+     3
+    ],
+    "name": [
+     3,
+     3
+    ],
+    "identifier": [
+     6,
+     6
+    ],
+    "negation": [
+     3,
+     3
+    ],
+    "date": [
+     3,
+     3
+    ],
+    "quote": [
+     3,
+     3
+    ],
+    "choice": [
+     3,
+     3
+    ]
+   },
+   "recall": 1.0
+  },
+  "never / gemini-3.5-flash-lite": {
+   "n": 24,
+   "correct": 24,
+   "by_kind": {
+    "number": [
+     3,
+     3
+    ],
+    "name": [
+     3,
+     3
+    ],
+    "identifier": [
+     6,
+     6
+    ],
+    "negation": [
+     3,
+     3
+    ],
+    "date": [
+     3,
+     3
+    ],
+    "quote": [
+     3,
+     3
+    ],
+    "choice": [
+     3,
+     3
+    ]
+   },
+   "recall": 1.0
+  },
+  "t2000 / gemini-3.5-flash-lite": {
+   "n": 24,
+   "correct": 24,
+   "by_kind": {
+    "number": [
+     3,
+     3
+    ],
+    "name": [
+     3,
+     3
+    ],
+    "identifier": [
+     6,
+     6
+    ],
+    "negation": [
+     3,
+     3
+    ],
+    "date": [
+     3,
+     3
+    ],
+    "quote": [
+     3,
+     3
+    ],
+    "choice": [
+     3,
+     3
+    ]
+   },
+   "recall": 1.0
+  },
+  "t4000 / gemini-3.5-flash-lite": {
+   "n": 24,
+   "correct": 24,
+   "by_kind": {
+    "number": [
+     3,
+     3
+    ],
+    "name": [
+     3,
+     3
+    ],
+    "identifier": [
+     6,
+     6
+    ],
+    "negation": [
+     3,
+     3
+    ],
+    "date": [
+     3,
+     3
+    ],
+    "quote": [
+     3,
+     3
+    ],
+    "choice": [
+     3,
+     3
+    ]
+   },
+   "recall": 1.0
+  }
+ },
+ "comparisons": [
+  {
+   "model": "claude-haiku-4-5-20251001",
+   "condition": "t2000",
+   "outcome": "no_detectable_diff",
+   "effect": 0.0,
+   "interval": [
+    -0.138,
+    0.138
+   ],
+   "reason": "interval [-0.138, 0.138] overlaps ±0.1 (pairs=24, only A=0, only B=0); last checkpoint (1/1) reached",
+   "rule": "PairedProportionRule (adaptive-iteration 0.5.0)"
+  },
+  {
+   "model": "claude-haiku-4-5-20251001",
+   "condition": "t4000",
+   "outcome": "no_detectable_diff",
+   "effect": 0.0,
+   "interval": [
+    -0.138,
+    0.138
+   ],
+   "reason": "interval [-0.138, 0.138] overlaps ±0.1 (pairs=24, only A=0, only B=0); last checkpoint (1/1) reached",
+   "rule": "PairedProportionRule (adaptive-iteration 0.5.0)"
+  },
+  {
+   "model": "gemini-3.5-flash-lite",
+   "condition": "t2000",
+   "outcome": "no_detectable_diff",
+   "effect": 0.0,
+   "interval": [
+    -0.138,
+    0.138
+   ],
+   "reason": "interval [-0.138, 0.138] overlaps ±0.1 (pairs=24, only A=0, only B=0); last checkpoint (1/1) reached",
+   "rule": "PairedProportionRule (adaptive-iteration 0.5.0)"
+  },
+  {
+   "model": "gemini-3.5-flash-lite",
+   "condition": "t4000",
+   "outcome": "no_detectable_diff",
+   "effect": 0.0,
+   "interval": [
+    -0.138,
+    0.138
+   ],
+   "reason": "interval [-0.138, 0.138] overlaps ±0.1 (pairs=24, only A=0, only B=0); last checkpoint (1/1) reached",
+   "rule": "PairedProportionRule (adaptive-iteration 0.5.0)"
+  },
+  {
+   "model": "gpt-5.4-nano",
+   "condition": "t2000",
+   "outcome": "no_detectable_diff",
+   "effect": 0.0,
+   "interval": [
+    -0.138,
+    0.138
+   ],
+   "reason": "interval [-0.138, 0.138] overlaps ±0.1 (pairs=24, only A=0, only B=0); last checkpoint (1/1) reached",
+   "rule": "PairedProportionRule (adaptive-iteration 0.5.0)"
+  },
+  {
+   "model": "gpt-5.4-nano",
+   "condition": "t4000",
+   "outcome": "no_detectable_diff",
+   "effect": 0.0,
+   "interval": [
+    -0.138,
+    0.138
+   ],
+   "reason": "interval [-0.138, 0.138] overlaps ±0.1 (pairs=24, only A=0, only B=0); last checkpoint (1/1) reached",
+   "rule": "PairedProportionRule (adaptive-iteration 0.5.0)"
+  }
+ ],
+ "usage": {
+  "never / gpt-5.4-nano-2026-03-17": {
+   "input_tokens": 152676,
+   "output_tokens": 1063,
+   "cache_read": 11776
+  },
+  "t2000 / gemini-3.5-flash": {
+   "input_tokens": 80630,
+   "output_tokens": 77118,
+   "cache_read": 0
+  },
+  "t2000 / gpt-5.4-nano-2026-03-17": {
+   "input_tokens": 58150,
+   "output_tokens": 3922,
+   "cache_read": 0
+  },
+  "t4000 / gemini-3.5-flash": {
+   "input_tokens": 53529,
+   "output_tokens": 35660,
+   "cache_read": 22404
+  },
+  "t4000 / gpt-5.4-nano-2026-03-17": {
+   "input_tokens": 63547,
+   "output_tokens": 2463,
+   "cache_read": 7168
+  },
+  "never / claude-haiku-4-5-20251001": {
+   "input_tokens": 162039,
+   "output_tokens": 7875,
+   "cache_read": 0
+  },
+  "t2000 / claude-haiku-4-5-20251001": {
+   "input_tokens": 108659,
+   "output_tokens": 13408,
+   "cache_read": 0
+  },
+  "t4000 / claude-haiku-4-5-20251001": {
+   "input_tokens": 86032,
+   "output_tokens": 13615,
+   "cache_read": 0
+  },
+  "never / gemini-3.5-flash-lite": {
+   "input_tokens": 142210,
+   "output_tokens": 1181,
+   "cache_read": 0
+  },
+  "t2000 / gemini-3.5-flash-lite": {
+   "input_tokens": 60954,
+   "output_tokens": 2244,
+   "cache_read": 0
+  },
+  "t4000 / gemini-3.5-flash-lite": {
+   "input_tokens": 47941,
+   "output_tokens": 1054,
+   "cache_read": 0
+  }
+ },
+ "probes": [
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "47300",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6148,
+     "output_tokens": 5,
+     "total_tokens": 6153,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Ilse Marchetti",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6195,
+     "output_tokens": 7,
+     "total_tokens": 6202,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "ORCHID-7",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6242,
+     "output_tokens": 8,
+     "total_tokens": 6250,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Kafka",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6294,
+     "output_tokens": 4,
+     "total_tokens": 6298,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "14 March",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6338,
+     "output_tokens": 5,
+     "total_tokens": 6343,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "6543",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6383,
+     "output_tokens": 5,
+     "total_tokens": 6388,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 5888
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "latency first, features second",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 6551,
+     "total_tokens": 6610,
+     "output_tokens": 59,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Northwind",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6474,
+     "output_tokens": 5,
+     "total_tokens": 6479,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47300",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 5812,
+     "output_tokens": 2532,
+     "total_tokens": 8344,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 1664
+     }
+    },
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 1244,
+     "output_tokens": 34,
+     "total_tokens": 1278,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti\n\n\n<explanation>The prior system brief explicitly states: “Ilse Marchetti is designated as the on-call reviewer for the data pipeline.”</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2299,
+     "total_tokens": 2474,
+     "output_tokens": 175,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n\n<explanation>The billing module constraint states: “every data export to be encrypted with the key labeled ORCHID-7.”</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 1681,
+     "total_tokens": 1856,
+     "output_tokens": 175,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka\n\n\n<explanation>The system brief states: “Kafka must not be used for the event bus.”</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 1787,
+     "total_tokens": 1957,
+     "output_tokens": 170,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 1521,
+     "output_tokens": 40,
+     "total_tokens": 1561,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543\n\n\n<explanation>Provided explicitly in the system brief: “staging database is configured to listen on port 6543.”</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 1867,
+     "total_tokens": 2052,
+     "output_tokens": 185,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, features second",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 1931,
+     "total_tokens": 2115,
+     "output_tokens": 184,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 1687,
+     "output_tokens": 15,
+     "total_tokens": 1702,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47300",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 5812,
+     "output_tokens": 3776,
+     "total_tokens": 9588,
+     "input_token_details": {
+      "cache_read": 2036
+     },
+     "output_token_details": {
+      "reasoning": 2258
+     }
+    },
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 1846,
+     "output_tokens": 34,
+     "total_tokens": 1880,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 1893,
+     "output_tokens": 7,
+     "total_tokens": 1900,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n\n<explanation>It was explicitly stated in the billing-module constraints: “All data exports must be encrypted using the key labeled ORCHID-7.”</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 1792,
+      "audio": 0
+     },
+     "input_tokens": 2101,
+     "total_tokens": 2194,
+     "output_tokens": 93,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 2028,
+     "output_tokens": 23,
+     "total_tokens": 2051,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 2072,
+     "output_tokens": 5,
+     "total_tokens": 2077,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543\n\n<explanation>Earlier context states: “Staging Database: Set to listen on port 6543.”</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 1792,
+      "audio": 0
+     },
+     "input_tokens": 2299,
+     "total_tokens": 2393,
+     "output_tokens": 94,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, features second",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2397,
+     "total_tokens": 2466,
+     "output_tokens": 69,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n\n\n<explanation>The earlier brief explicitly states “Vendor Decision: Selected Northwind”.</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2457,
+     "total_tokens": 2554,
+     "output_tokens": 97,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "47300",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6082,
+     "output_tokens": 5,
+     "total_tokens": 6087,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Ilse Marchetti",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6129,
+     "output_tokens": 7,
+     "total_tokens": 6136,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "ORCHID-7",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6176,
+     "output_tokens": 41,
+     "total_tokens": 6217,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Kafka",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6228,
+     "output_tokens": 4,
+     "total_tokens": 6232,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "14 March",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6272,
+     "output_tokens": 5,
+     "total_tokens": 6277,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "6543",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6317,
+     "output_tokens": 5,
+     "total_tokens": 6322,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "latency first, features second",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 5888,
+      "audio": 0
+     },
+     "input_tokens": 6485,
+     "total_tokens": 6530,
+     "output_tokens": 45,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Northwind",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6408,
+     "output_tokens": 5,
+     "total_tokens": 6413,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47300\n<confidence score=\"0.99\">The procurement cap for the onboarding pilot was explicitly stated as 47,300 euros in the provided context summary.</confidence>",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 5750,
+     "output_tokens": 4033,
+     "total_tokens": 9783,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 2506
+     }
+    },
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 3669,
+     "total_tokens": 3831,
+     "output_tokens": 162,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti\n<confidence score=\"0.98\">The provided context summary explicitly names Ilse Marchetti as the on-call reviewer for the data pipeline.</confidence>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 3804,
+     "total_tokens": 3957,
+     "output_tokens": 153,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n<confidence score=\"0.99\">The context summary explicitly states that every export must be encrypted using the key labeled ORCHID-7.</confidence>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2398,
+     "total_tokens": 2600,
+     "output_tokens": 202,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka\n<confidence score=\"0.99\">The context summary explicitly states an agreement not to use Kafka for the event bus.</confidence>",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 1963,
+     "output_tokens": 3808,
+     "total_tokens": 5771,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 2057
+     }
+    },
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 4064,
+     "total_tokens": 4272,
+     "output_tokens": 208,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March\n<confidence score=\"0.99\">The context summary specifies a hard migration freeze beginning on 14 March.</confidence>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 4141,
+     "total_tokens": 4340,
+     "output_tokens": 199,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 2136,
+     "output_tokens": 5,
+     "total_tokens": 2141,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, features second\n<confidence score=\"0.98\">The provided context summary includes this exact client priority phrase verbatim.</confidence>",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 2036,
+     "output_tokens": 3009,
+     "total_tokens": 5045,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 1424
+     }
+    },
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 3688,
+     "total_tokens": 3889,
+     "output_tokens": 201,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n<confidence score=\"0.99\">The context summary explicitly states Northwind was selected over Contoso and Fabrikam.</confidence>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 3779,
+     "total_tokens": 3995,
+     "output_tokens": 216,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47300\n\n<confidence score=\"0.98\">The pilot procurement cap was explicitly stated as 47,300 euros in the earlier summary.</confidence>",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 5750,
+     "output_tokens": 3379,
+     "total_tokens": 9129,
+     "input_token_details": {
+      "cache_read": 2036
+     },
+     "output_token_details": {
+      "reasoning": 1740
+     }
+    },
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 3897,
+     "total_tokens": 4069,
+     "output_tokens": 172,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 2101,
+     "output_tokens": 7,
+     "total_tokens": 2108,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n<confidence score=\"0.98\">The earlier brief explicitly required: “Every export must be encrypted with the key labelled ORCHID-7.”</confidence>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2470,
+     "total_tokens": 2700,
+     "output_tokens": 230,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka\n\n<confidence score=\"0.98\">The summary states there was a formal agreement not to use Kafka for the event bus.</confidence>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2605,
+     "total_tokens": 2828,
+     "output_tokens": 223,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March\n\n<confidence score=\"0.98\">The constraints in the earlier briefing explicitly stated the migration freeze begins on 14 March.</confidence>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2706,
+     "total_tokens": 2954,
+     "output_tokens": 248,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 2379,
+     "output_tokens": 5,
+     "total_tokens": 2384,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, features second\n\n<confidence score=\"0.98\">The earlier rollout plan constraint quoted the client’s exact directive verbatim.</confidence>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 1792,
+      "audio": 0
+     },
+     "input_tokens": 2810,
+     "total_tokens": 3059,
+     "output_tokens": 249,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n\n<confidence score=\"0.98\">The earlier permissions model section explicitly states “Northwind was selected over Contoso and Fabrikam.”</confidence>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2880,
+     "total_tokens": 3137,
+     "output_tokens": 257,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "47,300",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6092,
+     "output_tokens": 6,
+     "total_tokens": 6098,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Ilse Marchetti\n<explanation>I’m directly repeating the named individual provided earlier: “The on-call reviewer for the data pipeline is Ilse Marchetti.”</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 6399,
+     "total_tokens": 6549,
+     "output_tokens": 150,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "ORCHID-7\n<explanation>Exports must be encrypted with the key labeled “ORCHID-7”, as stated earlier in the conversation.</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 6507,
+     "total_tokens": 6662,
+     "output_tokens": 155,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Kafka",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6302,
+     "output_tokens": 4,
+     "total_tokens": 6306,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "14 March\n<explanation>The user previously stated: “The migration freeze starts on 14 March.”</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 6636,
+     "total_tokens": 6796,
+     "output_tokens": 160,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "6543\n\n<explanation>The earlier message explicitly states “The staging database listens on port 6543.”</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 6707,
+     "total_tokens": 6879,
+     "output_tokens": 172,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "latency first, features second",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 6782,
+     "total_tokens": 6943,
+     "output_tokens": 161,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gpt-5.4-nano",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Northwind",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 6529,
+     "output_tokens": 40,
+     "total_tokens": 6569,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47,300\n\n\n<explanation>Previously stated explicitly as a €47,300 procurement cap for the pilot rollout.</explanation>",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 5749,
+     "output_tokens": 3518,
+     "total_tokens": 9267,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 2627
+     }
+    },
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2423,
+     "total_tokens": 2606,
+     "output_tokens": 183,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti\n\n\n\n<explanation>The prior brief explicitly names Ilse Marchetti as the on-call reviewer for the data pipeline.</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2556,
+     "total_tokens": 2739,
+     "output_tokens": 183,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n<explanation>The earlier technical brief specifies that all exports must be encrypted using the key labeled ORCHID-7.</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 1773,
+     "total_tokens": 1982,
+     "output_tokens": 209,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka\n\n\n<explanation>Earlier context explicitly states: “There is a firm agreement not to use Kafka for the event bus.”</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 1889,
+     "total_tokens": 2115,
+     "output_tokens": 226,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 1586,
+     "output_tokens": 33,
+     "total_tokens": 1619,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543\n\n<explanation>The earlier brief states the staging database listens on port 6543.</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 1979,
+     "total_tokens": 2213,
+     "output_tokens": 234,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "\"latency first, features second.\"\n\n\n<explanation>That exact phrase was provided in the prior technical brief under Logging Setup.</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2068,
+     "total_tokens": 2334,
+     "output_tokens": 266,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gpt-5.4-nano",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n\n<explanation>Earlier context specifies: “The team selected Northwind as their vendor of choice over Contoso and Fabrikam.”</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2180,
+     "total_tokens": 2444,
+     "output_tokens": 264,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47300\n\n\n<explanation>The procurement cap for the pilot phase was explicitly stated as 47,300 euros in the provided context summary.</explanation>",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 5749,
+     "output_tokens": 5321,
+     "total_tokens": 11070,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 3429
+     }
+    },
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 4351,
+     "total_tokens": 4486,
+     "output_tokens": 135,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti\n\n\n<explanation>The context summary explicitly names “Ilse Marchetti” as the on-call reviewer for the data pipeline.</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 4438,
+     "total_tokens": 4586,
+     "output_tokens": 148,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n<explanation>Exports encryption key label was specified as ORCHID-7 in the provided context summary.</explanation>",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "input_tokens": 2708,
+     "total_tokens": 2889,
+     "output_tokens": 181,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 2479,
+     "output_tokens": 4,
+     "total_tokens": 2483,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 2523,
+     "output_tokens": 5,
+     "total_tokens": 2528,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 2568,
+     "output_tokens": 5,
+     "total_tokens": 2573,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, features second",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_token_details": {
+      "cache_read": 1792,
+      "audio": 0
+     },
+     "input_tokens": 2880,
+     "total_tokens": 3047,
+     "output_tokens": 167,
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gpt-5.4-nano",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind",
+   "usage": {
+    "gpt-5.4-nano-2026-03-17": {
+     "input_tokens": 2659,
+     "output_tokens": 5,
+     "total_tokens": 2664,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "47,300\n\n\nThis value was explicitly stated in the first user message about the billing module: \"The procurement cap for the pilot is 47,300 euros.\" It appeared only once in the conversation and was a s",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6401,
+     "total_tokens": 6628,
+     "output_tokens": 227
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Ilse Marchetti\n\n\nThis name was explicitly stated in one of the earlier messages about the rollout plan: \"The on-call reviewer for the data pipeline is Ilse Marchetti.\" It appeared only once in the con",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6605,
+     "total_tokens": 6860,
+     "output_tokens": 255
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "ORCHID-7\n\nThis value was explicitly stated in the message about the billing module: \"Every export must be encrypted with the key labelled ORCHID-7.\" It appeared only once in the conversation as a spec",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6665,
+     "total_tokens": 7002,
+     "output_tokens": 337
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Kafka\n\nThis value was explicitly stated in the message about the logging setup: \"We agreed not to use Kafka for the event bus.\" It appeared only once in the conversation as a specific technical decisi",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6827,
+     "total_tokens": 7164,
+     "output_tokens": 337
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "14 March\n\nThis date was explicitly stated in the message about the logging setup: \"The migration freeze starts on 14 March.\" It appeared only once in the conversation as a specific scheduling detail.",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6889,
+     "total_tokens": 7278,
+     "output_tokens": 389
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "6543\n\nThis port number was explicitly stated in the message about the analytics dashboard: \"The staging database listens on port 6543.\" It appeared only once in the conversation as a specific technica",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 7004,
+     "total_tokens": 7387,
+     "output_tokens": 383
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "'latency first, features second'\n\nThis exact quote was stated in the message about the billing module: \"The client's exact words were 'latency first, features second'.\" It appeared only once in the co",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 7084,
+     "total_tokens": 7512,
+     "output_tokens": 428
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Northwind\n\nThis vendor was explicitly stated in the message about the release cadence: \"Of the three vendors we picked Northwind over Contoso and Fabrikam.\" It appeared only once in the conversation a",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 7206,
+     "total_tokens": 7649,
+     "output_tokens": 443
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47,300\n\n\nThis figure was explicitly stated in Section 2.1 (Billing Module) of the technical brief provided in the context summary, where it notes \"The procurement cap for the pilot is strictly **47,30",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 6230,
+     "output_tokens": 3809,
+     "total_tokens": 10039,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 2207
+     }
+    },
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4023,
+     "total_tokens": 4441,
+     "output_tokens": 418
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti\n\n\nThis figure was explicitly stated in Section 2.3 (Data Pipeline & Rollout Plan) of the technical brief provided in the context summary, where it notes \"The designated on-call reviewer",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4422,
+     "total_tokens": 4922,
+     "output_tokens": 500
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n\nThis was explicitly stated in Section 2.1 (Billing Module) of the technical brief, where it notes \"All exported data must be encrypted using the key labeled **`ORCHID-7`**.\"\n</confidence>",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 2967,
+     "total_tokens": 3436,
+     "output_tokens": 469
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka\n\nThis was explicitly stated in Section 2.4 (Logging Setup) of the technical brief, where it notes \"The team agreed **not to use Kafka** for the event bus.\"",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 2081,
+     "output_tokens": 3302,
+     "total_tokens": 5383,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 1430
+     }
+    },
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4831,
+     "total_tokens": 5313,
+     "output_tokens": 482
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March\n\nThis was explicitly stated in Section 2.4 (Logging Setup) of the technical brief, where it notes \"A firm migration freeze begins on **14 March**.\"",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4917,
+     "total_tokens": 5398,
+     "output_tokens": 481
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543\n\nThis was explicitly stated in Section 2.5 (Analytics Dashboard) of the technical brief, where it notes \"The staging database listens on **port 6543**.\"",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3068,
+     "total_tokens": 3559,
+     "output_tokens": 491
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "\"latency first, features second.\"\n\nThis was explicitly stated in Section 2.1 (Billing Module) of the technical brief, where it notes \"The primary directive from the client is **'latency first, feature",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 2238,
+     "output_tokens": 2679,
+     "total_tokens": 4917,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 832
+     }
+    },
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4765,
+     "total_tokens": 5298,
+     "output_tokens": 533
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n\nThis was explicitly stated in Section 2.2 (Release Cadence) of the technical brief, where it notes \"The team selected vendor **Northwind** over contenders **Contoso** and **Fabrikam**.\"\n\n\n<",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4924,
+     "total_tokens": 5507,
+     "output_tokens": 583
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47,300\n\n<confidence_score>0.99</confidence_score>\n<explanation>This is a direct factual recall from the previous context provided at the beginning of the conversation. The Billing Module section expli",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 6230,
+     "output_tokens": 3791,
+     "total_tokens": 10021,
+     "input_token_details": {
+      "cache_read": 4075
+     },
+     "output_token_details": {
+      "reasoning": 2707
+     }
+    },
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3087,
+     "total_tokens": 3696,
+     "output_tokens": 609
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti\n\n<confidence_score>0.99</confidence_score>\n<explanation>This is a direct factual recall from the previous context. The Data Pipeline section explicitly states: \"The designated on-call r",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3698,
+     "total_tokens": 4347,
+     "output_tokens": 649
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n<confidence_score>0.99</confidence_score>\n<explanation>This is a direct factual recall from the previous context. The Billing Module section explicitly states: \"Every data export must be enc",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 2733,
+     "total_tokens": 3386,
+     "output_tokens": 653
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka\n\n<confidence_score>0.99</confidence_score>\n<explanation>This is a direct factual recall from the previous context. The Logging Setup section explicitly states: \"The team has explicitly agreed **",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 2844,
+     "total_tokens": 3540,
+     "output_tokens": 696
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March\n\n<confidence_score>0.99</confidence_score>\n<explanation>This is a direct factual recall from the previous context. The Logging Setup section explicitly states: \"A migration freeze is schedule",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 2992,
+     "total_tokens": 3743,
+     "output_tokens": 751
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543\n\n<confidence_score>0.99</confidence_score>\n<explanation>This is a direct factual recall from the previous context. The Analytics Dashboard section explicitly states: \"The staging database for thi",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3143,
+     "total_tokens": 3890,
+     "output_tokens": 747
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "\"latency first, features second.\"\n\n<confidence_score>0.99</confidence_score>\n<explanation>This is a direct factual recall from the previous context. The Billing Module section explicitly states: \"The ",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3254,
+     "total_tokens": 4063,
+     "output_tokens": 809
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n\n<confidence_score>0.99</confidence_score>\n<explanation>This is a direct factual recall from the previous context. The Release Cadence section explicitly states: \"Regarding third-party tools",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3433,
+     "total_tokens": 4320,
+     "output_tokens": 887
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "47,300\n\n\nThis figure was explicitly stated in the first message of the conversation: \"The procurement cap for the pilot is 47,300 euros.\" I have high confidence in this direct factual recall from the ",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6365,
+     "total_tokens": 6596,
+     "output_tokens": 231
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Ilse Marchetti",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_tokens": 6054,
+     "output_tokens": 61,
+     "total_tokens": 6115,
+     "input_token_details": {
+      "cache_read": 0,
+      "cache_creation": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "ORCHID-7\n\n\nThis figure was explicitly stated in the message about the logging setup: \"Every export must be encrypted with the key labelled ORCHID-7.\" Direct factual recall from conversation history.\n<",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6491,
+     "total_tokens": 6727,
+     "output_tokens": 236
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Kafka\n\nThis was explicitly stated in the message about the search feature: \"We agreed not to use Kafka for the event bus.\" Direct factual recall from conversation history.",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6568,
+     "total_tokens": 6842,
+     "output_tokens": 274
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "14 March\n\nThis was explicitly stated in the message about the onboarding docs: \"The migration freeze starts on 14 March.\" Direct factual recall from conversation history.",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6717,
+     "total_tokens": 7029,
+     "output_tokens": 312
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "6543\n\nThis was explicitly stated in the message about the billing module: \"The staging database listens on port 6543.\" Direct factual recall from conversation history.",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6806,
+     "total_tokens": 7187,
+     "output_tokens": 381
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "'latency first, features second'\n\nThis was explicitly stated in the message about the rollout plan: \"The client's exact words were 'latency first, features second'.\" Direct factual recall from convers",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6958,
+     "total_tokens": 7404,
+     "output_tokens": 446
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Northwind\n\nThis was explicitly stated in the message about the permissions model: \"Of the three vendors we picked Northwind over Contoso and Fabrikam.\" Direct factual recall from conversation history.",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 7098,
+     "total_tokens": 7508,
+     "output_tokens": 410
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "€47,300\n\n<confidence_score>95</confidence_score>\n<explanation>This value appears explicitly in the context provided under Section 2.A (Onboarding Documentation), where it states \"The pilot procurement",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 6168,
+     "output_tokens": 4296,
+     "total_tokens": 10464,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 2640
+     }
+    },
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4108,
+     "total_tokens": 4569,
+     "output_tokens": 461
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti\n\n<confidence_score>95</confidence_score>\n<explanation>This value appears explicitly in the context provided under Section 2.D (Caching Layer & Data Pipeline), where it states \"The desig",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4576,
+     "total_tokens": 5126,
+     "output_tokens": 550
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n<confidence_score>95</confidence_score>\n<explanation>This value appears explicitly in the context provided under Section 2.B (Logging Setup), where it states \"Every log export must be encryp",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3139,
+     "total_tokens": 3730,
+     "output_tokens": 591
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka\n\n<confidence_score>95</confidence_score>\n<explanation>This value appears explicitly in the context provided under Section 2.F (Search Feature), where it states \"The team has explicitly agreed **",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 2158,
+     "output_tokens": 3052,
+     "total_tokens": 5210,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 1157
+     }
+    },
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 5056,
+     "total_tokens": 5692,
+     "output_tokens": 636
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March\n\n<confidence_score>95</confidence_score>\n<explanation>This value appears explicitly in the context provided under Section 2.A (Onboarding Documentation), where it states \"an upcoming migratio",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 5204,
+     "total_tokens": 5830,
+     "output_tokens": 626
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543\n\n<confidence_score>95</confidence_score>\n<explanation>This value appears explicitly in the context provided under Section 2.C (Billing Module), where it states \"The staging database listens exclu",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3398,
+     "total_tokens": 4050,
+     "output_tokens": 652
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "\"latency first, features second.\"\n\n<confidence_score>98</confidence_score>\n<explanation>This exact phrase appears in Section 2.G (Rollout Plan) under the Hard Constraint, which states: \"Exact client g",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 2334,
+     "output_tokens": 2768,
+     "total_tokens": 5102,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 1065
+     }
+    },
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4690,
+     "total_tokens": 5403,
+     "output_tokens": 713
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n\n<confidence_score>98</confidence_score>\n<explanation>This value appears explicitly in Section 2.E (Permissions Model), where it states \"Following an evaluation of three vendors, **Northwind",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4855,
+     "total_tokens": 5562,
+     "output_tokens": 707
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47,300\n\n\nThis value was explicitly stated in the \"Onboarding Docs\" section of the context summary under \"Context & Constraints [User]\": \"The pilot procurement cap is set strictly at **47,300 euros**.\"",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 6168,
+     "output_tokens": 4210,
+     "total_tokens": 10378,
+     "input_token_details": {
+      "cache_read": 4074
+     },
+     "output_token_details": {
+      "reasoning": 2537
+     }
+    },
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4137,
+     "total_tokens": 4548,
+     "output_tokens": 411
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti\n\nThis value was explicitly stated in the \"Caching Layer\" section of the context summary under \"Context & Constraints [User]\": \"The designated on-call reviewer for the data pipeline is *",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4556,
+     "total_tokens": 5127,
+     "output_tokens": 571
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\nThis value was explicitly stated in the \"Logging Setup\" section of the context summary under \"Context & Constraints [User]\": \"Every export must be encrypted with the key labelled **ORCHID-7*",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3155,
+     "total_tokens": 3576,
+     "output_tokens": 421
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka\n\nThis value was explicitly stated in the \"Search Feature\" section of the context summary under \"Context & Constraints [User]\": \"The team has formally agreed **not** to use Kafka for the event bu",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3175,
+     "total_tokens": 3510,
+     "output_tokens": 335
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March\n\nThis value was explicitly stated in the \"Onboarding Docs\" section of the context summary under \"Context & Constraints [User]\": \"The migration freeze begins on **14 March**.\"\n\n<explanation>Th",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3198,
+     "total_tokens": 3576,
+     "output_tokens": 378
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543\n\nThis value was explicitly stated in the \"Billing Module\" section of the context summary under \"Context & Constraints [User]\": \"The staging database is configured to listen on **port 6543**.\"\n\n<e",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3347,
+     "total_tokens": 3766,
+     "output_tokens": 419
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "\"latency first, features second\"\n\nThis value was explicitly stated in the \"Rollout Plan\" section of the context summary under \"Context & Constraints [User]\": \"The client's explicit priority is **'late",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3513,
+     "total_tokens": 3955,
+     "output_tokens": 442
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n\nThis value was explicitly stated in the \"Permissions Model\" section of the context summary under \"Context & Constraints [User]\": \"Out of three evaluated vendors, **Northwind** was selected ",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3654,
+     "total_tokens": 3985,
+     "output_tokens": 331
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "47,300\n\n\nThis figure was explicitly stated in the first message of our conversation: \"The procurement cap for the pilot is 47,300 euros.\" It appears only once in the conversation and I've maintained t",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6373,
+     "total_tokens": 6657,
+     "output_tokens": 284
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Ilse Marchetti\n\nThis name was mentioned in the conversation: \"The on-call reviewer for the data pipeline is Ilse Marchetti.\"\n\n\nThe name appears explicitly in one of the earlier messages and I've retai",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6622,
+     "total_tokens": 6933,
+     "output_tokens": 311
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "ORCHID-7\n\nThis was stated in the conversation: \"Every export must be encrypted with the key labelled ORCHID-7.\"\n\n\nThe key label appears explicitly in one message and I've retained this specific detail",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6667,
+     "total_tokens": 6952,
+     "output_tokens": 285
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Kafka\n\nThis was stated in the conversation: \"We agreed not to use Kafka for the event bus.\"\n\n\nThe detail appears explicitly in one message and I've retained it accurately throughout the conversation.",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6723,
+     "total_tokens": 7074,
+     "output_tokens": 351
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "14 March\n\nThis was stated in the conversation: \"The migration freeze starts on 14 March.\"\n\n\nThe date appears explicitly in one message and I've retained it accurately throughout the conversation.",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6853,
+     "total_tokens": 7195,
+     "output_tokens": 342
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "6543\n\nThis was stated in the conversation: \"The staging database listens on port 6543.\"\n\nThe port number appears explicitly in one message and I've retained it accurately throughout the conversation.",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6906,
+     "total_tokens": 7228,
+     "output_tokens": 322
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "'latency first, features second'\n\nThis was stated in the conversation: \"The client's exact words were 'latency first, features second'.\"\n\nThe quote appears explicitly in one message and I've retained ",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 6979,
+     "total_tokens": 7370,
+     "output_tokens": 391
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Northwind\n\nThis was stated in the conversation: \"Of the three vendors we picked Northwind over Contoso and Fabrikam.\"\n\nThe vendor name appears explicitly in one message and I've retained it accurately",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 7178,
+     "total_tokens": 7617,
+     "output_tokens": 439
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "€47,300\n\n\n<explanation>This figure is explicitly stated in Part 2, Component 1 (Rollout Plan) under \"Status & Technical Constraints\": \"The pilot procurement budget is strictly capped at **€47,300**.\" ",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 6167,
+     "output_tokens": 4873,
+     "total_tokens": 11040,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 2823
+     }
+    },
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4764,
+     "total_tokens": 5278,
+     "output_tokens": 514
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti\n\n<explanation>This name is explicitly stated in Part 2, Component 3 (Caching Layer) under \"Status & Technical Constraints\": \"**Ilse Marchetti** is designated as the on-call reviewer for",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 5262,
+     "total_tokens": 5800,
+     "output_tokens": 538
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n<explanation>This key label is explicitly stated in Part 2, Component 3 (Caching Layer) under \"Status & Technical Constraints\": \"Every database export from this layer must be encrypted using",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3445,
+     "total_tokens": 3960,
+     "output_tokens": 515
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka\n\n<explanation>This is explicitly stated in Part 2, Component 1 (Rollout Plan) under \"Status & Technical Constraints\": \"The team has agreed **not to use Kafka** for the event bus.\" The informatio",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 2553,
+     "output_tokens": 4483,
+     "total_tokens": 7036,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 2271
+     }
+    },
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 5429,
+     "total_tokens": 5961,
+     "output_tokens": 532
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March\n\n<explanation>This date is explicitly stated in Part 2, Component 8 (Logging Setup) under \"Status & Technical Constraints\": \"A strict migration freeze is scheduled to start on **14 March**.\" ",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 5546,
+     "total_tokens": 6110,
+     "output_tokens": 564
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543\n\n<explanation>This port number is explicitly stated in Part 2, Component 2 (Incident Runbook) under \"Status & Technical Constraints\": \"The staging database is configured to listen on **port 6543*",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3544,
+     "total_tokens": 4077,
+     "output_tokens": 533
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "\"latency first, features second\"\n\n<explanation>This phrase is explicitly stated in Part 2, Component 8 (Logging Setup) under \"Status & Technical Constraints\": \"The client has explicitly mandated a pri",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 2625,
+     "output_tokens": 4385,
+     "total_tokens": 7010,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 2006
+     }
+    },
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 5764,
+     "total_tokens": 6395,
+     "output_tokens": 631
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n\n<explanation>This vendor name is explicitly stated in Part 2, Component 6 (Release Cadence) under \"Status & Technical Constraints\": \"The team selected vendor **Northwind** over competitors ",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 5962,
+     "total_tokens": 6650,
+     "output_tokens": 688
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47,300\n\n\n<explanation>This value was explicitly stated in the previous context summary under \"Section A. Rollout Plan\" - \"The pilot procurement cap is strictly limited to **47,300 euros**.\" This is a ",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 6167,
+     "output_tokens": 4352,
+     "total_tokens": 10519,
+     "input_token_details": {
+      "cache_read": 4074
+     },
+     "output_token_details": {
+      "reasoning": 2389
+     }
+    },
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 4769,
+     "total_tokens": 5209,
+     "output_tokens": 440
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti\n\n<explanation>This value was explicitly stated in the previous context summary under \"Section 2. Infrastructure & System-Wide Constraints\" - \"The designated on-call reviewer for the dat",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 5185,
+     "total_tokens": 5665,
+     "output_tokens": 480
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n<explanation>This value was explicitly stated in the previous context summary under \"Section 2. Infrastructure & System-Wide Constraints\" - \"Every data export must be encrypted utilizing the",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3352,
+     "total_tokens": 3874,
+     "output_tokens": 522
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Apache Kafka\n\n<explanation>This value was explicitly stated in the previous context summary under \"Section 2. Infrastructure & System-Wide Constraints\" - \"The engineering team has formally agreed **no",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3506,
+     "total_tokens": 4094,
+     "output_tokens": 588
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March\n\n<explanation>This value was explicitly stated in the previous context summary under \"Section 2. Infrastructure & System-Wide Constraints\" - \"A firm system-wide migration freeze commences on ",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3664,
+     "total_tokens": 4272,
+     "output_tokens": 608
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543\n\n<explanation>This value was explicitly stated in the previous context summary under \"Section 2. Infrastructure & System-Wide Constraints\" - \"The staging database is configured to listen on **por",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3772,
+     "total_tokens": 4381,
+     "output_tokens": 609
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "\"latency first, features second.\"\n\n<explanation>This value was explicitly stated in the previous context summary under \"Section 2. Infrastructure & System-Wide Constraints\" - \"The end client's strict ",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3877,
+     "total_tokens": 4497,
+     "output_tokens": 620
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "claude-haiku-4-5-20251001",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n\n<explanation>This value was explicitly stated in the previous context summary under \"Section 2. Infrastructure & System-Wide Constraints\" - \"Out of three evaluated vendors (Contoso, Fabrika",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_token_details": {
+      "ephemeral_1h_input_tokens": 0,
+      "cache_read": 0,
+      "ephemeral_5m_input_tokens": 0,
+      "cache_creation": 0
+     },
+     "input_tokens": 3988,
+     "total_tokens": 4627,
+     "output_tokens": 639
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "47,300",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5670,
+     "output_tokens": 16,
+     "total_tokens": 5686,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Ilse Marchetti",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5706,
+     "output_tokens": 14,
+     "total_tokens": 5720,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "ORCHID-7\n\n\n<explanation>The exact key label required for encrypted exports (ORCHID-7) was retrieved directly from the previous context where it was specified.</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 5900,
+     "total_tokens": 5977,
+     "output_tokens": 77
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Kafka",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5806,
+     "output_tokens": 11,
+     "total_tokens": 5817,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "14 March",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5834,
+     "output_tokens": 14,
+     "total_tokens": 5848,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "6543",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5864,
+     "output_tokens": 14,
+     "total_tokens": 5878,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "latency first, features second\n\n\n<explanation>The exact words requested ('latency first, features second') were retrieved directly from the previous conversation turn about the billing module.</explan",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 6191,
+     "total_tokens": 6265,
+     "output_tokens": 74
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Northwind",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5956,
+     "output_tokens": 12,
+     "total_tokens": 5968,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47,300",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 5926,
+     "output_tokens": 4354,
+     "total_tokens": 10280,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 2766
+     }
+    },
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1955,
+     "output_tokens": 16,
+     "total_tokens": 1971,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1991,
+     "output_tokens": 14,
+     "total_tokens": 2005,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n<confidence_score>1.0</confidence_score>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 2166,
+     "total_tokens": 2217,
+     "output_tokens": 51
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka\n\n<confidence_score>1.0</confidence_score>",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 1991,
+     "output_tokens": 2539,
+     "total_tokens": 4530,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 743
+     }
+    },
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 4077,
+     "total_tokens": 4124,
+     "output_tokens": 47
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March\n\n<confidence_score>1.0</confidence_score>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 4114,
+     "total_tokens": 4163,
+     "output_tokens": 49
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543\n\n<confidence_score>1.0</confidence_score>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 2369,
+     "total_tokens": 2419,
+     "output_tokens": 50
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "\"latency first, features second\"\n\n<confidence_score>1.0</confidence_score>",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 2024,
+     "output_tokens": 2731,
+     "total_tokens": 4755,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 846
+     }
+    },
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 4260,
+     "total_tokens": 4327,
+     "output_tokens": 67
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n\n<confidence_score>1.0</confidence_score>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 4326,
+     "total_tokens": 4396,
+     "output_tokens": 70
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47,300\n\n\n<explanation>The procurement cap for the billing module pilot is explicitly stated as 47,300 euros in the previous technical context summary. The user requested the answer with just the value",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 5926,
+     "output_tokens": 3648,
+     "total_tokens": 9574,
+     "input_token_details": {
+      "cache_read": 2037
+     },
+     "output_token_details": {
+      "reasoning": 1885
+     }
+    },
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 4169,
+     "total_tokens": 4278,
+     "output_tokens": 109
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti\n\n\n<explanation>The on-call reviewer for the data pipeline is explicitly stated as Ilse Marchetti in the provided technical context summary.</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 4346,
+     "total_tokens": 4440,
+     "output_tokens": 94
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n\n<explanation>The key label required for encrypting all data exports in the billing module is explicitly stated as `ORCHID-7` in the provided technical context summary.</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 2674,
+     "total_tokens": 2777,
+     "output_tokens": 103
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka\n\n\n<explanation>The text explicitly notes that the team agreed not to use Kafka for the event bus.</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 2723,
+     "total_tokens": 2797,
+     "output_tokens": 74
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March\n\n\n<explanation>The firm migration freeze start date is explicitly stated as 14 March in the logging setup context.",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 2763,
+     "total_tokens": 2882,
+     "output_tokens": 119
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 2449,
+     "output_tokens": 14,
+     "total_tokens": 2463,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "\"latency first, features second\"",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 2829,
+     "total_tokens": 2937,
+     "output_tokens": 108
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n\n<confidence score=\"1.0\">\nThe vendor selected for the release cadence is explicitly stated as \"Northwind\" in the previous context summary.\n</confidence>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 2875,
+     "total_tokens": 3011,
+     "output_tokens": 136
+    }
+   },
+   "scenario": "0"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "47,300",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5614,
+     "output_tokens": 16,
+     "total_tokens": 5630,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Ilse Marchetti",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5650,
+     "output_tokens": 14,
+     "total_tokens": 5664,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "ORCHID-7",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5681,
+     "output_tokens": 15,
+     "total_tokens": 5696,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Kafka",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5717,
+     "output_tokens": 12,
+     "total_tokens": 5729,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "14 March",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5745,
+     "output_tokens": 13,
+     "total_tokens": 5758,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "6543",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5775,
+     "output_tokens": 4,
+     "total_tokens": 5779,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "latency first, features second",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 5935,
+     "total_tokens": 5983,
+     "output_tokens": 48
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Northwind",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5837,
+     "output_tokens": 12,
+     "total_tokens": 5849,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47,300",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 5864,
+     "output_tokens": 4924,
+     "total_tokens": 10788,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 3538
+     }
+    },
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1759,
+     "output_tokens": 16,
+     "total_tokens": 1775,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1795,
+     "output_tokens": 14,
+     "total_tokens": 1809,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n\n<explanation>The response provides the exact key label required for data exports as specified in the system constraints and previous context summary (\"ORCHID-7\").</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 1991,
+     "total_tokens": 2074,
+     "output_tokens": 83
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka\n\n<explanation>The response directly provides the exact value (\"Kafka\") stipulated in the system constraints as the technology excluded from the event bus.</explanation>",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 1795,
+     "output_tokens": 2797,
+     "total_tokens": 4592,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 1304
+     }
+    },
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 3530,
+     "total_tokens": 3725,
+     "output_tokens": 195
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March\n\n<explanation>The response directly provides the exact start date of the migration freeze (14 March) as recorded in the technical brief and system constraints.</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 3707,
+     "total_tokens": 4018,
+     "output_tokens": 311
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1819,
+     "output_tokens": 14,
+     "total_tokens": 1833,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "\"latency first, features second\"\n\n\n<explanation>The response directly provides the exact quote of the client's guiding product principle as documented in the system constraints (\"latency first, featur",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 1758,
+     "output_tokens": 2196,
+     "total_tokens": 3954,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 647
+     }
+    },
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 3860,
+     "total_tokens": 4311,
+     "output_tokens": 451
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind\n\n\n<explanation>The response provides the exact name of the selected vendor (Northwind) as specified in the system constraints, adhering to the format of answering with just the value.</expla",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 4100,
+     "total_tokens": 4679,
+     "output_tokens": 579
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "€47,300",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 5864,
+     "output_tokens": 4050,
+     "total_tokens": 9914,
+     "input_token_details": {
+      "cache_read": 2036
+     },
+     "output_token_details": {
+      "reasoning": 3133
+     }
+    },
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1290,
+     "output_tokens": 17,
+     "total_tokens": 1307,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1327,
+     "output_tokens": 14,
+     "total_tokens": 1341,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7\n\n\n<explanation>The requested value corresponds directly to the logging setup technical constraint specified in the context (\"Every data export must be encrypted utilizing the key labeled `ORC",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 1529,
+     "total_tokens": 1600,
+     "output_tokens": 71
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Apache Kafka",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1435,
+     "output_tokens": 12,
+     "total_tokens": 1447,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1464,
+     "output_tokens": 13,
+     "total_tokens": 1477,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1494,
+     "output_tokens": 14,
+     "total_tokens": 1508,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "\"latency first, features second\"",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 1782,
+     "total_tokens": 1804,
+     "output_tokens": 22
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1558,
+     "output_tokens": 12,
+     "total_tokens": 1570,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "1"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "47300\n\n\n<explanation>The exact procurement cap for the pilot was explicitly mentioned in the first prompt as '47,300 euros'.</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 5988,
+     "total_tokens": 6081,
+     "output_tokens": 93
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Ilse Marchetti\n\n\n<explanation>The on-call reviewer for the data pipeline was explicitly stated in a previous turn as 'Ilse Marchetti'.</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 6133,
+     "total_tokens": 6237,
+     "output_tokens": 104
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "ORCHID-7\n\n\n<explanation>The prompt explicitly stated that every export must be encrypted with the key labelled ORCHID-7.</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 6134,
+     "total_tokens": 6253,
+     "output_tokens": 119
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Kafka\n\n\n<explanation>The prompt explicitly stated that the team agreed not to use Kafka for the event bus.</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 6207,
+     "total_tokens": 6322,
+     "output_tokens": 115
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "14 March",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 5860,
+     "output_tokens": 13,
+     "total_tokens": 5873,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "6543\n\n\n<explanation>The staging database port was explicitly mentioned as 6543 in an earlier turn.</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 6260,
+     "total_tokens": 6379,
+     "output_tokens": 119
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "latency first, features second\n\n\n<explanation>The client's exact words were explicitly stated as 'latency first, features second' in a previous turn in the conversation.</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 6332,
+     "total_tokens": 6459,
+     "output_tokens": 127
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "never",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": false,
+   "summarized": false,
+   "answer": "Northwind\n\n\n<explanation>The prompt from an earlier turn explicitly stated that of the three vendors, Northwind was picked over Contoso and Fabrikam.</explanation>",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 6415,
+     "total_tokens": 6540,
+     "output_tokens": 125
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "€47,300\n\n\n<explanation>The exact procurement cap for the pilot rollout is explicitly stated in Section 1.A of the context summary as \"€47,300\". The user requested the answer with just the value.</expl",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 5863,
+     "output_tokens": 4966,
+     "total_tokens": 10829,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 3933
+     }
+    },
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 2735,
+     "total_tokens": 2841,
+     "output_tokens": 106
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1497,
+     "output_tokens": 12,
+     "total_tokens": 1509,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1528,
+     "output_tokens": 15,
+     "total_tokens": 1543,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1564,
+     "output_tokens": 1,
+     "total_tokens": 1565,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 1545,
+     "output_tokens": 2064,
+     "total_tokens": 3609,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 892
+     }
+    },
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1336,
+     "output_tokens": 13,
+     "total_tokens": 1349,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1366,
+     "output_tokens": 14,
+     "total_tokens": 1380,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "\"latency first, features second.\"",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 1679,
+     "total_tokens": 1723,
+     "output_tokens": 44
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t2000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1430,
+     "output_tokens": 12,
+     "total_tokens": 1442,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "budget",
+   "kind": "number",
+   "planted_turn": 0,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "47,300",
+   "usage": {
+    "gemini-3.5-flash": {
+     "input_tokens": 5863,
+     "output_tokens": 3133,
+     "total_tokens": 8996,
+     "input_token_details": {
+      "cache_read": 2036
+     },
+     "output_token_details": {
+      "reasoning": 2239
+     }
+    },
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1274,
+     "output_tokens": 16,
+     "total_tokens": 1290,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "reviewer",
+   "kind": "name",
+   "planted_turn": 8,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Ilse Marchetti",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1310,
+     "output_tokens": 14,
+     "total_tokens": 1324,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "key_label",
+   "kind": "identifier",
+   "planted_turn": 16,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-7",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1341,
+     "output_tokens": 15,
+     "total_tokens": 1356,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "no_kafka",
+   "kind": "negation",
+   "planted_turn": 24,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kafka",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1377,
+     "output_tokens": 11,
+     "total_tokens": 1388,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "freeze",
+   "kind": "date",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 March",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1405,
+     "output_tokens": 13,
+     "total_tokens": 1418,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "port",
+   "kind": "identifier",
+   "planted_turn": 40,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6543",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1435,
+     "output_tokens": 14,
+     "total_tokens": 1449,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "quote",
+   "kind": "quote",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, features second",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 1595,
+     "total_tokens": 1632,
+     "output_tokens": 37
+    }
+   },
+   "scenario": "2"
+  },
+  {
+   "condition": "t4000",
+   "model": "gemini-3.5-flash-lite",
+   "fact": "vendor",
+   "kind": "choice",
+   "planted_turn": 56,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind",
+   "usage": {
+    "gemini-3.5-flash-lite": {
+     "input_tokens": 1497,
+     "output_tokens": 2,
+     "total_tokens": 1499,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    }
+   },
+   "scenario": "2"
+  }
+ ]
+}
