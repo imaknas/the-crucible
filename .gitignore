@@ -39,7 +39,5 @@ e2e/.report/
 test-results/
 scripts/.demo/
 
-# local memory worktree (not part of this repo)
-.agent-memory/
 .claude/settings.local.json
 CLAUDE.local.md
