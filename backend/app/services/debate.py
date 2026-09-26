@@ -14,7 +14,7 @@ from typing import Any, AsyncGenerator, Optional
 from uuid import uuid4
 
 from app.core import database as db
-from app.services.convergence import compute_convergence, llm_judge_converged
+from app.services.convergence import build_convergence_check
 from app.services.runs import final_state_of_run, tag_run, thread_config
 from app.utils.helpers import extract_text
 
@@ -126,9 +126,7 @@ async def run_debate(
     thread_ids = session["thread_ids"]
     policy = session["termination_policy"]
     max_rounds = policy.get("max_rounds", 3)
-    conv_threshold = policy.get("convergence_threshold")
-    llm_judge_model = policy.get("llm_judge")
-    conv_mode = policy.get("mode", "all")
+    convergence = build_convergence_check(policy)
 
     # A debate started from a fresh session writes only to its sub-threads, so
     # the parent has no checkpoints; without a title row list_threads never
@@ -189,18 +187,10 @@ async def run_debate(
         # Check stopping conditions after round 0 (need at least one prior round
         # to compare). Done before the round_end event so a single event can
         # carry the score — emitting two made the client refetch the tree twice.
-        converged, reason, score = False, None, None
-        if round_num > 0 and prev_round_responses:
-            converged, reason, score = await _check_convergence(
-                graph_app=graph_app,
-                session_id=session_id,
-                round_num=round_num,
-                prev_responses=prev_round_responses,
-                curr_responses=curr_round_responses,
-                conv_threshold=conv_threshold,
-                conv_mode=conv_mode,
-                llm_judge_model=llm_judge_model,
-            )
+        verdict = None
+        if convergence and round_num > 0 and prev_round_responses:
+            verdict = await convergence.evaluate(prev_round_responses, curr_round_responses)
+        score = verdict.score if verdict else None
 
         round_end: dict[str, Any] = {
             "type": "debate_round_end",
@@ -216,14 +206,14 @@ async def run_debate(
         # on the second-to-last round's answers.
         prev_round_responses = dict(curr_round_responses)
 
-        if converged:
+        if verdict and verdict.converged:
             yield {
                 "type": "debate_converged",
                 "session_id": session_id,
                 "round": round_num,
-                "score": score,
-                "reason": reason,
-                "method": "judge" if llm_judge_model else "similarity",
+                "score": verdict.score,
+                "reason": verdict.reason,
+                "method": verdict.method,
             }
             break
 
@@ -424,52 +414,6 @@ async def _stream_round(
             if not t.done():
                 t.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-
-
-# ─── Convergence check ───────────────────────────────────────────────────────
-
-
-async def _check_convergence(
-    graph_app,
-    session_id: str,
-    round_num: int,
-    prev_responses: dict[str, str],
-    curr_responses: dict[str, str],
-    conv_threshold: Optional[float],
-    conv_mode: str,
-    llm_judge_model: Optional[str],
-) -> tuple[bool, Optional[str], Optional[float]]:
-    """Returns (converged, reason, score)."""
-    score: Optional[float] = None
-    sim_converged = False
-
-    if conv_threshold is not None:
-        score, sim_converged = await compute_convergence(
-            prev_responses, curr_responses, threshold=conv_threshold, mode=conv_mode
-        )
-
-    judge_converged = False
-    judge_reason: Optional[str] = None
-    if llm_judge_model:
-        judge_converged, judge_reason = await llm_judge_converged(
-            graph_app, llm_judge_model, session_id, curr_responses
-        )
-
-    # Combine based on what's enabled
-    if conv_threshold is not None and llm_judge_model:
-        if conv_mode == "all":
-            converged = sim_converged and judge_converged
-        else:
-            converged = sim_converged or judge_converged
-    elif conv_threshold is not None:
-        converged = sim_converged
-    elif llm_judge_model:
-        converged = judge_converged
-    else:
-        converged = False
-
-    reason = judge_reason or (f"similarity={score:.3f}" if score is not None else None)
-    return converged, reason, score
 
 
 # ─── Synthesis ───────────────────────────────────────────────────────────────
