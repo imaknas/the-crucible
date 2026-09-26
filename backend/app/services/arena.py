@@ -43,6 +43,7 @@ async def open_graph():
     """A compiled graph on the shared SQLite checkpointer, closed on exit."""
     db.init_db()
     async with AsyncSqliteSaver.from_conn_string(db.DB_PATH) as saver:
+        await saver.setup()
         yield workflow.compile(checkpointer=saver)
 
 

@@ -1,10 +1,11 @@
 from collections import deque
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 
 from app.core import database as db
 from app.services.tree import build_history_tree, load_thread_states
+from app.api.deps import get_graph_app
 
 router = APIRouter(prefix="/history", tags=["history"])
 
@@ -17,10 +18,8 @@ class PositionUpdate(BaseModel):
 
 @router.get("/{thread_id}")
 async def get_history(
-    request: Request, thread_id: str, checkpoint_id: Optional[str] = None
+    thread_id: str, checkpoint_id: Optional[str] = None, graph_app=Depends(get_graph_app)
 ):
-    graph_app = request.app.state.graph_app
-
     # One saver pass for the whole thread, with an individual-fetch fallback
     # for parallel branches outside the main lineage.
     all_states = await load_thread_states(graph_app, thread_id)
@@ -54,9 +53,8 @@ async def save_positions(thread_id: str, updates: List[PositionUpdate]):
 
 
 @router.delete("/{thread_id}/checkpoints/{checkpoint_id}")
-async def delete_checkpoint(request: Request, thread_id: str, checkpoint_id: str):
+async def delete_checkpoint(thread_id: str, checkpoint_id: str, graph_app=Depends(get_graph_app)):
     try:
-        graph_app = request.app.state.graph_app
         # Use a global SQL scan to build a complete parent->child map for the thread
         raw_graph = db.get_thread_checkpoint_graph(thread_id)
 
@@ -126,12 +124,11 @@ async def delete_checkpoint(request: Request, thread_id: str, checkpoint_id: str
 
 
 @router.get("/{thread_id}/search")
-async def search_history(request: Request, thread_id: str, q: str):
+async def search_history(thread_id: str, q: str, graph_app=Depends(get_graph_app)):
     if not q or len(q.strip()) < 2:
         return {"results": []}
 
     query = q.lower()
-    graph_app = request.app.state.graph_app
 
     from app.utils.helpers import extract_text
     from app.services.tree import get_checkpoint_role

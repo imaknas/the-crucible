@@ -1,4 +1,4 @@
-"""Tests for main.py — _format_messages helper and endpoint wiring.
+"""Tests for message formatting and graph nodes.
 
 No LLM calls — all responses are mocked.
 """
@@ -8,10 +8,10 @@ from app.llm import CallableModelFactory
 
 
 class TestFormatMessages:
-    """Tests for the _format_messages() helper in main.py."""
+    """Tests for format_chat_messages()."""
 
     def test_human_message_object(self):
-        from app.main import _format_messages
+        from app.services.message_format import format_chat_messages as _format_messages
 
         msg = MagicMock()
         msg.type = "human"
@@ -24,7 +24,7 @@ class TestFormatMessages:
         assert result[0]["model"] == "user"
 
     def test_ai_message_object(self):
-        from app.main import _format_messages
+        from app.services.message_format import format_chat_messages as _format_messages
 
         msg = MagicMock()
         msg.type = "ai"
@@ -36,7 +36,7 @@ class TestFormatMessages:
         assert result[0]["model"] == "gpt-5.2"
 
     def test_dict_message(self):
-        from app.main import _format_messages
+        from app.services.message_format import format_chat_messages as _format_messages
 
         msg = {"type": "human", "content": "Hello", "role": "user"}
         result = _format_messages([msg], "gpt-5.2")
@@ -44,7 +44,7 @@ class TestFormatMessages:
         assert result[0]["content"] == "Hello"
 
     def test_multiple_messages(self):
-        from app.main import _format_messages
+        from app.services.message_format import format_chat_messages as _format_messages
 
         m1 = MagicMock()
         m1.type = "human"
@@ -66,13 +66,13 @@ class TestFormatMessages:
         assert result[2]["role"] == "user"
 
     def test_empty_messages(self):
-        from app.main import _format_messages
+        from app.services.message_format import format_chat_messages as _format_messages
 
         result = _format_messages([], "gpt-5.2")
         assert result == []
 
     def test_string_fallback(self):
-        from app.main import _format_messages
+        from app.services.message_format import format_chat_messages as _format_messages
 
         result = _format_messages(["raw string message"], "gpt-5.2")
         assert len(result) == 1

@@ -42,7 +42,7 @@ def ws_env():
         patch.object(debate_api.debate_svc, "_stream_synthesis", side_effect=fake_synthesis),
         TestClient(app) as client,
     ):
-        debate_api.set_graph_app(MagicMock())
+        client.app.state.graph_app = MagicMock()
         yield client, state
 
 

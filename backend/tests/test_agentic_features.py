@@ -1,22 +1,31 @@
+import pytest
 from fastapi.testclient import TestClient
+
+from app.core import database as db
 from app.main import server
 
-client = TestClient(server)
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    """The real app with its lifespan (compiled graph) on a throwaway database."""
+    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "graph.sqlite"))
+    with TestClient(server) as c:
+        yield c
 
 
-def test_api_graph_topology_empty():
-    """Test topology API with non-existent thread."""
-    response = client.get("/graph/non-existent-thread/topology")
-    assert response.status_code == 200
-    data = response.json()
+def test_api_graph_topology_empty(client):
+    """Topology of a thread that doesn't exist is an empty graph."""
+    data = client.get("/graph/non-existent-thread/topology").json()
     assert data["nodes"] == []
     assert data["edges"] == []
 
 
-def test_api_node_path_missing():
-    """Test node path API with missing checkpoint."""
-    response = client.get("/graph/thread-1/path/missing-cid")
-    # Should error because checkpoint doesn't exist in DB
-    assert (
-        response.status_code == 500
-    )  # Current implementation raises Exception if state not found
+def test_api_node_path_missing(client):
+    """A checkpoint that doesn't exist is a 404."""
+    assert client.get("/graph/thread-1/path/missing-cid").status_code == 404
+
+
+def test_graph_routes_report_unready_graph():
+    """Without the lifespan there is no graph; routes say so instead of crashing."""
+    bare = TestClient(server)  # no `with`: lifespan never runs
+    assert bare.get("/graph/any/topology").status_code == 503

@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Dict, Any
 from pydantic import BaseModel
 from langchain_core.runnables import RunnableConfig
 
 from app.core import database as db
+from app.api.deps import get_graph_app
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
@@ -15,7 +16,7 @@ class GraphTopology(BaseModel):
 
 
 @router.get("/{thread_id}/topology", response_model=GraphTopology)
-async def get_graph_topology(request: Request, thread_id: str):
+async def get_graph_topology(thread_id: str, graph_app=Depends(get_graph_app)):
     """
     Returns the topological structure of a conversation thread.
     Useful for agents to identify branch points, leaf nodes, and consensus areas.
@@ -28,8 +29,6 @@ async def get_graph_topology(request: Request, thread_id: str):
         nodes = []
         edges = []
         seen_nodes = set()
-
-        graph_app = request.app.state.graph_app
 
         for cid, parent_cid in raw_edges:
             if cid not in seen_nodes:
@@ -96,12 +95,11 @@ async def get_graph_topology(request: Request, thread_id: str):
 
 
 @router.get("/{thread_id}/path/{checkpoint_id}")
-async def get_node_path(request: Request, thread_id: str, checkpoint_id: str):
+async def get_node_path(thread_id: str, checkpoint_id: str, graph_app=Depends(get_graph_app)):
     """
     Returns the complete message history from the root to a specific checkpoint.
     """
     try:
-        graph_app = request.app.state.graph_app
         config: RunnableConfig = {
             "configurable": {"thread_id": thread_id, "checkpoint_id": checkpoint_id}
         }

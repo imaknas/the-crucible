@@ -71,3 +71,41 @@ def test_upload_over_limit_rejected(tmp_path, monkeypatch):
     assert not list(tmp_path.iterdir())
 
 
+
+
+def test_auto_title():
+    from app.services.chat import auto_title
+
+    assert auto_title("Short question\nmore lines") == "Short question"
+    long = "This is a fairly long opening question about branching trees"
+    title = auto_title(long)
+    assert title.endswith("…") and len(title) <= 41 and long.startswith(title[:-1])
+    assert auto_title("   ") is None
+
+
+def test_ws_first_turn_titles_the_thread(tmp_path, monkeypatch):
+    """Web chat threads used to stay untitled: the rename read dicts as objects."""
+    import os
+    from unittest.mock import patch
+
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+
+    from app.core import database as db
+    from app.llm import CallableModelFactory, use_model_factory
+    from app.main import server
+
+    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "title.sqlite"))
+    fake = CallableModelFactory(lambda m, _t: FakeListChatModel(responses=["ok"]))
+    with (
+        use_model_factory(fake),
+        patch.dict(os.environ, {"OPENAI_API_KEY": "k"}),
+        TestClient(server) as client,
+        client.websocket_connect("/ws/thread_title_test") as ws,
+    ):
+        ws.send_json({"message": "How do branching trees work?", "model": "gpt-5.4", "parent_checkpoint_id": None})
+        for _ in range(50):
+            msg = ws.receive_json()
+            if msg["type"] == "title_update":
+                break
+        assert msg == {"type": "title_update", "thread_id": "thread_title_test", "title": "How do branching trees work?"}
+    assert db.get_thread_title("thread_title_test") == "How do branching trees work?"
