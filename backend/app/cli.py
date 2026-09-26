@@ -650,6 +650,7 @@ def compaction_eval(
     seeds: int = typer.Option(3, "--seeds", help="Number of scenarios (different filler and ordering)."),
     exchanges: Optional[int] = typer.Option(None, "--exchanges", help="User/assistant pairs per scenario. Default: 140 (dense), 40 (basic)."),
     compaction: str = typer.Option("live", "--compaction", help="live: summarize turn by turn as the conversation grows. once: one summary when probing starts."),
+    baseline: bool = typer.Option(True, "--baseline/--no-baseline", help="Include the never-compact condition (the costliest: every probe reads the full history)."),
     oracle: bool = typer.Option(True, "--oracle/--no-oracle", help="Also probe the availability oracle (no API cost beyond shared live summaries)."),
     min_effect: float = typer.Option(0.1, "--min-effect", help="Smallest recall difference that matters (0.1 = 10 points)."),
     concurrency: int = typer.Option(4, "--concurrency", help="Branches run in parallel."),
@@ -684,6 +685,7 @@ def compaction_eval(
         "thresholds": thresholds or ([6000] if scenario == "dense" else [2000, 4000]),
         "summarizers": list(summarizers or []),
         "compaction": compaction,
+        "baseline": baseline,
         "concurrency": concurrency,
     }
     result = _run(_run_compaction_eval(model_ids, options, min_effect, db, out, dry_run), as_json)
@@ -726,7 +728,7 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
                      for s in range(options["seeds"])}
     else:
         scenarios = {str(s): build_scenario(exchanges=options["exchanges"], seed=s) for s in range(options["seeds"])}
-    conditions = [ce.Condition("never", NeverCompact())]
+    conditions = [ce.Condition("never", NeverCompact())] if options["baseline"] else []
     for t in options["thresholds"]:
         for summarizer in options["summarizers"] or [None]:
             name = f"t{t}" + (f"-{summarizer}" if summarizer else "")

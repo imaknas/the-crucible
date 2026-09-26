@@ -159,3 +159,40 @@ condition to test — it trades cost against the retention flash showed.
 Pilot 2's flash-vs-flash-lite comparison was made under the old rule
 (flash: 10–29 summaries per fact, flash-lite: 1–5). Re-run it before
 attributing flash's advantage to the model rather than to the refreshes.
+
+## 2026-09-27 — Pilot 2b: flash vs flash-lite without the thrash
+
+**Command:** `uv run crucible compaction-eval --no-baseline -t 8000 -s gemini-3.5-flash -s gemini-3.5-flash-lite --out experiments/results/pilot2b-no-thrash-2026-09-26.json`
+(same scenarios, models and threshold as pilot 2; the never-compact
+baseline is not affected by the fix and was not re-run.)
+
+**Summaries.** flash 23 (pilot 2: 132), flash-lite 17 (23). Facts now pass
+through 1–5 summaries under both summarizers, so the comparison is at equal
+refresh counts. flash's summarizer output fell from ~1.57M to ~0.50M tokens;
+each summary now covers more new text and thinks more (~20k output tokens
+per summary vs ~12k).
+
+| answering model | flash summaries | flash-lite summaries | pilot 2 (flash / lite) |
+|---|---|---|---|
+| gpt-5.4-nano | 0.986 | 0.500 | 1.000 / 0.458 |
+| claude-haiku-4-5 | 1.000 | 0.417 | 0.986 / 0.472 |
+| gemini-3.5-flash-lite | 1.000 | 0.278 | 0.972 / 0.444 |
+| oracle | 1.000 | 0.542 | 1.000 / 0.486 |
+
+flash beats flash-lite for every model (−46 to −72 points, intervals far
+from 0). **flash's advantage is the summarizer, not the refreshes**: it
+holds with a similar number of summaries per fact. flash-lite's
+cumulative loss repeats (oracle by summaries survived: 1 → 10/10,
+2 → 16/18, 3 → 13/20, 4 → 0/24).
+
+**Model vs oracle under flash-lite summaries** (facts whose value the
+oracle still found): nano missed 3/39, Haiku 9/39 ("I cannot find … about
+the billing export"), gemini-3.5-flash-lite 19/39 (empty or invented
+answers: "€15,000 … based on standard IT operations"). Caveat: the oracle
+checks that the value string is somewhere in context, not that it is
+still attached to its subject, so part of this gap is association lost in
+the summary rather than attention. Next oracle version: require the
+subject and the value in the same sentence.
+
+**Cost** roughly $3–4 (Haiku reading the compacted context ~$2, flash
+summaries ~$1.3).
