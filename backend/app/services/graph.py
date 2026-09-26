@@ -13,15 +13,18 @@ from langchain_core.runnables import RunnableConfig
 from app.utils.helpers import extract_text
 from app.services import rag as rag_service
 from app.llm import model_factory_from
-from app.compaction import ContextSnapshot, ModelBudget, ThresholdPolicy
+from app.compaction import ContextSnapshot, DetailedBrief, ModelBudget, ThresholdPolicy
 
 SUMMARY_MARKER = "PREVIOUS CONTEXT SUMMARY:"
 # Messages kept verbatim after a summary: left out of the summary when it is
 # written, and shown as-is before everything newer on every later turn.
 KEEP_VERBATIM = 5
 POLICY_CONFIG_KEY = "compaction_policy"
-# A run may name the model that writes summaries (experiments compare them).
+# A run may name the model that writes summaries and what it is asked to
+# write (experiments compare them).
 SUMMARIZER_CONFIG_KEY = "summarizer_model"
+INSTRUCTION_CONFIG_KEY = "summary_instruction"
+_DEFAULT_INSTRUCTION = DetailedBrief()
 _DEFAULT_POLICY = ThresholdPolicy()
 
 
@@ -29,6 +32,12 @@ def compaction_policy_from(config: Optional[RunnableConfig]):
     """The run's injected CompactionPolicy, else the default threshold policy."""
     injected = ((config or {}).get("configurable") or {}).get(POLICY_CONFIG_KEY)
     return injected or _DEFAULT_POLICY
+
+
+def summary_instruction_from(config: Optional[RunnableConfig]):
+    """The run's injected SummaryInstruction, else the original brief."""
+    injected = ((config or {}).get("configurable") or {}).get(INSTRUCTION_CONFIG_KEY)
+    return injected or _DEFAULT_INSTRUCTION
 
 
 @functools.lru_cache(maxsize=1)
@@ -656,11 +665,7 @@ def summarize_history(state: CrucibleState, config: RunnableConfig):
                 return f"[System]: {content_text}"
 
         history_text = "\n".join([format_msg(m) for m in to_summarize])
-        prompt = (
-            "Summarize the following conversation history into a concise, detailed technical brief. "
-            "IMPORTANT: Preserve the attribution of which speaker (User or specific model name) made each key argument or claim. "
-            f"Maintain all key arguments and theses identified so far.\n\n{history_text}"
-        )
+        prompt = summary_instruction_from(config).prompt(history_text)
 
         # We use a very simplified prompt for the summarizer itself to avoid recursion issues
         summary = model.invoke([HumanMessage(content=prompt)])

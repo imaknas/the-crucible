@@ -7,6 +7,7 @@ package only decides and measures.
 
 - policy.py   CompactionPolicy strategies: when to summarize, when to prune
 - probe.py    Detail-retention scenarios: planted facts, filler, probes, scoring
+- instructions.py  What the summarizer is asked to write (SummaryInstruction)
 - judge.py    Paired comparison of two policies (uses Ordal, lazily)
 """
 
@@ -20,6 +21,7 @@ from app.compaction.policy import (
     fixed_tokens,
     fraction_of_limit,
 )
+from app.compaction.instructions import DetailedBrief, LengthTarget, SummaryInstruction
 from app.compaction.judge import compare_recall, recall_rate
 from app.compaction.probe import (
     DEFAULT_FACTS,
@@ -31,9 +33,13 @@ from app.compaction.probe import (
     generate_facts,
     is_correct,
     is_stale,
+    value_attached,
 )
 
 __all__ = [
+    "DetailedBrief",
+    "LengthTarget",
+    "SummaryInstruction",
     "CompactionPolicy",
     "ContextSnapshot",
     "Decision",
@@ -51,6 +57,7 @@ __all__ = [
     "generate_facts",
     "is_correct",
     "is_stale",
+    "value_attached",
     "compare_recall",
     "recall_rate",
 ]

@@ -246,3 +246,33 @@ Ordal's winner's-curse correction (`ordal.shrinkage.estimate_prior`;
 Ordal is adaptive-iteration renamed) before reporting the best one.
 
 **Cost** roughly $3–4 (Haiku ~$2, flash summaries ~$1.3).
+
+## 2026-09-27 — Strict oracle: kept values stay attached
+
+A summary can keep "5592" while losing that it was the CDN purge job's port,
+so the plain oracle (value anywhere in context) could overstate what
+survived. `probe.value_attached` requires the value to be attached to its
+subject: on a line mentioning the subject, or with this subject as the
+nearest subject mentioned before it (its section, however long). A first
+version (value within 200 characters of the subject) was wrong: flash writes
+per-subsystem sections with long bullet lists, and it marked 21% of facts
+"detached" that every model answered correctly.
+
+Re-scored offline for pilots 2b and 2c, from the stored oracle branches,
+pruned exactly as the drafting node prunes (the loose re-score reproduces the
+recorded oracle recall exactly):
+
+| summaries | oracle | oracle-strict | models missed a fact that was attached |
+|---|---|---|---|
+| flash (default thinking) | 1.000 | 1.000 | 1 / 216 |
+| flash@medium | 1.000 | 1.000 | 4 / 216 |
+| flash@minimal | 0.861 | 0.861 | 10 / 216 |
+| flash-lite | 0.542 | 0.542 | 31 / 216 |
+
+No model ever answered correctly when the value was detached. Two findings:
+
+- Summaries in these runs never kept a value while losing its subject:
+  loss is all-or-nothing per fact (H1).
+- The pilot 2b gap between models and the oracle under flash-lite summaries
+  is therefore attention, not lost association (H2): models miss ~14% of the
+  facts a terse summary did keep, against ~0.5% under flash's long summaries.

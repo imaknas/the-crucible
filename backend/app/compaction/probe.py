@@ -22,7 +22,7 @@ Two designs:
 
 import random
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional, Sequence
 
 
@@ -42,6 +42,9 @@ class PlantedFact:
     # Statements planted at other turns: the superseded value (before
     # `statement`) or the rejected proposal (anywhere).
     extras: tuple[str, ...] = ()
+    # What the fact is about ("the PDF exporter"), for checking that a value
+    # is still attached to it; empty for the hand-written pilot 1 facts.
+    subject: str = ""
 
 
 DEFAULT_FACTS: tuple[PlantedFact, ...] = (
@@ -177,7 +180,7 @@ def build_scenario(
 # come from disjoint pools, so a probe has exactly one right answer and the
 # availability oracle can't be fooled by a filler value.
 
-_SUBJECTS = [
+SUBJECTS = [
     "ingest pipeline", "audit service", "billing export", "search indexer", "notification gateway",
     "report scheduler", "image resizer", "session store", "feature-flag service", "payment webhook",
     "geo lookup", "fraud scorer", "email relay", "metrics collector", "backup job", "sync worker",
@@ -347,15 +350,16 @@ def generate_facts(n: int = 24, *, seed: int = 0, variants: Sequence[str] = VARI
     """`n` facts cycling through FACT_KINDS; each round of kinds uses the next
     variant (kinds that can't vary, negation and quote, stay plain)."""
     rng = random.Random(f"facts:{seed}")
-    if n > len(_SUBJECTS):
-        raise ValueError(f"at most {len(_SUBJECTS)} facts")
-    subjects = rng.sample(_SUBJECTS, n)
+    if n > len(SUBJECTS):
+        raise ValueError(f"at most {len(SUBJECTS)} facts")
+    subjects = rng.sample(SUBJECTS, n)
     values = _Values(rng)
     facts = []
     for i, subject in enumerate(subjects):
         kind = FACT_KINDS[i % len(FACT_KINDS)]
         variant = variants[(i // len(FACT_KINDS)) % len(variants)] if kind in VARIANT_KINDS else "plain"
-        facts.append(_fact(kind, variant, subject, f"{kind}-{subject.replace(' ', '-')}", values))
+        fact = _fact(kind, variant, subject, f"{kind}-{subject.replace(' ', '-')}", values)
+        facts.append(replace(fact, subject=subject))
     return facts
 
 
@@ -425,7 +429,7 @@ def build_dense_scenario(
     positions: dict[str, int] = {}
     extra_positions: dict[str, list[int]] = {}
     for ex in range(exchanges):
-        subject = rng.choice(_SUBJECTS)
+        subject = rng.choice(SUBJECTS)
         parts = [rng.choice(_OPENERS).format(t=f"the {subject}"), _filler_fact(rng, subject)]
         planted = slots.get(ex)
         if planted:
@@ -433,9 +437,9 @@ def build_dense_scenario(
             (positions.__setitem__(fact.key, len(turns)) if is_final
              else extra_positions.setdefault(fact.key, []).append(len(turns)))
             parts.append(statement)
-        parts += [_filler_fact(rng, rng.choice(_SUBJECTS)), rng.choice(_USER_BODY), _filler_fact(rng, subject)]
+        parts += [_filler_fact(rng, rng.choice(SUBJECTS)), rng.choice(_USER_BODY), _filler_fact(rng, subject)]
         turns.append(Turn("user", " ".join(parts), planted[0].key if planted else None))
-        reply = [_filler_fact(rng, rng.choice(_SUBJECTS)) for _ in range(3)] + rng.sample(_DENSE_ADVICE, 3)
+        reply = [_filler_fact(rng, rng.choice(SUBJECTS)) for _ in range(3)] + rng.sample(_DENSE_ADVICE, 3)
         rng.shuffle(reply)
         turns.append(Turn("assistant", " ".join(reply)))
     return Scenario(turns=turns, facts=facts, positions=positions, extra_positions=extra_positions)
@@ -468,6 +472,38 @@ def is_correct(answer: str, fact: PlantedFact) -> bool:
     """Whether the committed answer has an accepted value and no stale one."""
     got = _normalize(committed_answer(answer))
     return any(_normalize(a) in got for a in fact.answers) and not is_stale(answer, fact)
+
+
+def _loose(text: str) -> str:
+    return re.sub(r"[ \t]+", " ", text.lower().replace("-", " "))
+
+
+def value_attached(context: str, fact: PlantedFact, subjects: Sequence[str] = SUBJECTS) -> bool:
+    """Whether an accepted value is still attached to the fact's subject, not
+    merely somewhere in the text: for some occurrence of the value, either
+    its line mentions the subject, or the nearest subject mentioned before
+    it is this one (the value sits in that subject's section, however long).
+    Without a subject, presence anywhere counts."""
+    text = _loose(context)
+    values = [_loose(a) for a in fact.answers]
+    if not fact.subject:
+        return any(v in text for v in values)
+    own = _loose(fact.subject)
+    mentions = sorted(
+        (m.start(), name)
+        for name in {_loose(x) for x in subjects} | {own}
+        for m in re.finditer(re.escape(name), text)
+    )
+    for v in values:
+        for m in re.finditer(re.escape(v), text):
+            line_start = text.rfind("\n", 0, m.start()) + 1
+            line_end = text.find("\n", m.end())
+            if own in text[line_start:line_end if line_end != -1 else len(text)]:
+                return True
+            before = [name for pos, name in mentions if pos < m.start()]
+            if before and before[-1] == own:
+                return True
+    return False
 
 
 def is_stale(answer: str, fact: PlantedFact) -> bool:

@@ -645,13 +645,16 @@ def compaction_eval(
     summarizers: Optional[List[str]] = typer.Option(
         None, "--summarizer", "-s", help="Summarizer models to compare (repeat); one condition per threshold and summarizer. Default: the app's. Gemini takes a thinking level: gemini-3.5-flash@minimal."
     ),
+    lengths: Optional[List[int]] = typer.Option(
+        None, "--length", "-l", help="Summary length targets in tokens (repeat); one condition per threshold, summarizer and length. Default: no limit (the app's brief)."
+    ),
     scenario: str = typer.Option("dense", "--scenario", help="dense: specifics everywhere, distractors and updates. basic: pilot 1's generic filler."),
     facts: int = typer.Option(24, "--facts", help="Planted facts per scenario (dense only)."),
     seeds: int = typer.Option(3, "--seeds", help="Number of scenarios (different filler and ordering)."),
     exchanges: Optional[int] = typer.Option(None, "--exchanges", help="User/assistant pairs per scenario. Default: 140 (dense), 40 (basic)."),
     compaction: str = typer.Option("live", "--compaction", help="live: summarize turn by turn as the conversation grows. once: one summary when probing starts."),
     baseline: bool = typer.Option(True, "--baseline/--no-baseline", help="Include the never-compact condition (the costliest: every probe reads the full history)."),
-    oracle: bool = typer.Option(True, "--oracle/--no-oracle", help="Also probe the availability oracle (no API cost beyond shared live summaries)."),
+    oracle: bool = typer.Option(True, "--oracle/--no-oracle", help="Also probe the availability oracles: 'oracle' (value anywhere in context) and 'oracle-strict' (value next to its subject). No API cost beyond shared live summaries."),
     min_effect: float = typer.Option(0.1, "--min-effect", help="Smallest recall difference that matters (0.1 = 10 points)."),
     concurrency: int = typer.Option(4, "--concurrency", help="Branches run in parallel."),
     db: str = typer.Option("experiments/compaction.sqlite", "--db", help="Separate database for experiment threads."),
@@ -666,15 +669,15 @@ def compaction_eval(
     the same probes on the same conversation. Real runs call the chosen
     models; results include raw token usage.
     """
-    from app.services.compaction_eval import ORACLE
+    from app.services.compaction_eval import ORACLE, ORACLES
 
     as_json = _check_format(format_output)
     _load_env()
     if scenario not in ("dense", "basic") or compaction not in ("live", "once"):
         _fail("--scenario is dense|basic and --compaction is live|once", as_json)
     model_ids = [ORACLE] if dry_run else list(models or CHEAP_MODELS)
-    if oracle and ORACLE not in model_ids:
-        model_ids.append(ORACLE)
+    if oracle:
+        model_ids += [o for o in ORACLES if o not in model_ids]
     if not dry_run:
         from app.services.compaction_eval import split_thinking
 
@@ -682,7 +685,7 @@ def compaction_eval(
             bases = [split_thinking(s)[0] for s in summarizers or []]
         except ValueError as e:
             _fail(str(e), as_json)
-        _validate_models([m for m in model_ids if m != ORACLE] + bases, as_json)
+        _validate_models([m for m in model_ids if m not in ORACLES] + bases, as_json)
     options = {
         "scenario": scenario,
         "facts": facts,
@@ -690,6 +693,7 @@ def compaction_eval(
         "exchanges": exchanges or (140 if scenario == "dense" else 40),
         "thresholds": thresholds or ([6000] if scenario == "dense" else [2000, 4000]),
         "summarizers": list(summarizers or []),
+        "lengths": list(lengths or []),
         "compaction": compaction,
         "baseline": baseline,
         "concurrency": concurrency,
@@ -721,7 +725,14 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
     from itertools import combinations
     from pathlib import Path
 
-    from app.compaction import NeverCompact, ThresholdPolicy, build_dense_scenario, build_scenario, fixed_tokens
+    from app.compaction import (
+        LengthTarget,
+        NeverCompact,
+        ThresholdPolicy,
+        build_dense_scenario,
+        build_scenario,
+        fixed_tokens,
+    )
     from app.core import database as db
     from app.llm import default_model_factory
     from app.services import compaction_eval as ce
@@ -737,8 +748,10 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
     conditions = [ce.Condition("never", NeverCompact())] if options["baseline"] else []
     for t in options["thresholds"]:
         for summarizer in options["summarizers"] or [None]:
-            name = f"t{t}" + (f"-{summarizer}" if summarizer else "")
-            conditions.append(ce.Condition(name, ThresholdPolicy(fixed_tokens(t), name=name), summarizer))
+            for length in options["lengths"] or [None]:
+                name = f"t{t}" + (f"-{summarizer}" if summarizer else "") + (f"-len{length}" if length else "")
+                conditions.append(ce.Condition(name, ThresholdPolicy(fixed_tokens(t), name=name), summarizer,
+                                               LengthTarget(length) if length else None))
     all_facts = [f for sc in scenarios.values() for f in sc.facts]
     factory = ce.EvalModelFactory(all_facts, inner=None if dry_run else default_model_factory())
 

@@ -2,6 +2,7 @@
 
 import ast
 import pathlib
+from dataclasses import replace
 
 import pytest
 from langgraph.checkpoint.memory import MemorySaver
@@ -334,3 +335,46 @@ def test_eval_factory_applies_a_gemini_thinking_level():
         split_thinking("gemini-3.5-flash@huge")
     with pytest.raises(ValueError):
         split_thinking("gpt-5.4-nano@low")
+
+
+def test_the_summary_instruction_is_replaceable():
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    from app.compaction import DetailedBrief, LengthTarget
+
+    seen = []
+
+    class Recorder:
+        def invoke(self, msgs):
+            seen.append(msgs[0].content)
+            return AIMessage(content="gist")
+
+    messages = [HumanMessage(content=f"m{i}") for i in range(12)]
+    base = {"model_factory": CallableModelFactory(lambda *_: Recorder()),
+            "compaction_policy": ThresholdPolicy(fixed_tokens(1))}
+    graph_mod.summarize_history({"messages": messages, "active_peer": "gpt-5.4"}, {"configurable": base})
+    graph_mod.summarize_history({"messages": messages, "active_peer": "gpt-5.4"},
+                                {"configurable": {**base, graph_mod.INSTRUCTION_CONFIG_KEY: LengthTarget(2_000)}})
+    default, limited = seen
+    assert default == DetailedBrief().prompt(default.partition("\n\n")[2])  # unchanged by default
+    assert "at most about 1500 words" in limited and "at most" not in default
+    # Only the length sentence differs; the transcript is the same.
+    assert limited.partition("\n\n")[2] == default.partition("\n\n")[2]
+
+
+def test_strict_availability_needs_the_value_attached_to_its_subject():
+    from app.compaction import build_dense_scenario, value_attached
+
+    fact = next(f for f in build_dense_scenario(seed=0).facts if f.kind == "port")
+    value, subject = fact.answers[0], fact.subject
+    other = next(x for x in __import__("app.compaction.probe", fromlist=["SUBJECTS"]).SUBJECTS if x != subject)
+    # In its own section, however long the section is.
+    section = f"### {subject.title()}\n" + "* filler line\n" * 40 + f"* listens on port {value}\n"
+    assert value_attached(section, fact)
+    # Same line, subject after the value.
+    assert value_attached(f"### {other}\nPort {value} belongs to the {subject}.", fact)
+    # Kept, but under another subject: detached.
+    assert not value_attached(f"### {subject}\n* fine\n### {other}\n* port {value}", fact)
+    assert value_attached(f"### {subject}\n* fine\n### {other}\n* port {value}", replace(fact, subject=""))
+    # Hyphens and case don't matter for the subject.
+    assert value_attached(f"{subject.upper().replace(' ', '-')}: {value}", fact)

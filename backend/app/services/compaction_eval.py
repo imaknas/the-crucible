@@ -32,9 +32,10 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import RunnableLambda
 
-from app.compaction import CompactionPolicy, PlantedFact, Scenario, compare_recall, is_correct
-from app.compaction.probe import is_stale
+from app.compaction import CompactionPolicy, PlantedFact, Scenario, SummaryInstruction, compare_recall, is_correct
+from app.compaction.probe import is_stale, value_attached
 from app.services.graph import (
+    INSTRUCTION_CONFIG_KEY,
     POLICY_CONFIG_KEY,
     SUMMARIZER_CONFIG_KEY,
     SUMMARY_MARKER,
@@ -53,11 +54,15 @@ class Condition:
     policy: CompactionPolicy
     # Model that writes the summaries; None = the app's default summarizer.
     summarizer: Optional[str] = None
+    # What the summarizer is asked to write; None = the app's default brief.
+    instruction: Optional[SummaryInstruction] = None
 
     def configure(self, config: dict) -> dict:
         config["configurable"][POLICY_CONFIG_KEY] = self.policy
         if self.summarizer:
             config["configurable"][SUMMARIZER_CONFIG_KEY] = self.summarizer
+        if self.instruction:
+            config["configurable"][INSTRUCTION_CONFIG_KEY] = self.instruction
         return config
 
 
@@ -401,9 +406,15 @@ def _visible_text(messages: Sequence[BaseMessage]) -> str:
 
 
 class AvailabilityOracle(BaseChatModel):
-    """Answers a probe correctly iff the answer is still in its visible context."""
+    """Answers a probe correctly iff the answer is still in its visible context.
+
+    With `strict`, the value must also still be attached to the fact's
+    subject (probe.value_attached): a summary can keep "5592" while losing
+    that it was the CDN purge job's port.
+    """
 
     facts: tuple[PlantedFact, ...]
+    strict: bool = False
 
     @property
     def _llm_type(self) -> str:
@@ -417,8 +428,12 @@ class AvailabilityOracle(BaseChatModel):
         if not candidates:
             reply = "Noted."
         else:
-            context = _visible_text(messages).lower()
-            found = next((a for f in candidates for a in f.answers if a.lower() in context), None)
+            context = _visible_text(messages)
+            if self.strict:
+                found = next((f.answers[0] for f in candidates if value_attached(context, f)), None)
+            else:
+                lowered = context.lower()
+                found = next((a for f in candidates for a in f.answers if a.lower() in lowered), None)
             reply = found if found else "I don't know."
         # Report roughly how much it had to read (~4 chars/token), so a dry
         # run shows the input-token side of the trade-off too.
@@ -432,10 +447,13 @@ class AvailabilityOracle(BaseChatModel):
 
 
 ORACLE = "oracle"
+STRICT_ORACLE = "oracle-strict"
+# Pseudo-models answered by an AvailabilityOracle: strict or not.
+ORACLES = {ORACLE: False, STRICT_ORACLE: True}
 
 
 class EvalModelFactory:
-    """Routes the pseudo-model "oracle" to AvailabilityOracle and every other
+    """Routes the pseudo-models in ORACLES to AvailabilityOracle and every other
     id to `inner` — the real factory, or, when None (dry runs), the lossy
     stand-in summarizer. With a real inner factory, the oracle answers from
     real summaries: recall then measures what the summarizer kept (H1),
@@ -446,8 +464,8 @@ class EvalModelFactory:
         self.inner = inner
 
     def chat(self, model_id: str, toggles: Optional[Mapping[str, Any]] = None):
-        if model_id == ORACLE:
-            return AvailabilityOracle(facts=self.facts)
+        if model_id in ORACLES:
+            return AvailabilityOracle(facts=self.facts, strict=ORACLES[model_id])
         if self.inner is None:
             return FirstSentenceSummarizer()
         base, level = split_thinking(model_id)
