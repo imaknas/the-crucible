@@ -43,13 +43,14 @@ npx playwright show-report e2e/.report
 E2E_BACKEND_PORT=8124 E2E_FRONTEND_PORT=3124 npm run test:e2e   # if 8123/3123 are taken
 ```
 `e2e/seed_db.py` builds a deterministic fixture by running the **real** LangGraph
-workflow with `get_model()` stubbed to a canned-response fake — the checkpoints
+workflow with a canned-response `ModelFactory` injected via `use_model_factory` — the checkpoints
 have to be genuine because the tree endpoints walk LangGraph's own parent/child
 links. Both servers run on ports 8123/3123 against that fixture (and `CHROMA_DIR`
 under `e2e/.fixtures/`), so the suite never opens `backend/checkpoints.sqlite`
 or `backend/chroma_db`.
-- The backend runs with `CRUCIBLE_FAKE_LLM=1`: `get_model()` returns
-  `services/fake_llm.ScriptedChatModel` for every registered model. It streams
+- The backend runs with `CRUCIBLE_FAKE_LLM=1`: `default_model_factory()` is
+  `app/llm/fake.ScriptedModelFactory`, which answers every registered model
+  with a `ScriptedChatModel`. It streams
   "Scripted answer from <id> (<hash>)…" word by word, so `e2e/tests/live.spec.ts`
   can send messages and run whole debates. Prompt hooks: `[[slow]]` holds a
   stream open (10× delay), `[[fail:<model_id>]]` makes that model raise. Never
@@ -72,10 +73,19 @@ Copy `.env.example` to `backend/.env` and set at least one of: `OPENAI_API_KEY`,
 
 ### Backend (`backend/app/`)
 
-**Entry point — `main.py`**
-FastAPI server. On startup, compiles the LangGraph workflow with an `AsyncSqliteSaver` checkpointer. Two core endpoints:
-- `POST /chat` — non-streaming, for REST usage
-- `WebSocket /ws/{thread_id}` — primary endpoint; spawns each model as a concurrent `asyncio.Task`, streams tokens, then emits `stream_end` with fully formatted messages. A disconnect cancels the in-flight tasks.
+**Layout: who does what**
+
+| Layer | Where | Rule |
+|---|---|---|
+| Assembly | `main.py` | `create_app()` only: patches, lifespan (compiles the graph once, `checkpointer.setup()`), CORS, routers. No endpoints. |
+| Transport | `api/*.py` | Parse/validate, call a service, shape the response. Routers get the graph via `Depends(get_graph_app)` (`api/deps.py`), never a global. |
+| Behaviour | `services/*.py` | No FastAPI/WebSocket imports. `chat.py` (one chat turn: `build_turn_input`, `stream_turn`, `auto_title`), `debate.py`, `convergence.py`, `arena.py` (CLI/MCP entry points), `runs.py`, `tree.py`, `rag.py`, `message_format.py`. |
+| Models | `llm/` | The only place clients are built. Everything asks a `ModelFactory`. |
+| Persistence | `core/database.py` | SQLite helpers; LangGraph owns its own checkpoint tables. |
+
+**Chat transport — `api/chat.py`**
+- `POST /chat` — one non-streaming turn.
+- `WebSocket /ws/{thread_id}` — `ChatConnection`: one task per model frame, streams `stream_start` / `stream_token` / `stream_end` (with the new checkpoint and path messages) / `title_update` / `error`. A disconnect cancels in-flight tasks. The first turn of a new thread is auto-titled from its prompt.
 
 **Parallel runs — `services/runs.py`**
 Any code that runs several graph invocations on one thread at once must go through these helpers:
@@ -96,7 +106,11 @@ The graph flow is: `summarize → (route) → [retrieve → grade_retrieval →]
 - `metadata_node`: a pass-through kept so existing checkpoints still replay. Its old write to `node_metadata` never ran (a node's config has no `checkpoint_id`); confidence shown in the UI is parsed from the reply's `<metadata>` block in `api/graph.py`
 
 **Model registry — `api/models.py`**
-`MODEL_REGISTRY` dict (keyed by lowercase model ID) is the single source of truth for supported models, their family, token limits, and native search support. `get_model()` in `graph.py` looks up this registry to construct the correct LangChain LLM instance.
+`MODEL_REGISTRY` dict (keyed by lowercase model ID) is the single source of truth for supported models, their family, token limits, and native search support. `FAMILY_META` maps each family to its label, colour and `env_key`.
+
+**Model construction — `llm/`**
+- `providers.py`: one `ChatProvider` strategy per family (`create(model_id)`, `with_web_search(llm)`), registered in `PROVIDERS`. Nothing else branches on the provider.
+- `factory.py`: `ModelFactory` protocol. `ProviderModelFactory` (real; registry, providers and env are constructor-injectable), `CallableModelFactory(fn)` (tests/scripts), `has_credentials()` (the one key check). Graph nodes call `model_factory_from(config).chat(model_id, toggles)`: a run may inject `config["configurable"]["model_factory"]`, otherwise `default_model_factory()` — the real providers, or `llm/fake.ScriptedModelFactory` under `CRUCIBLE_FAKE_LLM`. `use_model_factory(f)` overrides the default for a block (tests, `e2e/seed_db.py`).
 
 - **Verify any ID before adding it.** Presence in a provider's `/models` listing is not sufficient — some listed IDs are not chat models. `gpt-5.4-pro`, `gpt-5.5-pro` and `gpt-5-pro` 404 on `v1/chat/completions`, and `gemini-3-flash-lite-preview` no longer exists; all shipped in the registry as broken entries. Confirm with a real one-token completion.
 - `limit` is a **soft** threshold that triggers summarisation in `get_token_limit()`, not the hard API window. Anthropic values are 70% of `max_input_tokens` from `GET /v1/models/{id}`.
@@ -141,14 +155,15 @@ Multi-round structured debate between ≥2 models. Key design points:
 - All models stream concurrently per round via `asyncio.Queue` in `_stream_round`
 - Cross-examination (round ≥1): each model receives all peers' previous responses as a single HumanMessage (not raw AIMessages — this is intentional to avoid `sanitize_messages` breaking alternating-turn invariants)
 - Convergence detection: cosine similarity via `run_in_executor` (reuses `rag.get_embeddings()`), optional LLM judge, configurable `mode: "any"|"all"`
-- `api/debate.py` uses a module-level `set_graph_app` / `_get_graph_app` pattern because FastAPI routers can't access `server.state` directly
+- `api/debate.py`: `DebateConnection` owns one client socket and the debate task; client frames dispatch through its `COMMANDS` table (`debate_start`, `debate_redirect`, `debate_inject`, `debate_control`, `debate_synthesize`).
+- Convergence (`services/convergence.py`) is a strategy: `build_convergence_check(policy)` returns `SimilarityCheck` (embedding cosine, `embed` injectable), `JudgeCheck` (LLM judge, factory injectable), a `CombinedCheck(mode)` of both, or `None`. `run_debate` only calls `check.evaluate(previous, current) -> Verdict`.
 - REST: `POST /debate/sessions`, `GET /debate/sessions/{id}`, `GET /debate/sessions/{id}/tree`, `DELETE /debate/sessions/{id}`
 - WebSocket: `WS /debate/ws/{session_id}` — handles `debate_start`, `debate_inject`, `debate_redirect`, `debate_control` (`stop`/`pause`/`resume`), `debate_synthesize`
 - Live controls are a per-connection `DebateControl`: pause takes effect **between rounds** (the handler acks `pausing`, `run_debate` reports `paused` then `running`), and injected messages are appended to the next round's prompts; one that arrives after the final round is reported as an `error`, not dropped. Synthesize and redirect cancel a running debate first. A debate cannot outlive its socket: disconnect cancels it and sets `status="interrupted"`, so a restored session is never shown as running.
 - `MODEL_TIMEOUT_SECONDS` bounds each model's whole graph run per round, but a reply whose `draft` node already finished is kept if later nodes run long. Convergence `mode="all"` is never satisfied while any participant failed that round.
 - `database.py` stores debate sessions in a `debate_sessions` table; `tree.py` has `build_debate_tree` which computes deterministic lane layout (no dagre): `x = lane_index × 300`, `y = round_num × 160`
 - Debate lanes render **AI responses only**. Each round also writes a human checkpoint (the generated cross-examination prompt); rendering those duplicated the question in every lane and made `round_num` count checkpoint depth instead of debate rounds. The original question is emitted once as a shared `debate::prompt` node above all lanes, with edges fanning out to each lane's round 0.
-- `LANE_WIDTH` / `ROUND_HEIGHT` are mirrored in `frontend/src/hooks/useDebateTree.ts` so optimistic pending nodes land exactly where the real node will appear. Change both together.
+- `LANE_WIDTH` / `ROUND_HEIGHT` are mirrored in `frontend/src/hooks/useDebateTree.ts` (which the canvas overlays import) so optimistic pending nodes land exactly where the real node will appear. Change both together.
 
 ### Frontend (`frontend/src/`)
 
@@ -166,9 +181,9 @@ Composition only: calls the hooks below, keeps the few pieces of UI state that b
 - Small single-purpose hooks: `useToasts`, `useConfirm` (promise-based, rendered by `ConfirmDialog`), `useBackendStatus` (header connection line), `useModelCatalog` (GET /models + the arena selection + `modelLabel`), `useDebateDefaults` (persisted Control Panel defaults)
 
 **Key components**
-- `ChatView.tsx`: renders messages with `react-markdown` + KaTeX for LaTeX, syntax highlighting, thinking-block collapsing, and source citations; when `debateState` prop is set, shows a debate status banner (round, convergence score, stop/synthesize controls)
+- `ChatView.tsx`: renders messages with `react-markdown` + KaTeX for LaTeX, syntax highlighting, thinking-block collapsing, and source citations; when `debateState` is set, renders `DebateBanner` (round, convergence, status, pause/resume/synthesize/close)
 - `TreeCanvas.tsx`: React Flow canvas showing the conversation tree; node click sets `activeCheckpoint` for branching; `debateMode` prop switches to lane layout with `DebateLaneHeaders` overlay and disables dagre auto-layout (debate nodes start at x=0 which would otherwise falsely trigger dagre)
-- `ControlPanel.tsx`: model selector (multi-select for Arena), toggle switches, document upload, debate defaults (max rounds, convergence, auto-synthesize)
+- `ControlPanel.tsx`: shell (collapsed rail or drawer) composing `components/control-panel/` sections — Status, ModelPicker, Parameters, DebateDefaults, ApiKeys. Model data comes from `useModelCatalog` via props; the panel fetches nothing itself.
 - `DebateConfigDialog.tsx`: per-session debate config overlay (overrides ControlPanel defaults for a single run)
 - `SynthesisTreeNode.tsx`: purple gradient React Flow node for synthesis checkpoints
 - `LandingView.tsx`: initial welcome screen before any thread is active
@@ -183,9 +198,34 @@ User selects ≥2 models → types prompt → clicks Swords button in ChatInput 
 ## Key Conventions
 
 - All model IDs must be registered in `MODEL_REGISTRY` in `backend/app/api/models.py` before use.
-- The `langchain_anthropic` monkeypatch in `main.py` is intentional — it fixes a streaming bug in `langchain_anthropic 1.3.2` related to web-search beta events.
+- The `langchain_anthropic` monkeypatch in `app/patches.py` is intentional — it fixes a streaming bug in `langchain_anthropic 1.3.2` related to web-search beta events.
 - Backend uses `uv` for package management; never use `pip` directly.
 - Commits follow Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`.
+
+## Extension points
+
+Where a change goes, so it lands in one place:
+
+| To add… | Do this |
+|---|---|
+| A model | Entry in `MODEL_REGISTRY` (verify the ID with a real one-token call first). |
+| A provider family | `FAMILY_META` entry + a `ChatProvider` in `llm/providers.py` registered in `PROVIDERS` + its models. |
+| A convergence rule | A class with `async evaluate(previous, current) -> Verdict` in `services/convergence.py`, wired into `build_convergence_check`. |
+| A debate client command | A `DebateConnection.on_*` handler in `api/debate.py`, registered in `COMMANDS`; the frontend sends it from `useDebateSession`. |
+| A debate event shown in the transcript | Handle it in `lib/debateTranscript.ts` (`transcriptReducer`, unit-tested) and route it in `useDebateSession.handleEvent`. |
+| A debate control button | `debateControls()` in `lib/debateTranscript.ts` decides availability; `DebateBanner` renders it. |
+| A chat behaviour | `services/chat.py` (testable without a socket); `api/chat.py` only forwards frames. |
+| A REST route needing the graph | `graph_app=Depends(get_graph_app)`. |
+| A CLI command / MCP tool | Call `services/arena.py` / `services/debate.py`; don't orchestrate in `cli.py` or `mcp_server.py`. |
+| A Control Panel section | A component in `components/control-panel/`, composed in `ControlPanel.tsx`. |
+
+## Dependency injection & testing
+
+- **Models:** never construct clients or patch module globals. Inject a factory: `config={"configurable": {"model_factory": CallableModelFactory(fn)}}` for a node, `with use_model_factory(...)` for anything that runs a whole graph, `ProviderModelFactory(providers=..., env=...)` to test provider selection.
+- **Graph in routes:** put a graph or mock on `client.app.state.graph_app`; routes read it through `get_graph_app`. Without the lifespan it is absent and routes answer 503.
+- **Convergence:** `SimilarityCheck(threshold, mode, embed=...)` and `JudgeCheck(model, factory)` take their dependencies; tests never load the embedding model.
+- **Frontend sockets:** hooks open sockets via `useSocketFactory()` (`lib/transport.tsx`); tests wrap the hook in `<TransportProvider value={factory}>` with a fake socket (see `useDebateSession.test.tsx`).
+- **Pure first:** event→state logic belongs in pure functions (`lib/debateTranscript.ts`, `services/chat.build_turn_input`) with unit tests; hooks and connections only wire effects.
 
 ## Known Gaps
 
@@ -210,7 +250,7 @@ These were bugs; the fixes are load-bearing.
 - **The persisted-debate write skips its mount run.** During hydration the active session is still null; writing it erased the stored session before it could be adopted.
 - **Theme state has one owner**: `ThemeRegistry.tsx`, exposed via `useThemeMode()`. Do not reintroduce a second `isDark` anywhere (AppHeader and ConfirmDialog read it from the hook).
 - **localStorage hydration** goes through `hooks/useStoredValue.ts` (`useSyncExternalStore`). A `useState` + mount effect trips `react-hooks/set-state-in-effect`; a lazy `useState` initializer mismatches SSR.
-- `LANE_WIDTH` (300) and `ROUND_HEIGHT` (160) are duplicated in `services/tree.py`, `useDebateTree.ts` and `TreeCanvas.tsx`. Change all three together or optimistic pending nodes land on top of real ones.
+- `LANE_WIDTH` (300) and `ROUND_HEIGHT` (160) exist in `services/tree.py` and `hooks/useDebateTree.ts` (the canvas overlays import the latter). Change both together or optimistic pending nodes land on top of real ones.
 
 ### Still open
 
@@ -220,4 +260,4 @@ These were bugs; the fixes are load-bearing.
 - **First paint is slow in dev.** The app needs several seconds before `threadId` resolves and the tree mounts; the canvas shows its empty state until then.
 - **Debate node selection is display-only.** Clicking expands the node's excerpt in place but there is no way to open the full response.
 - **The debate `stream_end.checkpoint_id` is not read by the frontend** (the chat `stream_end` one is).
-- **Sidebar thread names truncate at ~12 characters** in a 288px rail, and untitled threads still show their raw `thread_xxxxxxx` id.
+- **Sidebar thread names truncate at ~12 characters** in a 288px rail. New threads are auto-titled from their first prompt, but threads created before that fix still show their raw `thread_xxxxxxx` id.
