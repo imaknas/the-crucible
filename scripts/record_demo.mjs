@@ -27,8 +27,11 @@ const WORK = path.join(ROOT, "scripts", ".demo", "video");
 const OUT = path.join(ROOT, "docs", "demo.webp");
 const SIZE = { width: 1440, height: 900 };
 const OUT_WIDTH = Number(process.env.DEMO_WIDTH ?? 1200);
-const OUT_FPS = Number(process.env.DEMO_FPS ?? 12);
-const OUT_QUALITY = Number(process.env.DEMO_QUALITY ?? 70);
+// Playwright's screencast records at 25 fps; keep every frame.
+const OUT_FPS = Number(process.env.DEMO_FPS ?? 25);
+const OUT_QUALITY = Number(process.env.DEMO_QUALITY ?? 40);
+// Pointer and scroll animation cadence (ms per step) — one screen refresh.
+const TICK = 16;
 
 fs.rmSync(WORK, { recursive: true, force: true });
 fs.mkdirSync(WORK, { recursive: true });
@@ -95,8 +98,22 @@ async function canvasIdle() {
 }
 
 let cursor = { x: SIZE.width / 2, y: SIZE.height / 2 };
-async function glideTo(x, y, steps = 28) {
-  await page.mouse.move(x, y, { steps });
+const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+
+/**
+ * Move the pointer over real time with ease-in-out. mouse.move({steps}) fires
+ * every step at once, so on video the cursor just teleports.
+ */
+async function glideTo(x, y, duration) {
+  const from = cursor;
+  const distance = Math.hypot(x - from.x, y - from.y);
+  const ms = duration ?? Math.min(700, Math.max(300, distance * 0.7));
+  const steps = Math.max(1, Math.round(ms / TICK));
+  for (let i = 1; i <= steps; i++) {
+    const t = easeInOut(i / steps);
+    await page.mouse.move(from.x + (x - from.x) * t, from.y + (y - from.y) * t);
+    await pause(TICK);
+  }
   cursor = { x, y };
 }
 async function clickOn(locator, { settle = 500 } = {}) {
@@ -109,18 +126,23 @@ async function clickOn(locator, { settle = 500 } = {}) {
   await page.mouse.up();
   await pause(settle);
 }
-async function scrollBy(dy, { steps = 12, x = 900, y = 480 } = {}) {
-  await glideTo(x, y, 10);
-  for (let i = 0; i < steps; i++) {
-    await page.mouse.wheel(0, dy / steps);
-    await pause(60);
+/** Scroll `dy` pixels over `ms`, in small eased increments like a trackpad. */
+async function scrollBy(dy, { ms = 700, x = 900, y = 480 } = {}) {
+  if (Math.hypot(cursor.x - x, cursor.y - y) > 4) await glideTo(x, y);
+  const steps = Math.max(1, Math.round(ms / TICK));
+  let done = 0;
+  for (let i = 1; i <= steps; i++) {
+    const target = dy * easeInOut(i / steps);
+    await page.mouse.wheel(0, target - done);
+    done = target;
+    await pause(TICK);
   }
 }
 
 // ─── Lead-in (trimmed from the output) ──────────────────────────
 await page.goto(APP);
 await page.getByRole("button", { name: "New Session" }).waitFor();
-await glideTo(cursor.x, cursor.y, 1);
+await page.mouse.move(cursor.x, cursor.y);
 await pause(1200);
 const leadIn = (Date.now() - started) / 1000;
 
@@ -158,14 +180,13 @@ if (await debateAnswer.count()) await clickOn(debateAnswer.nth(1), { settle: 180
 
 // ─── 4. Read the debate, rounds to synthesis ────────────────────
 await clickOn(page.getByRole("button", { name: "Arena", exact: true }), { settle: 1200 });
-await scrollBy(-20000, { steps: 4 });
-await pause(1200);
-for (let i = 0; i < 3; i++) {
-  await scrollBy(700, { steps: 10 });
-  await pause(900);
-}
-await scrollBy(20000, { steps: 3 });
-await pause(1800);
+// Full-screen scrolling is what costs bytes in the output; keep it short.
+await scrollBy(-20000, { ms: TICK });
+await pause(1400);
+await scrollBy(600, { ms: 700 });
+await pause(1400);
+await scrollBy(20000, { ms: 700 });
+await pause(2000);
 
 // ─── Encode ─────────────────────────────────────────────────────
 const video = page.video();

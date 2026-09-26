@@ -1,7 +1,7 @@
 """
-Seed a presentable demo database for the README screenshots.
+Seed a presentable demo database for the README demo recording.
 
-Unlike e2e/seed_db.py this makes **real** model calls, so the screenshots show
+Unlike e2e/seed_db.py this makes **real** model calls, so the demo shows
 genuine output rather than invented text attributed to named models. Prompts ask
 for two or three sentences: that keeps the cost to a few cents and, more
 usefully, keeps replies short enough to read inside a tree node.
@@ -37,7 +37,7 @@ from app.services import debate as debate_svc  # noqa: E402
 
 # Appended to every prompt: short answers cost less and, more importantly,
 # stay readable inside a tree node. Phrased as something a user would type,
-# since the prompt itself appears in the screenshots.
+# since the prompt itself appears in the demo.
 BREVITY = " Answer in three sentences."
 
 # ─── Thread 1: a branching comparison ────────────────────────────────────────
