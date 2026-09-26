@@ -41,7 +41,7 @@ dependencies = [
   "rich>=14.0.0",
   "unstructured>=0.18.31",
   "uvicorn>=0.40.0",
-  "adaptive-iteration>=0.5.0",
+  "adaptive-iteration>=0.6.0",
 ]
 
 [project.scripts]

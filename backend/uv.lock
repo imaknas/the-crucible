@@ -8,11 +8,14 @@ resolution-markers = [
 
 [[package]]
 name = "adaptive-iteration"
-version = "0.5.0"
+version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e4/6b/b5bb574ce430670b547025d192407b668aa71d348e13903ae9e267014b8d/adaptive_iteration-0.5.0.tar.gz", hash = "sha256:7e4ae7e2ee0edb9e1785d76f29c8a415d156c7dfb53f15cf31250622cb748060", size = 178102, upload-time = "2026-09-26T06:46:30.603Z" }
+dependencies = [
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/29/fc/0d0e7770515840364f1a7ccf0f4f31b7ece9cb10590a664f61f16ec486f9/adaptive_iteration-0.6.0.tar.gz", hash = "sha256:6f76f89c6623591183a49f1262d1188e72311be482ef36923d6e1368fd7a1f31", size = 206973, upload-time = "2026-09-26T07:13:43.694Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3a/cd/e2abf55f847267ad432dcb3912324d3ebdb754fa13105184a46573f6e2fb/adaptive_iteration-0.5.0-py3-none-any.whl", hash = "sha256:56ea73aa29f3cca076c13662767bf4d27bf918f73e7f372dd07d5ef25d825502", size = 49544, upload-time = "2026-09-26T06:46:29.163Z" },
+    { url = "https://files.pythonhosted.org/packages/67/a1/0706a40e13fea00367a4bd9f5e128edcefeafb67a0a02abf4fbfafff0395/adaptive_iteration-0.6.0-py3-none-any.whl", hash = "sha256:97e780b1b45f9b19fc3dad8b9f3c90e155e427fbab7663e8c1a193012321c0d3", size = 48333, upload-time = "2026-09-26T07:13:41.794Z" },
 ]
 
 [[package]]
@@ -251,7 +254,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "adaptive-iteration", specifier = ">=0.5.0" },
+    { name = "adaptive-iteration", specifier = ">=0.6.0" },
     { name = "aiosqlite", specifier = ">=0.22.1" },
     { name = "chromadb", specifier = ">=1.5.2" },
     { name = "fastapi", specifier = ">=0.128.4" },
