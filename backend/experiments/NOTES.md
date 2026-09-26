@@ -306,3 +306,30 @@ summary, both keeping 5/5 planted facts); gemini-3.1-flash-lite
 estimate, refusal above budget, and a hard stop. Back-test on pilot 2c's
 settings: estimate $6.27, actual $8.28 — the planning figure is the
 estimate × 1.35.
+
+## 2026-09-27 — Pilot 4: gemini-3.8-flash as the summarizer
+
+**Command:** `uv run crucible compaction-eval --budget 1.5 --no-baseline -t 8000 -s gemini-3.8-flash -m gpt-6-luna -m gemini-3.1-flash-lite --out experiments/results/pilot4-flash38-2026-09-27.json`
+Same scenarios, threshold and policy as pilot 2b; the gemini-3.5-flash
+reference is 2b's (oracle probes pair by scenario and fact across runs).
+
+**Cost.** Estimated $1.02 (a separate `--estimate` run said $0.73: the
+calibration call varies), spent $0.82 + $0.03 calibration, cap $1.50.
+
+| summarizer | oracle recall | summaries | median size | cost per summary |
+|---|---|---|---|---|
+| gemini-3.5-flash (2b) | 1.000 | 23 | 12.8k | ~$0.21 |
+| **gemini-3.8-flash** | **0.972** | 17 | 6.4k | **~$0.032** |
+| gemini-3.5-flash-lite (2b) | 0.542 | 17 | ~3k | ~$0.01 |
+
+- 3.8-flash vs 3.5-flash (oracle, 72 paired probes): **equivalent**,
+  −2.8 points, 95% interval [−9.6, +2.7] inside ±10. It lost 2 plain facts
+  (a quote, a port), both after 4 summaries; stale answers 0.
+- gpt-6-luna and gemini-3.1-flash-lite answered exactly as well as the
+  oracle (0.972 each): nothing the summaries kept was missed.
+- Its summaries are half the size of 3.5-flash's, so answering reads less
+  too. At the price from 2027-01-01 ($1.50/$7.50) a summary would cost
+  ~$0.06, still ~3.5× cheaper than 3.5-flash.
+
+**For the app:** gemini-3.8-flash is the better default summarizer
+(`SUMMARIZER_MODELS`), at the same retention for ~1/6 of the cost.
