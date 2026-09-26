@@ -40,14 +40,25 @@ npm run test:e2e          # re-seeds the fixture DB, then runs the suite
 npm run e2e:seed          # rebuild e2e/.fixtures/e2e.sqlite only
 npx playwright test --repeat-each=3   # flake check
 npx playwright show-report e2e/.report
+E2E_BACKEND_PORT=8124 E2E_FRONTEND_PORT=3124 npm run test:e2e   # if 8123/3123 are taken
 ```
 `e2e/seed_db.py` builds a deterministic fixture by running the **real** LangGraph
 workflow with `get_model()` stubbed to a canned-response fake — the checkpoints
 have to be genuine because the tree endpoints walk LangGraph's own parent/child
-links. Both servers run on ports 8123/3123 against that fixture with fake API
-keys, so the suite never opens `backend/checkpoints.sqlite` and never bills a
-model. Tests that send a message write real checkpoints, which is why the suite
-re-seeds on every run and why the send test uses a throwaway session.
+links. Both servers run on ports 8123/3123 against that fixture (and `CHROMA_DIR`
+under `e2e/.fixtures/`), so the suite never opens `backend/checkpoints.sqlite`
+or `backend/chroma_db`.
+- The backend runs with `CRUCIBLE_FAKE_LLM=1`: `get_model()` returns
+  `services/fake_llm.ScriptedChatModel` for every registered model. It streams
+  "Scripted answer from <id> (<hash>)…" word by word, so `e2e/tests/live.spec.ts`
+  can send messages and run whole debates. Prompt hooks: `[[slow]]` holds a
+  stream open (10× delay), `[[fail:<model_id>]]` makes that model raise. Never
+  set the variable outside tests.
+- Live tests write real checkpoints, which is why the suite re-seeds on every run
+  and each live test starts from **New Session**.
+- With `reuseExistingServer`, Playwright silently tests against *whatever* holds
+  the port. A stray `python -m http.server 8123` made every spec fail once; use
+  the `E2E_*_PORT` overrides instead of killing processes you don't own.
 
 ### Docker (for eval / deployment)
 ```bash
@@ -105,6 +116,7 @@ SQLite at `backend/checkpoints.sqlite` (path overridable via `DATABASE_PATH` env
 
 **RAG — `services/rag.py`**
 ChromaDB persistent vector store at `backend/chroma_db/`. Local HuggingFace embeddings (`all-MiniLM-L6-v2`). Documents are indexed per `thread_id`.
+- `get_vector_store()` / `get_embeddings()` are lazy singletons behind a lock. Graph nodes are sync and run on executor threads, so parallel models hit them together; two concurrent `PersistentClient` inits fail with "Could not connect to tenant default_tenant". The directory is overridable with `CHROMA_DIR`.
 
 **Tree reconstruction — `services/tree.py`**
 Walks LangGraph checkpoint parent-child links to build a deduplicated conversation tree for the React Flow canvas.
@@ -198,7 +210,8 @@ These were bugs; the fixes are load-bearing.
 ### Still open
 
 - **No unit tests for `TreeCanvas` / `CustomTreeNode`.** They are covered end-to-end by `e2e/tests/tree.spec.ts` (auto-fit, tidy-tree centring, the LOD threshold, the anti-overlap cap, theme repaint) but not in isolation. `useDebateTree` has unit tests for the pending-node race and stale-session responses.
-- **The debate REST endpoints are untested**; the WebSocket controls are covered by `tests/test_debate_ws.py`.
+- **The debate REST endpoints are untested**; the WebSocket controls are covered by `tests/test_debate_ws.py`, and the full debate lifecycle end to end by `e2e/tests/live.spec.ts`.
+- **Frontend unit coverage is ~28%** (Jest counts every file via `collectCoverageFrom`). `page.tsx`, `TreeCanvas`, `ControlPanel` and `DebateConfigDialog` have no unit tests; they are exercised by the Playwright suite instead.
 - **First paint is slow in dev.** The app needs several seconds before `threadId` resolves and the tree mounts; the canvas shows its empty state until then.
 - **Debate node selection is display-only.** Clicking expands the node's excerpt in place but there is no way to open the full response.
 - **The debate `stream_end.checkpoint_id` is not read by the frontend** (the chat `stream_end` one is).

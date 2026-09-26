@@ -80,6 +80,11 @@ async def lifespan(app: FastAPI):
         if missing:
             print(f"   ℹ️  Not configured: {', '.join(missing)}\n")
 
+    from app.services import fake_llm
+
+    if fake_llm.enabled():
+        print("⚠️  CRUCIBLE_FAKE_LLM is set: every model is a scripted fake (tests only).")
+
     async with AsyncSqliteSaver.from_conn_string(db.DB_PATH) as memory:
         app.state.graph_app = workflow.compile(checkpointer=memory)
         debate.set_graph_app(app.state.graph_app)

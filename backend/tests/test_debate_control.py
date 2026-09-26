@@ -64,11 +64,27 @@ async def _collect(gen, on_event=None):
     return events
 
 
+class _PatchedDb:
+    """get/update the session in memory; the parent thread already has a title."""
+
+    def __init__(self, max_rounds):
+        self._patches = [
+            patch.object(debate_svc.db, "get_debate_session", return_value=_session(max_rounds)),
+            patch.object(debate_svc.db, "update_debate_session"),
+            patch.object(debate_svc.db, "get_thread_title", return_value="titled"),
+        ]
+
+    def __enter__(self):
+        for p in self._patches:
+            p.start()
+
+    def __exit__(self, *exc):
+        for p in reversed(self._patches):
+            p.stop()
+
+
 def _patched_db(max_rounds=2):
-    return (
-        patch.object(debate_svc.db, "get_debate_session", return_value=_session(max_rounds)),
-        patch.object(debate_svc.db, "update_debate_session"),
-    )
+    return _PatchedDb(max_rounds)
 
 
 def test_injected_message_reaches_every_prompt():
@@ -87,8 +103,7 @@ async def test_inject_during_round_is_used_in_next_round():
         if e["type"] == "stream_start" and e["round"] == 0 and not control.injected:
             control.inject("what about cost?")
 
-    get, upd = _patched_db(max_rounds=2)
-    with get, upd:
+    with _patched_db(max_rounds=2):
         await _collect(run_debate(graph, "debate-x", "Q", {}, {}, control=control), on_event)
 
     round0, round1 = graph.prompts[:2], graph.prompts[2:]
@@ -104,8 +119,7 @@ async def test_inject_after_final_round_is_reported_not_dropped():
         if e["type"] == "stream_start" and not control.injected:
             control.inject("too late")
 
-    get, upd = _patched_db(max_rounds=1)
-    with get, upd:
+    with _patched_db(max_rounds=1):
         events = await _collect(run_debate(FakeGraph(), "debate-x", "Q", {}, {}, control=control), on_event)
     assert any(e["type"] == "error" and "too late" in e["message"] for e in events)
 
@@ -124,8 +138,7 @@ async def test_pause_holds_before_next_round_until_resumed():
             assert len(graph.prompts) == 2  # round 1 has not started
             asyncio.get_running_loop().call_later(0.01, control.resume)
 
-    get, upd = _patched_db(max_rounds=2)
-    with get, upd:
+    with _patched_db(max_rounds=2):
         await _collect(run_debate(graph, "debate-x", "Q", {}, {}, control=control), on_event)
 
     assert seen.index("paused") < seen.index("running") < len(seen)
@@ -135,8 +148,7 @@ async def test_pause_holds_before_next_round_until_resumed():
 @pytest.mark.asyncio
 async def test_cancelling_debate_cancels_model_runs():
     graph = FakeGraph(delay=5)
-    get, upd = _patched_db()
-    with get, upd:
+    with _patched_db():
         task = asyncio.create_task(_collect(run_debate(graph, "debate-x", "Q", {}, {})))
         await asyncio.sleep(0.05)
         task.cancel()
@@ -148,8 +160,7 @@ async def test_cancelling_debate_cancels_model_runs():
 @pytest.mark.asyncio
 async def test_timeout_after_draft_keeps_the_answer(monkeypatch):
     monkeypatch.setattr(debate_svc, "MODEL_TIMEOUT_SECONDS", 0.1)
-    get, upd = _patched_db(max_rounds=1)
-    with get, upd:
+    with _patched_db(max_rounds=1):
         events = await _collect(run_debate(FakeGraph(stall_after_draft=True), "debate-x", "Q", {}, {}))
     ends = [e for e in events if e["type"] == "stream_end"]
     assert {e["model"] for e in ends} == set(PARTICIPANTS)

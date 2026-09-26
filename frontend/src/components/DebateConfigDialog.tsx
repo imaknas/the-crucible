@@ -84,6 +84,7 @@ export default function DebateConfigDialog({
             <Box
               component="input"
               type="number"
+              aria-label="Max rounds"
               min={1}
               max={20}
               value={config.max_rounds}

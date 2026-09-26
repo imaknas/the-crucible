@@ -242,6 +242,11 @@ def get_model(model_name: str, toggles: Optional[Dict[str, Any]] = None):
     if lower not in MODEL_REGISTRY:
         raise ValueError(f"Model '{model_name}' is not supported in the whitelist.")
 
+    from app.services import fake_llm
+
+    if fake_llm.enabled():
+        return fake_llm.get_fake_model(lower)
+
     config = MODEL_REGISTRY[lower]
     env_key, constructor = _FAMILY_CONSTRUCTORS[config["family"]]
     if not os.getenv(env_key):

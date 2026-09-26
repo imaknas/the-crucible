@@ -130,6 +130,13 @@ async def run_debate(
     llm_judge_model = policy.get("llm_judge")
     conv_mode = policy.get("mode", "all")
 
+    # A debate started from a fresh session writes only to its sub-threads, so
+    # the parent has no checkpoints; without a title row list_threads never
+    # shows it and the debate can't be found again in the sidebar.
+    parent_thread_id = session["parent_thread_id"]
+    if not db.get_thread_title(parent_thread_id):
+        db.rename_thread(parent_thread_id, f"Debate: {prompt.strip().splitlines()[0][:40] if prompt.strip() else ', '.join(participants)}")
+
     yield {
         "type": "debate_session_created",
         "session_id": session_id,

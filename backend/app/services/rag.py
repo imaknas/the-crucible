@@ -1,4 +1,5 @@
 import os
+import threading
 from typing import List
 
 import chromadb
@@ -8,39 +9,49 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
-# Persistence directory for ChromaDB (points to backend/chroma_db)
-DB_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "chroma_db",
+# Persistence directory for ChromaDB (backend/chroma_db unless CHROMA_DIR is set,
+# which the e2e suite does so it never touches the real store).
+DB_DIR = os.getenv(
+    "CHROMA_DIR",
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "chroma_db",
+    ),
 )
 
 # Use a fast, local, lightweight embedding model
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 _embeddings = None
+_vector_store = None
+# Graph nodes are sync and run on executor threads, so parallel models reach
+# these lazy singletons at the same moment. Two concurrent PersistentClient
+# inits fail with "Could not connect to tenant default_tenant".
+_init_lock = threading.RLock()
 
 
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
-        _embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
+        with _init_lock:
+            if _embeddings is None:
+                _embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
     return _embeddings
-
-
-_vector_store = None
 
 
 def get_vector_store() -> Chroma:
     global _vector_store
 
     if _vector_store is None:
-        client = chromadb.PersistentClient(
-            path=DB_DIR, settings=Settings(anonymized_telemetry=False)
-        )
-        _vector_store = Chroma(
-            client=client,
-            collection_name="crucible_documents",
-            embedding_function=get_embeddings(),
-        )
+        with _init_lock:
+            if _vector_store is None:
+                client = chromadb.PersistentClient(
+                    path=DB_DIR, settings=Settings(anonymized_telemetry=False)
+                )
+                _vector_store = Chroma(
+                    client=client,
+                    collection_name="crucible_documents",
+                    embedding_function=get_embeddings(),
+                )
     return _vector_store
 
 

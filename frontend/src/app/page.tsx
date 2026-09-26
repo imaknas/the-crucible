@@ -298,6 +298,13 @@ export default function Home() {
     ]);
   }, []);
 
+  // The sidebar's debate list. Refreshed when a debate starts or ends, not only
+  // when the thread list changes, or a new debate can't be found (or deleted)
+  // until the next reload.
+  const refreshDebateSessions = useCallback(() => {
+    api.listDebateSessions().then(setDebateSessions).catch(() => {});
+  }, []);
+
   // Tear down whatever socket and polling belong to the debate on screen.
   // Called before showing a different debate, so the old one can't keep
   // appending bubbles or overwriting the tree of the new one.
@@ -347,6 +354,10 @@ export default function Home() {
       switch (msg.type) {
         case "debate_session_created":
           debateParticipantsRef.current = msg.participants ?? [];
+          // The backend has just titled the parent thread; list it (and the
+          // debate) so a debate started from a new session is findable.
+          fetchThreads();
+          refreshDebateSessions();
           break;
 
         case "debate_round_start": {
@@ -460,6 +471,7 @@ export default function Home() {
             stopDebatePolling();
             fetchDebateTree(sessionId);
             clearPendingNodes();
+            refreshDebateSessions();
             // Reset regular messages so post-debate chat starts clean below the debate view
             setMessages([]);
           } else if (msg.status === "pausing" || msg.status === "paused" || msg.status === "running") {
@@ -511,6 +523,8 @@ export default function Home() {
       stopDebatePolling,
       setMessages,
       pushToast,
+      refreshDebateSessions,
+      fetchThreads,
     ],
   );
 
@@ -542,10 +556,11 @@ export default function Home() {
         setDebateStatus((prev) =>
           prev === "completed" || prev === "converged" ? prev : "interrupted",
         );
+        refreshDebateSessions();
       };
       return ws;
     },
-    [handleDebateMessage, stopDebatePolling, clearPendingNodes],
+    [handleDebateMessage, stopDebatePolling, clearPendingNodes, refreshDebateSessions],
   );
 
   const handleDebateOpen = useCallback((prompt: string) => {
@@ -721,10 +736,8 @@ export default function Home() {
 
   // Fetch debate sessions for sidebar whenever thread list changes
   useEffect(() => {
-    api.listDebateSessions()
-      .then(setDebateSessions)
-      .catch(() => {});
-  }, [threads]);
+    refreshDebateSessions();
+  }, [threads, refreshDebateSessions]);
 
   // Auto-activate latest debate when switching to a debate-only thread (no regular chat)
   useEffect(() => {
@@ -1405,6 +1418,7 @@ export default function Home() {
             restoredDebateRef.current = session.session_id;
             setActiveDebateSession(session.session_id);
             fetchDebateTree(session.session_id);
+            refreshDebateSessions();
             setDebateMaxRounds(config.max_rounds);
             setDebateRound(0);
             setDebateStatus("running");

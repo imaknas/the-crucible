@@ -86,3 +86,34 @@ def test_retrieve_context(mock_get_vs):
     mock_vs.similarity_search_with_score.side_effect = Exception("DB error")
     docs = retrieve_context("test query", "thread-1")
     assert docs == []
+
+
+def test_vector_store_initialises_once_under_concurrency(monkeypatch):
+    """Parallel models used to race two PersistentClient inits."""
+    import threading
+    import time
+    from unittest.mock import MagicMock
+
+    from app.services import rag
+
+    monkeypatch.setattr(rag, "_vector_store", None)
+    monkeypatch.setattr(rag, "get_embeddings", lambda: MagicMock())
+    created = []
+
+    def slow_client(**kwargs):
+        created.append(1)
+        time.sleep(0.05)
+        return MagicMock()
+
+    monkeypatch.setattr(rag.chromadb, "PersistentClient", slow_client)
+    monkeypatch.setattr(rag, "Chroma", lambda **kw: MagicMock())
+
+    results = []
+    threads = [threading.Thread(target=lambda: results.append(rag.get_vector_store())) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(created) == 1
+    assert len({id(r) for r in results}) == 1

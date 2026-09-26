@@ -393,6 +393,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                                       return (
                                         <ListItemButton
                                           key={s.session_id}
+                                          aria-current={isActiveDebate ? "true" : undefined}
                                           onClick={() => onSwitchDebateSession?.(s.session_id)}
                                           sx={{
                                             borderRadius: 2, mb: 0.5, py: 0.75, px: 1.25,

@@ -44,9 +44,9 @@ test.describe("application shell", () => {
 
   test("stays in the tree when a message is sent", async ({ page }) => {
     // Regression: handleSendMessage used to call setShowTree(false), so sending
-    // yanked the user out of the tree. The models are stubbed in this fixture,
-    // so the request fails — the assertion is about the view, not the reply.
-    // A throwaway session, so this test never mutates the reference thread.
+    // yanked the user out of the tree. The assertion is about the view, not
+    // the (scripted) reply. A throwaway session, so this test never mutates
+    // the reference thread.
     await page.getByRole("button", { name: "New Session" }).click();
     await showTree(page);
     const tree = page.getByRole("button", { name: "Tree", exact: true });

@@ -230,6 +230,7 @@ async def test_run_debate_event_sequence():
     }
 
     with patch("app.services.debate.db.get_debate_session", return_value=session_data), \
+         patch("app.services.debate.db.get_thread_title", return_value="titled"), \
          patch("app.services.debate.db.update_debate_session"):
 
         events = []

@@ -41,3 +41,7 @@ scripts/.demo/
 
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Coverage
+.coverage
+coverage/

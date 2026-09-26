@@ -6,8 +6,10 @@ import path from "path";
  *
  * Both servers are started against `e2e/.fixtures/e2e.sqlite`, a deterministic
  * database built by `e2e/seed_db.py`. The real `backend/checkpoints.sqlite` is
- * never opened, and the fake API keys guarantee that a test which accidentally
- * triggers generation fails loudly instead of billing a live model.
+ * never opened. CRUCIBLE_FAKE_LLM makes every model a scripted fake
+ * (backend/app/services/fake_llm.py), so tests can send messages and run
+ * debates end to end without network access; the fake API keys are a second
+ * guard that nothing can bill a live model.
  */
 const ROOT = __dirname;
 const FIXTURE_DB = path.join(ROOT, "e2e", ".fixtures", "e2e.sqlite");
@@ -49,7 +51,8 @@ export default defineConfig({
       stderr: "pipe",
       env: {
         DATABASE_PATH: FIXTURE_DB,
-        // The fixture is pre-seeded; nothing in the suite should reach a model.
+        CHROMA_DIR: path.join(ROOT, "e2e", ".fixtures", "chroma"),
+        CRUCIBLE_FAKE_LLM: "1",
         OPENAI_API_KEY: "e2e-fixture-not-a-real-key",
         ANTHROPIC_API_KEY: "e2e-fixture-not-a-real-key",
         GOOGLE_API_KEY: "e2e-fixture-not-a-real-key",

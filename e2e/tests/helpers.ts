@@ -159,3 +159,55 @@ export async function nodeColors(page: Page) {
     }),
   );
 }
+
+/** The backend the suite runs against (see playwright.config.ts). */
+export const BACKEND_URL = `http://127.0.0.1:${process.env.E2E_BACKEND_PORT ?? 8123}`;
+
+/** Start from an empty, throwaway session so live tests never touch the fixture threads. */
+export async function newSession(page: Page) {
+  await page.getByRole("button", { name: "New Session" }).click();
+  await expect(page.getByPlaceholder(/Ask the arena/i)).toBeVisible();
+}
+
+/** Add a model to the arena selection (gpt-5.4 is selected by default). */
+export async function addModel(page: Page, family: string, name: string) {
+  // The default model is applied once /models answers; selecting before that
+  // would stop the default from being added at all.
+  await expect(page.getByText("GPT-5.4", { exact: true }).first()).toBeVisible();
+  const familyButton = page.getByRole("button", { name: new RegExp(`^${family} \\d+ models$`) });
+  if ((await page.getByRole("button", { name }).count()) === 0) await familyButton.click();
+  await page.getByRole("button", { name }).first().click();
+}
+
+/** The thread the app currently has open, as persisted by useThreads. */
+export async function currentThreadId(page: Page): Promise<string> {
+  const id = await page.evaluate(() => localStorage.getItem("crucible_thread_id"));
+  if (!id) throw new Error("no thread is open");
+  return id;
+}
+
+export async function send(page: Page, text: string) {
+  await page.getByPlaceholder(/Ask the arena/i).fill(text);
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+}
+
+/** Open the debate dialog for `prompt`, set the round count and start it. */
+export async function startDebate(page: Page, prompt: string, rounds: number) {
+  await page.getByPlaceholder(/Ask the arena/i).fill(prompt);
+  await page.getByRole("button", { name: "Start debate" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Max rounds").fill(String(rounds));
+  await dialog.getByRole("button", { name: "Start Debate" }).click();
+  // Starting a debate shows the tree; the status banner lives in the Arena view.
+  await page.getByRole("button", { name: "Arena", exact: true }).click();
+  await expect(page.getByText(new RegExp(`DEBATE · ROUND \\d+/${rounds}`))).toBeVisible();
+}
+
+/** The status chip in the debate banner. */
+export function debateStatus(page: Page) {
+  // Scoped to the banner: the sidebar's debate rows carry a status chip too.
+  return page
+    .getByText(/DEBATE · ROUND/)
+    .locator("..")
+    .getByText(/^(running|pausing after this round|paused|converged|completed|interrupted)$/);
+}

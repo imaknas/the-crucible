@@ -379,6 +379,8 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
           {onDebateStop && (
             <ButtonBase
               onClick={onDebateStop}
+              aria-label="Close debate"
+              title="Close debate (stops it if running)"
               sx={{
                 p: 0.5,
                 borderRadius: 1,

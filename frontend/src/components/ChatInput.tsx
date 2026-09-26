@@ -330,6 +330,7 @@ export const ChatInput = React.memo(
                             : {}
                         }
                         onClick={handleDebateClick}
+                        aria-label="Start debate"
                         disabled={isLoading || selectedModels.length < 2 || !localInput.trim()}
                         sx={{
                           p: 1.25,
@@ -372,6 +373,7 @@ export const ChatInput = React.memo(
                         whileHover={localInput.trim() && !isLoading ? { scale: 1.05 } : {}}
                         whileTap={localInput.trim() && !isLoading ? { scale: 0.93 } : {}}
                         onClick={handleRedirect}
+                        aria-label="Change topic and restart debate"
                         disabled={isLoading || !localInput.trim()}
                         sx={{
                           p: 1.25,
@@ -400,6 +402,7 @@ export const ChatInput = React.memo(
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={stopStreaming}
+                    aria-label="Stop generating"
                     sx={{
                       p: 1.25,
                       borderRadius: "50%",
@@ -429,6 +432,7 @@ export const ChatInput = React.memo(
                     <span>
                       <ButtonBase
                         onClick={handleSend}
+                        aria-label={onDebateInject ? "Inject into debate" : "Send"}
                         disabled={!localInput.trim()}
                         component={motion.button}
                         whileHover={localInput.trim() ? { scale: 1.05 } : {}}
