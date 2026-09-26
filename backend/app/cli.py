@@ -636,93 +636,119 @@ CHEAP_MODELS = ["gpt-5.4-nano", "claude-haiku-4-5-20251001", "gemini-3.5-flash-l
 @app.command("compaction-eval")
 def compaction_eval(
     models: Optional[List[str]] = typer.Option(
-        None, "--models", "-m", help=f"Models that answer the probes (default: {', '.join(CHEAP_MODELS)})."
+        None, "--models", "-m",
+        help=f"Models that answer the probes (default: {', '.join(CHEAP_MODELS)}). 'oracle' answers iff the value is still in context.",
     ),
     thresholds: Optional[List[int]] = typer.Option(
-        None, "--threshold", "-t", help="Compaction thresholds in tokens (repeat). Default: 2000 and 4000."
+        None, "--threshold", "-t", help="Compaction thresholds in tokens (repeat). Default: 6000 (dense), 2000 and 4000 (basic)."
     ),
+    summarizers: Optional[List[str]] = typer.Option(
+        None, "--summarizer", "-s", help="Summarizer models to compare (repeat); one condition per threshold and summarizer. Default: the app's."
+    ),
+    scenario: str = typer.Option("dense", "--scenario", help="dense: specifics everywhere, distractors and updates. basic: pilot 1's generic filler."),
+    facts: int = typer.Option(24, "--facts", help="Planted facts per scenario (dense only)."),
     seeds: int = typer.Option(3, "--seeds", help="Number of scenarios (different filler and ordering)."),
-    exchanges: int = typer.Option(40, "--exchanges", help="User/assistant pairs per scenario."),
+    exchanges: Optional[int] = typer.Option(None, "--exchanges", help="User/assistant pairs per scenario. Default: 140 (dense), 40 (basic)."),
+    compaction: str = typer.Option("live", "--compaction", help="live: summarize turn by turn as the conversation grows. once: one summary when probing starts."),
+    oracle: bool = typer.Option(True, "--oracle/--no-oracle", help="Also probe the availability oracle (no API cost beyond shared live summaries)."),
     min_effect: float = typer.Option(0.1, "--min-effect", help="Smallest recall difference that matters (0.1 = 10 points)."),
+    concurrency: int = typer.Option(4, "--concurrency", help="Branches run in parallel."),
     db: str = typer.Option("experiments/compaction.sqlite", "--db", help="Separate database for experiment threads."),
     out: Optional[str] = typer.Option(None, "--out", help="Write every probe result as JSON here."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Use the availability oracle and a lossy stand-in summarizer; no API calls."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Only the oracle answers, with a lossy stand-in summarizer; no API calls."),
     format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
     [bold]🧪 Compaction eval[/bold] — How much planted detail survives summarization?
 
-    Every condition (never compact, and each threshold) answers the same
-    probes on a branch forked from the same seeded conversation. Real runs
-    call the chosen models; results include raw token usage.
+    Every condition (never compact, and each threshold × summarizer) answers
+    the same probes on the same conversation. Real runs call the chosen
+    models; results include raw token usage.
     """
+    from app.services.compaction_eval import ORACLE
+
     as_json = _check_format(format_output)
     _load_env()
-    model_ids = models or CHEAP_MODELS
+    if scenario not in ("dense", "basic") or compaction not in ("live", "once"):
+        _fail("--scenario is dense|basic and --compaction is live|once", as_json)
+    model_ids = [ORACLE] if dry_run else list(models or CHEAP_MODELS)
+    if oracle and ORACLE not in model_ids:
+        model_ids.append(ORACLE)
     if not dry_run:
-        _validate_models(model_ids, as_json)
-    result = _run(
-        _run_compaction_eval(model_ids, thresholds or [2000, 4000], seeds, exchanges, min_effect, db, out, dry_run),
-        as_json,
-    )
+        _validate_models([m for m in model_ids if m != ORACLE] + list(summarizers or []), as_json)
+    options = {
+        "scenario": scenario,
+        "facts": facts,
+        "seeds": seeds,
+        "exchanges": exchanges or (140 if scenario == "dense" else 40),
+        "thresholds": thresholds or ([6000] if scenario == "dense" else [2000, 4000]),
+        "summarizers": list(summarizers or []),
+        "compaction": compaction,
+        "concurrency": concurrency,
+    }
+    result = _run(_run_compaction_eval(model_ids, options, min_effect, db, out, dry_run), as_json)
     if as_json:
         _emit_json(result)
         return
     from rich.table import Table
 
     table = Table(title="Recall by condition", box=None)
-    for col in ("condition / model", "recall", "n", "by kind"):
+    for col in ("condition / model", "recall", "n", "stale", "by variant", "by summaries survived"):
         table.add_column(col)
     for name, row in result["recall"].items():
-        kinds = ", ".join(f"{k} {c}/{n}" for k, (c, n) in sorted(row["by_kind"].items()))
-        table.add_row(name, f"{row['recall']:.2f}", str(row["n"]), kinds)
+        variants = ", ".join(f"{k} {c}/{n}" for k, (c, n) in sorted(row["by_variant"].items()))
+        survived = ", ".join(f"{k}: {c}/{n}" for k, (c, n) in sorted(row["by_compactions"].items(), key=lambda kv: int(kv[0])))
+        table.add_row(name, f"{row['recall']:.2f}", str(row["n"]), str(row["stale"]), variants, survived)
     console.print(table)
     for c in result["comparisons"]:
-        console.print(f"  {c['model']}: never vs {c['condition']}: [bold]{c['outcome']}[/bold] "
+        console.print(f"  {c['model']}: {c['a']} vs {c['b']}: [bold]{c['outcome']}[/bold] "
                       f"effect {c['effect']} interval {c['interval']}")
     console.print(f"\nUsage: {json.dumps(result['usage'], indent=1)}")
     if out:
         console.print(f"Wrote {out}")
 
 
-async def _run_compaction_eval(model_ids, thresholds, seeds, exchanges, min_effect, db_path, out, dry_run):
+async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry_run):
+    from datetime import datetime, timezone
+    from itertools import combinations
     from pathlib import Path
 
-    from app.compaction import NeverCompact, ThresholdPolicy, build_scenario, fixed_tokens
+    from app.compaction import NeverCompact, ThresholdPolicy, build_dense_scenario, build_scenario, fixed_tokens
     from app.core import database as db
-    from app.llm import CallableModelFactory
+    from app.llm import default_model_factory
     from app.services import compaction_eval as ce
     from app.services.arena import open_graph
 
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     db.DB_PATH = db_path  # experiment threads never touch the app's database
-    scenarios = {str(s): build_scenario(exchanges=exchanges, seed=s) for s in range(seeds)}
-    conditions = [ce.Condition("never", NeverCompact())] + [
-        ce.Condition(f"t{t}", ThresholdPolicy(fixed_tokens(t), name=f"t{t}")) for t in thresholds
-    ]
-    factory = None
-    if dry_run:
-        from app.api.models import SUMMARIZER_MODELS
-        from app.compaction import DEFAULT_FACTS
-
-        factory = CallableModelFactory(
-            lambda m, _t: ce.FirstSentenceSummarizer() if m in SUMMARIZER_MODELS else ce.AvailabilityOracle(facts=DEFAULT_FACTS)
-        )
-    from datetime import datetime, timezone
+    if options["scenario"] == "dense":
+        scenarios = {str(s): build_dense_scenario(n_facts=options["facts"], exchanges=options["exchanges"], seed=s)
+                     for s in range(options["seeds"])}
+    else:
+        scenarios = {str(s): build_scenario(exchanges=options["exchanges"], seed=s) for s in range(options["seeds"])}
+    conditions = [ce.Condition("never", NeverCompact())]
+    for t in options["thresholds"]:
+        for summarizer in options["summarizers"] or [None]:
+            name = f"t{t}" + (f"-{summarizer}" if summarizer else "")
+            conditions.append(ce.Condition(name, ThresholdPolicy(fixed_tokens(t), name=name), summarizer))
+    all_facts = [f for sc in scenarios.values() for f in sc.facts]
+    factory = ce.EvalModelFactory(all_facts, inner=None if dry_run else default_model_factory())
 
     prefix = "compaction-eval-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    grid = ce.run_live_grid if options["compaction"] == "live" else ce.run_grid
     async with open_graph() as graph_app:
-        results = await ce.run_grid(graph_app, scenarios, model_ids, conditions,
-                                    thread_prefix=prefix, model_factory=factory)
+        results = await grid(graph_app, scenarios, model_ids, conditions, thread_prefix=prefix,
+                             model_factory=factory, concurrency=options["concurrency"])
 
     comparisons = []
     for model_id in model_ids:
         mine = [r for r in results if r.model == model_id]
-        for cond in conditions[1:]:
-            verdict = ce.compare_conditions(mine, "never", cond.name, min_effect=min_effect)
+        for a, b in combinations([c.name for c in conditions], 2):
+            verdict = ce.compare_conditions(mine, a, b, min_effect=min_effect)
             comparisons.append({
                 "model": model_id,
-                "condition": cond.name,
+                "a": a,
+                "b": b,
                 "outcome": verdict.outcome.value,
                 "effect": None if verdict.effect is None else round(verdict.effect, 3),
                 "interval": None if verdict.interval is None else [round(x, 3) for x in verdict.interval],
@@ -731,9 +757,7 @@ async def _run_compaction_eval(model_ids, thresholds, seeds, exchanges, min_effe
     summary = {
         "run": prefix,
         "models": list(model_ids),
-        "thresholds": thresholds,
-        "seeds": seeds,
-        "exchanges": exchanges,
+        **options,
         "dry_run": dry_run,
         "recall": ce.summarize_results(results),
         "comparisons": comparisons,

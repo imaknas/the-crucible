@@ -193,3 +193,82 @@ def test_compare_recall_outcomes():
     # Identical results carry no evidence either way: not "equivalent".
     same = compare_recall(better, better)
     assert same.outcome.value in ("insufficient", "no_detectable_diff")
+
+
+# ─── Dense scenarios, live compaction ────────────────────────────
+
+
+def test_dense_scenario_plants_every_statement_once_and_in_order():
+    from app.compaction import build_dense_scenario
+
+    a, b = build_dense_scenario(seed=5), build_dense_scenario(seed=5)
+    assert [t.text for t in a.turns] == [t.text for t in b.turns]
+    assert {f.variant for f in a.facts} == {"plain", "distractor", "update"}
+    text = "\n".join(t.text for t in a.turns)
+    for fact in a.facts:
+        assert text.count(fact.statement) == 1
+        assert a.turns[a.positions[fact.key]].role == "user"
+        extra_positions = a.extra_positions.get(fact.key, [])
+        assert len(extra_positions) == len(fact.extras)
+        for extra, pos in zip(fact.extras, extra_positions):
+            assert text.count(extra) == 1 and extra in a.turns[pos].text
+            if fact.variant == "update":
+                assert pos < a.positions[fact.key]  # the old value comes first
+        # One right answer: no accepted or stale value leaks into filler.
+        for value in fact.answers + fact.stale:
+            holders = [t.text for t in a.turns if value.lower() in t.text.lower()]
+            assert all(fact.statement in h or any(e in h for e in fact.extras) for h in holders), value
+
+
+def test_stale_values_make_an_answer_wrong():
+    from app.compaction import PlantedFact, is_stale
+
+    fact = PlantedFact("port", "port", "moved to 6610", "Which port?", ("6610",), stale=("6254",), variant="update")
+    assert is_correct("6610", fact) and not is_stale("6610", fact)
+    assert not is_correct("6254", fact) and is_stale("6254", fact)
+    # Only the committed first line counts: quoting the source afterwards is fine,
+    # listing both candidates without choosing is not.
+    assert is_correct("6610\n\nIt said: 'moved from 6254 to 6610'", fact)
+    assert not is_correct("I found two ports:\n1. 6254\n2. 6610", fact)
+    assert is_correct("<answer>6610</answer>", fact)
+
+
+def test_run_may_choose_the_summarizer():
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    asked = []
+
+    class Stub:
+        def invoke(self, _msgs):
+            return AIMessage(content="gist")
+
+    factory = CallableModelFactory(lambda m, _t: asked.append(m) or Stub())
+    messages = [HumanMessage(content=f"m{i}") for i in range(12)]
+    config = {"configurable": {
+        "model_factory": factory,
+        "compaction_policy": ThresholdPolicy(fixed_tokens(1)),
+        graph_mod.SUMMARIZER_CONFIG_KEY: "claude-haiku-4-5-20251001",
+    }}
+    graph_mod.summarize_history({"messages": messages, "active_peer": "gpt-5.4"}, config)
+    assert asked == ["claude-haiku-4-5-20251001"]
+
+
+@pytest.mark.asyncio
+async def test_live_replay_summarizes_repeatedly_and_shares_summaries(eval_setup):
+    from app.compaction import build_dense_scenario
+    from app.services.compaction_eval import ORACLE, EvalModelFactory, run_live_grid
+
+    app, _ = eval_setup
+    scenario = build_dense_scenario(n_facts=8, exchanges=40, seed=1)
+    factory = EvalModelFactory(scenario.facts)  # oracle answers, stand-in summarizes
+    results = await run_live_grid(
+        app, {"1": scenario}, [ORACLE],
+        [Condition("never", NeverCompact()), Condition("t1500", ThresholdPolicy(fixed_tokens(1_500)))],
+        model_factory=factory,
+    )
+    never = [r for r in results if r.condition == "never"]
+    live = [r for r in results if r.condition == "t1500"]
+    assert all(r.correct and r.compactions == 0 for r in never)
+    # Early facts went through several summaries; the stand-in keeps none of them.
+    assert max(r.compactions for r in live) >= 3
+    assert not any(r.correct for r in live if r.compactions >= 2)

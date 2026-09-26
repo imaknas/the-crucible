@@ -20,6 +20,8 @@ SUMMARY_MARKER = "PREVIOUS CONTEXT SUMMARY:"
 # written, and shown as-is before everything newer on every later turn.
 KEEP_VERBATIM = 5
 POLICY_CONFIG_KEY = "compaction_policy"
+# A run may name the model that writes summaries (experiments compare them).
+SUMMARIZER_CONFIG_KEY = "summarizer_model"
 _DEFAULT_POLICY = ThresholdPolicy()
 
 
@@ -599,7 +601,7 @@ def summarize_history(state: CrucibleState, config: RunnableConfig):
         # This prevents Opus from stalling the user experience during a summary jump
         from app.api.models import MODEL_REGISTRY, SUMMARIZER_MODELS
 
-        summarizer_id = next(
+        summarizer_id = ((config or {}).get("configurable") or {}).get(SUMMARIZER_CONFIG_KEY) or next(
             (m for m in SUMMARIZER_MODELS if m in MODEL_REGISTRY),
             SUMMARIZER_MODELS[-1],
         )

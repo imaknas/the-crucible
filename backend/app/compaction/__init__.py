@@ -26,8 +26,11 @@ from app.compaction.probe import (
     PlantedFact,
     Scenario,
     Turn,
+    build_dense_scenario,
     build_scenario,
+    generate_facts,
     is_correct,
+    is_stale,
 )
 
 __all__ = [
@@ -44,7 +47,10 @@ __all__ = [
     "Scenario",
     "Turn",
     "build_scenario",
+    "build_dense_scenario",
+    "generate_facts",
     "is_correct",
+    "is_stale",
     "compare_recall",
     "recall_rate",
 ]
