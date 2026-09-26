@@ -4,6 +4,7 @@ No LLM calls — all responses are mocked.
 """
 
 from unittest.mock import MagicMock
+from app.llm import CallableModelFactory
 
 
 class TestFormatMessages:
@@ -82,7 +83,6 @@ class TestGraphNodes:
     """Tests for graph node functions (drafting_node, synthesis_node)."""
 
     def test_drafting_node_invokes_model(self):
-        from unittest.mock import patch
         from app.services.graph import drafting_node
         from langchain_core.messages import HumanMessage, AIMessage
 
@@ -96,17 +96,21 @@ class TestGraphNodes:
             "documents": {},
         }
 
-        with patch("app.services.graph.get_model", return_value=mock_model):
-            result = drafting_node(
-                state, config={"configurable": {"thread_id": "test_thread"}}
-            )
+        result = drafting_node(
+            state,
+            config={
+                "configurable": {
+                    "thread_id": "test_thread",
+                    "model_factory": CallableModelFactory(lambda *_: mock_model),
+                }
+            },
+        )
 
         assert len(result["messages"]) == 1
         assert result["messages"][0].content == "Model response"
         mock_model.invoke.assert_called_once()
 
     def test_synthesis_node_updates_thesis(self):
-        from unittest.mock import patch
         from app.services.graph import synthesis_node
         from langchain_core.messages import HumanMessage, AIMessage
 
@@ -121,8 +125,9 @@ class TestGraphNodes:
             ],
             "active_peer": "gpt-5.2",
         }
-        with patch("app.services.graph.get_model", return_value=mock_model):
-            result = synthesis_node(state)
+        result = synthesis_node(
+            state, {"configurable": {"model_factory": CallableModelFactory(lambda *_: mock_model)}}
+        )
 
         assert result["current_thesis"] == "Updated thesis"
 
@@ -134,7 +139,7 @@ class TestGraphNodes:
             "messages": [HumanMessage(content=f"Msg {i}") for i in range(5)],
             "active_peer": "gpt-4o",
         }
-        result = summarize_history(state)
+        result = summarize_history(state, {})
         # Should return delta as empty list (<= 5 messages buffer)
         assert result == {"messages": []}
 

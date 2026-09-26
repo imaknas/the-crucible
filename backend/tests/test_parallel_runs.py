@@ -13,6 +13,7 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langgraph.checkpoint.memory import MemorySaver
 
 import app.services.graph as graph_mod
+from app.llm import CallableModelFactory, use_model_factory
 from app.services.runs import (
     final_state_of_run,
     resolve_fork_point,
@@ -41,7 +42,7 @@ def graph_app(tmp_path, monkeypatch):
     from app.core import database as db
 
     db.init_db()
-    with patch.object(graph_mod, "get_model", side_effect=_fake_model), patch.dict(os.environ, KEYS):
+    with use_model_factory(CallableModelFactory(lambda model_id, _toggles: _fake_model(model_id))), patch.dict(os.environ, KEYS):
         yield graph_mod.workflow.compile(checkpointer=MemorySaver())
 
 
@@ -100,7 +101,7 @@ def test_ws_first_turn_arena_gives_each_model_its_own_branch(tmp_path, monkeypat
 
     monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "ws.sqlite"))
     with (
-        patch.object(graph_mod, "get_model", side_effect=_fake_model),
+        use_model_factory(CallableModelFactory(lambda model_id, _toggles: _fake_model(model_id))),
         patch.dict(os.environ, KEYS),
         TestClient(server) as client,
         client.websocket_connect("/ws/thread_ws_test") as ws,

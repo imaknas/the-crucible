@@ -1,7 +1,7 @@
 """A scripted chat model for end-to-end tests.
 
 Enabled only when CRUCIBLE_FAKE_LLM is set (the Playwright config does this),
-in which case get_model() returns it for every registered model. It streams a
+in which case default_model_factory() is a ScriptedModelFactory. It streams a
 deterministic reply word by word, so the UI goes through the same
 stream_start / stream_token / stream_end path as with a real provider, without
 network access or cost.
@@ -92,8 +92,13 @@ class ScriptedChatModel(BaseChatModel):
             yield chunk
 
 
-def get_fake_model(model_id: str) -> ScriptedChatModel:
-    return ScriptedChatModel(
-        model_id=model_id,
-        delay=float(os.getenv("CRUCIBLE_FAKE_LLM_DELAY", "0.04")),
-    )
+class ScriptedModelFactory:
+    """ModelFactory that answers every registered model with a ScriptedChatModel."""
+
+    def __init__(self, delay: Optional[float] = None):
+        self._delay = float(os.getenv("CRUCIBLE_FAKE_LLM_DELAY", "0.04")) if delay is None else delay
+
+    def chat(self, model_id: str, toggles: Any = None) -> ScriptedChatModel:
+        from app.llm.factory import normalize_model_id
+
+        return ScriptedChatModel(model_id=normalize_model_id(model_id), delay=self._delay)

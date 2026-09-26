@@ -1,12 +1,8 @@
-import os
 import asyncio
-from typing import List, Dict, Optional, Any
+from typing import List
 from dotenv import load_dotenv
 import tiktoken
 
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
 from langgraph.graph import StateGraph, END
 from app.core.schema import CrucibleState
@@ -15,6 +11,7 @@ from langchain_core.runnables import RunnableConfig
 
 from app.utils.helpers import extract_text
 from app.services import rag as rag_service
+from app.llm import model_factory_from
 
 load_dotenv()
 
@@ -227,54 +224,6 @@ def count_tokens(messages: list) -> int:
     return int(total * 1.2)
 
 
-_FAMILY_CONSTRUCTORS = {
-    "openai": ("OPENAI_API_KEY", ChatOpenAI),
-    "anthropic": ("ANTHROPIC_API_KEY", ChatAnthropic),
-    "google": ("GOOGLE_API_KEY", ChatGoogleGenerativeAI),
-}
-
-
-def get_model(model_name: str, toggles: Optional[Dict[str, Any]] = None):
-    toggles = toggles or {}
-    model_name = model_name.strip()
-    lower = model_name.lower()
-
-    if lower not in MODEL_REGISTRY:
-        raise ValueError(f"Model '{model_name}' is not supported in the whitelist.")
-
-    from app.services import fake_llm
-
-    if fake_llm.enabled():
-        return fake_llm.get_fake_model(lower)
-
-    config = MODEL_REGISTRY[lower]
-    env_key, constructor = _FAMILY_CONSTRUCTORS[config["family"]]
-    if not os.getenv(env_key):
-        raise ValueError(f"{env_key} is not set in environment or .env file.")
-
-    llm = constructor(model=config["id"])
-
-    # Apply Native Web Search Grounding if toggled and supported
-    if toggles.get("use_web_search") and config.get("native_search"):
-        family = config["family"]
-        if family == "google":
-            llm = llm.bind_tools([{"google_search": {}}])
-        elif family == "anthropic":
-            llm = llm.bind_tools(
-                [
-                    {
-                        "name": "web_search",
-                        "type": "web_search_20260209",  # Use 20260209 for dynamic filtering support on Opus/Sonnet 4.6
-                        "max_uses": 3,
-                    }
-                ]
-            )
-        elif family == "openai":
-            llm = llm.bind_tools([{"type": "web_search_preview"}])
-
-    return llm
-
-
 def retrieve_node(state: CrucibleState, config: RunnableConfig):
     """Retrieve highly relevant chunks from ChromaDB for the active query."""
     if not state.get("toggles", {}).get("use_rag"):
@@ -330,7 +279,7 @@ async def grade_retrieval_node(state: CrucibleState, config: RunnableConfig):
     )
 
     # Use the active peer for grading, with the same toggles so model config is consistent
-    model = get_model(state["active_peer"], state.get("toggles", {}))
+    model = model_factory_from(config).chat(state["active_peer"], state.get("toggles", {}))
 
     sem = asyncio.Semaphore(3)  # Prevent API rate limits
 
@@ -361,7 +310,7 @@ async def grade_retrieval_node(state: CrucibleState, config: RunnableConfig):
 def drafting_node(state: CrucibleState, config: RunnableConfig):
     """Primary node for building the main argument."""
     active_peer = state["active_peer"]
-    model = get_model(active_peer, state.get("toggles", {}))
+    model = model_factory_from(config).chat(active_peer, state.get("toggles", {}))
 
     # RAG Context injection
     prompt_prefix = ""
@@ -538,7 +487,7 @@ def branching_node(state: CrucibleState):
     return state
 
 
-def synthesis_node(state: CrucibleState):
+def synthesis_node(state: CrucibleState, config: RunnableConfig):
     """Analyzes recent messages to update the 'current_thesis' efficiently."""
     try:
         from app.utils.helpers import extract_text
@@ -554,7 +503,7 @@ def synthesis_node(state: CrucibleState):
         if len(last_content) < 20:
             return {"current_thesis": state.get("current_thesis", "")}
 
-        model = get_model(state["active_peer"], state.get("toggles", {}))
+        model = model_factory_from(config).chat(state["active_peer"], state.get("toggles", {}))
 
         # Optimization: Only use the last 5 messages + the current thesis
         # instead of the entire (potentially large) history.
@@ -581,7 +530,7 @@ def synthesis_node(state: CrucibleState):
         return {"current_thesis": state.get("current_thesis", "")}
 
 
-def summarize_history(state: CrucibleState):
+def summarize_history(state: CrucibleState, config: RunnableConfig):
     """Compresses conversation history to fit within model context windows."""
     messages = state["messages"]
     from app.utils.helpers import extract_text
@@ -630,7 +579,7 @@ def summarize_history(state: CrucibleState):
         )
 
         print(f"[Summarize] Using fast model: {summarizer_id} for history compression.")
-        model = get_model(summarizer_id, {})
+        model = model_factory_from(config).chat(summarizer_id, {})
 
         # Keep the last 5 messages as-is. Anything before the previous summary
         # is already folded into it, so start there rather than re-sending the

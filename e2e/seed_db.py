@@ -27,8 +27,8 @@ if DB_PATH.exists():
 
 # Must be set before app modules import, so database.DB_PATH picks it up.
 os.environ["DATABASE_PATH"] = str(DB_PATH)
-# get_model() refuses to build a model when the family key is missing; the
-# fake never reads them, but the guard runs before the patch takes effect.
+# The debate engine checks that each participant's family has a key; the fake
+# never reads them.
 for key in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"):
     os.environ.setdefault(key, "e2e-fixture-not-a-real-key")
 
@@ -40,6 +40,7 @@ from langchain_core.language_models.fake_chat_models import (  # noqa: E402
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver  # noqa: E402
 
 import app.services.graph as graph_mod  # noqa: E402
+from app.llm import CallableModelFactory, use_model_factory  # noqa: E402
 from app.core import database as db  # noqa: E402
 from app.services import debate as debate_svc  # noqa: E402
 
@@ -67,7 +68,7 @@ REPLIES = [
 
 
 def _fake_model(*_args, **_kwargs):
-    """Stand-in for get_model(); cycles through the canned replies."""
+    """Every model is a fake that cycles through the canned replies."""
     return FakeListChatModel(responses=REPLIES)
 
 
@@ -90,9 +91,6 @@ async def _invoke(app, thread_id, model, text, parent_checkpoint_id=None):
 
 
 async def main():
-    # Stub the LLM everywhere the graph reaches for one.
-    graph_mod.get_model = _fake_model
-
     db.init_db()
 
     async with AsyncSqliteSaver.from_conn_string(str(DB_PATH)) as saver:
@@ -159,4 +157,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Stub the LLM everywhere the graph reaches for one.
+    with use_model_factory(CallableModelFactory(_fake_model)):
+        asyncio.run(main())

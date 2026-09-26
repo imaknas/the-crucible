@@ -80,7 +80,7 @@ async def lifespan(app: FastAPI):
         if missing:
             print(f"   ℹ️  Not configured: {', '.join(missing)}\n")
 
-    from app.services import fake_llm
+    from app.llm import fake as fake_llm
 
     if fake_llm.enabled():
         print("⚠️  CRUCIBLE_FAKE_LLM is set: every model is a scripted fake (tests only).")

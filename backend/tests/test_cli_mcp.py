@@ -15,7 +15,7 @@ from fastmcp.exceptions import ToolError
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from typer.testing import CliRunner
 
-import app.services.graph as graph_mod
+from app.llm import CallableModelFactory, use_model_factory
 from app.cli import app as cli_app
 from app.core import database as db
 
@@ -31,7 +31,7 @@ def _fake_model(model_id, *_a, **_kw):
 def isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "cli.sqlite"))
     monkeypatch.setattr("app.cli._load_env", lambda: None)
-    with patch.object(graph_mod, "get_model", side_effect=_fake_model), patch.dict(os.environ, KEYS):
+    with use_model_factory(CallableModelFactory(lambda model_id, _toggles: _fake_model(model_id))), patch.dict(os.environ, KEYS):
         yield
 
 

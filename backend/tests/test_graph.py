@@ -1,118 +1,87 @@
-"""Tests for graph.py — model selection logic.
+"""Tests for graph.py and the model factory.
 
-All LLM constructors are mocked — no API keys or tokens consumed.
+No real client is ever built: providers and models are injected fakes.
 """
 
-import os
 import pytest
 from unittest.mock import patch, MagicMock
 
-
-def _patch_constructor(family: str):
-    """Patch the constructor in _FAMILY_CONSTRUCTORS for a given family."""
-    from app.services import graph as graph
-
-    original = graph._FAMILY_CONSTRUCTORS[family]
-    mock_cls = MagicMock()
-
-    class _Ctx:
-        def __enter__(self):
-            graph._FAMILY_CONSTRUCTORS[family] = (original[0], mock_cls)
-            return mock_cls
-
-        def __exit__(self, *args):
-            graph._FAMILY_CONSTRUCTORS[family] = original
-
-    return _Ctx()
+from app.llm import CallableModelFactory, ProviderModelFactory
 
 
-# ─── get_model() ──────────────────────────────────────────────────
+def _cfg(get_model, **configurable):
+    """A node config that injects `get_model(model_id, toggles)` as the model factory."""
+    return {"configurable": {"model_factory": CallableModelFactory(get_model), **configurable}}
 
 
-class TestGetModel:
-    """Tests for the get_model() function that maps model IDs to LLM instances."""
+class _RecordingProvider:
+    """A ChatProvider strategy that records what it was asked to build."""
 
-    @patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test-123"})
-    def test_exact_match_openai(self):
-        from app.services.graph import get_model
+    def __init__(self):
+        self.created = []
+        self.searched = []
 
-        with _patch_constructor("openai") as mock_cls:
-            mock_cls.return_value = MagicMock()
-            get_model("gpt-5.2")
-            mock_cls.assert_called_once_with(model="gpt-5.2")
+    def create(self, model_id):
+        self.created.append(model_id)
+        return f"client:{model_id}"
 
-    @patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test-123"})
-    def test_exact_match_openai_pro(self):
-        from app.services.graph import get_model
+    def with_web_search(self, llm):
+        self.searched.append(llm)
+        return f"search:{llm}"
 
-        with _patch_constructor("openai") as mock_cls:
-            mock_cls.return_value = MagicMock()
-            get_model("gpt-5.2-pro")
-            mock_cls.assert_called_once_with(model="gpt-5.2-pro")
 
-    @patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"})
-    def test_exact_match_anthropic(self):
-        from app.services.graph import get_model
+def _factory(env=None):
+    providers = {f: _RecordingProvider() for f in ("openai", "anthropic", "google")}
+    return ProviderModelFactory(providers=providers, env=env or {}), providers
 
-        with _patch_constructor("anthropic") as mock_cls:
-            mock_cls.return_value = MagicMock()
-            get_model("claude-sonnet-4-6")
-            mock_cls.assert_called_once_with(model="claude-sonnet-4-6")
 
-    @patch.dict(os.environ, {"GOOGLE_API_KEY": "goog-test"})
-    def test_exact_match_google(self):
-        from app.services.graph import get_model
+# ─── ProviderModelFactory ─────────────────────────────────────────
 
-        with _patch_constructor("google") as mock_cls:
-            mock_cls.return_value = MagicMock()
-            get_model("gemini-3-flash-preview")
-            mock_cls.assert_called_once_with(model="gemini-3-flash-preview")
 
-    @patch.dict(os.environ, {}, clear=True)
-    def test_missing_openai_key_raises(self):
-        from app.services.graph import get_model
+class TestProviderModelFactory:
+    @pytest.mark.parametrize(
+        "model_id, family, env_key",
+        [
+            ("gpt-5.2", "openai", "OPENAI_API_KEY"),
+            ("claude-sonnet-4-6", "anthropic", "ANTHROPIC_API_KEY"),
+            ("gemini-3-flash-preview", "google", "GOOGLE_API_KEY"),
+        ],
+    )
+    def test_builds_through_the_family_strategy(self, model_id, family, env_key):
+        factory, providers = _factory({env_key: "k"})
+        assert factory.chat(model_id) == f"client:{model_id}"
+        assert providers[family].created == [model_id]
+        assert all(not p.created for f, p in providers.items() if f != family)
 
-        with pytest.raises(ValueError, match="OPENAI_API_KEY"):
-            get_model("gpt-5.2")
+    @pytest.mark.parametrize(
+        "model_id, env_key",
+        [("gpt-5.2", "OPENAI_API_KEY"), ("claude-sonnet-4-6", "ANTHROPIC_API_KEY"), ("gemini-3-flash-preview", "GOOGLE_API_KEY")],
+    )
+    def test_missing_key_raises(self, model_id, env_key):
+        factory, _ = _factory({})
+        with pytest.raises(ValueError, match=env_key):
+            factory.chat(model_id)
 
-    @patch.dict(os.environ, {}, clear=True)
-    def test_missing_anthropic_key_raises(self):
-        from app.services.graph import get_model
-
-        with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
-            get_model("claude-sonnet-4-6")
-
-    @patch.dict(os.environ, {}, clear=True)
-    def test_missing_google_key_raises(self):
-        from app.services.graph import get_model
-
-        with pytest.raises(ValueError, match="GOOGLE_API_KEY"):
-            get_model("gemini-3-flash-preview")
-
-    @patch.dict(os.environ, {}, clear=True)
     def test_unknown_model_not_in_whitelist(self):
-        from app.services.graph import get_model
-
+        factory, _ = _factory({"OPENAI_API_KEY": "k"})
         with pytest.raises(ValueError, match="not supported in the whitelist"):
-            get_model("totally-unknown-model")
+            factory.chat("totally-unknown-model")
 
-    @patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test"})
-    def test_case_insensitive(self):
-        from app.services.graph import get_model
+    def test_normalizes_case_and_whitespace(self):
+        factory, providers = _factory({"OPENAI_API_KEY": "k"})
+        factory.chat("  GPT-5.2  ")
+        assert providers["openai"].created == ["gpt-5.2"]
 
-        with _patch_constructor("openai") as mock_cls:
-            mock_cls.return_value = MagicMock()
-            get_model("GPT-5.2")
-            mock_cls.assert_called_once_with(model="gpt-5.2")
+    def test_web_search_only_for_native_search_models(self):
+        from app.api.models import MODEL_REGISTRY
 
-    @patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test"})
-    def test_strips_whitespace(self):
-        from app.services.graph import get_model
-
-        with _patch_constructor("openai") as mock_cls:
-            mock_cls.return_value = MagicMock()
-            get_model("  gpt-5.2  ")
-            mock_cls.assert_called_once_with(model="gpt-5.2")
+        searchable = next(m for m, c in MODEL_REGISTRY.items() if c.get("native_search") and c["family"] == "openai")
+        plain = next((m for m, c in MODEL_REGISTRY.items() if not c.get("native_search") and c["family"] == "openai"), None)
+        factory, providers = _factory({"OPENAI_API_KEY": "k"})
+        assert factory.chat(searchable, {"use_web_search": True}).startswith("search:")
+        assert not factory.chat(searchable, {}).startswith("search:")
+        if plain:
+            assert not factory.chat(plain, {"use_web_search": True}).startswith("search:")
 
 
 # ─── sanitize_messages() ──────────────────────────────────────────
@@ -212,8 +181,8 @@ class TestTokenUtils:
 
 
 class TestNodes:
-    @patch("app.services.graph.get_model")
-    def test_drafting_node(self, mock_get_model):
+    def test_drafting_node(self):
+        mock_get_model = MagicMock()
         from app.services.graph import drafting_node
         from langchain_core.messages import AIMessage, HumanMessage
 
@@ -230,7 +199,7 @@ class TestNodes:
             "retrieved_chunks": [{"filename": "doc.pdf", "text": "Some facts."}],
         }
 
-        res = drafting_node(state, config={"configurable": {"thread_id": "test"}})
+        res = drafting_node(state, config=_cfg(mock_get_model, thread_id="test"))
 
         mock_get_model.assert_called_once_with("gpt-5.2", state["toggles"])
         mock_llm.invoke.assert_called_once()
@@ -241,8 +210,8 @@ class TestNodes:
         assert out_msg.additional_kwargs["confidence"] == 0.95
         assert out_msg.additional_kwargs["conflict"] is False
 
-    @patch("app.services.graph.get_model")
-    def test_drafting_node_deliberation_conflict(self, mock_get_model):
+    def test_drafting_node_deliberation_conflict(self):
+        mock_get_model = MagicMock()
         from app.services.graph import drafting_node
         from langchain_core.messages import AIMessage, HumanMessage
 
@@ -258,13 +227,13 @@ class TestNodes:
             "is_deliberation": True,
         }
 
-        res = drafting_node(state, config={"configurable": {"thread_id": "test"}})
+        res = drafting_node(state, config=_cfg(mock_get_model, thread_id="test"))
         out_msg = res["messages"][0]
         assert out_msg.additional_kwargs["conflict"] is True
         assert res["is_deliberation"] is False
 
-    @patch("app.services.graph.get_model")
-    def test_synthesis_node(self, mock_get_model):
+    def test_synthesis_node(self):
+        mock_get_model = MagicMock()
         from app.services.graph import synthesis_node
         from langchain_core.messages import AIMessage, HumanMessage
 
@@ -286,7 +255,7 @@ class TestNodes:
             "current_thesis": "Old thesis.",
         }
 
-        res = synthesis_node(state)
+        res = synthesis_node(state, _cfg(mock_get_model))
         assert res["current_thesis"] == "Updated thesis based on recent conversation."
 
         # Test short-circuit
@@ -295,7 +264,7 @@ class TestNodes:
             "messages": [HumanMessage(content="Short")],
             "current_thesis": "Old thesis.",
         }
-        res_short = synthesis_node(short_state)
+        res_short = synthesis_node(short_state, _cfg(mock_get_model))
         assert (
             res_short["current_thesis"] == "Old thesis."
         )  # Should not update because of short-circuit
@@ -333,8 +302,8 @@ class TestNodes:
         mock_retrieve.assert_called_once_with("Query", "test")
 
     @pytest.mark.asyncio
-    @patch("app.services.graph.get_model")
-    async def test_grade_retrieval_node(self, mock_get_model):
+    async def test_grade_retrieval_node(self):
+        mock_get_model = MagicMock()
         from app.services.graph import grade_retrieval_node
         from langchain_core.messages import AIMessage, HumanMessage
 
@@ -358,12 +327,12 @@ class TestNodes:
             "active_peer": "gpt-5.2",
         }
 
-        res = await grade_retrieval_node(state, {})
+        res = await grade_retrieval_node(state, _cfg(mock_get_model))
         assert len(res["retrieved_chunks"]) == 1
         assert res["retrieved_chunks"][0]["text"] == "Fact 1"
 
-    @patch("app.services.graph.get_model")
-    def test_summarize_history(self, mock_get_model):
+    def test_summarize_history(self):
+        mock_get_model = MagicMock()
         from app.services.graph import summarize_history
         from langchain_core.messages import HumanMessage, AIMessage
 
@@ -376,7 +345,7 @@ class TestNodes:
 
         with patch("app.services.graph.count_tokens", return_value=100000):
             with patch("app.services.graph.get_token_limit", return_value=10):
-                res = summarize_history(state)
+                res = summarize_history(state, _cfg(mock_get_model))
 
         assert len(res["messages"]) == 1
         assert "PREVIOUS CONTEXT SUMMARY:" in res["messages"][0].content

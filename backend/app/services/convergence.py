@@ -81,7 +81,8 @@ async def llm_judge_converged(
     Ask an LLM judge whether the models have reached consensus.
     Returns (converged: bool, reason: str).
     """
-    from app.services.graph import get_model, extract_text
+    from app.llm import default_model_factory
+    from app.utils.helpers import extract_text
     from langchain_core.messages import HumanMessage
 
     summaries = "\n\n".join(
@@ -95,7 +96,7 @@ async def llm_judge_converged(
     )
 
     try:
-        llm = get_model(judge_model_id, {})
+        llm = default_model_factory().chat(judge_model_id, {})
         loop = asyncio.get_running_loop()
         response = await asyncio.wait_for(
             loop.run_in_executor(None, llm.invoke, [HumanMessage(content=prompt)]),

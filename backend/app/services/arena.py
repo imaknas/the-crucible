@@ -6,7 +6,6 @@ never grow separate copies of the arena / synthesis logic.
 """
 
 import asyncio
-import os
 import sys
 from contextlib import asynccontextmanager, redirect_stdout
 from typing import Any, AsyncGenerator, Dict, List, Optional
@@ -15,6 +14,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from app.api.models import DEFAULT_ARENA_MODELS, FAMILY_META, MODEL_REGISTRY
 from app.core import database as db
+from app.llm import has_credentials
 from app.services.graph import workflow
 from app.services.runs import (
     final_state_of_run,
@@ -50,9 +50,7 @@ async def open_graph():
 
 
 def key_available(model_id: str) -> bool:
-    family = MODEL_REGISTRY.get(model_id, {}).get("family")
-    meta = FAMILY_META.get(family) if isinstance(family, str) else None
-    return bool(os.getenv(meta["env_key"])) if meta else True
+    return has_credentials(model_id)
 
 
 def resolve_models(models: Optional[List[str]] = None) -> List[str]:

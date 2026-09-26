@@ -1,23 +1,32 @@
-"""The scripted model used by the Playwright suite."""
+"""The scripted model used by the Playwright suite, and how it is selected."""
 
 import pytest
 from langchain_core.messages import HumanMessage
 
-from app.services import fake_llm
-from app.services.graph import get_model
+from app.llm import ProviderModelFactory, default_model_factory, use_model_factory
+from app.llm import fake as fake_llm
 
 
-def test_get_model_returns_fake_only_when_enabled(monkeypatch):
+def test_default_factory_is_scripted_only_when_enabled(monkeypatch):
     monkeypatch.setenv("CRUCIBLE_FAKE_LLM", "1")
-    assert isinstance(get_model("gpt-5.4"), fake_llm.ScriptedChatModel)
+    factory = default_model_factory()
+    assert isinstance(factory, fake_llm.ScriptedModelFactory)
+    assert isinstance(factory.chat("gpt-5.4"), fake_llm.ScriptedChatModel)
     with pytest.raises(ValueError):
-        get_model("not-a-model")  # the registry still applies
+        factory.chat("not-a-model")  # the registry still applies
+
     monkeypatch.delenv("CRUCIBLE_FAKE_LLM")
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")  # constructing the client makes no call
-    assert not isinstance(get_model("gpt-5.4"), fake_llm.ScriptedChatModel)
+    assert isinstance(default_model_factory(), ProviderModelFactory)
 
 
-def test_streams_deterministic_reply(monkeypatch):
+def test_use_model_factory_overrides_and_restores():
+    stub = fake_llm.ScriptedModelFactory(delay=0)
+    with use_model_factory(stub):
+        assert default_model_factory() is stub
+    assert default_model_factory() is not stub
+
+
+def test_streams_deterministic_reply():
     model = fake_llm.ScriptedChatModel(model_id="gpt-5.4", delay=0)
     chunks = [c.content for c in model.stream([HumanMessage(content="Q")])]
     assert len(chunks) > 5

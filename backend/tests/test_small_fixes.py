@@ -32,11 +32,11 @@ def test_summarizer_starts_from_previous_summary():
     captured = {}
     fake = MagicMock()
     fake.invoke.side_effect = lambda msgs: captured.setdefault("prompt", msgs[0].content) and MagicMock(content="s")
-    with (
-        patch.object(graph_mod, "get_model", return_value=fake),
-        patch.object(graph_mod, "get_token_limit", return_value=1),
-    ):
-        graph_mod.summarize_history({"messages": history, "active_peer": "gpt-5.4"})
+    from app.llm import CallableModelFactory
+
+    config = {"configurable": {"model_factory": CallableModelFactory(lambda *_: fake)}}
+    with patch.object(graph_mod, "get_token_limit", return_value=1):
+        graph_mod.summarize_history({"messages": history, "active_peer": "gpt-5.4"}, config)
 
     assert "earlier stuff" in captured["prompt"]
     assert "old 3" not in captured["prompt"]
