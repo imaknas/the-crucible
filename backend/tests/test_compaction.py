@@ -470,3 +470,27 @@ def test_recall_brings_back_what_a_lossy_summary_dropped(eval_setup):
     assert not any(r.correct for r in old if r.condition == "none")
     recalled = [r.correct for r in old if r.condition == "recall"]
     assert recalled and all(recalled)
+
+
+def test_embedding_recall_ranks_by_meaning_with_an_injected_embedder():
+    from app.compaction import EmbeddingRecall
+
+    vectors = {"q": [1.0, 0.0], "a": [0.9, 0.1], "b": [0.0, 1.0], "c": [0.7, 0.7]}
+    recall = EmbeddingRecall(lambda texts: [vectors[t] for t in texts], limit=2)
+    assert recall.select("q", ["a", "b", "c"]) == [0, 2]
+
+
+def test_indirect_questions_avoid_the_subject_and_the_oracle_still_answers(eval_setup):
+    import asyncio
+
+    from app.compaction import build_dense_scenario
+    from app.services.compaction_eval import ORACLE, EvalModelFactory, run_live_grid
+
+    app, _ = eval_setup
+    scenario = build_dense_scenario(n_facts=8, exchanges=40, seed=8, questions="indirect")
+    for fact in scenario.facts:
+        prompt = scenario.probe_prompt(fact)
+        assert fact.subject.lower() not in prompt.lower() and fact.indirect_question in prompt
+    results = asyncio.run(run_live_grid(app, {"8": scenario}, [ORACLE], [Condition("never", NeverCompact())],
+                                        model_factory=EvalModelFactory(scenario.facts)))
+    assert all(r.correct for r in results)

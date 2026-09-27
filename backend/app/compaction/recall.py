@@ -49,3 +49,26 @@ class KeywordRecall:
         scored = [(sum(idf.get(t, 0.0) for t in wanted & d), i) for i, d in enumerate(docs)]
         best = sorted((s for s in scored if s[0] > 0), key=lambda si: (-si[0], -si[1]))[: self.limit]
         return sorted(i for _, i in best)
+
+
+class EmbeddingRecall:
+    """The hidden messages closest in meaning to the request (cosine
+    similarity of embeddings), at most `limit`, oldest first. `embed` maps
+    texts to vectors; the host supplies it (and any caching)."""
+
+    def __init__(self, embed, limit: int = 4):
+        self.embed = embed
+        self.limit = limit
+        self.name = "embedding"
+
+    def select(self, query: str, candidates: Sequence[str]) -> list[int]:
+        if not candidates:
+            return []
+        q, *docs = self.embed([query, *candidates])
+        qn = math.sqrt(sum(x * x for x in q)) or 1.0
+
+        def cosine(v):
+            return sum(a * b for a, b in zip(q, v)) / (qn * (math.sqrt(sum(x * x for x in v)) or 1.0))
+
+        best = sorted(range(len(docs)), key=lambda i: (-cosine(docs[i]), -i))[: self.limit]
+        return sorted(best)

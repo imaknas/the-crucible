@@ -653,8 +653,9 @@ def compaction_eval(
         None, "--instruction", help="Summary instruction (repeat): 'brief' (the app's), 'handoff' (Codex CLI's) or 'state' (state + index). Default: brief."
     ),
     recalls: Optional[List[str]] = typer.Option(
-        None, "--recall", help="Bring hidden messages back per request (repeat): 'none' or 'keyword'. Default: none."
+        None, "--recall", help="Bring hidden messages back per request (repeat): 'none', 'keyword' or 'embedding' (the app's local embedding model). Default: none."
     ),
+    questions: str = typer.Option("direct", "--questions", help="Probe by the subject's name ('direct') or by what it does ('indirect'; dense only)."),
     fact_variants: str = typer.Option("plain,distractor,update", "--fact-variants", help="Variants the facts cycle through (dense only), e.g. 'plain' for plain facts only."),
     repeat_facts: bool = typer.Option(False, "--repeat-facts", help="Restate every fact once more later with the same value (dense only); pair with a run without it."),
     assistant_facts: float = typer.Option(0.0, "--assistant-facts", help="Share of planted facts stated by the assistant instead of the user (dense only)."),
@@ -688,8 +689,8 @@ def compaction_eval(
     if scenario not in ("dense", "basic") or compaction not in ("live", "once"):
         _fail("--scenario is dense|basic and --compaction is live|once", as_json)
     if (not set(keeps or []) <= {"recent", "user"} or not set(instructions or []) <= {"brief", "handoff", "state"}
-            or not set(recalls or []) <= {"none", "keyword"}):
-        _fail("--keep is recent|user, --instruction brief|handoff|state, --recall none|keyword", as_json)
+            or not set(recalls or []) <= {"none", "keyword", "embedding"} or questions not in ("direct", "indirect")):
+        _fail("--keep is recent|user, --instruction brief|handoff|state, --recall none|keyword|embedding, --questions direct|indirect", as_json)
     if not dry_run and budget is None and not estimate_only:
         _fail("a real run needs --budget (USD); use --estimate to see what it would cost", as_json)
     model_ids = [ORACLE] if dry_run else list(models or _cheapest_models())
@@ -715,6 +716,7 @@ def compaction_eval(
         "user_budget": user_budget,
         "instructions": list(instructions or []),
         "recalls": list(recalls or []),
+        "questions": questions,
         "assistant_facts": assistant_facts,
         "fact_variants": fact_variants.split(","),
         "repeat_facts": repeat_facts,
@@ -779,6 +781,7 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
     from app.compaction import (
         DetailedBrief,
         HandoffBrief,
+        EmbeddingRecall,
         KeepUserMessages,
         KeywordRecall,
         StateAndIndex,
@@ -799,7 +802,8 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
     if options["scenario"] == "dense":
         scenarios = {str(s): build_dense_scenario(n_facts=options["facts"], exchanges=options["exchanges"], seed=s,
                                                   assistant_facts=options["assistant_facts"],
-                                                  variants=options["fact_variants"], repeat_facts=options["repeat_facts"])
+                                                  variants=options["fact_variants"], repeat_facts=options["repeat_facts"],
+                                                  questions=options["questions"])
                      for s in range(options["seeds"])}
     else:
         scenarios = {str(s): build_scenario(exchanges=options["exchanges"], seed=s) for s in range(options["seeds"])}
@@ -807,6 +811,10 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
     retentions = {"recent": None, "user": KeepUserMessages(options["user_budget"])}
     bases = {"brief": None, "handoff": HandoffBrief(), "state": StateAndIndex()}
     recallers = {"none": None, "keyword": KeywordRecall()}
+    if "embedding" in options["recalls"]:
+        from app.services import rag
+
+        recallers["embedding"] = EmbeddingRecall(ce.cached_embedder(rag.get_embeddings().embed_documents))
     for t in options["thresholds"]:
         for summarizer in options["summarizers"] or [None]:
             for length in options["lengths"] or [None]:

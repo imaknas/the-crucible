@@ -550,3 +550,34 @@ user message come back as a quoted excerpt, oldest first.
 - Caveat: probes name their subject, which is kind to keyword search; real
   follow-up questions are vaguer. Embedding search or a model-driven lookup
   (using the summary's index) is the next test, as are real conversations.
+
+## 2026-09-28 — Toward the read side: indirect questions (retrieval, offline)
+
+The research question moves from *how well* a summary keeps detail (a
+capability question, redone for every model) to *when* the relevance
+decision is made. Compaction decides what matters before the question
+exists; recall decides at read time, but then has to know what to fetch.
+
+`--questions indirect` asks by what a subject does instead of its name
+("Which network port should the firewall allow for the task that clears
+cached files at the edge?" instead of "Which port does the CDN purge job
+listen on?"). No subject word appears in any indirect question
+(`probe.SUBJECT_DESCRIPTIONS`). `EmbeddingRecall` ranks hidden messages by
+cosine similarity with the app's local embedding model (all-MiniLM-L6-v2).
+
+Retrieval alone, no model calls: over each full conversation (280 messages,
+half the facts stated by the assistant), is the message that stated the fact
+among the top 4 for its question?
+
+| | direct question | indirect question |
+|---|---|---|
+| KeywordRecall | 66/72 | **24/72** |
+| EmbeddingRecall (MiniLM) | 27/72 | 22/72 |
+
+- Taking away the subject's name cuts keyword retrieval to a third.
+- The small embedding model is weak even for direct questions: every
+  message in these conversations has the same shape (subsystem + metric), so
+  sentence embeddings barely separate them. Retrieval quality, not storage,
+  becomes the bottleneck once originals are kept.
+- Pilot 8 (running) measures how this turns into lost answers, next to the
+  full history and a strong summary.

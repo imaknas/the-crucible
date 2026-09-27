@@ -45,6 +45,10 @@ class PlantedFact:
     # What the fact is about ("the PDF exporter"), for checking that a value
     # is still attached to it; empty for the hand-written pilot 1 facts.
     subject: str = ""
+    # The same question without naming the subject or reusing the statement's
+    # wording: finding the fact then takes knowing what it is about, not
+    # matching words. Empty for the hand-written pilot 1 facts.
+    indirect_question: str = ""
 
 
 DEFAULT_FACTS: tuple[PlantedFact, ...] = (
@@ -84,9 +88,14 @@ class Scenario:
     extra_positions: dict[str, list[int]] = field(default_factory=dict)
     # fact key -> "user" or "assistant": who stated it
     stated_by: dict[str, str] = field(default_factory=dict)
+    # "direct" asks by the subject's name; "indirect" by what it does.
+    questions: str = "direct"
+
+    def question_for(self, fact: PlantedFact) -> str:
+        return fact.indirect_question if self.questions == "indirect" and fact.indirect_question else fact.question
 
     def probe_prompt(self, fact: PlantedFact) -> str:
-        return f"Quick check on something from earlier in this conversation: {fact.question} Answer with just the value."
+        return f"Quick check on something from earlier in this conversation: {self.question_for(fact)} Answer with just the value."
 
 
 # ─── Filler ──────────────────────────────────────────────────────
@@ -192,6 +201,63 @@ SUBJECTS = [
     "translation service", "PDF exporter", "webhook dispatcher", "config service", "license checker",
     "push service", "status page",
 ]
+# What each subject does, in words that avoid its name, so an indirect
+# question identifies it only by meaning.
+SUBJECT_DESCRIPTIONS = {
+    "ingest pipeline": "the process that brings incoming data into our systems",
+    "audit service": "the component that keeps a record of who changed what",
+    "billing export": "the monthly dump of invoicing data for accounting",
+    "search indexer": "the thing that makes documents findable by keyword",
+    "notification gateway": "the component that decides which alert emails and texts go out",
+    "report scheduler": "the thing that produces recurring summaries on a timetable",
+    "image resizer": "the tool that shrinks uploaded pictures into thumbnails",
+    "session store": "the place where logged-in users' state is kept",
+    "feature-flag service": "the system for switching features on and off per customer",
+    "payment webhook": "the endpoint our card processor calls when a charge settles",
+    "geo lookup": "the component that turns an IP address into a location",
+    "fraud scorer": "the model that rates transactions for suspicious activity",
+    "email relay": "the server that forwards our outgoing mail",
+    "metrics collector": "the agent that gathers performance numbers from hosts",
+    "backup job": "the nightly copy of our databases",
+    "sync worker": "the background process that keeps the mobile app's data consistent",
+    "partner API": "the interface outside companies integrate against",
+    "admin console": "the internal back-office tool for support staff",
+    "rate limiter": "the component that throttles clients who call us too often",
+    "document store": "the database where uploaded files and their metadata live",
+    "chat widget": "the little messaging box on our website",
+    "invoice renderer": "the component that lays out bills for customers to download",
+    "ledger service": "the system of record for every money movement",
+    "tax calculator": "the component that works out VAT on each order",
+    "shipping quote service": "what estimates delivery costs at checkout",
+    "inventory cache": "the fast copy of stock levels",
+    "recommendation model": "what suggests products a customer might like",
+    "support portal": "the site where customers ask us for help",
+    "SSO bridge": "the piece that lets people sign in with their company account",
+    "log shipper": "the agent that forwards application logs to storage",
+    "CDN purge job": "the task that clears cached files at the edge",
+    "warehouse loader": "the job that moves data into the analytics database",
+    "experiment runner": "the system that assigns users to A/B tests",
+    "translation service": "the component that localizes text into other languages",
+    "PDF exporter": "the feature that lets users save pages as printable files",
+    "webhook dispatcher": "the component that notifies customers' servers when events happen",
+    "config service": "where applications fetch their settings at startup",
+    "license checker": "the component that verifies a customer has paid for a seat",
+    "push service": "the thing that delivers notifications to the mobile apps",
+    "status page": "the public site that shows whether we are up",
+}
+
+_INDIRECT = {
+    "number": "How much money are we allowed to spend on {d}, in euros?",
+    "name": "Who should look at it when {d} breaks at night?",
+    "identifier": "Which encryption key must data taken out of {d} use?",
+    "negation": "Which technology did we rule out for {d}?",
+    "date": "From what date are migrations blocked for {d}?",
+    "port": "Which network port should the firewall allow for {d}?",
+    "quote": "How did the client phrase their priorities for {d}, word for word?",
+    "choice": "Which supplier are we going with for {d}?",
+}
+
+
 _MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
            "September", "October", "November", "December"]
 _FACT_FIRST = ["Ilse", "Tomasz", "Priya", "Joaquin", "Maren", "Oluwaseun", "Keiko", "Anders",
@@ -374,7 +440,8 @@ def generate_facts(n: int = 24, *, seed: int = 0, variants: Sequence[str] = VARI
         kind = FACT_KINDS[i % len(FACT_KINDS)]
         variant = variants[(i // len(FACT_KINDS)) % len(variants)] if kind in VARIANT_KINDS else "plain"
         fact = _fact(kind, variant, subject, f"{kind}-{subject.replace(' ', '-')}", values)
-        facts.append(replace(fact, subject=subject))
+        indirect = _INDIRECT[kind].format(d=SUBJECT_DESCRIPTIONS[subject])
+        facts.append(replace(fact, subject=subject, indirect_question=indirect))
     return facts
 
 
@@ -414,6 +481,7 @@ def build_dense_scenario(
     assistant_facts: float = 0.0,
     variants: Sequence[str] = VARIANTS,
     repeat_facts: bool = False,
+    questions: str = "direct",
 ) -> Scenario:
     """A long conversation where every turn carries specifics.
 
@@ -482,7 +550,8 @@ def build_dense_scenario(
              else extra_positions.setdefault(fact.key, []).append(where))
         turns.append(Turn("user", " ".join(parts), planted[0].key if planted and by == "user" else None))
         turns.append(Turn("assistant", " ".join(reply), planted[0].key if planted and by == "assistant" else None))
-    return Scenario(turns=turns, facts=facts, positions=positions, extra_positions=extra_positions, stated_by=stated_by)
+    return Scenario(turns=turns, facts=facts, positions=positions, extra_positions=extra_positions, stated_by=stated_by,
+                    questions=questions)
 
 
 # ─── Scoring ─────────────────────────────────────────────────────

@@ -529,7 +529,8 @@ class AvailabilityOracle(BaseChatModel):
         question = extract_text(messages[-1].content) if messages else ""
         # Scenarios with different seeds can ask the same question with
         # different answers; only the one in this context can be found.
-        candidates = [f for f in self.facts if f.question in question]
+        candidates = [f for f in self.facts
+                      if f.question in question or (f.indirect_question and f.indirect_question in question)]
         if not candidates:
             reply = "Noted."
         else:
@@ -807,3 +808,24 @@ def cheapest_models(registry: Mapping[str, Mapping[str, Any]], catalog: Mapping[
         if cfg["family"] not in best or key < best[cfg["family"]][0]:
             best[cfg["family"]] = (key, model_id)
     return [model_id for _, model_id in sorted(best.values(), key=lambda kv: kv[1])]
+
+
+def cached_embedder(embed_documents, size: int = 20_000):
+    """Wraps a batch embedding function with a per-text cache: recall embeds
+    the same hidden messages on every probe."""
+    cache: dict[str, list[float]] = {}
+    lock = threading.Lock()
+
+    def embed(texts: Sequence[str]) -> list[list[float]]:
+        with lock:
+            missing = [t for t in dict.fromkeys(texts) if t not in cache]
+        if missing:
+            vectors = embed_documents(missing)
+            with lock:
+                if len(cache) > size:
+                    cache.clear()
+                cache.update(zip(missing, vectors))
+        with lock:
+            return [cache[t] for t in texts]
+
+    return embed

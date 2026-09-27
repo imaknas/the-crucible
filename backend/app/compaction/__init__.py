@@ -24,7 +24,7 @@ from app.compaction.policy import (
     fraction_of_limit,
 )
 from app.compaction.instructions import DetailedBrief, HandoffBrief, LengthTarget, StateAndIndex, SummaryInstruction
-from app.compaction.recall import HistoryRecall, KeywordRecall
+from app.compaction.recall import EmbeddingRecall, HistoryRecall, KeywordRecall
 from app.compaction.retention import EarlierMessage, KeepRecent, KeepUserMessages, Retention
 from app.compaction.judge import compare_recall, recall_rate
 from app.compaction.probe import (
@@ -47,6 +47,7 @@ __all__ = [
     "StateAndIndex",
     "HistoryRecall",
     "KeywordRecall",
+    "EmbeddingRecall",
     "EarlierMessage",
     "KeepRecent",
     "KeepUserMessages",
