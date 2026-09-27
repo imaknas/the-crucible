@@ -518,7 +518,10 @@ def rescore(results: Iterable[ProbeResult], scenarios: Mapping[str, Scenario]) -
 
 
 def _visible_text(messages: Sequence[BaseMessage]) -> str:
-    return "\n".join(extract_text(m.content) for m in messages[:-1])
+    """Everything the model was given. The latest message is the question,
+    but it also carries per-request notes (recalled excerpts); questions
+    never contain answer values, so including it adds no false hits."""
+    return "\n".join(extract_text(m.content) for m in messages)
 
 
 class AvailabilityOracle(BaseChatModel):

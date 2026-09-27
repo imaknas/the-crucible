@@ -521,3 +521,18 @@ def test_asides_change_only_the_wording():
         assert is_correct(b.statement, b) or any(x.lower() in b.statement.lower() for x in b.answers)
     differ = [i for i, (x, y) in enumerate(zip(plain.turns, aside.turns)) if x.text != y.text]
     assert len(differ) == len(plain.facts)  # only the planting turns changed
+
+
+def test_volatile_context_rides_with_the_latest_request():
+    """Providers cache the longest unchanged prefix: the time and recalled
+    excerpts must not sit in the system prompt, or every call re-reads the
+    whole history at full price."""
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+    history = [SystemMessage(content="You are helpful.")]
+    history += [HumanMessage(content=f"q{i}") if i % 2 == 0 else AIMessage(content=f"a{i}") for i in range(9)]
+    first = graph_mod.sanitize_messages(history, request_notes=["[Current System Time: 10:00:01]"])
+    second = graph_mod.sanitize_messages(history, request_notes=["[Current System Time: 10:00:02]"])
+    assert [m.content for m in first[:-1]] == [m.content for m in second[:-1]]  # identical prefix
+    assert "10:00" not in first[0].content
+    assert first[-1].content.startswith("[Current System Time: 10:00:01]") and first[-1].content.endswith("q8")

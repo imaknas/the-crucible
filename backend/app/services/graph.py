@@ -109,7 +109,8 @@ load_dotenv()
 
 
 def sanitize_messages(
-    messages: List[BaseMessage], prune_history: bool = True, retention=None, recall=None
+    messages: List[BaseMessage], prune_history: bool = True, retention=None, recall=None,
+    request_notes: Optional[List[str]] = None,
 ) -> List[BaseMessage]:
     """
     Final Ironclad Sanitizer:
@@ -213,11 +214,9 @@ def sanitize_messages(
             if chosen:
                 lines = [f"[{'User' if earlier[i]['role'] == 'human' else earlier[i].get('name') or 'assistant'}]: {earlier[i]['content']}"
                          for i in chosen]
-                sys_messages = sys_messages + [{
-                    "role": "system",
-                    "content": "Earlier messages retrieved from the full conversation (oldest first):\n" + "\n".join(lines),
-                    "name": None,
-                }]
+                request_notes = list(request_notes or []) + [
+                    "Earlier messages retrieved from the full conversation (oldest first):\n" + "\n".join(lines)
+                ]
                 print(f"[Sanitizer] Recalled {len(chosen)} hidden messages")
 
         # Reassemble: System -> Summary (from tail) -> Recovered Human -> Rest of Tail
@@ -305,6 +304,25 @@ def sanitize_messages(
     if first_non_sys is not None and result[first_non_sys].type == "ai":
         result.insert(first_non_sys, HumanMessage(content="Continue."))
 
+    return _with_request_notes(result, request_notes)
+
+
+def _with_request_notes(result: List[BaseMessage], notes: Optional[List[str]]) -> List[BaseMessage]:
+    """Put what changes on every call (the time, recalled excerpts) into the
+    latest user message instead of the system prompt. Providers cache the
+    longest unchanged prefix of a request; anything volatile near the top
+    makes every call re-read the whole history at full price."""
+    if not notes:
+        return result
+    last = next((i for i in range(len(result) - 1, -1, -1) if result[i].type == "human"), None)
+    if last is None:
+        return result + [HumanMessage(content="\n\n".join(notes))]
+    m = result[last]
+    result[last] = HumanMessage(
+        content="\n\n".join(notes) + "\n\n---\n\n" + extract_text(m.content),
+        name=getattr(m, "name", None),
+        additional_kwargs=dict(getattr(m, "additional_kwargs", {}) or {}),
+    )
     return result
 
 
@@ -465,17 +483,15 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
             "and provide a synthesis or a strong counter-argument to push the deliberation forward."
         )
 
-    # Time & Location Context
+    # Time context rides with the latest request (see _with_request_notes):
+    # at the top of the system prompt it changed every call and defeated
+    # provider prompt caching for the whole history behind it.
     import datetime
 
     now = datetime.datetime.now()
-    time_str = now.strftime("%Y-%m-%d %H:%M:%S")
-    tz_str = datetime.datetime.now().astimezone().tzname()
-    context_prefix = f"[Current System Time: {time_str} ({tz_str})]\n"
+    time_note = f"[Current System Time: {now.strftime('%Y-%m-%d %H:%M:%S')} ({now.astimezone().tzname()})]"
 
-    system_msg = SystemMessage(
-        content=f"{context_prefix}{role_description} {prompt_prefix}"
-    )
+    system_msg = SystemMessage(content=f"{role_description} {prompt_prefix}")
 
     # Build message list with model attribution for deliberation
     messages: List[BaseMessage] = []
@@ -514,7 +530,8 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     )
 
     sanitized_messages = sanitize_messages(
-        messages, prune_history=do_prune, retention=retention_from(config), recall=recall_from(config)
+        messages, prune_history=do_prune, retention=retention_from(config), recall=recall_from(config),
+        request_notes=[time_note],
     )
     effective_tokens = count_tokens(sanitized_messages)
 
