@@ -462,3 +462,38 @@ value of anything changed, and a one-line index of topics.
   telling the summarizer *what kind* of thing must survive (values,
   decisions, who said them) changes that choice far more than the choice of
   a cheap model does.
+
+## 2026-09-27 — Pilot 7b: bringing hidden messages back (recall)
+
+**Command:** `uv run crucible compaction-eval --budget 3.2 --no-baseline -t 8000 -s gemini-3.5-flash-lite -s gemini-3.8-flash --assistant-facts 0.5 -m gpt-6-luna --instruction brief --instruction handoff --instruction state --recall keyword --out experiments/results/pilot7b-recall-2026-09-27.json`
+(A first attempt with a $2.60 cap was refused by the budget check: the
+re-calibrated estimate plus margin was $3.01.) Estimated $2.07 + $0.10
+calibration, spent $2.18. Rows without recall are pilots 5 and 7a.
+
+`KeywordRecall`: before each call, the up to 4 hidden messages (pruned, not
+in the retained window) sharing the most distinctive words with the latest
+user message come back as a quoted excerpt, oldest first.
+
+| summarizer | instruction | recall | strict oracle | gpt-6-luna | read per probe |
+|---|---|---|---|---|---|
+| flash-lite | brief | – | 31/72 | 27/72 | 5.8k |
+| flash-lite | brief | keyword | **67/72** | **67/72** | 5.3k |
+| flash-lite | handoff | – | 9/72 | 9/72 | 2.1k |
+| flash-lite | handoff | keyword | **66/72** | **66/72** | **2.8k** |
+| flash-lite | state | – | 70/72 | 69/72 | 10.9k |
+| flash-lite | state | keyword | 72/72 | 72/72 | 11.7k |
+| 3.8-flash | brief / handoff / state | – | 72 / 70 / 72 | 72 / 70 / 72 | 9.5k / 3.7k / 7.7k |
+| 3.8-flash | brief / handoff / state | keyword | 72 / 72 / 72 | 72 / 72 / 72 | 7.9k / 3.7k / 7.8k |
+
+- **Recall rescues lossy summaries**: flash-lite brief +50 points
+  ([+36, +61]), handoff +79 points ([+66, +86]). Where the summary already
+  kept everything, recall changes nothing (equivalent within ±0.1).
+- **The cheapest configuration that keeps ~all detail**: flash-lite writing
+  1k-token handoffs plus recall — 66/72 while every later call reads 2.8k
+  tokens, a third of what a detailed brief costs to carry.
+- This is the "never let the summary be the only copy" principle measured:
+  once the original is reachable, the summary only has to be good enough to
+  continue from, not a complete record.
+- Caveat: probes name their subject, which is kind to keyword search; real
+  follow-up questions are vaguer. Embedding search or a model-driven lookup
+  (using the summary's index) is the next test, as are real conversations.
