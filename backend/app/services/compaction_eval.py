@@ -35,6 +35,7 @@ from langchain_core.runnables import RunnableLambda
 
 from app.compaction import (
     CompactionPolicy,
+    HistoryRecall,
     PlantedFact,
     Retention,
     Scenario,
@@ -46,6 +47,7 @@ from app.compaction.probe import is_stale, value_attached
 from app.services.graph import (
     INSTRUCTION_CONFIG_KEY,
     POLICY_CONFIG_KEY,
+    RECALL_CONFIG_KEY,
     RETENTION_CONFIG_KEY,
     SUMMARIZER_CONFIG_KEY,
     SUMMARY_MARKER,
@@ -70,6 +72,8 @@ class Condition:
     instruction: Optional[SummaryInstruction] = None
     # What stays verbatim once history is pruned; None = the recent window.
     retention: Optional[Retention] = None
+    # Which hidden messages come back for a request; None = none.
+    recall: Optional[HistoryRecall] = None
 
     def configure(self, config: dict) -> dict:
         config["configurable"][POLICY_CONFIG_KEY] = self.policy
@@ -79,6 +83,8 @@ class Condition:
             config["configurable"][INSTRUCTION_CONFIG_KEY] = self.instruction
         if self.retention:
             config["configurable"][RETENTION_CONFIG_KEY] = self.retention
+        if self.recall:
+            config["configurable"][RECALL_CONFIG_KEY] = self.recall
         return config
 
 
@@ -744,6 +750,7 @@ async def estimate_cost(
     *,
     thread_prefix: str,
     calibration_cost: float = 0.0,
+    grid=None,
 ) -> CostEstimate:
     """Dry-run every condition with the oracle answering and a stand-in
     summary of the calibrated size: that gives exactly what each probe reads
@@ -759,7 +766,7 @@ async def estimate_cost(
     by_model: dict[str, float] = {}
     summaries: dict[str, float] = {}
     for condition in conditions:
-        dry = await run_live_grid(
+        dry = await (grid or run_live_grid)(
             graph_app, scenarios, [ORACLE], [condition],
             thread_prefix=f"{thread_prefix}::estimate", model_factory=EvalModelFactory(
                 facts, inner=_SizedFactory(summarizers[condition.name].summary_tokens if condition.name in summarizers else 0)),

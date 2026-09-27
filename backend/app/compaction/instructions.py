@@ -54,6 +54,25 @@ class HandoffBrief:
         return f"{transcript}\n\n{self.instruction}"
 
 
+class StateAndIndex:
+    """What to carry forward, chosen by what cannot be recovered otherwise:
+    who stated what (authority), the latest value of everything still in
+    play (state), and an index of what was discussed, so details left out can
+    be found again in the full history rather than rewritten here."""
+
+    name = "state"
+    instruction = (
+        "Condense the conversation history below into a record the conversation can continue from.\n"
+        "1. Current state: every decision, agreed value, constraint and open item, each with who stated it "
+        "(User or the model's name). When a value was changed, give only the latest one and note that it replaced an earlier one.\n"
+        "2. Index: one line per topic or subject that came up, naming it plainly so it can be looked up later.\n"
+        "Leave out discussion that led nowhere. Be concise."
+    )
+
+    def prompt(self, transcript: str) -> str:
+        return f"{self.instruction}\n\n{transcript}"
+
+
 class LengthTarget:
     """The original instruction plus a length limit, and nothing else, so a
     comparison with DetailedBrief isolates the effect of length."""

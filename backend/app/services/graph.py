@@ -27,6 +27,8 @@ INSTRUCTION_CONFIG_KEY = "summary_instruction"
 _DEFAULT_INSTRUCTION = DetailedBrief()
 # What stays verbatim before the summary once history is pruned.
 RETENTION_CONFIG_KEY = "history_retention"
+# Which hidden messages to bring back for a request; none by default.
+RECALL_CONFIG_KEY = "history_recall"
 _DEFAULT_RETENTION = KeepRecent(KEEP_VERBATIM)
 _ROLE = {"human": "user", "ai": "assistant"}
 
@@ -35,6 +37,11 @@ def retention_from(config: Optional[RunnableConfig]):
     """The run's injected Retention, else the recent window."""
     injected = ((config or {}).get("configurable") or {}).get(RETENTION_CONFIG_KEY)
     return injected or _DEFAULT_RETENTION
+
+
+def recall_from(config: Optional[RunnableConfig]):
+    """The run's injected HistoryRecall, or None."""
+    return ((config or {}).get("configurable") or {}).get(RECALL_CONFIG_KEY)
 
 
 def _text_tokens(text: str) -> int:
@@ -102,7 +109,7 @@ load_dotenv()
 
 
 def sanitize_messages(
-    messages: List[BaseMessage], prune_history: bool = True, retention=None
+    messages: List[BaseMessage], prune_history: bool = True, retention=None, recall=None
 ) -> List[BaseMessage]:
     """
     Final Ironclad Sanitizer:
@@ -191,8 +198,26 @@ def sanitize_messages(
             EarlierMessage(_ROLE.get(p["role"], "system"), _text_tokens(str(p["content"])))
             for p in earlier
         ]
-        recovery = [earlier[i] for i in (retention or _DEFAULT_RETENTION).keep(described)]
+        kept = (retention or _DEFAULT_RETENTION).keep(described)
+        recovery = [earlier[i] for i in kept]
         print(f"[Sanitizer] Kept {len(recovery)} verbatim messages before the summary")
+
+        # The run's HistoryRecall may bring back hidden messages relevant to
+        # the latest request; they come back as a quoted excerpt, not as
+        # turns, so role alternation is unaffected.
+        if recall is not None:
+            hidden = [i for i, p in enumerate(earlier) if p["role"] in ("human", "ai") and i not in set(kept)]
+            query = next((str(p["content"]) for p in reversed(processed) if p["role"] == "human"), "")
+            chosen = [hidden[j] for j in recall.select(query, [str(earlier[i]["content"]) for i in hidden])]
+            if chosen:
+                lines = [f"[{'User' if earlier[i]['role'] == 'human' else earlier[i].get('name') or 'assistant'}]: {earlier[i]['content']}"
+                         for i in chosen]
+                sys_messages = sys_messages + [{
+                    "role": "system",
+                    "content": "Earlier messages retrieved from the full conversation (oldest first):\n" + "\n".join(lines),
+                    "name": None,
+                }]
+                print(f"[Sanitizer] Recalled {len(chosen)} hidden messages")
 
         # Reassemble: System -> Summary (from tail) -> Recovered Human -> Rest of Tail
         # This ensures the human message the user JUST sent remains the latest human prompt.
@@ -487,7 +512,9 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
         f"[Selective Pruning] {'Active' if do_prune else 'High-fidelity mode'} for {active_peer} ({decision.reason})"
     )
 
-    sanitized_messages = sanitize_messages(messages, prune_history=do_prune, retention=retention_from(config))
+    sanitized_messages = sanitize_messages(
+        messages, prune_history=do_prune, retention=retention_from(config), recall=recall_from(config)
+    )
     effective_tokens = count_tokens(sanitized_messages)
 
     # Diagnostic Logging

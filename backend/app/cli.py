@@ -650,8 +650,13 @@ def compaction_eval(
     ),
     user_budget: int = typer.Option(20_000, "--user-budget", help="Token budget for --keep user (Codex CLI uses 20,000)."),
     instructions: Optional[List[str]] = typer.Option(
-        None, "--instruction", help="Summary instruction (repeat): 'brief' (the app's) or 'handoff' (Codex CLI's). Default: brief."
+        None, "--instruction", help="Summary instruction (repeat): 'brief' (the app's), 'handoff' (Codex CLI's) or 'state' (state + index). Default: brief."
     ),
+    recalls: Optional[List[str]] = typer.Option(
+        None, "--recall", help="Bring hidden messages back per request (repeat): 'none' or 'keyword'. Default: none."
+    ),
+    fact_variants: str = typer.Option("plain,distractor,update", "--fact-variants", help="Variants the facts cycle through (dense only), e.g. 'plain' for plain facts only."),
+    repeat_facts: bool = typer.Option(False, "--repeat-facts", help="Restate every fact once more later with the same value (dense only); pair with a run without it."),
     assistant_facts: float = typer.Option(0.0, "--assistant-facts", help="Share of planted facts stated by the assistant instead of the user (dense only)."),
     scenario: str = typer.Option("dense", "--scenario", help="dense: specifics everywhere, distractors and updates. basic: pilot 1's generic filler."),
     facts: int = typer.Option(24, "--facts", help="Planted facts per scenario (dense only)."),
@@ -682,8 +687,9 @@ def compaction_eval(
     _load_env()
     if scenario not in ("dense", "basic") or compaction not in ("live", "once"):
         _fail("--scenario is dense|basic and --compaction is live|once", as_json)
-    if not set(keeps or []) <= {"recent", "user"} or not set(instructions or []) <= {"brief", "handoff"}:
-        _fail("--keep is recent|user and --instruction is brief|handoff", as_json)
+    if (not set(keeps or []) <= {"recent", "user"} or not set(instructions or []) <= {"brief", "handoff", "state"}
+            or not set(recalls or []) <= {"none", "keyword"}):
+        _fail("--keep is recent|user, --instruction brief|handoff|state, --recall none|keyword", as_json)
     if not dry_run and budget is None and not estimate_only:
         _fail("a real run needs --budget (USD); use --estimate to see what it would cost", as_json)
     model_ids = [ORACLE] if dry_run else list(models or _cheapest_models())
@@ -708,7 +714,10 @@ def compaction_eval(
         "keeps": list(keeps or []),
         "user_budget": user_budget,
         "instructions": list(instructions or []),
+        "recalls": list(recalls or []),
         "assistant_facts": assistant_facts,
+        "fact_variants": fact_variants.split(","),
+        "repeat_facts": repeat_facts,
         "compaction": compaction,
         "baseline": baseline,
         "concurrency": concurrency,
@@ -771,6 +780,8 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
         DetailedBrief,
         HandoffBrief,
         KeepUserMessages,
+        KeywordRecall,
+        StateAndIndex,
         LengthTarget,
         NeverCompact,
         ThresholdPolicy,
@@ -787,26 +798,30 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
     db.DB_PATH = db_path  # experiment threads never touch the app's database
     if options["scenario"] == "dense":
         scenarios = {str(s): build_dense_scenario(n_facts=options["facts"], exchanges=options["exchanges"], seed=s,
-                                                  assistant_facts=options["assistant_facts"])
+                                                  assistant_facts=options["assistant_facts"],
+                                                  variants=options["fact_variants"], repeat_facts=options["repeat_facts"])
                      for s in range(options["seeds"])}
     else:
         scenarios = {str(s): build_scenario(exchanges=options["exchanges"], seed=s) for s in range(options["seeds"])}
     conditions = [ce.Condition("never", NeverCompact())] if options["baseline"] else []
     retentions = {"recent": None, "user": KeepUserMessages(options["user_budget"])}
-    bases = {"brief": None, "handoff": HandoffBrief()}
+    bases = {"brief": None, "handoff": HandoffBrief(), "state": StateAndIndex()}
+    recallers = {"none": None, "keyword": KeywordRecall()}
     for t in options["thresholds"]:
         for summarizer in options["summarizers"] or [None]:
             for length in options["lengths"] or [None]:
                 for keep in options["keeps"] or ["recent"]:
                     for base in options["instructions"] or ["brief"]:
-                        name = (f"t{t}" + (f"-{summarizer}" if summarizer else "") + (f"-len{length}" if length else "")
-                                + (f"-keep{retentions[keep].name}" if retentions[keep] else "")
-                                + (f"-{base}" if bases[base] else ""))
-                        instruction = bases[base]
-                        if length:
-                            instruction = LengthTarget(length, base=instruction or DetailedBrief())
-                        conditions.append(ce.Condition(name, ThresholdPolicy(fixed_tokens(t), name=name), summarizer,
-                                                       instruction, retentions[keep]))
+                        for rec in options["recalls"] or ["none"]:
+                            name = (f"t{t}" + (f"-{summarizer}" if summarizer else "") + (f"-len{length}" if length else "")
+                                    + (f"-keep{retentions[keep].name}" if retentions[keep] else "")
+                                    + (f"-{base}" if bases[base] else "")
+                                    + (f"-recall{recallers[rec].name}" if recallers[rec] else ""))
+                            instruction = bases[base]
+                            if length:
+                                instruction = LengthTarget(length, base=instruction or DetailedBrief())
+                            conditions.append(ce.Condition(name, ThresholdPolicy(fixed_tokens(t), name=name), summarizer,
+                                                           instruction, retentions[keep], recallers[rec]))
     all_facts = [f for sc in scenarios.values() for f in sc.facts]
     factory = ce.EvalModelFactory(all_facts, inner=None if dry_run else default_model_factory())
 
@@ -823,15 +838,13 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
                                if prices.price(m) is None})
             if unpriced:
                 raise ValueError(f"no price for {', '.join(unpriced)}: add it to app/catalog/data/prices.json")
-            if options["compaction"] != "live":
-                raise ValueError("cost estimates cover --compaction live only")
             spend = ce.Spend(prices)
             sample = max(options["thresholds"])
             summ_profiles = {c.name: await ce.calibrate_summarizer(c, factory, spend, sample)
                              for c in conditions if not isinstance(c.policy, NeverCompact)}
             answer_profiles = {m: await ce.calibrate_answerer(graph_app, m, factory, spend, prefix) for m in real}
             estimate = await ce.estimate_cost(graph_app, scenarios, model_ids, conditions, prices, answer_profiles,
-                                              summ_profiles, thread_prefix=prefix, calibration_cost=spend.total)
+                                              summ_profiles, thread_prefix=prefix, calibration_cost=spend.total, grid=grid)
             _print_estimate(estimate, budget)
             if estimate_only:
                 return {"estimate": {"total": round(estimate.total, 2), "high": round(estimate.high, 2),

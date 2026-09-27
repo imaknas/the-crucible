@@ -386,3 +386,43 @@ vs 0.431.)
    most of them in 5.6k-token briefs: for a capable summarizer the limit is
    what it chooses to keep, not the room it has. Size mattered earlier because
    it was confounded with the summarizer's ability (flash thinking levels).
+
+## 2026-09-27 — Pilot 6: why detail is lost (oracle only, flash-lite)
+
+Four runs, gemini-3.5-flash-lite summaries, oracles only, t=8000, same seeds.
+$0.52 in total (each capped at $0.50).
+
+**6a. Passes or capacity?** The same conversations summarized *live* (as they
+grow: facts pass through 1–4 summaries) or *once* (a single summary of
+everything at probe time). If loss comes from each pass, "once" keeps old
+facts; if the summary simply has no room, it loses them too.
+
+| | early facts | mid | late | all |
+|---|---|---|---|---|
+| live, value present | 8/24 | 20/30 | 18/18 | 0.639 |
+| once, value present | 22/24 | 28/30 | 16/18 | 0.917 |
+| live, value attached to its subject | 8/24 | 20/30 | 17/18 | 0.625 |
+| once, value attached | 19/24 | 22/30 | 13/18 | 0.750 |
+
+- **Old facts are lost to repeated passes, not to lack of room**: a single
+  pass over the whole conversation kept 19–22 of the 24 early facts that
+  incremental summarizing lost (8/24). Live recall by summaries survived:
+  1 → 17/18, 2 → 13/17, 3 → 7/20, 4 → 8/16.
+- **One big pass has its own cost**: it keeps values but detaches them
+  (92% present vs 75% attached — the only run where the two oracles differ
+  much), and it loses more late facts (13/18 vs 17/18). Overall (strict)
+  once vs live: +12.5 points, interval [−3.5, +27.7], not decisive.
+- So both mechanisms exist, at different ages: each summary pass drops some
+  of what the previous one kept (compounding for old facts), and a summary of
+  a lot of material at once blurs which value belongs to what.
+
+**6b. Does repetition itself protect a fact?** Plain facts only, with and
+without a later restatement ("To repeat what was said earlier: …", 5–30
+exchanges after). The facts, values, positions and filler are identical;
+only the 24 restatements differ.
+
+- 23/72 → 41/72 kept: **+25 points, interval [+11.7, +36.9]**. By summaries
+  since the first mention: 3 → 0/20 vs 10/19, 4 → 0/16 vs 3/24.
+- Caveat: the restatement is also a *later* copy, so part of the gain is that
+  the latest mention went through fewer passes. Separating the two needs the
+  restatement in the same summary window as the original.

@@ -9,6 +9,7 @@ package only decides and measures.
 - probe.py    Detail-retention scenarios: planted facts, filler, probes, scoring
 - instructions.py  What the summarizer is asked to write (SummaryInstruction)
 - retention.py  What stays verbatim once history is pruned (Retention)
+- recall.py     Which pruned messages to bring back for a request (HistoryRecall)
 - judge.py    Paired comparison of two policies (uses Ordal, lazily)
 """
 
@@ -22,7 +23,8 @@ from app.compaction.policy import (
     fixed_tokens,
     fraction_of_limit,
 )
-from app.compaction.instructions import DetailedBrief, HandoffBrief, LengthTarget, SummaryInstruction
+from app.compaction.instructions import DetailedBrief, HandoffBrief, LengthTarget, StateAndIndex, SummaryInstruction
+from app.compaction.recall import HistoryRecall, KeywordRecall
 from app.compaction.retention import EarlierMessage, KeepRecent, KeepUserMessages, Retention
 from app.compaction.judge import compare_recall, recall_rate
 from app.compaction.probe import (
@@ -36,11 +38,15 @@ from app.compaction.probe import (
     is_correct,
     is_stale,
     value_attached,
+    with_reminders,
 )
 
 __all__ = [
     "DetailedBrief",
     "HandoffBrief",
+    "StateAndIndex",
+    "HistoryRecall",
+    "KeywordRecall",
     "EarlierMessage",
     "KeepRecent",
     "KeepUserMessages",
@@ -65,6 +71,7 @@ __all__ = [
     "is_correct",
     "is_stale",
     "value_attached",
+    "with_reminders",
     "compare_recall",
     "recall_rate",
 ]

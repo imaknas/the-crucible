@@ -348,6 +348,19 @@ VARIANT_KINDS = {"number", "name", "identifier", "date", "port", "choice"}
 VARIANTS = ("plain", "distractor", "update")
 
 
+def with_reminders(facts: Sequence[PlantedFact]) -> list[PlantedFact]:
+    """The same facts, each restated once more later with the same value.
+
+    Everything else about the facts is unchanged, so a scenario built with
+    and without reminders differs only in the restatements: the clean test
+    of whether repetition itself protects a fact.
+    """
+    return [
+        replace(f, variant=f"{f.variant}+repeated", extras=f.extras + (f"To repeat what was said earlier: {f.statement}",))
+        for f in facts
+    ]
+
+
 def generate_facts(n: int = 24, *, seed: int = 0, variants: Sequence[str] = VARIANTS) -> list[PlantedFact]:
     """`n` facts cycling through FACT_KINDS; each round of kinds uses the next
     variant (kinds that can't vary, negation and quote, stay plain)."""
@@ -399,6 +412,8 @@ def build_dense_scenario(
     exchanges: int = 120,
     seed: int = 0,
     assistant_facts: float = 0.0,
+    variants: Sequence[str] = VARIANTS,
+    repeat_facts: bool = False,
 ) -> Scenario:
     """A long conversation where every turn carries specifics.
 
@@ -408,7 +423,9 @@ def build_dense_scenario(
     somewhere near it. One planted statement per user turn at most.
     """
     rng = random.Random(seed)
-    facts = list(facts) if facts is not None else generate_facts(n_facts, seed=seed)
+    facts = list(facts) if facts is not None else generate_facts(n_facts, seed=seed, variants=variants)
+    if repeat_facts:
+        facts = with_reminders(facts)
     # Who states each fact (and its extras). Retention rules that keep the
     # user's messages would keep user-stated facts for free; in real use a lot
     # of detail comes from the assistant or its tools.
@@ -421,8 +438,18 @@ def build_dense_scenario(
     slots: dict[int, tuple[PlantedFact, str, bool]] = {ex: (f, f.statement, True) for ex, f in zip(finals, facts)}
     if len(slots) != len(facts):
         raise ValueError("too many facts for this many exchanges")
+    # Reminders use their own generator, so adding them leaves the filler
+    # (drawn from `rng`) exactly as it was without them.
+    reminder_rng = random.Random(f"reminders:{seed}")
     for fact, final in zip(facts, finals):
         for extra in fact.extras:
+            if extra.startswith("To repeat what was said earlier: "):
+                window = range(min(exchanges, final + 5), min(exchanges, final + 31))
+                free = [ex for ex in window if ex not in slots] or [ex for ex in range(final + 1, exchanges) if ex not in slots]
+                if not free:
+                    raise ValueError(f"no free exchange to repeat {fact.key}")
+                slots[reminder_rng.choice(free)] = (fact, extra, False)
+                continue
             if fact.variant == "update":
                 window = range(max(0, final - 30), max(0, final - 3))
             else:

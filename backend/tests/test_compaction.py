@@ -422,3 +422,51 @@ def test_sanitize_default_keeps_the_original_recent_window():
     text = " ".join(str(m.content) for m in graph_mod.sanitize_messages(msgs))
     assert all(f"{'u' if i % 2 == 0 else 'a'}{i}" in text for i in range(7, 12))
     assert "u6" not in text and "u0" not in text
+
+
+def test_keyword_recall_finds_the_messages_about_the_asked_subject():
+    from app.compaction import KeywordRecall
+
+    hidden = [
+        "The budget for the fraud scorer is capped at 17,400 euros.",
+        "The p95 latency of the audit service is 212 ms.",
+        "Someone proposed capping the budget for the fraud scorer at 97,800 euros, but that was turned down.",
+        "The audit service has 12 alerts configured.",
+    ]
+    picked = KeywordRecall(limit=2).select("What is the budget cap for the fraud scorer, in euros?", hidden)
+    assert picked == [0, 2]  # both mentions of the subject, oldest first
+    assert KeywordRecall().select("Unrelated words entirely", hidden) == []
+
+
+def test_sanitize_brings_recalled_messages_back_as_an_excerpt():
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+    from app.compaction import KeywordRecall
+
+    msgs = [HumanMessage(content="The staging port for the ledger service is 6543.")]
+    msgs += [HumanMessage(content=f"filler {i}") if i % 2 == 0 else AIMessage(content=f"reply {i}") for i in range(10)]
+    msgs += [SystemMessage(content="PREVIOUS CONTEXT SUMMARY: gist"), HumanMessage(content="Which port does the ledger service use?")]
+    plain = " ".join(str(m.content) for m in graph_mod.sanitize_messages(msgs))
+    recalled = " ".join(str(m.content) for m in graph_mod.sanitize_messages(msgs, recall=KeywordRecall()))
+    assert "6543" not in plain and "6543" in recalled
+    assert recalled.count("Which port does the ledger service use?") == 1  # the request stays the last turn
+
+
+def test_recall_brings_back_what_a_lossy_summary_dropped(eval_setup):
+    import asyncio
+
+    from app.compaction import KeywordRecall, build_dense_scenario
+    from app.services.compaction_eval import ORACLE, EvalModelFactory, run_live_grid
+
+    app, _ = eval_setup
+    scenario = build_dense_scenario(n_facts=8, exchanges=40, seed=7, assistant_facts=0.5)
+    t = ThresholdPolicy(fixed_tokens(1_500))
+    results = asyncio.run(run_live_grid(
+        app, {"7": scenario}, [ORACLE],
+        [Condition("none", t), Condition("recall", t, recall=KeywordRecall())],
+        model_factory=EvalModelFactory(scenario.facts),
+    ))
+    old = [r for r in results if r.compactions >= 1 and r.planted_turn < len(scenario.turns) - 12]
+    assert not any(r.correct for r in old if r.condition == "none")
+    recalled = [r.correct for r in old if r.condition == "recall"]
+    assert recalled and all(recalled)
