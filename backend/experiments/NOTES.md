@@ -333,3 +333,56 @@ calibration call varies), spent $0.82 + $0.03 calibration, cap $1.50.
 
 **For the app:** gemini-3.8-flash is the better default summarizer
 (`SUMMARIZER_MODELS`), at the same retention for ~1/6 of the cost.
+
+## 2026-09-27 — Pilot 5: Codex CLI's compaction as conditions
+
+**Command:** `uv run crucible compaction-eval --budget 3.2 --no-baseline -t 8000 -s gemini-3.5-flash-lite -s gemini-3.8-flash --keep recent --keep user --instruction brief --instruction handoff --assistant-facts 0.5 -m gpt-6-luna --out experiments/results/pilot5-codex-style-2026-09-27.json`
+New scenarios: half of the 24 facts per conversation are stated by the
+assistant. Estimated $2.06 (+$0.08 calibration), spent $2.47, cap $3.20.
+
+How the tools compact (read 2026-09-27): **Codex CLI** (open source,
+openai/codex 9db8162d65) auto-compacts at 90% of the context window; the
+working model writes a "handoff summary for another LLM that will resume the
+task" (`HandoffBrief`); the new history is **every user message verbatim,
+newest first, up to 20,000 tokens**, plus the summary; assistant turns and
+tool output are dropped; after compacting it warns that multiple compactions
+make the model less accurate. **Claude Code** (docs only): clears old tool
+output first, then summarizes; "your requests and key code snippets are
+preserved"; CLAUDE.md is reloaded; a "Compact Instructions" section or
+`/compact <focus>` steers it; threshold not documented.
+
+Oracle recall (72 probes per cell; 36 user-stated, 36 assistant-stated):
+
+| summarizer | keep | instruction | user-stated | assistant-stated | summary | read per probe |
+|---|---|---|---|---|---|---|
+| flash-lite | recent | brief | 17/36 | 14/36 | 5.6k | 5.8k |
+| flash-lite | recent | handoff | 7/36 | 3/36 | 0.9k | 2.1k |
+| flash-lite | **user** | brief | **36/36** | 16/36 | 3.2k | 13.1k |
+| flash-lite | user | handoff | 36/36 | 2/36 | 0.8k | 9.7k |
+| 3.8-flash | recent | brief | 36/36 | 36/36 | 7.8k | 9.5k |
+| 3.8-flash | recent | **handoff** | 36/36 | **34/36** | **1.3k** | **3.7k** |
+| 3.8-flash | user | brief | 36/36 | 35/36 | 6.9k | 16.4k |
+| 3.8-flash | user | handoff | 36/36 | 36/36 | 1.8k | 10.8k |
+
+(gpt-6-luna matched the oracle except under flash-lite/recent/brief: 0.375
+vs 0.431.)
+
+1. **Keeping user messages rescues exactly what the user said** (flash-lite:
+   17 → 36 of 36, +53 points, interval [+34, +68]) and nothing else
+   (assistant-stated 14 → 16, no detectable difference), at 2.3× the context
+   per call.
+2. **Codex's handoff prompt writes summaries ~1/6 the size.** With a weak
+   summarizer that is ruinous for anything not kept verbatim (assistant-stated
+   14 → 3 of 36, −31 points). With gemini-3.8-flash it is nearly free
+   (36 → 34, no detectable difference) and cuts what every later call reads
+   from 9.5k to 3.7k tokens.
+3. **Why Codex can afford a short handoff:** what the user said is kept
+   verbatim, and what the agent learned lives in the repository and can be
+   re-read — the summary only has to carry state and next steps. In a
+   conversation whose details exist only in the chat (The Crucible's case),
+   the same design depends entirely on a strong summarizer.
+4. **This refines "retention tracks summary size" (pilot 2c).** gemini-3.8-flash
+   kept 34/36 assistant facts in 1.3k-token handoffs while flash-lite lost
+   most of them in 5.6k-token briefs: for a capable summarizer the limit is
+   what it chooses to keep, not the room it has. Size mattered earlier because
+   it was confounded with the summarizer's ability (flash thinking levels).
