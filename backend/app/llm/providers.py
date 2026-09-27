@@ -7,6 +7,7 @@ To add a provider family:
 Nothing else in the app branches on the provider.
 """
 
+import functools
 from typing import Any, Protocol
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -35,11 +36,57 @@ class OpenAIProvider:
         return llm.bind_tools([{"type": "web_search_preview"}])
 
 
+# Every turn re-sends the whole conversation, so the prefix is cached: a
+# breakpoint on the last block (what the API's automatic caching does) makes
+# the next turn read everything up to here at ~0.1x the input price, for a
+# ~1.25x write on what is new. Prefixes under the model's minimum (4,096
+# tokens on Haiku 4.5, 1,024 on Sonnet 5) are simply not cached, at no cost.
+CACHE_CONTROL = {"type": "ephemeral"}
+# Opens the block that carries context for one request only (the time,
+# recalled excerpts). It follows the question, and the cache breakpoint goes
+# on the block before it: the next turn's history contains the question but
+# not this block, so a breakpoint on it would be written and never read.
+REQUEST_NOTES_HEADER = "[Context for this request only]"
+
+
+def mark_cache_breakpoint(messages: list) -> None:
+    """Put one cache breakpoint on the last block that the next request will
+    repeat: the last block of the last message, or the one before it when
+    the last block is per-request context."""
+    if not messages:
+        return
+    last = messages[-1]
+    content = last.get("content")
+    if isinstance(content, str):
+        content = last["content"] = [{"type": "text", "text": content}]
+    if not isinstance(content, list) or not content:
+        return
+    index = len(content) - 1
+    block = content[index]
+    if index > 0 and isinstance(block, dict) and str(block.get("text", "")).startswith(REQUEST_NOTES_HEADER):
+        index -= 1
+    if isinstance(content[index], dict):
+        content[index]["cache_control"] = CACHE_CONTROL
+
+
+@functools.lru_cache(maxsize=1)
+def _caching_chat_anthropic():
+    from langchain_anthropic import ChatAnthropic
+
+    class CachingChatAnthropic(ChatAnthropic):
+        """ChatAnthropic that marks every request's reusable prefix for caching."""
+
+        def _get_request_payload(self, input_, *, stop=None, **kwargs):
+            payload = super()._get_request_payload(input_, stop=stop, **kwargs)
+            mark_cache_breakpoint(payload.get("messages") or [])
+            return payload
+
+    return CachingChatAnthropic
+
+
 class AnthropicProvider:
     def create(self, model_id: str) -> BaseChatModel:
-        from langchain_anthropic import ChatAnthropic
-
-        return ChatAnthropic(model=model_id)
+        return _caching_chat_anthropic()(model=model_id)
 
     def with_web_search(self, llm: Any) -> Runnable:
         # Models without code execution (e.g. Haiku 4.5) reject the dynamic-

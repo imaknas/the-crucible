@@ -13,6 +13,7 @@ from langchain_core.runnables import RunnableConfig
 from app.utils.helpers import extract_text
 from app.services import rag as rag_service
 from app.llm import model_factory_from
+from app.llm.providers import REQUEST_NOTES_HEADER
 from app.compaction import ContextSnapshot, DetailedBrief, EarlierMessage, KeepRecent, ModelBudget, ThresholdPolicy
 
 SUMMARY_MARKER = "PREVIOUS CONTEXT SUMMARY:"
@@ -308,18 +309,21 @@ def sanitize_messages(
 
 
 def _with_request_notes(result: List[BaseMessage], notes: Optional[List[str]]) -> List[BaseMessage]:
-    """Put what changes on every call (the time, recalled excerpts) into the
-    latest user message instead of the system prompt. Providers cache the
-    longest unchanged prefix of a request; anything volatile near the top
-    makes every call re-read the whole history at full price."""
+    """Put what changes on every call (the time, recalled excerpts) in a
+    block after the latest user message's text, not in the system prompt.
+    Providers cache the longest unchanged prefix of a request: anything
+    volatile near the top makes every call re-read the whole history at full
+    price, and anything before the question keeps the question itself from
+    being reused by the next turn."""
     if not notes:
         return result
+    block = {"type": "text", "text": REQUEST_NOTES_HEADER + "\n" + "\n\n".join(notes)}
     last = next((i for i in range(len(result) - 1, -1, -1) if result[i].type == "human"), None)
     if last is None:
-        return result + [HumanMessage(content="\n\n".join(notes))]
+        return result + [HumanMessage(content=[block])]
     m = result[last]
     result[last] = HumanMessage(
-        content="\n\n".join(notes) + "\n\n---\n\n" + extract_text(m.content),
+        content=[{"type": "text", "text": extract_text(m.content)}, block],
         name=getattr(m, "name", None),
         additional_kwargs=dict(getattr(m, "additional_kwargs", {}) or {}),
     )

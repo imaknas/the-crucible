@@ -535,4 +535,19 @@ def test_volatile_context_rides_with_the_latest_request():
     second = graph_mod.sanitize_messages(history, request_notes=["[Current System Time: 10:00:02]"])
     assert [m.content for m in first[:-1]] == [m.content for m in second[:-1]]  # identical prefix
     assert "10:00" not in first[0].content
-    assert first[-1].content.startswith("[Current System Time: 10:00:01]") and first[-1].content.endswith("q8")
+    question, notes = first[-1].content
+    assert question["text"] == "q8" and "10:00:01" in notes["text"]  # the question stays reusable
+
+
+def test_anthropic_breakpoint_skips_the_per_request_block():
+    from app.llm.providers import REQUEST_NOTES_HEADER, mark_cache_breakpoint
+
+    messages = [{"role": "user", "content": "q0"}, {"role": "assistant", "content": "a0"},
+                {"role": "user", "content": [{"type": "text", "text": "q1"},
+                                             {"type": "text", "text": REQUEST_NOTES_HEADER + " time"}]}]
+    mark_cache_breakpoint(messages)
+    q1, notes = messages[-1]["content"]
+    assert q1.get("cache_control") and "cache_control" not in notes
+    plain = [{"role": "user", "content": "only"}]
+    mark_cache_breakpoint(plain)
+    assert plain[0]["content"][0]["cache_control"] == {"type": "ephemeral"}
