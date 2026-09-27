@@ -647,3 +647,41 @@ terms. `IndexOnly` summaries only list the topics that came up.
   mentioned. A complete index is the obvious next check.
 - Cost stays low: the rewrite call reads the summary and the question
   (luna input per probe 3.7k–6.1k tokens, rewrite included).
+
+## 2026-09-28 — Pilot 10: facts stated as throwaway remarks ("sleeper" test)
+
+**Commands:** `pilot10a/b` with `--asides --fact-variants plain`, `pilot10c/d`
+the same without `--asides` (10c/10d on their own databases, run in
+parallel); gpt-6-luna answering, half the facts assistant-stated, t=8000.
+Spent $0.62 + $0.50 + $0.72 + $0.51. A first 10c attempt hit the Google
+project's monthly spending cap: every summary failed with 429, the app
+carried on without summaries, and the run was discarded. Experiments now
+halt on any failed model call (`Spend.errors`).
+
+`as_asides` restates each fact as a throwaway remark ("(Side note, probably
+irrelevant: the staging database listens on port 6543.)"); values, subjects,
+positions and filler are identical, so plain and aside runs pair by fact.
+
+| strict oracle | plain | aside | paired plain → aside |
+|---|---|---|---|
+| full history | 72/72 | 72/72 | equivalent |
+| flash-lite brief | 16/72 | 23/72 | no detectable difference (luna: +14 [+5, +23]) |
+| flash-lite handoff | 1/72 | 18/72 | **+24 [+13, +35]** |
+| flash-lite brief + keyword recall | 68/72 | 67/72 | equivalent |
+| flash-lite handoff + keyword recall | 69/72 | 67/72 | equivalent |
+| 3.8-flash state-and-index | 72/72 | 72/72 | equivalent |
+
+- **The prediction failed.** Sounding unimportant did not make a fact more
+  likely to be dropped; with a lossy summarizer, asides survived *more*
+  often. The strong summarizer and recall kept everything either way.
+- Likely reason: in filler where every sentence has the same shape, an aside
+  ("Side note, probably irrelevant: …") is *more* distinctive, not less.
+  Surface hedging is not low salience for an LLM. This manipulation did not
+  produce sleeper facts, so the structural question is still open.
+- A better sleeper design ties salience to the *task* rather than to wording:
+  give the conversation a goal, plant facts that are off-goal when stated,
+  and later make them matter. A task-focused summary (e.g. Codex's handoff)
+  should drop exactly those.
+- Aside: flash-lite handoffs keep almost no plain details (1/72), fewer than
+  with mixed variants (9/72 in pilot 5): a handoff summary is a pointer, not
+  a record, and needs recall behind it.
