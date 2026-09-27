@@ -1,0 +1,6336 @@
+{
+ "run": "compaction-eval-20260927T180943",
+ "models": [
+  "gpt-6-luna",
+  "oracle",
+  "oracle-strict"
+ ],
+ "scenario": "dense",
+ "facts": 24,
+ "seeds": 3,
+ "exchanges": 140,
+ "thresholds": [
+  8000
+ ],
+ "summarizers": [
+  "gemini-3.8-flash"
+ ],
+ "lengths": [],
+ "keeps": [],
+ "user_budget": 20000,
+ "instructions": [
+  "state"
+ ],
+ "recalls": [],
+ "questions": "direct",
+ "rewriter": "gpt-6-luna",
+ "asides": true,
+ "assistant_facts": 0.5,
+ "fact_variants": [
+  "plain"
+ ],
+ "repeat_facts": false,
+ "compaction": "live",
+ "baseline": false,
+ "concurrency": 4,
+ "dry_run": false,
+ "recall": {
+  "t8000-gemini-3.8-flash-state / gpt-6-luna": {
+   "n": 72,
+   "correct": 72,
+   "stale": 0,
+   "by_kind": {
+    "number": [
+     9,
+     9
+    ],
+    "name": [
+     9,
+     9
+    ],
+    "identifier": [
+     9,
+     9
+    ],
+    "negation": [
+     9,
+     9
+    ],
+    "date": [
+     9,
+     9
+    ],
+    "port": [
+     9,
+     9
+    ],
+    "quote": [
+     9,
+     9
+    ],
+    "choice": [
+     9,
+     9
+    ]
+   },
+   "by_variant": {
+    "plain+aside": [
+     72,
+     72
+    ]
+   },
+   "by_compactions": {
+    "4": [
+     24,
+     24
+    ],
+    "3": [
+     17,
+     17
+    ],
+    "2": [
+     25,
+     25
+    ],
+    "1": [
+     6,
+     6
+    ]
+   },
+   "by_stated_by": {
+    "assistant": [
+     36,
+     36
+    ],
+    "user": [
+     36,
+     36
+    ]
+   },
+   "recall": 1.0
+  },
+  "t8000-gemini-3.8-flash-state / oracle": {
+   "n": 72,
+   "correct": 72,
+   "stale": 0,
+   "by_kind": {
+    "number": [
+     9,
+     9
+    ],
+    "name": [
+     9,
+     9
+    ],
+    "identifier": [
+     9,
+     9
+    ],
+    "negation": [
+     9,
+     9
+    ],
+    "date": [
+     9,
+     9
+    ],
+    "port": [
+     9,
+     9
+    ],
+    "quote": [
+     9,
+     9
+    ],
+    "choice": [
+     9,
+     9
+    ]
+   },
+   "by_variant": {
+    "plain+aside": [
+     72,
+     72
+    ]
+   },
+   "by_compactions": {
+    "4": [
+     24,
+     24
+    ],
+    "3": [
+     17,
+     17
+    ],
+    "2": [
+     15,
+     15
+    ],
+    "1": [
+     16,
+     16
+    ]
+   },
+   "by_stated_by": {
+    "assistant": [
+     36,
+     36
+    ],
+    "user": [
+     36,
+     36
+    ]
+   },
+   "recall": 1.0
+  },
+  "t8000-gemini-3.8-flash-state / oracle-strict": {
+   "n": 72,
+   "correct": 72,
+   "stale": 0,
+   "by_kind": {
+    "number": [
+     9,
+     9
+    ],
+    "name": [
+     9,
+     9
+    ],
+    "identifier": [
+     9,
+     9
+    ],
+    "negation": [
+     9,
+     9
+    ],
+    "date": [
+     9,
+     9
+    ],
+    "port": [
+     9,
+     9
+    ],
+    "quote": [
+     9,
+     9
+    ],
+    "choice": [
+     9,
+     9
+    ]
+   },
+   "by_variant": {
+    "plain+aside": [
+     72,
+     72
+    ]
+   },
+   "by_compactions": {
+    "4": [
+     24,
+     24
+    ],
+    "3": [
+     17,
+     17
+    ],
+    "2": [
+     15,
+     15
+    ],
+    "1": [
+     16,
+     16
+    ]
+   },
+   "by_stated_by": {
+    "assistant": [
+     36,
+     36
+    ],
+    "user": [
+     36,
+     36
+    ]
+   },
+   "recall": 1.0
+  }
+ },
+ "comparisons": [],
+ "usage": {
+  "t8000-gemini-3.8-flash-state / gpt-6-luna": {
+   "input_tokens": 570406,
+   "output_tokens": 15491,
+   "cache_read": 0
+  },
+  "t8000-gemini-3.8-flash-state setup / gemini-3.8-flash": {
+   "input_tokens": 90181,
+   "output_tokens": 70658,
+   "cache_read": 0
+  },
+  "t8000-gemini-3.8-flash-state / gemini-3.8-flash": {
+   "input_tokens": 26462,
+   "output_tokens": 22652,
+   "cache_read": 0
+  },
+  "t8000-gemini-3.8-flash-state / availability-oracle": {
+   "input_tokens": 1100668,
+   "output_tokens": 162,
+   "cache_read": 0
+  }
+ },
+ "spend": {
+  "total": 0.5435,
+  "budget": 2.0,
+  "estimate": 0.813,
+  "by_model": {
+   "gemini-3.8-flash": 0.4785,
+   "gpt-6-luna": 0.065
+  },
+  "unpriced_calls": {},
+  "stopped_by_budget": false
+ },
+ "probes": [
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "number-log-shipper",
+   "kind": "number",
+   "planted_turn": 23,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "41,800 euros",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7830,
+     "output_tokens": 262,
+     "total_tokens": 8092,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 221
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {
+    "gemini-3.8-flash": {
+     "total_tokens": 46077,
+     "output_tokens": 16809,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "input_tokens": 29268
+    }
+   },
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "name-chat-widget",
+   "kind": "name",
+   "planted_turn": 33,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Liesel Fairweather",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7877,
+     "output_tokens": 154,
+     "total_tokens": 8031,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 125
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "identifier-tax-calculator",
+   "kind": "identifier",
+   "planted_turn": 43,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "MARLIN-9",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7926,
+     "output_tokens": 213,
+     "total_tokens": 8139,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 185
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "negation-feature-flag-service",
+   "kind": "negation",
+   "planted_turn": 53,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "DynamoDB",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7977,
+     "output_tokens": 139,
+     "total_tokens": 8116,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 100
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "date-config-service",
+   "kind": "date",
+   "planted_turn": 61,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "28 December",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8025,
+     "output_tokens": 160,
+     "total_tokens": 8185,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 130
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "port-report-scheduler",
+   "kind": "port",
+   "planted_turn": 71,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "5018",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8068,
+     "output_tokens": 236,
+     "total_tokens": 8304,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 202
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "quote-geo-lookup",
+   "kind": "quote",
+   "planted_turn": 80,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "reliability first, polish second",
+   "usage": {
+    "gpt-6-luna": {
+     "total_tokens": 8657,
+     "output_tokens": 419,
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 345
+     },
+     "input_tokens": 8238
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "choice-status-page",
+   "kind": "choice",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Litware",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8162,
+     "output_tokens": 208,
+     "total_tokens": 8370,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 173
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "number-fraud-scorer",
+   "kind": "number",
+   "planted_turn": 101,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "17,400 euros",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8209,
+     "output_tokens": 65,
+     "total_tokens": 8274,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 38
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "name-image-resizer",
+   "kind": "name",
+   "planted_turn": 110,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Liesel Villeneuve",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8257,
+     "output_tokens": 143,
+     "total_tokens": 8400,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 116
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "identifier-PDF-exporter",
+   "kind": "identifier",
+   "planted_turn": 120,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ZEPHYR-9",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8306,
+     "output_tokens": 170,
+     "total_tokens": 8476,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 134
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "negation-ledger-service",
+   "kind": "negation",
+   "planted_turn": 131,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kubernetes",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8357,
+     "output_tokens": 210,
+     "total_tokens": 8567,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 177
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "date-billing-export",
+   "kind": "date",
+   "planted_turn": 138,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "4 December",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8404,
+     "output_tokens": 157,
+     "total_tokens": 8561,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 128
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "port-CDN-purge-job",
+   "kind": "port",
+   "planted_turn": 148,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9130",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8448,
+     "output_tokens": 164,
+     "total_tokens": 8612,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 124
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "quote-ingest-pipeline",
+   "kind": "quote",
+   "planted_turn": 158,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "simplicity first, features second",
+   "usage": {
+    "gpt-6-luna": {
+     "total_tokens": 8970,
+     "output_tokens": 322,
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 241
+     },
+     "input_tokens": 8648
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "choice-sync-worker",
+   "kind": "choice",
+   "planted_turn": 168,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Fabrikam",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8541,
+     "output_tokens": 198,
+     "total_tokens": 8739,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 170
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "number-backup-job",
+   "kind": "number",
+   "planted_turn": 179,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "63,700 euros",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8589,
+     "output_tokens": 164,
+     "total_tokens": 8753,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 132
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "name-partner-API",
+   "kind": "name",
+   "planted_turn": 189,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Priya Marchetti",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8636,
+     "output_tokens": 160,
+     "total_tokens": 8796,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 132
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "identifier-invoice-renderer",
+   "kind": "identifier",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "OBSIDIAN-6",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8685,
+     "output_tokens": 95,
+     "total_tokens": 8780,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 55
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "negation-SSO-bridge",
+   "kind": "negation",
+   "planted_turn": 208,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "MongoDB",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8736,
+     "output_tokens": 156,
+     "total_tokens": 8892,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 129
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "date-support-portal",
+   "kind": "date",
+   "planted_turn": 217,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "1 August",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8783,
+     "output_tokens": 153,
+     "total_tokens": 8936,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 117
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "port-rate-limiter",
+   "kind": "port",
+   "planted_turn": 227,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6024",
+   "usage": {
+    "gemini-3.8-flash": {
+     "input_tokens": 8921,
+     "output_tokens": 9554,
+     "total_tokens": 18475,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 2590
+     }
+    },
+    "gpt-6-luna": {
+     "input_tokens": 6975,
+     "output_tokens": 169,
+     "total_tokens": 7144,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 144
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 8145,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "quote-push-service",
+   "kind": "quote",
+   "planted_turn": 236,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "“coverage first, latency second”",
+   "usage": {
+    "gpt-6-luna": {
+     "total_tokens": 14345,
+     "output_tokens": 379,
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 276
+     },
+     "input_tokens": 13966
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 8145,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "choice-webhook-dispatcher",
+   "kind": "choice",
+   "planted_turn": 246,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Proseware",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7069,
+     "output_tokens": 250,
+     "total_tokens": 7319,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 216
+     }
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 8145,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "number-metrics-collector",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "61,700 EUR",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7895,
+     "output_tokens": 201,
+     "total_tokens": 8096,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 161
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {
+    "gemini-3.8-flash": {
+     "total_tokens": 49585,
+     "output_tokens": 18764,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 83
+     },
+     "input_tokens": 30821
+    }
+   },
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "name-log-shipper",
+   "kind": "name",
+   "planted_turn": 33,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Liesel Oyelaran",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7943,
+     "output_tokens": 141,
+     "total_tokens": 8084,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 113
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "identifier-webhook-dispatcher",
+   "kind": "identifier",
+   "planted_turn": 42,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "SAFFRON-2",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7993,
+     "output_tokens": 142,
+     "total_tokens": 8135,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 110
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "negation-push-service",
+   "kind": "negation",
+   "planted_turn": 53,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "No Kubernetes",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8043,
+     "output_tokens": 144,
+     "total_tokens": 8187,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 112
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "date-warehouse-loader",
+   "kind": "date",
+   "planted_turn": 60,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "15 June",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8090,
+     "output_tokens": 129,
+     "total_tokens": 8219,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 99
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "port-CDN-purge-job",
+   "kind": "port",
+   "planted_turn": 71,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "8279",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8134,
+     "output_tokens": 295,
+     "total_tokens": 8429,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 259
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "quote-image-resizer",
+   "kind": "quote",
+   "planted_turn": 80,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "cost first, latency second",
+   "usage": {
+    "gpt-6-luna": {
+     "total_tokens": 8665,
+     "output_tokens": 358,
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 290
+     },
+     "input_tokens": 8307
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "choice-ingest-pipeline",
+   "kind": "choice",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Coho",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8227,
+     "output_tokens": 203,
+     "total_tokens": 8430,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 170
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "number-license-checker",
+   "kind": "number",
+   "planted_turn": 101,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "66,800 EUR",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8274,
+     "output_tokens": 263,
+     "total_tokens": 8537,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 230
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "name-PDF-exporter",
+   "kind": "name",
+   "planted_turn": 110,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Maren Halvorsen",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8321,
+     "output_tokens": 153,
+     "total_tokens": 8474,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 120
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "identifier-status-page",
+   "kind": "identifier",
+   "planted_turn": 120,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ZEPHYR-6",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8371,
+     "output_tokens": 159,
+     "total_tokens": 8530,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 126
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "negation-audit-service",
+   "kind": "negation",
+   "planted_turn": 131,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "No GraphQL",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8422,
+     "output_tokens": 152,
+     "total_tokens": 8574,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 124
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "date-backup-job",
+   "kind": "date",
+   "planted_turn": 139,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "11 May",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8470,
+     "output_tokens": 123,
+     "total_tokens": 8593,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 94
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "port-SSO-bridge",
+   "kind": "port",
+   "planted_turn": 149,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "5733",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8514,
+     "output_tokens": 204,
+     "total_tokens": 8718,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 169
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "quote-email-relay",
+   "kind": "quote",
+   "planted_turn": 159,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "cost first, latency second",
+   "usage": {
+    "gpt-6-luna": {
+     "total_tokens": 9264,
+     "output_tokens": 556,
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 461
+     },
+     "input_tokens": 8708
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "choice-inventory-cache",
+   "kind": "choice",
+   "planted_turn": 168,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Margie",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8606,
+     "output_tokens": 230,
+     "total_tokens": 8836,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 204
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "number-payment-webhook",
+   "kind": "number",
+   "planted_turn": 178,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "94,600 EUR",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8653,
+     "output_tokens": 185,
+     "total_tokens": 8838,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 146
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "name-session-store",
+   "kind": "name",
+   "planted_turn": 189,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Keiko Fairweather",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8700,
+     "output_tokens": 175,
+     "total_tokens": 8875,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 144
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "identifier-recommendation-model",
+   "kind": "identifier",
+   "planted_turn": 199,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "ORCHID-8",
+   "usage": {
+    "gemini-3.8-flash": {
+     "input_tokens": 9018,
+     "output_tokens": 8533,
+     "total_tokens": 17551,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 2810
+     }
+    },
+    "gpt-6-luna": {
+     "input_tokens": 5586,
+     "output_tokens": 143,
+     "total_tokens": 5729,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 111
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6468,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "negation-support-portal",
+   "kind": "negation",
+   "planted_turn": 208,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "DynamoDB",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 5636,
+     "output_tokens": 169,
+     "total_tokens": 5805,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 134
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6468,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "date-chat-widget",
+   "kind": "date",
+   "planted_turn": 217,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "4 December",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 5684,
+     "output_tokens": 157,
+     "total_tokens": 5841,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 129
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6468,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "port-geo-lookup",
+   "kind": "port",
+   "planted_turn": 227,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9002",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 5727,
+     "output_tokens": 181,
+     "total_tokens": 5908,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 149
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6468,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "quote-document-store",
+   "kind": "quote",
+   "planted_turn": 236,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "simplicity first, accuracy second",
+   "usage": {
+    "gpt-6-luna": {
+     "total_tokens": 6344,
+     "output_tokens": 398,
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 282
+     },
+     "input_tokens": 5946
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6468,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "choice-tax-calculator",
+   "kind": "choice",
+   "planted_turn": 246,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Contoso",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 5820,
+     "output_tokens": 174,
+     "total_tokens": 5994,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 148
+     }
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6468,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "number-geo-lookup",
+   "kind": "number",
+   "planted_turn": 23,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "31,900",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7249,
+     "output_tokens": 177,
+     "total_tokens": 7426,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 141
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {
+    "gemini-3.8-flash": {
+     "total_tokens": 65177,
+     "output_tokens": 35085,
+     "input_token_details": {
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "reasoning": 17923
+     },
+     "input_tokens": 30092
+    }
+   },
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "name-CDN-purge-job",
+   "kind": "name",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Maren Marchetti",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7296,
+     "output_tokens": 210,
+     "total_tokens": 7506,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 168
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "identifier-document-store",
+   "kind": "identifier",
+   "planted_turn": 42,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "TUNDRA-8",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7345,
+     "output_tokens": 217,
+     "total_tokens": 7562,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 183
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "negation-status-page",
+   "kind": "negation",
+   "planted_turn": 53,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "GraphQL",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7395,
+     "output_tokens": 157,
+     "total_tokens": 7552,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 128
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "date-audit-service",
+   "kind": "date",
+   "planted_turn": 61,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "23 July",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7442,
+     "output_tokens": 227,
+     "total_tokens": 7669,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 196
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "port-backup-job",
+   "kind": "port",
+   "planted_turn": 71,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "7453",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7485,
+     "output_tokens": 126,
+     "total_tokens": 7611,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 95
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "quote-translation-service",
+   "kind": "quote",
+   "planted_turn": 81,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "“simplicity first, latency second”",
+   "usage": {
+    "gpt-6-luna": {
+     "total_tokens": 8207,
+     "output_tokens": 550,
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 479
+     },
+     "input_tokens": 7657
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "choice-invoice-renderer",
+   "kind": "choice",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Northwind",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7580,
+     "output_tokens": 233,
+     "total_tokens": 7813,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 208
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "number-webhook-dispatcher",
+   "kind": "number",
+   "planted_turn": 101,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "86,900",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7627,
+     "output_tokens": 150,
+     "total_tokens": 7777,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 112
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "name-chat-widget",
+   "kind": "name",
+   "planted_turn": 110,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Anders Villeneuve",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7673,
+     "output_tokens": 193,
+     "total_tokens": 7866,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 154
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "identifier-support-portal",
+   "kind": "identifier",
+   "planted_turn": 120,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "TUNDRA-7",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7722,
+     "output_tokens": 228,
+     "total_tokens": 7950,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 197
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "negation-notification-gateway",
+   "kind": "negation",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Kubernetes",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7772,
+     "output_tokens": 153,
+     "total_tokens": 7925,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 126
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "date-feature-flag-service",
+   "kind": "date",
+   "planted_turn": 139,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 September",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7821,
+     "output_tokens": 196,
+     "total_tokens": 8017,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 162
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "port-recommendation-model",
+   "kind": "port",
+   "planted_turn": 149,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9122",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7864,
+     "output_tokens": 222,
+     "total_tokens": 8086,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 187
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "quote-partner-API",
+   "kind": "quote",
+   "planted_turn": 159,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "coverage first, polish second",
+   "usage": {
+    "gpt-6-luna": {
+     "total_tokens": 8600,
+     "output_tokens": 539,
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 444
+     },
+     "input_tokens": 8061
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "choice-report-scheduler",
+   "kind": "choice",
+   "planted_turn": 169,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Wingtip",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 7956,
+     "output_tokens": 250,
+     "total_tokens": 8206,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 219
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "number-billing-export",
+   "kind": "number",
+   "planted_turn": 178,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "36,600",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8003,
+     "output_tokens": 145,
+     "total_tokens": 8148,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 109
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "name-shipping-quote-service",
+   "kind": "name",
+   "planted_turn": 189,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Anders Castellano",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8050,
+     "output_tokens": 208,
+     "total_tokens": 8258,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 172
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "identifier-session-store",
+   "kind": "identifier",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "CONDOR-3",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8099,
+     "output_tokens": 213,
+     "total_tokens": 8312,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 175
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "negation-metrics-collector",
+   "kind": "negation",
+   "planted_turn": 208,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Terraform",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8148,
+     "output_tokens": 221,
+     "total_tokens": 8369,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 183
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "date-inventory-cache",
+   "kind": "date",
+   "planted_turn": 216,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "24 November",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8194,
+     "output_tokens": 288,
+     "total_tokens": 8482,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 256
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "port-admin-console",
+   "kind": "port",
+   "planted_turn": 226,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9477 <",
+   "usage": {
+    "gpt-6-luna": {
+     "input_tokens": 8237,
+     "output_tokens": 96,
+     "total_tokens": 8333,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 72
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "quote-sync-worker",
+   "kind": "quote",
+   "planted_turn": 237,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "coverage first, simplicity second",
+   "usage": {
+    "gpt-6-luna": {
+     "total_tokens": 9042,
+     "output_tokens": 581,
+     "input_token_details": {
+      "cache_read": 0,
+      "audio": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 467
+     },
+     "input_tokens": 8461
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "gpt-6-luna",
+   "fact": "choice-SSO-bridge",
+   "kind": "choice",
+   "planted_turn": 246,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Fabrikam",
+   "usage": {
+    "gemini-3.8-flash": {
+     "input_tokens": 8523,
+     "output_tokens": 4565,
+     "total_tokens": 13088,
+     "input_token_details": {
+      "cache_read": 0
+     }
+    },
+    "gpt-6-luna": {
+     "input_tokens": 4487,
+     "output_tokens": 130,
+     "total_tokens": 4617,
+     "input_token_details": {
+      "audio": 0,
+      "cache_read": 0
+     },
+     "output_token_details": {
+      "audio": 0,
+      "reasoning": 97
+     }
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5132,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "number-log-shipper",
+   "kind": "number",
+   "planted_turn": 23,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "41,800",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6879,
+     "output_tokens": 1,
+     "total_tokens": 6880
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "name-chat-widget",
+   "kind": "name",
+   "planted_turn": 33,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Fairweather",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6915,
+     "output_tokens": 1,
+     "total_tokens": 6916
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "identifier-tax-calculator",
+   "kind": "identifier",
+   "planted_turn": 43,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "marlin-9",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6957,
+     "output_tokens": 1,
+     "total_tokens": 6958
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "negation-feature-flag-service",
+   "kind": "negation",
+   "planted_turn": 53,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "dynamodb",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6999,
+     "output_tokens": 1,
+     "total_tokens": 7000
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "date-config-service",
+   "kind": "date",
+   "planted_turn": 61,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "28 december",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7040,
+     "output_tokens": 1,
+     "total_tokens": 7041
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "port-report-scheduler",
+   "kind": "port",
+   "planted_turn": 71,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "5018",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7076,
+     "output_tokens": 1,
+     "total_tokens": 7077
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "quote-geo-lookup",
+   "kind": "quote",
+   "planted_turn": 80,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "reliability first, polish second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7260,
+     "total_tokens": 7262,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "choice-status-page",
+   "kind": "choice",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "litware",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7155,
+     "output_tokens": 1,
+     "total_tokens": 7156
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "number-fraud-scorer",
+   "kind": "number",
+   "planted_turn": 101,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "17,400",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7192,
+     "output_tokens": 1,
+     "total_tokens": 7193
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "name-image-resizer",
+   "kind": "name",
+   "planted_turn": 110,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Villeneuve",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7228,
+     "output_tokens": 1,
+     "total_tokens": 7229
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "identifier-PDF-exporter",
+   "kind": "identifier",
+   "planted_turn": 120,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "zephyr-9",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7270,
+     "output_tokens": 1,
+     "total_tokens": 7271
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "negation-ledger-service",
+   "kind": "negation",
+   "planted_turn": 131,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "kubernetes",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7310,
+     "output_tokens": 1,
+     "total_tokens": 7311
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "date-billing-export",
+   "kind": "date",
+   "planted_turn": 138,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "4 december",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7351,
+     "output_tokens": 1,
+     "total_tokens": 7352
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "port-CDN-purge-job",
+   "kind": "port",
+   "planted_turn": 148,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9130",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7387,
+     "output_tokens": 1,
+     "total_tokens": 7388
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "quote-ingest-pipeline",
+   "kind": "quote",
+   "planted_turn": 158,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "simplicity first, features second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7575,
+     "total_tokens": 7577,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "choice-sync-worker",
+   "kind": "choice",
+   "planted_turn": 168,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "fabrikam",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7466,
+     "output_tokens": 1,
+     "total_tokens": 7467
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "number-backup-job",
+   "kind": "number",
+   "planted_turn": 179,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "63,700",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7503,
+     "output_tokens": 1,
+     "total_tokens": 7504
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "name-partner-API",
+   "kind": "name",
+   "planted_turn": 189,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Marchetti",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7539,
+     "output_tokens": 1,
+     "total_tokens": 7540
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "identifier-invoice-renderer",
+   "kind": "identifier",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "obsidian-6",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7581,
+     "output_tokens": 1,
+     "total_tokens": 7582
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "negation-SSO-bridge",
+   "kind": "negation",
+   "planted_turn": 208,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "mongodb",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7621,
+     "output_tokens": 1,
+     "total_tokens": 7622
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "date-support-portal",
+   "kind": "date",
+   "planted_turn": 217,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "1 august",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7662,
+     "output_tokens": 1,
+     "total_tokens": 7663
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "port-rate-limiter",
+   "kind": "port",
+   "planted_turn": 227,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6024",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7696,
+     "output_tokens": 1,
+     "total_tokens": 7697
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "quote-push-service",
+   "kind": "quote",
+   "planted_turn": 236,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "coverage first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7882,
+     "total_tokens": 7884,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "choice-webhook-dispatcher",
+   "kind": "choice",
+   "planted_turn": 246,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "proseware",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7776,
+     "output_tokens": 1,
+     "total_tokens": 7777
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "number-metrics-collector",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "61,700",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7659,
+     "output_tokens": 1,
+     "total_tokens": 7660
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "name-log-shipper",
+   "kind": "name",
+   "planted_turn": 33,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Oyelaran",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7694,
+     "output_tokens": 1,
+     "total_tokens": 7695
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "identifier-webhook-dispatcher",
+   "kind": "identifier",
+   "planted_turn": 42,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "saffron-2",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7737,
+     "output_tokens": 1,
+     "total_tokens": 7738
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "negation-push-service",
+   "kind": "negation",
+   "planted_turn": 53,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "kubernetes",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7777,
+     "output_tokens": 1,
+     "total_tokens": 7778
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "date-warehouse-loader",
+   "kind": "date",
+   "planted_turn": 60,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "15 june",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7819,
+     "output_tokens": 1,
+     "total_tokens": 7820
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "port-CDN-purge-job",
+   "kind": "port",
+   "planted_turn": 71,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "8279",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7854,
+     "output_tokens": 1,
+     "total_tokens": 7855
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "quote-image-resizer",
+   "kind": "quote",
+   "planted_turn": 80,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "cost first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8035,
+     "total_tokens": 8037,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "choice-ingest-pipeline",
+   "kind": "choice",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "coho",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7932,
+     "output_tokens": 1,
+     "total_tokens": 7933
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "number-license-checker",
+   "kind": "number",
+   "planted_turn": 101,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "66,800",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7969,
+     "output_tokens": 1,
+     "total_tokens": 7970
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "name-PDF-exporter",
+   "kind": "name",
+   "planted_turn": 110,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Halvorsen",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8005,
+     "output_tokens": 1,
+     "total_tokens": 8006
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "identifier-status-page",
+   "kind": "identifier",
+   "planted_turn": 120,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "zephyr-6",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8046,
+     "output_tokens": 1,
+     "total_tokens": 8047
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "negation-audit-service",
+   "kind": "negation",
+   "planted_turn": 131,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "graphql",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8086,
+     "output_tokens": 1,
+     "total_tokens": 8087
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "date-backup-job",
+   "kind": "date",
+   "planted_turn": 139,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "11 may",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8126,
+     "output_tokens": 1,
+     "total_tokens": 8127
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "port-SSO-bridge",
+   "kind": "port",
+   "planted_turn": 149,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "5733",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8160,
+     "output_tokens": 1,
+     "total_tokens": 8161
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "quote-email-relay",
+   "kind": "quote",
+   "planted_turn": 159,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "cost first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8343,
+     "total_tokens": 8345,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "choice-inventory-cache",
+   "kind": "choice",
+   "planted_turn": 168,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "margie",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8238,
+     "output_tokens": 1,
+     "total_tokens": 8239
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "number-payment-webhook",
+   "kind": "number",
+   "planted_turn": 178,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "94,600",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8275,
+     "output_tokens": 1,
+     "total_tokens": 8276
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "name-session-store",
+   "kind": "name",
+   "planted_turn": 189,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Fairweather",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8311,
+     "output_tokens": 1,
+     "total_tokens": 8312
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "identifier-recommendation-model",
+   "kind": "identifier",
+   "planted_turn": 199,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "orchid-8",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8355,
+     "output_tokens": 1,
+     "total_tokens": 8356
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "negation-support-portal",
+   "kind": "negation",
+   "planted_turn": 208,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "dynamodb",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8395,
+     "output_tokens": 1,
+     "total_tokens": 8396
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "date-chat-widget",
+   "kind": "date",
+   "planted_turn": 217,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "4 december",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8436,
+     "output_tokens": 1,
+     "total_tokens": 8437
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "port-geo-lookup",
+   "kind": "port",
+   "planted_turn": 227,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9002",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8470,
+     "output_tokens": 1,
+     "total_tokens": 8471
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "quote-document-store",
+   "kind": "quote",
+   "planted_turn": 236,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "simplicity first, accuracy second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8657,
+     "total_tokens": 8659,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "choice-tax-calculator",
+   "kind": "choice",
+   "planted_turn": 246,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "contoso",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8551,
+     "output_tokens": 1,
+     "total_tokens": 8552
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "number-geo-lookup",
+   "kind": "number",
+   "planted_turn": 23,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "31,900",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6991,
+     "output_tokens": 1,
+     "total_tokens": 6992
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "name-CDN-purge-job",
+   "kind": "name",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Marchetti",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7027,
+     "output_tokens": 1,
+     "total_tokens": 7028
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "identifier-document-store",
+   "kind": "identifier",
+   "planted_turn": 42,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "tundra-8",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7069,
+     "output_tokens": 1,
+     "total_tokens": 7070
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "negation-status-page",
+   "kind": "negation",
+   "planted_turn": 53,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "graphql",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7109,
+     "output_tokens": 1,
+     "total_tokens": 7110
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "date-audit-service",
+   "kind": "date",
+   "planted_turn": 61,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "23 july",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7149,
+     "output_tokens": 1,
+     "total_tokens": 7150
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "port-backup-job",
+   "kind": "port",
+   "planted_turn": 71,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "7453",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7183,
+     "output_tokens": 1,
+     "total_tokens": 7184
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "quote-translation-service",
+   "kind": "quote",
+   "planted_turn": 81,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "simplicity first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7368,
+     "total_tokens": 7370,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "choice-invoice-renderer",
+   "kind": "choice",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "northwind",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7265,
+     "output_tokens": 1,
+     "total_tokens": 7266
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "number-webhook-dispatcher",
+   "kind": "number",
+   "planted_turn": 101,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "86,900",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7304,
+     "output_tokens": 1,
+     "total_tokens": 7305
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "name-chat-widget",
+   "kind": "name",
+   "planted_turn": 110,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Villeneuve",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7340,
+     "output_tokens": 1,
+     "total_tokens": 7341
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "identifier-support-portal",
+   "kind": "identifier",
+   "planted_turn": 120,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "tundra-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7382,
+     "output_tokens": 1,
+     "total_tokens": 7383
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "negation-notification-gateway",
+   "kind": "negation",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "kubernetes",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7423,
+     "output_tokens": 1,
+     "total_tokens": 7424
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "date-feature-flag-service",
+   "kind": "date",
+   "planted_turn": 139,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 september",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7466,
+     "output_tokens": 1,
+     "total_tokens": 7467
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "port-recommendation-model",
+   "kind": "port",
+   "planted_turn": 149,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9122",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7504,
+     "output_tokens": 1,
+     "total_tokens": 7505
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "quote-partner-API",
+   "kind": "quote",
+   "planted_turn": 159,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "coverage first, polish second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7692,
+     "total_tokens": 7694,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "choice-report-scheduler",
+   "kind": "choice",
+   "planted_turn": 169,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "wingtip",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7583,
+     "output_tokens": 1,
+     "total_tokens": 7584
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "number-billing-export",
+   "kind": "number",
+   "planted_turn": 178,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "36,600",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7621,
+     "output_tokens": 1,
+     "total_tokens": 7622
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "name-shipping-quote-service",
+   "kind": "name",
+   "planted_turn": 189,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Castellano",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7659,
+     "output_tokens": 1,
+     "total_tokens": 7660
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "identifier-session-store",
+   "kind": "identifier",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "condor-3",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7701,
+     "output_tokens": 1,
+     "total_tokens": 7702
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "negation-metrics-collector",
+   "kind": "negation",
+   "planted_turn": 208,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "terraform",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7742,
+     "output_tokens": 1,
+     "total_tokens": 7743
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "date-inventory-cache",
+   "kind": "date",
+   "planted_turn": 216,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "24 november",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7783,
+     "output_tokens": 1,
+     "total_tokens": 7784
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "port-admin-console",
+   "kind": "port",
+   "planted_turn": 226,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9477",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7819,
+     "output_tokens": 1,
+     "total_tokens": 7820
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "quote-sync-worker",
+   "kind": "quote",
+   "planted_turn": 237,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "coverage first, simplicity second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8006,
+     "total_tokens": 8008,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle",
+   "fact": "choice-SSO-bridge",
+   "kind": "choice",
+   "planted_turn": 246,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "fabrikam",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7898,
+     "output_tokens": 1,
+     "total_tokens": 7899
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "number-log-shipper",
+   "kind": "number",
+   "planted_turn": 23,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "41,800",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6879,
+     "output_tokens": 1,
+     "total_tokens": 6880
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "name-chat-widget",
+   "kind": "name",
+   "planted_turn": 33,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Fairweather",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6915,
+     "output_tokens": 1,
+     "total_tokens": 6916
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "identifier-tax-calculator",
+   "kind": "identifier",
+   "planted_turn": 43,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "marlin-9",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6957,
+     "output_tokens": 1,
+     "total_tokens": 6958
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "negation-feature-flag-service",
+   "kind": "negation",
+   "planted_turn": 53,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "dynamodb",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6999,
+     "output_tokens": 1,
+     "total_tokens": 7000
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "date-config-service",
+   "kind": "date",
+   "planted_turn": 61,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "28 december",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7040,
+     "output_tokens": 1,
+     "total_tokens": 7041
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "port-report-scheduler",
+   "kind": "port",
+   "planted_turn": 71,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "5018",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7076,
+     "output_tokens": 1,
+     "total_tokens": 7077
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "quote-geo-lookup",
+   "kind": "quote",
+   "planted_turn": 80,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "reliability first, polish second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7260,
+     "total_tokens": 7262,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "choice-status-page",
+   "kind": "choice",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "litware",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7155,
+     "output_tokens": 1,
+     "total_tokens": 7156
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "number-fraud-scorer",
+   "kind": "number",
+   "planted_turn": 101,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "17,400",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7192,
+     "output_tokens": 1,
+     "total_tokens": 7193
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "name-image-resizer",
+   "kind": "name",
+   "planted_turn": 110,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Villeneuve",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7228,
+     "output_tokens": 1,
+     "total_tokens": 7229
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "identifier-PDF-exporter",
+   "kind": "identifier",
+   "planted_turn": 120,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "zephyr-9",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7270,
+     "output_tokens": 1,
+     "total_tokens": 7271
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "negation-ledger-service",
+   "kind": "negation",
+   "planted_turn": 131,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "kubernetes",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7310,
+     "output_tokens": 1,
+     "total_tokens": 7311
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "date-billing-export",
+   "kind": "date",
+   "planted_turn": 138,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "4 december",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7351,
+     "output_tokens": 1,
+     "total_tokens": 7352
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "port-CDN-purge-job",
+   "kind": "port",
+   "planted_turn": 148,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9130",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7387,
+     "output_tokens": 1,
+     "total_tokens": 7388
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "quote-ingest-pipeline",
+   "kind": "quote",
+   "planted_turn": 158,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "simplicity first, features second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7575,
+     "total_tokens": 7577,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "choice-sync-worker",
+   "kind": "choice",
+   "planted_turn": 168,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "fabrikam",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7466,
+     "output_tokens": 1,
+     "total_tokens": 7467
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "number-backup-job",
+   "kind": "number",
+   "planted_turn": 179,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "63,700",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7503,
+     "output_tokens": 1,
+     "total_tokens": 7504
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "name-partner-API",
+   "kind": "name",
+   "planted_turn": 189,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Marchetti",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7539,
+     "output_tokens": 1,
+     "total_tokens": 7540
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "identifier-invoice-renderer",
+   "kind": "identifier",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "obsidian-6",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7581,
+     "output_tokens": 1,
+     "total_tokens": 7582
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "negation-SSO-bridge",
+   "kind": "negation",
+   "planted_turn": 208,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "mongodb",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7621,
+     "output_tokens": 1,
+     "total_tokens": 7622
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "date-support-portal",
+   "kind": "date",
+   "planted_turn": 217,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "1 august",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7662,
+     "output_tokens": 1,
+     "total_tokens": 7663
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "port-rate-limiter",
+   "kind": "port",
+   "planted_turn": 227,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6024",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7696,
+     "output_tokens": 1,
+     "total_tokens": 7697
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "quote-push-service",
+   "kind": "quote",
+   "planted_turn": 236,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "coverage first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7882,
+     "total_tokens": 7884,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "choice-webhook-dispatcher",
+   "kind": "choice",
+   "planted_turn": 246,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "proseware",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7776,
+     "output_tokens": 1,
+     "total_tokens": 7777
+    }
+   },
+   "scenario": "0",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6266,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "number-metrics-collector",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "61,700",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7659,
+     "output_tokens": 1,
+     "total_tokens": 7660
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "name-log-shipper",
+   "kind": "name",
+   "planted_turn": 33,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Oyelaran",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7694,
+     "output_tokens": 1,
+     "total_tokens": 7695
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "identifier-webhook-dispatcher",
+   "kind": "identifier",
+   "planted_turn": 42,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "saffron-2",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7737,
+     "output_tokens": 1,
+     "total_tokens": 7738
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "negation-push-service",
+   "kind": "negation",
+   "planted_turn": 53,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "kubernetes",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7777,
+     "output_tokens": 1,
+     "total_tokens": 7778
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "date-warehouse-loader",
+   "kind": "date",
+   "planted_turn": 60,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "15 june",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7819,
+     "output_tokens": 1,
+     "total_tokens": 7820
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "port-CDN-purge-job",
+   "kind": "port",
+   "planted_turn": 71,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "8279",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7854,
+     "output_tokens": 1,
+     "total_tokens": 7855
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "quote-image-resizer",
+   "kind": "quote",
+   "planted_turn": 80,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "cost first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8035,
+     "total_tokens": 8037,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "choice-ingest-pipeline",
+   "kind": "choice",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "coho",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7932,
+     "output_tokens": 1,
+     "total_tokens": 7933
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "number-license-checker",
+   "kind": "number",
+   "planted_turn": 101,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "66,800",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7969,
+     "output_tokens": 1,
+     "total_tokens": 7970
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "name-PDF-exporter",
+   "kind": "name",
+   "planted_turn": 110,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Halvorsen",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8005,
+     "output_tokens": 1,
+     "total_tokens": 8006
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "identifier-status-page",
+   "kind": "identifier",
+   "planted_turn": 120,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "zephyr-6",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8046,
+     "output_tokens": 1,
+     "total_tokens": 8047
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "negation-audit-service",
+   "kind": "negation",
+   "planted_turn": 131,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "graphql",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8086,
+     "output_tokens": 1,
+     "total_tokens": 8087
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "date-backup-job",
+   "kind": "date",
+   "planted_turn": 139,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "11 may",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8126,
+     "output_tokens": 1,
+     "total_tokens": 8127
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "port-SSO-bridge",
+   "kind": "port",
+   "planted_turn": 149,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "5733",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8160,
+     "output_tokens": 1,
+     "total_tokens": 8161
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "quote-email-relay",
+   "kind": "quote",
+   "planted_turn": 159,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "cost first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8343,
+     "total_tokens": 8345,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "choice-inventory-cache",
+   "kind": "choice",
+   "planted_turn": 168,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "margie",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8238,
+     "output_tokens": 1,
+     "total_tokens": 8239
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "number-payment-webhook",
+   "kind": "number",
+   "planted_turn": 178,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "94,600",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8275,
+     "output_tokens": 1,
+     "total_tokens": 8276
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "name-session-store",
+   "kind": "name",
+   "planted_turn": 189,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Fairweather",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8311,
+     "output_tokens": 1,
+     "total_tokens": 8312
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "identifier-recommendation-model",
+   "kind": "identifier",
+   "planted_turn": 199,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "orchid-8",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8355,
+     "output_tokens": 1,
+     "total_tokens": 8356
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "negation-support-portal",
+   "kind": "negation",
+   "planted_turn": 208,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "dynamodb",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8395,
+     "output_tokens": 1,
+     "total_tokens": 8396
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "date-chat-widget",
+   "kind": "date",
+   "planted_turn": 217,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "4 december",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8436,
+     "output_tokens": 1,
+     "total_tokens": 8437
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "port-geo-lookup",
+   "kind": "port",
+   "planted_turn": 227,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9002",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8470,
+     "output_tokens": 1,
+     "total_tokens": 8471
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "quote-document-store",
+   "kind": "quote",
+   "planted_turn": 236,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "simplicity first, accuracy second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8657,
+     "total_tokens": 8659,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "choice-tax-calculator",
+   "kind": "choice",
+   "planted_turn": 246,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "contoso",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8551,
+     "output_tokens": 1,
+     "total_tokens": 8552
+    }
+   },
+   "scenario": "1",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 6212,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "number-geo-lookup",
+   "kind": "number",
+   "planted_turn": 23,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "31,900",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6991,
+     "output_tokens": 1,
+     "total_tokens": 6992
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "name-CDN-purge-job",
+   "kind": "name",
+   "planted_turn": 32,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Marchetti",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7027,
+     "output_tokens": 1,
+     "total_tokens": 7028
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "identifier-document-store",
+   "kind": "identifier",
+   "planted_turn": 42,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "tundra-8",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7069,
+     "output_tokens": 1,
+     "total_tokens": 7070
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "negation-status-page",
+   "kind": "negation",
+   "planted_turn": 53,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "graphql",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7109,
+     "output_tokens": 1,
+     "total_tokens": 7110
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "date-audit-service",
+   "kind": "date",
+   "planted_turn": 61,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "23 july",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7149,
+     "output_tokens": 1,
+     "total_tokens": 7150
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "port-backup-job",
+   "kind": "port",
+   "planted_turn": 71,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "7453",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7183,
+     "output_tokens": 1,
+     "total_tokens": 7184
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "quote-translation-service",
+   "kind": "quote",
+   "planted_turn": 81,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "simplicity first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7368,
+     "total_tokens": 7370,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "choice-invoice-renderer",
+   "kind": "choice",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "northwind",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7265,
+     "output_tokens": 1,
+     "total_tokens": 7266
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "number-webhook-dispatcher",
+   "kind": "number",
+   "planted_turn": 101,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "86,900",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7304,
+     "output_tokens": 1,
+     "total_tokens": 7305
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "name-chat-widget",
+   "kind": "name",
+   "planted_turn": 110,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Villeneuve",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7340,
+     "output_tokens": 1,
+     "total_tokens": 7341
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "identifier-support-portal",
+   "kind": "identifier",
+   "planted_turn": 120,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "tundra-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7382,
+     "output_tokens": 1,
+     "total_tokens": 7383
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "negation-notification-gateway",
+   "kind": "negation",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "kubernetes",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7423,
+     "output_tokens": 1,
+     "total_tokens": 7424
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "date-feature-flag-service",
+   "kind": "date",
+   "planted_turn": 139,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 september",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7466,
+     "output_tokens": 1,
+     "total_tokens": 7467
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "port-recommendation-model",
+   "kind": "port",
+   "planted_turn": 149,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9122",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7504,
+     "output_tokens": 1,
+     "total_tokens": 7505
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "quote-partner-API",
+   "kind": "quote",
+   "planted_turn": 159,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "coverage first, polish second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7692,
+     "total_tokens": 7694,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "choice-report-scheduler",
+   "kind": "choice",
+   "planted_turn": 169,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "wingtip",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7583,
+     "output_tokens": 1,
+     "total_tokens": 7584
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "number-billing-export",
+   "kind": "number",
+   "planted_turn": 178,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "36,600",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7621,
+     "output_tokens": 1,
+     "total_tokens": 7622
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "name-shipping-quote-service",
+   "kind": "name",
+   "planted_turn": 189,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Castellano",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7659,
+     "output_tokens": 1,
+     "total_tokens": 7660
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "identifier-session-store",
+   "kind": "identifier",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "condor-3",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7701,
+     "output_tokens": 1,
+     "total_tokens": 7702
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "negation-metrics-collector",
+   "kind": "negation",
+   "planted_turn": 208,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "terraform",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7742,
+     "output_tokens": 1,
+     "total_tokens": 7743
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "date-inventory-cache",
+   "kind": "date",
+   "planted_turn": 216,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "24 november",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7783,
+     "output_tokens": 1,
+     "total_tokens": 7784
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "port-admin-console",
+   "kind": "port",
+   "planted_turn": 226,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9477",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7819,
+     "output_tokens": 1,
+     "total_tokens": 7820
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "quote-sync-worker",
+   "kind": "quote",
+   "planted_turn": 237,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "coverage first, simplicity second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 8006,
+     "total_tokens": 8008,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "assistant"
+  },
+  {
+   "condition": "t8000-gemini-3.8-flash-state",
+   "model": "oracle-strict",
+   "fact": "choice-SSO-bridge",
+   "kind": "choice",
+   "planted_turn": 246,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "fabrikam",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7898,
+     "output_tokens": 1,
+     "total_tokens": 7899
+    }
+   },
+   "scenario": "2",
+   "variant": "plain+aside",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 5757,
+   "stated_by": "user"
+  }
+ ]
+}

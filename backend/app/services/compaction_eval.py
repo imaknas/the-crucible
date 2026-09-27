@@ -150,7 +150,15 @@ class Spend(BaseCallbackHandler):
         self.total = 0.0
         self.by_model: dict[str, float] = {}
         self.unpriced: dict[str, int] = {}
+        # The app treats a failed summary as non-fatal and carries on without
+        # it; in an experiment that silently turns a compacted condition into
+        # an uncompacted one. Any failed model call halts the run instead.
+        self.errors: list[str] = []
         self._lock = threading.Lock()
+
+    def on_llm_error(self, error: BaseException, **kwargs: Any) -> None:
+        with self._lock:
+            self.errors.append(f"{type(error).__name__}: {str(error)[:200]}")
 
     def on_llm_end(self, response, **kwargs: Any) -> None:
         try:
@@ -171,9 +179,12 @@ class Spend(BaseCallbackHandler):
 
     @property
     def exhausted(self) -> bool:
-        return self.limit is not None and self.total >= self.limit
+        """Stop starting calls: the budget is spent, or a model call failed."""
+        return bool(self.errors) or (self.limit is not None and self.total >= self.limit)
 
     def check(self) -> None:
+        if self.errors:
+            raise BudgetExhausted(f"a model call failed: {self.errors[0]}")
         if self.exhausted:
             raise BudgetExhausted(f"spent ${self.total:.2f} of ${self.limit:.2f}")
 

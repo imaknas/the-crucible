@@ -101,3 +101,12 @@ def test_default_models_are_the_cheapest_offered_per_family():
     }
     catalog = {k: Entry() for k in registry}
     assert cheapest_models(registry, catalog, BOOK) == ["cheap-1-mini", "promo"]
+
+
+def test_a_failed_model_call_halts_the_run():
+    spend = Spend(BOOK, limit=100.0)
+    assert not spend.exhausted
+    spend.on_llm_error(RuntimeError("429 RESOURCE_EXHAUSTED: monthly spending cap"))
+    assert spend.exhausted
+    with pytest.raises(Exception, match="a model call failed"):
+        spend.check()

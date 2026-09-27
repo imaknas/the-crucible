@@ -748,6 +748,8 @@ def compaction_eval(
         console.print(f"  {c['model']}: {c['a']} vs {c['b']}: [bold]{c['outcome']}[/bold] "
                       f"effect {c['effect']} interval {c['interval']}")
     console.print(f"\nUsage: {json.dumps(result['usage'], indent=1)}")
+    if result.get("spend", {}).get("model_errors"):
+        console.print(f"[bold red]Stopped: a model call failed[/bold red] ({result['spend']['model_errors'][0]}). Results are incomplete.")
     if result.get("spend"):
         sp = result["spend"]
         console.print(f"Spent ${sp['total']:.2f} of ${sp['budget']:.2f} (estimate was ${sp['estimate']:.2f})"
@@ -902,7 +904,8 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
             "estimate": round(estimate.total, 4),
             "by_model": {m: round(c, 4) for m, c in spend.by_model.items()},
             "unpriced_calls": spend.unpriced,
-            "stopped_by_budget": spend.exhausted,
+            "stopped_by_budget": spend.exhausted and not spend.errors,
+            "model_errors": spend.errors[:5],
         }
     if out:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
