@@ -685,3 +685,29 @@ positions and filler are identical, so plain and aside runs pair by fact.
 - Aside: flash-lite handoffs keep almost no plain details (1/72), fewer than
   with mixed variants (9/72 in pilot 5): a handoff summary is a pointer, not
   a record, and needs recall behind it.
+
+## 2026-09-28 — Cost: prompt caching was defeated by a timestamp
+
+Recorded experiment spend at official prices: Google $40.2, Anthropic $9.2,
+OpenAI $3.3 (plus ~$5–7 of unrecorded Gemini calls: the stopped length run,
+calibrations, one-off checks) — consistent with the Google bill of about
+NT$1,500. Roughly $20 of the Gemini spend was avoidable (the re-summarize
+thrash and the $9/1M-output gemini-3.5-flash at full thinking).
+
+Cache hits across pilots 5–10 were ~1%: every drafting call began its system
+prompt with the current time to the second, so no two calls shared a prefix.
+The time (and recalled excerpts) now ride with the latest user message
+(`graph._with_request_notes`), and a test keeps the prefix stable.
+
+One conversation, no compaction, before → after:
+
+| model | cache hits before | after |
+|---|---|---|
+| gemini-3.5-flash-lite | 0% | **76%** (billed at 1/10) |
+| gpt-6-luna | 0% | 0% |
+
+gpt-6-luna is provider behaviour, checked directly: a long *single* system
+message is cached on the second call (7,722 of 7,732 tokens), but the same
+text as a ~120-message conversation is never read from cache (cache writes
+reported every time, 0 cached, with gaps of 3–15 s). Not something the app
+can fix without flattening history into one message.
