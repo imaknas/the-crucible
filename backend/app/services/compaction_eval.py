@@ -829,3 +829,21 @@ def cached_embedder(embed_documents, size: int = 20_000):
             return [cache[t] for t in texts]
 
     return embed
+
+
+REWRITE_PROMPT = (
+    "Earlier parts of this conversation are hidden. What is still visible about them:\n{hint}\n\n"
+    "A new question: {query}\n\n"
+    "Which topics or subjects from the earlier conversation is this question about? Reply with their exact "
+    "names and the key terms to search for, on one line, nothing else."
+)
+
+
+def model_rewriter(factory, model_id: str):
+    """A GuidedRecall rewrite step backed by a chat model from `factory`."""
+
+    def rewrite(query: str, hint: str) -> str:
+        reply = factory.chat(model_id).invoke([HumanMessage(content=REWRITE_PROMPT.format(hint=hint[:8000], query=query))])
+        return extract_text(reply.content)
+
+    return rewrite

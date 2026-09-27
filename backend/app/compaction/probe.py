@@ -427,6 +427,28 @@ def with_reminders(facts: Sequence[PlantedFact]) -> list[PlantedFact]:
     ]
 
 
+_ASIDES = (
+    "Oh, and unrelated: {s}, not that it matters right now.",
+    "(Side note, probably irrelevant: {s}.)",
+    "Anyway, {s}, but that's a minor detail.",
+)
+
+
+def as_asides(facts: Sequence[PlantedFact]) -> list[PlantedFact]:
+    """The same facts, stated as throwaway remarks instead of plainly.
+
+    Only the wording of each statement changes (value, subject, position and
+    filler stay), so a scenario built with and without asides tests whether
+    a summarizer drops what sounds unimportant when it is said.
+    """
+    out = []
+    for i, f in enumerate(facts):
+        body = f.statement.rstrip(".")
+        body = body[0].lower() + body[1:]
+        out.append(replace(f, statement=_ASIDES[i % len(_ASIDES)].format(s=body), variant=f"{f.variant}+aside"))
+    return out
+
+
 def generate_facts(n: int = 24, *, seed: int = 0, variants: Sequence[str] = VARIANTS) -> list[PlantedFact]:
     """`n` facts cycling through FACT_KINDS; each round of kinds uses the next
     variant (kinds that can't vary, negation and quote, stay plain)."""
@@ -482,6 +504,7 @@ def build_dense_scenario(
     variants: Sequence[str] = VARIANTS,
     repeat_facts: bool = False,
     questions: str = "direct",
+    asides: bool = False,
 ) -> Scenario:
     """A long conversation where every turn carries specifics.
 
@@ -492,6 +515,8 @@ def build_dense_scenario(
     """
     rng = random.Random(seed)
     facts = list(facts) if facts is not None else generate_facts(n_facts, seed=seed, variants=variants)
+    if asides:
+        facts = as_asides(facts)
     if repeat_facts:
         facts = with_reminders(facts)
     # Who states each fact (and its extras). Retention rules that keep the

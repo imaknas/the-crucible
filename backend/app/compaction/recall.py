@@ -25,8 +25,10 @@ def _terms(text: str) -> list[str]:
 class HistoryRecall(Protocol):
     name: str
 
-    def select(self, query: str, candidates: Sequence[str]) -> list[int]:
-        """Indexes into `candidates` (hidden messages, oldest first) to show again."""
+    def select(self, query: str, candidates: Sequence[str], hint: str = "") -> list[int]:
+        """Indexes into `candidates` (hidden messages, oldest first) to show
+        again. `hint` is what the model can still see of the pruned history
+        (the latest summary)."""
         ...
 
 
@@ -39,7 +41,7 @@ class KeywordRecall:
         self.limit = limit
         self.name = "keyword"
 
-    def select(self, query: str, candidates: Sequence[str]) -> list[int]:
+    def select(self, query: str, candidates: Sequence[str], hint: str = "") -> list[int]:
         docs = [set(_terms(c)) for c in candidates]
         if not docs:
             return []
@@ -61,7 +63,7 @@ class EmbeddingRecall:
         self.limit = limit
         self.name = "embedding"
 
-    def select(self, query: str, candidates: Sequence[str]) -> list[int]:
+    def select(self, query: str, candidates: Sequence[str], hint: str = "") -> list[int]:
         if not candidates:
             return []
         q, *docs = self.embed([query, *candidates])
@@ -72,3 +74,20 @@ class EmbeddingRecall:
 
         best = sorted(range(len(docs)), key=lambda i: (-cosine(docs[i]), -i))[: self.limit]
         return sorted(best)
+
+
+class GuidedRecall:
+    """Lets a model decide what to look for: `rewrite(query, hint)` turns the
+    request plus what is still visible (the summary, e.g. an index of topics)
+    into search terms, which `base` then matches. Keeps the relevance
+    decision with something that understands the question, rather than
+    with word overlap alone."""
+
+    def __init__(self, rewrite, base=None):
+        self.rewrite = rewrite
+        self.base = base or KeywordRecall()
+        self.name = f"guided-{self.base.name}"
+
+    def select(self, query: str, candidates: Sequence[str], hint: str = "") -> list[int]:
+        terms = self.rewrite(query, hint)
+        return self.base.select(f"{terms}\n{query}", candidates, hint)

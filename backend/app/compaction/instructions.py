@@ -73,6 +73,20 @@ class StateAndIndex:
         return f"{self.instruction}\n\n{transcript}"
 
 
+class IndexOnly:
+    """A pure pointer: which topics exist, nothing about them. Useful only
+    with recall, which fetches the details when a question needs them."""
+
+    name = "index"
+    instruction = (
+        "List every topic, component or subject that came up in the conversation history below, "
+        "one per line, by the exact name used in the conversation. No values, details or decisions."
+    )
+
+    def prompt(self, transcript: str) -> str:
+        return f"{self.instruction}\n\n{transcript}"
+
+
 class LengthTarget:
     """The original instruction plus a length limit, and nothing else, so a
     comparison with DetailedBrief isolates the effect of length."""

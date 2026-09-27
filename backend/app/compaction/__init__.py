@@ -23,8 +23,8 @@ from app.compaction.policy import (
     fixed_tokens,
     fraction_of_limit,
 )
-from app.compaction.instructions import DetailedBrief, HandoffBrief, LengthTarget, StateAndIndex, SummaryInstruction
-from app.compaction.recall import EmbeddingRecall, HistoryRecall, KeywordRecall
+from app.compaction.instructions import DetailedBrief, HandoffBrief, IndexOnly, LengthTarget, StateAndIndex, SummaryInstruction
+from app.compaction.recall import EmbeddingRecall, GuidedRecall, HistoryRecall, KeywordRecall
 from app.compaction.retention import EarlierMessage, KeepRecent, KeepUserMessages, Retention
 from app.compaction.judge import compare_recall, recall_rate
 from app.compaction.probe import (
@@ -38,6 +38,7 @@ from app.compaction.probe import (
     is_correct,
     is_stale,
     value_attached,
+    as_asides,
     with_reminders,
 )
 
@@ -45,6 +46,8 @@ __all__ = [
     "DetailedBrief",
     "HandoffBrief",
     "StateAndIndex",
+    "IndexOnly",
+    "GuidedRecall",
     "HistoryRecall",
     "KeywordRecall",
     "EmbeddingRecall",
@@ -73,6 +76,7 @@ __all__ = [
     "is_stale",
     "value_attached",
     "with_reminders",
+    "as_asides",
     "compare_recall",
     "recall_rate",
 ]

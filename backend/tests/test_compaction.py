@@ -494,3 +494,30 @@ def test_indirect_questions_avoid_the_subject_and_the_oracle_still_answers(eval_
     results = asyncio.run(run_live_grid(app, {"8": scenario}, [ORACLE], [Condition("never", NeverCompact())],
                                         model_factory=EvalModelFactory(scenario.facts)))
     assert all(r.correct for r in results)
+
+
+def test_guided_recall_searches_with_the_models_terms():
+    from app.compaction import GuidedRecall
+
+    hidden = ["The CDN purge job listens on port 5592.", "The audit service has 12 alerts configured."]
+    seen = []
+
+    def rewrite(query, hint):
+        seen.append(hint)
+        return "CDN purge job port"
+
+    picked = GuidedRecall(rewrite).select("Which port for the task that clears cached files?", hidden, hint="- CDN purge job")
+    assert picked == [0] and seen == ["- CDN purge job"]
+
+
+def test_asides_change_only_the_wording():
+    from app.compaction import build_dense_scenario, is_correct
+
+    plain = build_dense_scenario(n_facts=8, exchanges=40, seed=9, variants=("plain",))
+    aside = build_dense_scenario(n_facts=8, exchanges=40, seed=9, variants=("plain",), asides=True)
+    assert plain.positions == aside.positions
+    for a, b in zip(plain.facts, aside.facts):
+        assert a.answers == b.answers and a.statement != b.statement
+        assert is_correct(b.statement, b) or any(x.lower() in b.statement.lower() for x in b.answers)
+    differ = [i for i, (x, y) in enumerate(zip(plain.turns, aside.turns)) if x.text != y.text]
+    assert len(differ) == len(plain.facts)  # only the planting turns changed

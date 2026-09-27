@@ -650,11 +650,13 @@ def compaction_eval(
     ),
     user_budget: int = typer.Option(20_000, "--user-budget", help="Token budget for --keep user (Codex CLI uses 20,000)."),
     instructions: Optional[List[str]] = typer.Option(
-        None, "--instruction", help="Summary instruction (repeat): 'brief' (the app's), 'handoff' (Codex CLI's) or 'state' (state + index). Default: brief."
+        None, "--instruction", help="Summary instruction (repeat): 'brief' (the app's), 'handoff' (Codex CLI's), 'state' (state + index) or 'index' (topics only). Default: brief."
     ),
     recalls: Optional[List[str]] = typer.Option(
-        None, "--recall", help="Bring hidden messages back per request (repeat): 'none', 'keyword' or 'embedding' (the app's local embedding model). Default: none."
+        None, "--recall", help="Bring hidden messages back per request (repeat): 'none', 'keyword', 'embedding' (the app's local embedding model) or 'guided' (a model reads the summary and names what to search for, then keyword search). Default: none."
     ),
+    rewriter: str = typer.Option("gpt-6-luna", "--rewriter", help="Model that chooses search terms for --recall guided."),
+    asides: bool = typer.Option(False, "--asides", help="State every fact as a throwaway remark (dense only); pair with a run without it."),
     questions: str = typer.Option("direct", "--questions", help="Probe by the subject's name ('direct') or by what it does ('indirect'; dense only)."),
     fact_variants: str = typer.Option("plain,distractor,update", "--fact-variants", help="Variants the facts cycle through (dense only), e.g. 'plain' for plain facts only."),
     repeat_facts: bool = typer.Option(False, "--repeat-facts", help="Restate every fact once more later with the same value (dense only); pair with a run without it."),
@@ -688,9 +690,9 @@ def compaction_eval(
     _load_env()
     if scenario not in ("dense", "basic") or compaction not in ("live", "once"):
         _fail("--scenario is dense|basic and --compaction is live|once", as_json)
-    if (not set(keeps or []) <= {"recent", "user"} or not set(instructions or []) <= {"brief", "handoff", "state"}
-            or not set(recalls or []) <= {"none", "keyword", "embedding"} or questions not in ("direct", "indirect")):
-        _fail("--keep is recent|user, --instruction brief|handoff|state, --recall none|keyword|embedding, --questions direct|indirect", as_json)
+    if (not set(keeps or []) <= {"recent", "user"} or not set(instructions or []) <= {"brief", "handoff", "state", "index"}
+            or not set(recalls or []) <= {"none", "keyword", "embedding", "guided"} or questions not in ("direct", "indirect")):
+        _fail("--keep is recent|user, --instruction brief|handoff|state|index, --recall none|keyword|embedding|guided, --questions direct|indirect", as_json)
     if not dry_run and budget is None and not estimate_only:
         _fail("a real run needs --budget (USD); use --estimate to see what it would cost", as_json)
     model_ids = [ORACLE] if dry_run else list(models or _cheapest_models())
@@ -717,6 +719,8 @@ def compaction_eval(
         "instructions": list(instructions or []),
         "recalls": list(recalls or []),
         "questions": questions,
+        "rewriter": rewriter,
+        "asides": asides,
         "assistant_facts": assistant_facts,
         "fact_variants": fact_variants.split(","),
         "repeat_facts": repeat_facts,
@@ -782,6 +786,8 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
         DetailedBrief,
         HandoffBrief,
         EmbeddingRecall,
+        GuidedRecall,
+        IndexOnly,
         KeepUserMessages,
         KeywordRecall,
         StateAndIndex,
@@ -803,18 +809,22 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
         scenarios = {str(s): build_dense_scenario(n_facts=options["facts"], exchanges=options["exchanges"], seed=s,
                                                   assistant_facts=options["assistant_facts"],
                                                   variants=options["fact_variants"], repeat_facts=options["repeat_facts"],
-                                                  questions=options["questions"])
+                                                  questions=options["questions"], asides=options["asides"])
                      for s in range(options["seeds"])}
     else:
         scenarios = {str(s): build_scenario(exchanges=options["exchanges"], seed=s) for s in range(options["seeds"])}
     conditions = [ce.Condition("never", NeverCompact())] if options["baseline"] else []
+    all_facts = [f for sc in scenarios.values() for f in sc.facts]
+    factory = ce.EvalModelFactory(all_facts, inner=None if dry_run else default_model_factory())
     retentions = {"recent": None, "user": KeepUserMessages(options["user_budget"])}
-    bases = {"brief": None, "handoff": HandoffBrief(), "state": StateAndIndex()}
+    bases = {"brief": None, "handoff": HandoffBrief(), "state": StateAndIndex(), "index": IndexOnly()}
     recallers = {"none": None, "keyword": KeywordRecall()}
     if "embedding" in options["recalls"]:
         from app.services import rag
 
         recallers["embedding"] = EmbeddingRecall(ce.cached_embedder(rag.get_embeddings().embed_documents))
+    if "guided" in options["recalls"]:
+        recallers["guided"] = GuidedRecall(ce.model_rewriter(factory, options["rewriter"]))
     for t in options["thresholds"]:
         for summarizer in options["summarizers"] or [None]:
             for length in options["lengths"] or [None]:
@@ -830,8 +840,6 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
                                 instruction = LengthTarget(length, base=instruction or DetailedBrief())
                             conditions.append(ce.Condition(name, ThresholdPolicy(fixed_tokens(t), name=name), summarizer,
                                                            instruction, retentions[keep], recallers[rec]))
-    all_facts = [f for sc in scenarios.values() for f in sc.facts]
-    factory = ce.EvalModelFactory(all_facts, inner=None if dry_run else default_model_factory())
 
     prefix = "compaction-eval-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     grid = ce.run_live_grid if options["compaction"] == "live" else ce.run_grid

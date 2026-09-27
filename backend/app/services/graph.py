@@ -208,7 +208,8 @@ def sanitize_messages(
         if recall is not None:
             hidden = [i for i, p in enumerate(earlier) if p["role"] in ("human", "ai") and i not in set(kept)]
             query = next((str(p["content"]) for p in reversed(processed) if p["role"] == "human"), "")
-            chosen = [hidden[j] for j in recall.select(query, [str(earlier[i]["content"]) for i in hidden])]
+            hint = str(tail_messages[0]["content"])  # the summary the model sees
+            chosen = [hidden[j] for j in recall.select(query, [str(earlier[i]["content"]) for i in hidden], hint)]
             if chosen:
                 lines = [f"[{'User' if earlier[i]['role'] == 'human' else earlier[i].get('name') or 'assistant'}]: {earlier[i]['content']}"
                          for i in chosen]
