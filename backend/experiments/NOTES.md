@@ -711,3 +711,30 @@ message is cached on the second call (7,722 of 7,732 tokens), but the same
 text as a ~120-message conversation is never read from cache (cache writes
 reported every time, 0 cached, with gaps of 3–15 s). Not something the app
 can fix without flattening history into one message.
+
+## 2026-09-28 — Prompt caching per provider (verified)
+
+Each provider caches a different way; one message layout does not suit all.
+
+- **OpenAI, GPT-5.6+ (gpt-6-luna)** — official docs: in the default
+  implicit mode the API places a cache breakpoint at the end of the latest
+  user message (and after the initial developer block); cache writes cost
+  1.25× input. Growing three-turn conversation, ~7k-token prefix:
+
+  | per-request context (time, excerpts) | turns 2–3 |
+  |---|---|
+  | none | 7,041 / 7,067 tokens read from cache |
+  | inside the user message | **0 read, full prefix re-written every turn (1.25×)** |
+  | its own trailing system message | 7,075 / 7,118 read |
+
+  So with the context inside the user message, OpenAI calls cost *more* than
+  with no caching. `CachingChatOpenAI` moves the per-request block into a
+  trailing system message (not a breakpoint position); through the app's
+  own assembly: 0 → 6,989 → 7,028 tokens read.
+- **Anthropic** — no caching without a `cache_control` marker.
+  `CachingChatAnthropic` marks the last block the next turn will repeat (the
+  question, not the per-request block after it); claude-haiku-4-5 reads
+  7,403 → 7,442 tokens per turn and writes only the ~40 new ones. A marker
+  on the per-request block wrote every turn and never read.
+- **Gemini** — implicit prefix caching, no markers; hits are probabilistic
+  (76% over 24 consecutive probes, 0 over three quick calls).

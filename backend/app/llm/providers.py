@@ -26,16 +26,6 @@ class ChatProvider(Protocol):
         ...
 
 
-class OpenAIProvider:
-    def create(self, model_id: str) -> BaseChatModel:
-        from langchain_openai import ChatOpenAI
-
-        return ChatOpenAI(model=model_id)
-
-    def with_web_search(self, llm: Any) -> Runnable:
-        return llm.bind_tools([{"type": "web_search_preview"}])
-
-
 # Every turn re-sends the whole conversation, so the prefix is cached: a
 # breakpoint on the last block (what the API's automatic caching does) makes
 # the next turn read everything up to here at ~0.1x the input price, for a
@@ -82,6 +72,53 @@ def _caching_chat_anthropic():
             return payload
 
     return CachingChatAnthropic
+
+
+def split_request_notes(messages: list, role: str = "system") -> None:
+    """Move a trailing per-request block out of the last user message into a
+    message of its own. OpenAI (GPT-5.6+) places its implicit cache
+    breakpoint at the end of the latest user message; with the per-request
+    block inside it, the next turn never matched and every turn re-wrote the
+    whole prefix at 1.25x. A trailing system message is not a breakpoint, so
+    the breakpoint lands after the question, which the next turn repeats."""
+    if not messages:
+        return
+    last = messages[-1]
+    content = last.get("content")
+    if last.get("role") != "user" or not isinstance(content, list) or len(content) < 2:
+        return
+    block = content[-1]
+    text = block.get("text") if isinstance(block, dict) else None
+    if not (isinstance(text, str) and text.startswith(REQUEST_NOTES_HEADER)):
+        return
+    last["content"] = content[:-1]
+    messages.append({"role": role, "content": text})
+
+
+@functools.lru_cache(maxsize=1)
+def _caching_chat_openai():
+    from langchain_openai import ChatOpenAI
+
+    class CachingChatOpenAI(ChatOpenAI):
+        """ChatOpenAI whose requests keep the implicit cache breakpoint reusable."""
+
+        def _get_request_payload(self, input_, *, stop=None, **kwargs):
+            payload = super()._get_request_payload(input_, stop=stop, **kwargs)
+            if isinstance(payload.get("messages"), list):
+                split_request_notes(payload["messages"])
+            elif isinstance(payload.get("input"), list):  # Responses API
+                split_request_notes(payload["input"], role="developer")
+            return payload
+
+    return CachingChatOpenAI
+
+
+class OpenAIProvider:
+    def create(self, model_id: str) -> BaseChatModel:
+        return _caching_chat_openai()(model=model_id)
+
+    def with_web_search(self, llm: Any) -> Runnable:
+        return llm.bind_tools([{"type": "web_search_preview"}])
 
 
 class AnthropicProvider:

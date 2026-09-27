@@ -551,3 +551,16 @@ def test_anthropic_breakpoint_skips_the_per_request_block():
     plain = [{"role": "user", "content": "only"}]
     mark_cache_breakpoint(plain)
     assert plain[0]["content"][0]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_openai_payload_moves_the_per_request_block_out_of_the_user_message():
+    from app.llm.providers import REQUEST_NOTES_HEADER, split_request_notes
+
+    messages = [{"role": "system", "content": "sys"}, {"role": "user", "content": [
+        {"type": "text", "text": "q1"}, {"type": "text", "text": REQUEST_NOTES_HEADER + "\n[time]"}]}]
+    split_request_notes(messages)
+    assert messages[-2] == {"role": "user", "content": [{"type": "text", "text": "q1"}]}
+    assert messages[-1]["role"] == "system" and messages[-1]["content"].startswith(REQUEST_NOTES_HEADER)
+    untouched = [{"role": "user", "content": "plain"}]
+    split_request_notes(untouched)
+    assert untouched == [{"role": "user", "content": "plain"}]
