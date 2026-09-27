@@ -426,3 +426,39 @@ only the 24 restatements differ.
 - Caveat: the restatement is also a *later* copy, so part of the gain is that
   the latest mention went through fewer passes. Separating the two needs the
   restatement in the same summary window as the original.
+
+## 2026-09-27 — Pilot 7a: a state-and-index instruction
+
+**Command:** `uv run crucible compaction-eval --budget 1.4 --no-baseline -t 8000 -s gemini-3.5-flash-lite -s gemini-3.8-flash --assistant-facts 0.5 -m gpt-6-luna --instruction state --recall none --out experiments/results/pilot7a-state-2026-09-27.json`
+Same scenarios as pilot 5 (half the facts stated by the assistant); brief
+and handoff rows are pilot 5's. Spent $1.03 against an in-run estimate of
+$0.58 — beyond the ×1.35 planning factor; a separate estimate an hour
+earlier had said $0.97. One calibration call per condition is too noisy for
+the estimate; the hard cap is what bounds a run.
+
+`StateAndIndex` asks for what cannot be recovered otherwise: every decision,
+agreed value, constraint and open item with who stated it, only the latest
+value of anything changed, and a one-line index of topics.
+
+| summarizer | instruction | user-stated | assistant-stated | gpt-6-luna | summary | read per probe |
+|---|---|---|---|---|---|---|
+| flash-lite | brief | 17/36 | 14/36 | 27/72 | 5.6k | 5.8k |
+| flash-lite | handoff | 7/36 | 2/36 | 9/72 | 0.9k | 2.1k |
+| flash-lite | **state** | **35/36** | **35/36** | **69/72** | 10.2k | 10.9k |
+| 3.8-flash | brief | 36/36 | 36/36 | 72/72 | 7.8k | 9.5k |
+| 3.8-flash | handoff | 36/36 | 34/36 | 70/72 | 1.3k | 3.7k |
+| 3.8-flash | **state** | 36/36 | 36/36 | 72/72 | **5.7k** | **7.7k** |
+
+(strict oracle)
+
+- **The instruction decides what a weak summarizer keeps.** Asked for "a
+  concise, detailed technical brief", flash-lite kept 31/72; asked for every
+  decision and current value, 70/72. It did so by writing twice as much:
+  the gain costs context on every later call (10.9k vs 5.8k per probe).
+- With gemini-3.8-flash the state instruction keeps everything with smaller
+  summaries than the brief (5.7k vs 7.8k): the best retention per token read
+  in these runs apart from the handoff, which loses a little.
+- Combined with pilot 6: loss comes from what each pass chooses to drop, and
+  telling the summarizer *what kind* of thing must survive (values,
+  decisions, who said them) changes that choice far more than the choice of
+  a cheap model does.
