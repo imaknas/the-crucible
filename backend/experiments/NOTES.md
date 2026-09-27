@@ -46,15 +46,32 @@ in the dated entries below.
 9. A restatement adds 25 points, partly because the restatement is newer and
    went through fewer passes (pilot 6b).
 
+**The read side** (pilots 8–10; once originals are kept, who decides what
+to fetch?):
+
+10. With the facts in view (full history or a complete summary) the model
+    answers indirect questions as well as direct ones (68–72/72); keyword
+    recall drops from 66/72 to 28/72 because the retriever, not the model,
+    now judges relevance. A small embedding model is weak either way.
+11. Letting a model choose the search terms from the summary recovers most
+    of it (index + guided recall 19 → 49/72; handoff 28 → 54/72), not all.
+12. Tentative / failed: phrasing facts as throwaway remarks did *not* make
+    summaries drop them (a lossy summarizer kept more). Surface wording is
+    not low salience; the structural question (relevance that cannot be
+    foreseen when a fact is stated) is still untested.
+
 **Changed in the app:** the re-summarize thrash fix; `SUMMARIZER_MODELS`
-now leads with gemini-3.8-flash; the price list, cost estimate and
-`--budget` hard cap. **Measured, not adopted:** `StateAndIndex`,
-`KeywordRecall`, `KeepUserMessages` — candidates, not defaults.
+now leads with gemini-3.8-flash; the price list, cost estimate, `--budget`
+hard cap, and experiments halting on any failed model call; prompt caching
+that actually hits on every provider (stable prefix, per-request context
+placed per provider — see the caching entry). **Measured, not adopted:**
+`StateAndIndex`, `KeywordRecall`, `GuidedRecall`, `KeepUserMessages` —
+candidates, not defaults.
 
 **Limitations:** synthetic conversations only; 3 conversations × 24 facts
 per cell; small and mid-size models; one threshold (8,000 tokens); no
 multiple-comparison correction; keyword recall is favoured by probes that
-name their subject. Total spend about $55, about $41 of it before the
+name their subject. Total spend about $60, about $41 of it before the
 budget guard existed.
 
 ## 2026-09-26 — Pilot 1: cheap models, synthetic filler
