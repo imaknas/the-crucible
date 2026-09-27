@@ -13,7 +13,7 @@ from langchain_core.runnables import RunnableConfig
 from app.utils.helpers import extract_text
 from app.services import rag as rag_service
 from app.llm import model_factory_from
-from app.compaction import ContextSnapshot, DetailedBrief, ModelBudget, ThresholdPolicy
+from app.compaction import ContextSnapshot, DetailedBrief, EarlierMessage, KeepRecent, ModelBudget, ThresholdPolicy
 
 SUMMARY_MARKER = "PREVIOUS CONTEXT SUMMARY:"
 # Messages kept verbatim after a summary: left out of the summary when it is
@@ -25,6 +25,25 @@ POLICY_CONFIG_KEY = "compaction_policy"
 SUMMARIZER_CONFIG_KEY = "summarizer_model"
 INSTRUCTION_CONFIG_KEY = "summary_instruction"
 _DEFAULT_INSTRUCTION = DetailedBrief()
+# What stays verbatim before the summary once history is pruned.
+RETENTION_CONFIG_KEY = "history_retention"
+_DEFAULT_RETENTION = KeepRecent(KEEP_VERBATIM)
+_ROLE = {"human": "user", "ai": "assistant"}
+
+
+def retention_from(config: Optional[RunnableConfig]):
+    """The run's injected Retention, else the recent window."""
+    injected = ((config or {}).get("configurable") or {}).get(RETENTION_CONFIG_KEY)
+    return injected or _DEFAULT_RETENTION
+
+
+def _text_tokens(text: str) -> int:
+    return len(_encoding().encode(text, disallowed_special=()))
+
+
+@functools.lru_cache(maxsize=1)
+def _encoding():
+    return tiktoken.get_encoding("cl100k_base")
 _DEFAULT_POLICY = ThresholdPolicy()
 
 
@@ -83,7 +102,7 @@ load_dotenv()
 
 
 def sanitize_messages(
-    messages: List[BaseMessage], prune_history: bool = True
+    messages: List[BaseMessage], prune_history: bool = True, retention=None
 ) -> List[BaseMessage]:
     """
     Final Ironclad Sanitizer:
@@ -166,11 +185,13 @@ def sanitize_messages(
         # used to run only while the summary was the last message, so from the
         # next turn on those messages were in neither the summary nor the
         # context: silently lost.)
-        recovery = [
-            msg
-            for msg in processed[max(0, summary_index - KEEP_VERBATIM):summary_index]
-            if msg["role"] in ("human", "ai")
+        # The run's Retention may keep more (e.g. every user message).
+        earlier = processed[:summary_index]
+        described = [
+            EarlierMessage(_ROLE.get(p["role"], "system"), _text_tokens(str(p["content"])))
+            for p in earlier
         ]
+        recovery = [earlier[i] for i in (retention or _DEFAULT_RETENTION).keep(described)]
         print(f"[Sanitizer] Kept {len(recovery)} verbatim messages before the summary")
 
         # Reassemble: System -> Summary (from tail) -> Recovered Human -> Rest of Tail
@@ -466,7 +487,7 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
         f"[Selective Pruning] {'Active' if do_prune else 'High-fidelity mode'} for {active_peer} ({decision.reason})"
     )
 
-    sanitized_messages = sanitize_messages(messages, prune_history=do_prune)
+    sanitized_messages = sanitize_messages(messages, prune_history=do_prune, retention=retention_from(config))
     effective_tokens = count_tokens(sanitized_messages)
 
     # Diagnostic Logging

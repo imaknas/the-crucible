@@ -82,6 +82,8 @@ class Scenario:
     positions: dict[str, int] = field(default_factory=dict)
     # fact key -> indexes into `turns` of its extra statements
     extra_positions: dict[str, list[int]] = field(default_factory=dict)
+    # fact key -> "user" or "assistant": who stated it
+    stated_by: dict[str, str] = field(default_factory=dict)
 
     def probe_prompt(self, fact: PlantedFact) -> str:
         return f"Quick check on something from earlier in this conversation: {fact.question} Answer with just the value."
@@ -396,6 +398,7 @@ def build_dense_scenario(
     n_facts: int = 24,
     exchanges: int = 120,
     seed: int = 0,
+    assistant_facts: float = 0.0,
 ) -> Scenario:
     """A long conversation where every turn carries specifics.
 
@@ -406,6 +409,11 @@ def build_dense_scenario(
     """
     rng = random.Random(seed)
     facts = list(facts) if facts is not None else generate_facts(n_facts, seed=seed)
+    # Who states each fact (and its extras). Retention rules that keep the
+    # user's messages would keep user-stated facts for free; in real use a lot
+    # of detail comes from the assistant or its tools.
+    by_assistant = set(random.Random(f"roles:{seed}").sample(range(len(facts)), round(assistant_facts * len(facts))))
+    stated_by = {f.key: ("assistant" if i in by_assistant else "user") for i, f in enumerate(facts)}
     start, end = int(exchanges * 0.08), int(exchanges * 0.88)
     if sum(1 + len(f.extras) for f in facts) > exchanges:
         raise ValueError("more planted statements than exchanges")
@@ -432,17 +440,22 @@ def build_dense_scenario(
         subject = rng.choice(SUBJECTS)
         parts = [rng.choice(_OPENERS).format(t=f"the {subject}"), _filler_fact(rng, subject)]
         planted = slots.get(ex)
-        if planted:
-            fact, statement, is_final = planted
-            (positions.__setitem__(fact.key, len(turns)) if is_final
-             else extra_positions.setdefault(fact.key, []).append(len(turns)))
-            parts.append(statement)
+        by = stated_by[planted[0].key] if planted else None
+        if planted and by == "user":
+            parts.append(planted[1])
         parts += [_filler_fact(rng, rng.choice(SUBJECTS)), rng.choice(_USER_BODY), _filler_fact(rng, subject)]
-        turns.append(Turn("user", " ".join(parts), planted[0].key if planted else None))
         reply = [_filler_fact(rng, rng.choice(SUBJECTS)) for _ in range(3)] + rng.sample(_DENSE_ADVICE, 3)
         rng.shuffle(reply)
-        turns.append(Turn("assistant", " ".join(reply)))
-    return Scenario(turns=turns, facts=facts, positions=positions, extra_positions=extra_positions)
+        if planted and by == "assistant":
+            reply.insert(1, planted[1])  # mid-message, never the opener
+        if planted:
+            fact, _, is_final = planted
+            where = len(turns) + (1 if by == "assistant" else 0)
+            (positions.__setitem__(fact.key, where) if is_final
+             else extra_positions.setdefault(fact.key, []).append(where))
+        turns.append(Turn("user", " ".join(parts), planted[0].key if planted and by == "user" else None))
+        turns.append(Turn("assistant", " ".join(reply), planted[0].key if planted and by == "assistant" else None))
+    return Scenario(turns=turns, facts=facts, positions=positions, extra_positions=extra_positions, stated_by=stated_by)
 
 
 # ─── Scoring ─────────────────────────────────────────────────────

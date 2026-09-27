@@ -8,6 +8,7 @@ package only decides and measures.
 - policy.py   CompactionPolicy strategies: when to summarize, when to prune
 - probe.py    Detail-retention scenarios: planted facts, filler, probes, scoring
 - instructions.py  What the summarizer is asked to write (SummaryInstruction)
+- retention.py  What stays verbatim once history is pruned (Retention)
 - judge.py    Paired comparison of two policies (uses Ordal, lazily)
 """
 
@@ -21,7 +22,8 @@ from app.compaction.policy import (
     fixed_tokens,
     fraction_of_limit,
 )
-from app.compaction.instructions import DetailedBrief, LengthTarget, SummaryInstruction
+from app.compaction.instructions import DetailedBrief, HandoffBrief, LengthTarget, SummaryInstruction
+from app.compaction.retention import EarlierMessage, KeepRecent, KeepUserMessages, Retention
 from app.compaction.judge import compare_recall, recall_rate
 from app.compaction.probe import (
     DEFAULT_FACTS,
@@ -38,6 +40,11 @@ from app.compaction.probe import (
 
 __all__ = [
     "DetailedBrief",
+    "HandoffBrief",
+    "EarlierMessage",
+    "KeepRecent",
+    "KeepUserMessages",
+    "Retention",
     "LengthTarget",
     "SummaryInstruction",
     "CompactionPolicy",

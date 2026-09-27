@@ -379,3 +379,46 @@ def test_strict_availability_needs_the_value_attached_to_its_subject():
     assert value_attached(f"### {subject}\n* fine\n### {other}\n* port {value}", replace(fact, subject=""))
     # Hyphens and case don't matter for the subject.
     assert value_attached(f"{subject.upper().replace(' ', '-')}: {value}", fact)
+
+
+def test_retention_rules():
+    from app.compaction import EarlierMessage, KeepRecent, KeepUserMessages
+
+    earlier = [EarlierMessage("user", 100), EarlierMessage("assistant", 500), EarlierMessage("system", 50)] * 4
+    assert KeepRecent(5).keep(earlier) == [7, 9, 10]  # last 5 positions, system skipped
+    user = KeepUserMessages(budget=250).keep(earlier)
+    assert set(KeepRecent(5).keep(earlier)) <= set(user)
+    assert [i for i in user if earlier[i].role == "user" and i < 7] == [3, 6]  # newest first within 250 tokens
+
+
+def test_keeping_user_messages_keeps_user_stated_facts_through_a_lossy_summary(eval_setup):
+    import asyncio
+
+    from app.compaction import KeepUserMessages, build_dense_scenario
+    from app.services.compaction_eval import ORACLE, EvalModelFactory, run_live_grid
+
+    app, _ = eval_setup
+    scenario = build_dense_scenario(n_facts=8, exchanges=40, seed=6, assistant_facts=0.5)
+    t = ThresholdPolicy(fixed_tokens(1_500))
+    results = asyncio.run(run_live_grid(
+        app, {"6": scenario}, [ORACLE],
+        [Condition("recent", t), Condition("keepuser", t, retention=KeepUserMessages(20_000))],
+        model_factory=EvalModelFactory(scenario.facts),  # stand-in summary keeps no facts
+    ))
+    # Facts summarized away (outside the recent window when probed).
+    old = [r for r in results if r.compactions >= 1 and r.planted_turn < len(scenario.turns) - 12]
+    group = lambda cond, by: [r.correct for r in old if r.condition == cond and r.stated_by == by]  # noqa: E731
+    assert group("keepuser", "user") and all(group("keepuser", "user"))
+    assert group("keepuser", "assistant") and not any(group("keepuser", "assistant"))  # left to the summary
+    assert group("recent", "user") and not any(group("recent", "user"))
+
+
+def test_sanitize_default_keeps_the_original_recent_window():
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+    msgs = [HumanMessage(content=f"u{i}") if i % 2 == 0 else AIMessage(content=f"a{i}") for i in range(12)]
+    msgs.append(SystemMessage(content="PREVIOUS CONTEXT SUMMARY: gist"))
+    msgs.append(HumanMessage(content="now"))
+    text = " ".join(str(m.content) for m in graph_mod.sanitize_messages(msgs))
+    assert all(f"{'u' if i % 2 == 0 else 'a'}{i}" in text for i in range(7, 12))
+    assert "u6" not in text and "u0" not in text

@@ -33,11 +33,20 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import RunnableLambda
 
-from app.compaction import CompactionPolicy, PlantedFact, Scenario, SummaryInstruction, compare_recall, is_correct
+from app.compaction import (
+    CompactionPolicy,
+    PlantedFact,
+    Retention,
+    Scenario,
+    SummaryInstruction,
+    compare_recall,
+    is_correct,
+)
 from app.compaction.probe import is_stale, value_attached
 from app.services.graph import (
     INSTRUCTION_CONFIG_KEY,
     POLICY_CONFIG_KEY,
+    RETENTION_CONFIG_KEY,
     SUMMARIZER_CONFIG_KEY,
     SUMMARY_MARKER,
     compaction_policy_from,
@@ -59,6 +68,8 @@ class Condition:
     summarizer: Optional[str] = None
     # What the summarizer is asked to write; None = the app's default brief.
     instruction: Optional[SummaryInstruction] = None
+    # What stays verbatim once history is pruned; None = the recent window.
+    retention: Optional[Retention] = None
 
     def configure(self, config: dict) -> dict:
         config["configurable"][POLICY_CONFIG_KEY] = self.policy
@@ -66,6 +77,8 @@ class Condition:
             config["configurable"][SUMMARIZER_CONFIG_KEY] = self.summarizer
         if self.instruction:
             config["configurable"][INSTRUCTION_CONFIG_KEY] = self.instruction
+        if self.retention:
+            config["configurable"][RETENTION_CONFIG_KEY] = self.retention
         return config
 
 
@@ -99,6 +112,8 @@ class ProbeResult:
     setup_usage: dict = field(default_factory=dict)
     # Size in tokens of the latest summary the answering call saw (0: none).
     summary_tokens: int = 0
+    # Who stated the fact in the conversation: "user" or "assistant".
+    stated_by: str = "user"
 
     @property
     def key(self) -> str:
@@ -227,9 +242,9 @@ def _latest_summary_tokens(messages: Sequence[BaseMessage]) -> int:
 
 
 def _compactions_since(messages: Sequence[BaseMessage], statement: str) -> int:
-    """Summaries after the first message stating `statement`."""
+    """Summaries after the first message (user's or assistant's) stating `statement`."""
     texts = [extract_text(m.content) for m in messages]
-    start = next((i for i, (m, t) in enumerate(zip(messages, texts)) if m.type == "human" and statement in t), None)
+    start = next((i for i, (m, t) in enumerate(zip(messages, texts)) if m.type in ("human", "ai") and statement in t), None)
     if start is None:
         return 0
     return sum(1 for t in texts[start + 1:] if SUMMARY_MARKER in t)
@@ -297,6 +312,7 @@ async def run_condition(
             stale=is_stale(answer, fact),
             compactions=_compactions_since(before_answer, fact.statement),
             summary_tokens=_latest_summary_tokens(before_answer),
+            stated_by=scenario.stated_by.get(fact.key, "user"),
             setup_usage=(setup_usage or {}) if not results else {},
         ))
         parent = final.config["configurable"]["checkpoint_id"]
@@ -435,11 +451,13 @@ def summarize_results(results: Iterable[ProbeResult]) -> dict[str, Any]:
     table: dict[str, Any] = {}
     for r in results:
         row = table.setdefault(f"{r.condition} / {r.model}",
-                               {"n": 0, "correct": 0, "stale": 0, "by_kind": {}, "by_variant": {}, "by_compactions": {}})
+                               {"n": 0, "correct": 0, "stale": 0, "by_kind": {}, "by_variant": {}, "by_compactions": {},
+                                "by_stated_by": {}})
         row["n"] += 1
         row["correct"] += r.correct
         row["stale"] += r.stale
-        for split, value in (("by_kind", r.kind), ("by_variant", r.variant), ("by_compactions", str(r.compactions))):
+        for split, value in (("by_kind", r.kind), ("by_variant", r.variant), ("by_compactions", str(r.compactions)),
+                             ("by_stated_by", r.stated_by)):
             cell = row[split].setdefault(value, [0, 0])
             cell[0] += r.correct
             cell[1] += 1
