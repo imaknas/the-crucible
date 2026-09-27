@@ -579,5 +579,46 @@ among the top 4 for its question?
   message in these conversations has the same shape (subsystem + metric), so
   sentence embeddings barely separate them. Retrieval quality, not storage,
   becomes the bottleneck once originals are kept.
-- Pilot 8 (running) measures how this turns into lost answers, next to the
-  full history and a strong summary.
+- Pilot 8 (below) measures how this turns into lost answers.
+
+## 2026-09-28 — Pilot 8: who has to understand the question
+
+Same scenarios as pilots 5/7 (half the facts assistant-stated), t=8000,
+gpt-6-luna answering (gemini-3.8-flash also answered the first run). Runs:
+`pilot8a` (indirect: full history + flash-lite handoff with keyword or
+embedding recall, luna and 3.8-flash; stopped at its $3.00 cap after $3.04,
+recall conditions incomplete), `pilot8a2` (indirect recall conditions again,
+luna only), `pilot8b` (indirect, 3.8-flash state summaries), `pilot8c`
+(direct, embedding recall). Direct keyword and direct state rows are pilots
+7b/7a. About $4.2 in total (cap $10). The first run's estimate was $1.81:
+gemini-3.8-flash as an answering model reasons a very variable amount per
+call, which the one-call calibration cannot see.
+
+| gpt-6-luna recall (strict oracle in brackets) | direct | indirect |
+|---|---|---|
+| Full history, no compaction | – | 68/72 (72/72); gemini-3.8-flash 62/62 |
+| flash-lite handoff + keyword recall | 66/72 (66) | **28/72** (29) |
+| flash-lite handoff + embedding recall | 27/72 (29) | 32/72 (33) |
+| gemini-3.8-flash state summary, no recall | 72/72 (72) | **72/72** (72) |
+
+- Keyword recall: direct → indirect −53 points ([−64, −39]). Embedding
+  (MiniLM) recall is poor either way (no detectable difference).
+- With indirect questions, a strong state summary beats summary + keyword
+  recall by 61 points ([+49, +72]).
+- **When the model sees the facts, wording doesn't matter**: with the full
+  history or a complete summary, luna maps "the task that clears cached files
+  at the edge" to the CDN purge job almost every time. The model can make the
+  relevance decision at read time.
+- **Recall moves that decision to the retriever**, and a lexical or small
+  embedding retriever is far weaker at it than the model. Lazy recall only
+  beats eager summarizing if whoever chooses what to fetch understands the
+  question as well as the model does.
+- So both families fail by capability, in different places: an eager summary
+  by the summarizer (compounding per pass), lazy recall by the retriever.
+  The structural part — facts that are unremarkable when stated and needed
+  later — is still untested: every fact here is salient, which is why a
+  complete summary kept them all.
+
+Next: model-driven lookup (the answering model sees the summary's index and
+names what to fetch) against keyword/embedding recall, and "sleeper" facts
+that read like filler when stated.
