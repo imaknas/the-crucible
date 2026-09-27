@@ -4,6 +4,59 @@ Raw results live in `results/` (one JSON per run, every probe included).
 Experiment databases (`*.sqlite`) are not committed; runs are reproducible
 with the command recorded in each entry.
 
+## Conclusions so far (as of 2026-09-28)
+
+One principle ties them together: every loss measured here was information
+whose only copy was a summary. Keeping the original reachable, or asking the
+summary for the current state, is what prevented it. Details and numbers are
+in the dated entries below.
+
+**Solid** (large effects, replicated across runs):
+
+1. With a cheap summarizer, loss compounds with each pass: a fact that went
+   through 1 summary survived 100% of the time, after 4 summaries 0%
+   (pilots 2, 2b, 6a).
+2. Bringing hidden originals back (keyword recall) rescues lossy summaries:
+   flash-lite handoffs went from 9/72 to 66/72, with each later call reading
+   2.8k tokens (pilot 7b).
+3. gemini-3.8-flash summarizes as well as gemini-3.5-flash at about 1/6 of
+   the cost per summary (pilot 4).
+4. Keeping user messages verbatim (Codex CLI's rule) rescues exactly the
+   user-stated facts and nothing else, at 2.3× the context per call
+   (pilot 5).
+
+**Likely** (clear effects, small scale):
+
+5. Most loss is in the summary, not in the answering model's attention; with
+   a weak summarizer, models also missed ~14% of facts that did survive
+   (pilot 2b, strict re-score).
+6. For small models a good summary beats the raw history: in a 23k-token
+   transcript they often gave superseded values, which the summary resolved
+   (pilot 2).
+7. What the summarizer is asked to keep matters as much as which model it
+   is: state-and-index took flash-lite from 31 to 70 of 72, about the same
+   gain as switching to gemini-3.8-flash (31 → 72) (pilots 5, 7a).
+
+**Tentative** (direction visible, not settled):
+
+8. Old facts are lost to repeated passes rather than lack of room: one
+   summary of everything kept 19/24 early facts vs 8/24 incrementally, but
+   the overall paired test was not decisive, and one big pass detaches
+   values from their subjects (pilot 6a).
+9. A restatement adds 25 points, partly because the restatement is newer and
+   went through fewer passes (pilot 6b).
+
+**Changed in the app:** the re-summarize thrash fix; `SUMMARIZER_MODELS`
+now leads with gemini-3.8-flash; the price list, cost estimate and
+`--budget` hard cap. **Measured, not adopted:** `StateAndIndex`,
+`KeywordRecall`, `KeepUserMessages` — candidates, not defaults.
+
+**Limitations:** synthetic conversations only; 3 conversations × 24 facts
+per cell; small and mid-size models; one threshold (8,000 tokens); no
+multiple-comparison correction; keyword recall is favoured by probes that
+name their subject. Total spend about $55, about $41 of it before the
+budget guard existed.
+
 ## 2026-09-26 — Pilot 1: cheap models, synthetic filler
 
 **Command:** `uv run crucible compaction-eval --scenario basic --compaction once --no-oracle --out experiments/results/pilot-cheap-2026-09-26.json`
