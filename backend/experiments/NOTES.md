@@ -622,3 +622,28 @@ call, which the one-call calibration cannot see.
 Next: model-driven lookup (the answering model sees the summary's index and
 names what to fetch) against keyword/embedding recall, and "sleeper" facts
 that read like filler when stated.
+
+## 2026-09-28 — Pilot 9: let a model decide what to fetch
+
+**Command:** `uv run crucible compaction-eval --budget 1.0 -m gpt-6-luna --assistant-facts 0.5 -t 8000 --questions indirect --no-baseline -s gemini-3.5-flash-lite --instruction index --instruction handoff --recall keyword --recall guided --out experiments/results/pilot9-guided-2026-09-28.json`
+Estimated $0.24, spent $0.32.
+
+`GuidedRecall`: before each call, gpt-6-luna reads the visible summary and
+the question and names what to search for; keyword recall then uses those
+terms. `IndexOnly` summaries only list the topics that came up.
+
+| indirect questions (gpt-6-luna; strict oracle) | keyword recall | guided recall |
+|---|---|---|
+| flash-lite index-only summary (median 168 tokens) | 19/72 (16) | **49/72 (51)** |
+| flash-lite handoff (median ~1k tokens) | 28/72 (28) | **54/72 (55)** |
+| reference: direct questions, handoff + keyword (pilot 7b) | 66/72 | – |
+
+- Handing the relevance decision back to a model recovers most of what
+  indirect wording cost: +42 points ([+28, +53]) with an index, +36
+  ([+23, +47]) with a handoff. It does not fully close the gap to direct
+  questions (55 vs 66).
+- flash-lite's "index" was tiny (168 tokens for ~40 subjects), so it likely
+  left subjects out; the rewriter cannot name what the index never
+  mentioned. A complete index is the obvious next check.
+- Cost stays low: the rewrite call reads the summary and the question
+  (luna input per probe 3.7k–6.1k tokens, rewrite included).
