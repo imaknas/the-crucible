@@ -918,3 +918,36 @@ choosing the terms). Estimated $2.23, spent $0.65.
   every summarizer family tested drops what the current task does not need
   (4 of 6 significantly), no summarizer can anticipate a change of goal, and
   only a design that keeps the originals reachable is immune.
+
+## 2026-09-28 — Pilot 17: rescue with indirect questions
+
+`--scenario task --questions indirect`, 4 conversations, oracle only; gpt-6-sol
+and claude-haiku-4-5 summaries (the two that dropped the most off-goal facts
+in pilot 14) with keyword, embedding (MiniLM) and guided recall (gpt-6-luna
+choosing the terms, now seeing the summary *and* the turns kept verbatim,
+which include the change of goal). Estimated $2.23, spent $0.72. The
+no-recall baseline is pilot 16's (with no recall the context does not depend
+on the question's wording), so those comparisons are across runs.
+
+Off-goal facts still in context (strict oracle):
+
+| | no recall (p16) | keyword | embedding | guided |
+|---|---|---|---|---|
+| gpt-6-sol, direct questions (p16) | 4/32 | 32/32 | – | 32/32 |
+| gpt-6-sol, indirect questions | – | 16/32 | 19/32 | **30/32** |
+| claude-haiku-4-5, direct questions (p16) | 5/32 | 32/32 | – | 32/32 |
+| claude-haiku-4-5, indirect questions | – | 17/32 | 17/32 | **28/32** |
+
+- Within each summarizer, indirect wording halves what keyword recall
+  restores (−50 and −47 points against direct questions) and embedding recall
+  does no better; guided recall is barely affected (−6 and −12, no detectable
+  difference) and restores 28–30 of 32 against 4–5 without recall.
+- The two summarizers are **two replications, not a comparison**: they differ
+  in family *and* tier, so nothing here says which family or tier rescues
+  better. For rescue the summarizer only sets how much there is to recover.
+- **The untested variable is the model that chooses what to fetch** (always
+  gpt-6-luna here). With indirect questions it, not the summarizer, decides
+  relevance. The next test varies it across families and tiers. Replays are
+  not cached today (only calibrations are), so that test currently re-pays
+  the summaries; caching replays per scenario and condition would make
+  rewriter comparisons cost almost nothing.
