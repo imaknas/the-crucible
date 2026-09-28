@@ -844,3 +844,42 @@ Gemini (3.5-flash, 3.8-flash, 3.5-flash-lite). Answering models spanned
 OpenAI, Anthropic and Google; summarizers did not. Until a cheap and a strong
 summarizer from each family show the same direction, these are findings
 about Gemini summarizers.
+
+## 2026-09-28 — Pilot 14: off-goal loss across summarizer families; pilot 15: recall rescue
+
+**Pilot 14** (`--scenario task`, 4 conversations, oracle only, t=8000,
+detailed-brief instruction; estimated $2.28, spent $1.00):
+
+| summarizer | on-goal kept | off-goal kept | off − on (paired by kind) |
+|---|---|---|---|
+| gpt-6-luna | 23/32 | 5/32 | −56 [−70, −35] |
+| gpt-6-sol | 29/32 | 4/32 | −78 [−88, −57] |
+| claude-haiku-4-5 | 22/32 | 7/32 | −47 [−62, −26] |
+| claude-sonnet-5 | 22/32 | 13/32 | −28 [−43, −11] |
+| gemini-3.5-flash-lite | 15/32 | 13/32 | −6, no detectable difference |
+| gemini-3.8-flash | 28/32 | 26/32 | −6, no detectable difference |
+
+- **Dropping what the current task doesn't need is not a Gemini quirk — it
+  is widespread, and Gemini does it least.** Four of four OpenAI and
+  Anthropic summarizers lose off-goal facts significantly; the OpenAI ones
+  keep almost none (5/32 and 4/32).
+- **It is not "stronger drops more".** Pilot 11's reading (from Gemini alone,
+  2 conversations) does not generalize: within OpenAI the stronger model is
+  more selective, within Anthropic the stronger one is *less* selective, and
+  Gemini 3.8-flash showed −29 (pilot 11, 3 instructions), −16 (pilot 15) and
+  −6 (here) on overlapping scenarios. The family (its summarizing style)
+  matters more than strength.
+- What holds across families: a task-focused summary drops information the
+  task doesn't need yet, and no summarizer can know the goal will change.
+
+**Pilot 15** (same scenarios, gemini-3.8-flash brief, keyword and guided
+recall with gpt-6-luna choosing the search terms; estimated $1.33, spent
+$0.68): off-goal 26/32 without recall, 28/32 with keyword recall (+6, no
+detectable difference), **31/32 with guided recall** (+16 [−1, +33]); the
+on/off gap closes to 0 with guided recall. Gemini 3.8-flash leaves little to
+rescue here; the decisive rescue test is with a summarizer that drops almost
+everything off-goal (gpt-6-sol: 4/32).
+
+Estimates now overshoot (actual 0.44× and 0.51×): the learned margin and the
+two-step calibration are conservative for short runs, and the calibration
+cache made the run use exactly the approved estimate.
