@@ -861,3 +861,78 @@ def model_rewriter(factory, model_id: str):
         return extract_text(reply.content)
 
     return rewrite
+
+
+# ─── Budgeted runs ───────────────────────────────────────────────
+
+
+@dataclass
+class BudgetedRun:
+    results: list
+    spend: Optional[Spend]
+    estimate: Optional[CostEstimate]
+    prefix: str
+
+
+async def run_budgeted(
+    graph_app,
+    scenarios: dict[str, Scenario],
+    model_ids: Sequence[str],
+    conditions: Sequence[Condition],
+    factory,
+    *,
+    prices=None,
+    budget: Optional[float] = None,
+    estimate_only: bool = False,
+    grid=None,
+    sample_tokens: int = 8000,
+    concurrency: int = 4,
+    prefix: str = "compaction-eval",
+    on_estimate=None,
+) -> BudgetedRun:
+    """Calibrate, estimate, refuse if the estimate (with margin) exceeds the
+    budget, then run with the budget as a hard cap. Without `prices` (dry
+    runs with stand-in models) it just runs. Raises ValueError when a model
+    is unpriced or the estimate is over budget; nothing is run then."""
+    from app.compaction import NeverCompact
+
+    grid = grid or run_live_grid
+    spend, estimate = None, None
+    if prices is not None:
+        real = [m for m in model_ids if m not in ORACLES]
+        unpriced = sorted({m for m in real + [split_thinking(summarizer_of(c))[0] for c in conditions]
+                           if prices.price(m) is None})
+        if unpriced:
+            raise ValueError(f"no price for {', '.join(unpriced)}: add it to app/catalog/data/prices.json")
+        spend = Spend(prices)
+        summ = {c.name: await calibrate_summarizer(c, factory, spend, sample_tokens)
+                for c in conditions if not isinstance(c.policy, NeverCompact)}
+        answer = {m: await calibrate_answerer(graph_app, m, factory, spend, prefix) for m in real}
+        estimate = await estimate_cost(graph_app, scenarios, model_ids, conditions, prices, answer, summ,
+                                       thread_prefix=prefix, calibration_cost=spend.total, grid=grid)
+        if on_estimate:
+            on_estimate(estimate)
+        if estimate_only:
+            return BudgetedRun([], spend, estimate, prefix)
+        if budget is None or estimate.high + spend.total > budget:
+            raise ValueError(f"estimated ${estimate.high:.2f} (+${spend.total:.2f} calibration) exceeds "
+                             f"--budget ${budget or 0:.2f}; nothing was run")
+        spend.limit = budget
+    results = await grid(graph_app, scenarios, model_ids, conditions, thread_prefix=prefix,
+                         model_factory=factory, concurrency=concurrency, spend=spend)
+    return BudgetedRun(results, spend, estimate, prefix)
+
+
+def spend_summary(run: BudgetedRun, budget: Optional[float]) -> Optional[dict]:
+    if not run.spend:
+        return None
+    s = run.spend
+    return {
+        "total": round(s.total, 4),
+        "budget": budget,
+        "estimate": round(run.estimate.total, 4) if run.estimate else None,
+        "by_model": {m: round(c, 4) for m, c in s.by_model.items()},
+        "unpriced_calls": s.unpriced,
+        "stopped_by_budget": s.exhausted and not s.errors,
+        "model_errors": s.errors[:5],
+    }

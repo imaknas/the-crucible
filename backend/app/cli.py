@@ -625,6 +625,13 @@ def catalog_sync(
         print_info(f"No key, left unchanged: {', '.join(diff.skipped_providers)}")
     if not dry_run:
         print_success("Wrote app/catalog/data/catalog.json")
+    if diff.added or diff.changed:
+        from app.services import scaffold_audit
+
+        history = scaffold_audit.load_history()
+        last = max((r["date"] for r in history), default="never")
+        print_info(f"Models were added or changed; context scaffolding was last audited: {last}. "
+                   "Check it still earns its place: `uv run crucible scaffold-audit --estimate`")
 
 
 # ─── COMPACTION-EVAL Command ────────────────────────────────────
@@ -845,34 +852,22 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
 
     prefix = "compaction-eval-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     grid = ce.run_live_grid if options["compaction"] == "live" else ce.run_grid
-    spend, estimate = None, None
-    async with open_graph() as graph_app:
-        if not dry_run:
-            from app.catalog import PriceBook, load_prices
+    prices = None
+    if not dry_run:
+        from app.catalog import PriceBook, load_prices
 
-            prices = PriceBook(load_prices(), datetime.now(timezone.utc).date().isoformat())
-            real = [m for m in model_ids if m not in ce.ORACLES]
-            unpriced = sorted({m for m in real + [ce.split_thinking(ce.summarizer_of(c))[0] for c in conditions]
-                               if prices.price(m) is None})
-            if unpriced:
-                raise ValueError(f"no price for {', '.join(unpriced)}: add it to app/catalog/data/prices.json")
-            spend = ce.Spend(prices)
-            sample = max(options["thresholds"])
-            summ_profiles = {c.name: await ce.calibrate_summarizer(c, factory, spend, sample)
-                             for c in conditions if not isinstance(c.policy, NeverCompact)}
-            answer_profiles = {m: await ce.calibrate_answerer(graph_app, m, factory, spend, prefix) for m in real}
-            estimate = await ce.estimate_cost(graph_app, scenarios, model_ids, conditions, prices, answer_profiles,
-                                              summ_profiles, thread_prefix=prefix, calibration_cost=spend.total, grid=grid)
-            _print_estimate(estimate, budget)
-            if estimate_only:
-                return {"estimate": {"total": round(estimate.total, 2), "high": round(estimate.high, 2),
-                                     "by_condition": estimate.by_condition, "by_model": estimate.by_model,
-                                     "summaries": estimate.summaries, "calibration": round(estimate.calibration, 3)}}
-            if estimate.high + spend.total > budget:
-                raise ValueError(f"estimated ${estimate.high:.2f} (+${spend.total:.2f} calibration) exceeds --budget ${budget:.2f}; nothing was run")
-            spend.limit = budget
-        results = await grid(graph_app, scenarios, model_ids, conditions, thread_prefix=prefix,
-                             model_factory=factory, concurrency=options["concurrency"], spend=spend)
+        prices = PriceBook(load_prices(), datetime.now(timezone.utc).date().isoformat())
+    async with open_graph() as graph_app:
+        run = await ce.run_budgeted(
+            graph_app, scenarios, model_ids, conditions, factory, prices=prices, budget=budget,
+            estimate_only=estimate_only, grid=grid, sample_tokens=max(options["thresholds"]),
+            concurrency=options["concurrency"], prefix=prefix, on_estimate=lambda e: _print_estimate(e, budget),
+        )
+    if estimate_only:
+        e = run.estimate
+        return {"estimate": {"total": round(e.total, 2), "high": round(e.high, 2), "by_condition": e.by_condition,
+                             "by_model": e.by_model, "summaries": e.summaries, "calibration": round(e.calibration, 3)}}
+    results = run.results
 
     comparisons = []
     for model_id in model_ids:
@@ -897,20 +892,129 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
         "comparisons": comparisons,
         "usage": ce.usage_totals(results),
     }
-    if spend:
-        summary["spend"] = {
-            "total": round(spend.total, 4),
-            "budget": budget,
-            "estimate": round(estimate.total, 4),
-            "by_model": {m: round(c, 4) for m, c in spend.by_model.items()},
-            "unpriced_calls": spend.unpriced,
-            "stopped_by_budget": spend.exhausted and not spend.errors,
-            "model_errors": spend.errors[:5],
-        }
+    if run.spend:
+        summary["spend"] = ce.spend_summary(run, budget)
     if out:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         Path(out).write_text(json.dumps({**summary, "probes": ce.results_as_dicts(results)}, ensure_ascii=False, indent=1))
     return summary
+
+
+# ─── SCAFFOLD-AUDIT Command ─────────────────────────────────────
+
+
+@app.command("scaffold-audit")
+def scaffold_audit_cmd(
+    budget: Optional[float] = typer.Option(None, "--budget", help="Hard spending cap in USD (required to run)."),
+    estimate_only: bool = typer.Option(False, "--estimate", help="Only estimate the cost and exit."),
+    report: bool = typer.Option(False, "--report", help="Show the latest verdicts and whether they are stale; no API calls."),
+    models: Optional[List[str]] = typer.Option(None, "--models", "-m", help="Answering models (repeat). Default: the cheapest offered per provider, plus the strict oracle."),
+    only: Optional[List[str]] = typer.Option(None, "--scaffold", help="Audit only these scaffolds (repeat)."),
+    threshold: int = typer.Option(8000, "--threshold", "-t", help="Compaction threshold in tokens."),
+    seeds: int = typer.Option(2, "--seeds", help="Conversations per condition."),
+    questions: str = typer.Option("direct", "--questions", help="direct or indirect probes."),
+    min_effect: float = typer.Option(0.1, "--min-effect", help="Smallest recall difference that matters."),
+    db: str = typer.Option("experiments/audit.sqlite", "--db", help="Database for audit threads."),
+    format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
+):
+    """
+    [bold]🧹 Scaffold audit[/bold] — Does each piece of context scaffolding still beat its baseline?
+
+    Every mechanism between the conversation and the model (compaction, the
+    verbatim window, candidate instructions and recall) is compared, paired,
+    against going without it on the current models. Verdicts (keep, retire,
+    harmful, inconclusive) are appended to experiments/audit/history.jsonl.
+    """
+    from app.services import scaffold_audit as sa
+
+    as_json = _check_format(format_output)
+    if report:
+        _scaffold_report(as_json)
+        return
+    _load_env()
+    if budget is None and not estimate_only:
+        _fail("a real audit needs --budget (USD); use --estimate to see what it would cost", as_json)
+    from app.services.compaction_eval import STRICT_ORACLE
+
+    model_ids = list(models or _cheapest_models()) + [STRICT_ORACLE]
+    _validate_models([m for m in model_ids if m != STRICT_ORACLE], as_json)
+    result = _run(_run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_effect, db, budget, estimate_only), as_json)
+    if as_json or estimate_only:
+        if as_json:
+            _emit_json(result)
+        return
+    from rich.table import Table
+
+    table = Table(title="Scaffold audit", box=None)
+    for col in ("scaffold", "model", "without", "with", "effect", "verdict"):
+        table.add_column(col)
+    for r in result["records"]:
+        table.add_row(r["scaffold"] + ("" if r["active"] else " (candidate)"), r["model"], f"{r['baseline_recall']:.2f}",
+                      f"{r['scaffold_recall']:.2f}", f"{r['effect']:+.2f} {r['interval']}", f"[bold]{r['verdict']}[/bold]")
+    console.print(table)
+    sp = result.get("spend") or {}
+    console.print(f"Spent ${sp.get('total', 0):.2f} of ${budget:.2f}; appended to {sa.DEFAULT_HISTORY}")
+
+
+def _scaffold_report(as_json: bool) -> None:
+    import json as _json
+
+    from app.catalog.store import DEFAULT_CATALOG
+    from app.services import scaffold_audit as sa
+    from app.services.graph import default_summarizer
+
+    history = sa.load_history()
+    synced = _json.loads(DEFAULT_CATALOG.read_text()).get("synced") if DEFAULT_CATALOG.exists() else None
+    stale = sa.staleness(history, summarizer=default_summarizer(), catalog_synced=synced)
+    rows = list(sa.latest(history).values())
+    if as_json:
+        _emit_json({"stale": stale, "latest": rows})
+        return
+    for r in rows:
+        console.print(f"  {r['date']}  {r['scaffold']:20s} {r['model']:28s} {r['verdict']:12s} "
+                      f"{r['baseline_recall']:.2f} → {r['scaffold_recall']:.2f}")
+    console.print(f"[yellow]Stale:[/yellow] {stale}" if stale else "Verdicts are current.")
+
+
+async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_effect, db_path, budget, estimate_only):
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    from app.catalog import PriceBook, load_prices
+    from app.compaction import build_dense_scenario
+    from app.core import database as db
+    from app.llm import default_model_factory
+    from app.services import compaction_eval as ce
+    from app.services import scaffold_audit as sa
+    from app.services.arena import open_graph
+    from app.services.graph import default_summarizer
+
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    db.DB_PATH = db_path
+    scenarios = {str(s): build_dense_scenario(n_facts=24, exchanges=140, seed=s, assistant_facts=0.5, questions=questions)
+                 for s in range(seeds)}
+    factory = ce.EvalModelFactory([f for sc in scenarios.values() for f in sc.facts], inner=default_model_factory())
+    cheapest = next(m for m in model_ids if m not in ce.ORACLES)
+    scaffolds = [s for s in sa.app_scaffolds(threshold, rewriter=ce.model_rewriter(factory, cheapest))
+                 if not only or s.name in only]
+    if not scaffolds:
+        raise ValueError(f"no such scaffold; choose from {', '.join(s.name for s in sa.app_scaffolds(threshold))}")
+    prices = PriceBook(load_prices(), datetime.now(timezone.utc).date().isoformat())
+    prefix = "scaffold-audit-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    async with open_graph() as graph_app:
+        run = await ce.run_budgeted(graph_app, scenarios, model_ids, sa.conditions_for(scaffolds), factory,
+                                    prices=prices, budget=budget, estimate_only=estimate_only,
+                                    sample_tokens=threshold, prefix=prefix,
+                                    on_estimate=lambda e: _print_estimate(e, budget))
+    if estimate_only:
+        return {"estimate": round(run.estimate.total, 2), "high": round(run.estimate.high, 2)}
+    records = sa.audit(run.results, scaffolds, model_ids, min_effect=min_effect)
+    spend = ce.spend_summary(run, budget)
+    if spend and spend["model_errors"]:
+        raise ValueError(f"a model call failed, audit not recorded: {spend['model_errors'][0]}")
+    sa.append_history(records, {"run": prefix, "summarizer": default_summarizer(), "threshold": threshold,
+                                "seeds": seeds, "questions": questions, "cost": spend["total"] if spend else None})
+    return {"run": prefix, "records": records, "spend": spend}
 
 
 # ─── CHAT Command ────────────────────────────────────────────────
