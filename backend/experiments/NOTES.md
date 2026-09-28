@@ -82,9 +82,15 @@ to fetch?):
     the future *and* hedged, it still kept only 20/32 and lost on-goal facts
     too. Not salience (pilot 20): naming the subject as often, but as out
     of scope, left sol at 6/32.
+16. **With recall on, the cheapest summarizer is enough** (pilot 22):
+    gpt-6-luna summaries + guided recall kept 93/96 (dense) and 62/64
+    (goal switch) — no worse than the best on either — at ~1/25 of
+    gemini-3.8-flash per summary. Alone, its summaries keep 42/96: once the
+    originals can be fetched, the summary's job shrinks to a pointer.
 
 **Changed in the app:** the re-summarize thrash fix; `SUMMARIZER_MODELS`
-now leads with gemini-3.8-flash; the price list, cost estimate, `--budget`
+now leads with gpt-6-luna (pilot 22; gemini-3.8-flash before that, pilot 4),
+takes the first model with a key, and the Control Panel lets a person choose; the price list, cost estimate, `--budget`
 hard cap, and experiments halting on any failed model call; prompt caching
 that actually hits on every provider (stable prefix, per-request context
 placed per provider — see the caching entry); and **guided recall is the
@@ -1175,4 +1181,49 @@ Decision rule:
 Reported alongside: retention without recall (what is left if recall
 fails or finds nothing). Conclusions are conditional on the threshold,
 instruction and synthetic conversations.
+
+## 2026-09-28 — Pilot 22 (result): gpt-6-luna summarizes, recall does the rest
+
+Spent $1.43 + $0.65 = $2.08 (estimates $2.26 + $0.98). Strict oracle, 4
+conversations per scenario; cost per summary at the prices in force on
+2027-01-01, from the replay cache (summary count and usage per replay).
+
+| summarizer | dense, with recall | dense, alone | task, with recall | task, alone | mean summary | $/summary (2027) |
+|---|---|---|---|---|---|---|
+| gemini-3.8-flash | **96/96** | **90/96** | 56/64 | **56/64** | 5.4k / 2.8k | $0.060 / $0.034 |
+| gemini-3.5-flash-lite | 88/96 | 48/96 | 43/64 | 27/64 | 4.1k / 2.0k | $0.012 / $0.006 |
+| **gpt-6-luna** | 93/96 | 42/96 | **62/64** | 33/64 | 2.0k / 0.9k | **$0.002 / $0.002** |
+| claude-haiku-4-5 | 85/96 | 24/96 | 60/64 | 32/64 | 4.2k / 1.1k | $0.028 / $0.012 |
+
+(Summary length and cost: dense / task.)
+
+Applying the pre-registered rule:
+1. Best with recall: gemini-3.8-flash on dense (96), gpt-6-luna on task (62).
+2. Within ±0.1 of the best on both: only **gpt-6-luna** (dense vs 3.8-flash:
+   equivalent, −0.03 [−0.09, +0.01]; it is the best on task).
+   gemini-3.8-flash is not shown equivalent to luna on task (−0.09,
+   [−0.01, +0.20] in luna's favour); haiku is worse than 3.8-flash on dense
+   (−0.12); flash-lite is worse than luna on task (−0.30).
+3. Cheapest among eligible: gpt-6-luna, trivially (the only one).
+→ `SUMMARIZER_MODELS = [gpt-6-luna, gemini-3.8-flash, claude-haiku-4-5]`;
+  the other two are audit candidates (`summarizer-<model>`, claim
+  "improves": each has to beat luna to justify its cost), and the last
+  audit is now stale (the summarizer changed).
+
+What else the table says:
+- **Without recall the ranking inverts.** 3.8-flash keeps 90/96 alone;
+  luna 42/96, haiku 24/96. The choice is only right *because* recall is on:
+  if a recall call fails (logged, non-fatal) or finds nothing, a luna
+  summary is a much thinner fallback. The first audit also showed recall can
+  mislead a weak answering model; with luna summarizing, answers lean on
+  recall more. Both are what the audit is for.
+- **Recall added nothing to gemini-3.8-flash on the goal-switch scenario**
+  (56 → 56; 28/32 on-goal and 28/32 off-goal either way), while it lifted
+  every other summarizer by 16–29 facts. Its long summaries already carry
+  most facts; why recall does not recover the remaining eight (strict
+  oracle: values not attached to their subject) is not yet understood.
+- luna's summaries are the shortest (0.9–2k tokens), so every later call
+  also reads less.
+- Conditional on: synthetic conversations, threshold 8,000, the brief
+  instruction, recall chosen by gpt-6-luna.
 

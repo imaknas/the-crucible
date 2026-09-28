@@ -254,10 +254,13 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
 DEFAULT_MODEL = "gpt-5.4"
 DEFAULT_ARENA_MODELS = ["gpt-5.4", "claude-sonnet-5", "gemini-3.1-pro-preview"]
 # Models used to summarise history when the context limit is hit: the first
-# offered one with an API key wins (a run may name another). gemini-3.8-flash kept as much planted detail as
-# gemini-3.5-flash at ~1/6 of the cost per summary (experiments/NOTES.md,
-# pilot 4); the Lite models are cheaper still but lose about half.
-SUMMARIZER_MODELS = ["gemini-3.8-flash", "claude-haiku-4-5-20251001", "gpt-6-luna"]
+# offered one with an API key wins (a run may name another). Chosen with
+# recall on, as the app runs (experiments/NOTES.md, pilot 22): gpt-6-luna was
+# the only one no worse than the best on both scenarios (93/96 and 62/64
+# facts) and the cheapest, ~1/25 of gemini-3.8-flash per summary at 2027
+# prices. Its summaries alone keep much less (42/96): it relies on recall.
+# gemini-3.8-flash keeps the most without recall; haiku trails on dense detail.
+SUMMARIZER_MODELS = ["gpt-6-luna", "gemini-3.8-flash", "claude-haiku-4-5-20251001"]
 
 # Which model chooses what to fetch back once history is summarized; the
 # first offered one with an API key wins, none means no recall. Choosing is

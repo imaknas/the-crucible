@@ -54,12 +54,15 @@ class Scaffold:
     why: str
 
 
-def app_scaffolds(threshold: int, *, recall: Optional[HistoryRecall] = None) -> list[Scaffold]:
+def app_scaffolds(threshold: int, *, recall: Optional[HistoryRecall] = None,
+                  other_summarizers: Sequence[str] = ()) -> list[Scaffold]:
     """The scaffolds on the app's default path, and the candidates it could
     adopt, each against the baseline it has to beat. `recall` is the recall
     the app attaches by default (services/recall.default_history_recall);
     pass the same object the app would use, so the audit measures what
-    ships. None: the app runs without recall (no key for any recall model)."""
+    ships. None: the app runs without recall (no key for any recall model).
+    `other_summarizers`: alternatives to the default summarizer; each has to
+    beat it to justify its (higher) cost."""
     policy = ThresholdPolicy(fixed_tokens(threshold))
     app = Condition(f"t{threshold}-app", policy, recall=recall)
     scaffolds = [
@@ -85,6 +88,12 @@ def app_scaffolds(threshold: int, *, recall: Optional[HistoryRecall] = None) -> 
         Scaffold("recall-keyword", IMPROVES if recall is None else NON_INFERIOR, False, app,
                  Condition(f"t{threshold}-recallkeyword", policy, recall=KeywordRecall()),
                  "Word-overlap recall, no model call." + ("" if recall is None else " Could replace the default recall.")),
+    ]
+    scaffolds += [
+        Scaffold(f"summarizer-{model}", IMPROVES, False, app,
+                 Condition(f"t{threshold}-app-{model}", policy, summarizer=model, recall=recall),
+                 f"{model} writes the summaries instead of the default.")
+        for model in other_summarizers
     ]
     return scaffolds
 

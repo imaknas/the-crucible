@@ -35,6 +35,13 @@ def test_every_scaffold_names_its_baseline():
     assert by_name["compaction"].treatment is by_name["recall"].treatment  # the app's own path
 
 
+def test_other_summarizers_have_to_beat_the_default():
+    names = {s.name: s for s in sa.app_scaffolds(8000, other_summarizers=["gemini-3.8-flash"])}
+    alt = names["summarizer-gemini-3.8-flash"]
+    assert alt.claim == sa.IMPROVES and not alt.active
+    assert alt.baseline is names["compaction"].treatment and alt.treatment.summarizer == "gemini-3.8-flash"
+
+
 def test_without_a_recall_model_the_app_path_has_no_recall():
     names = {s.name: s for s in sa.app_scaffolds(8000)}
     assert "recall" not in names and names["compaction"].treatment.recall is None

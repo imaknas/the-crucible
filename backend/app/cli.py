@@ -1083,7 +1083,12 @@ async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_
     factory = ce.EvalModelFactory([f for sc in scenarios.values() for f in sc.facts], inner=default_model_factory())
     # The recall the app itself attaches, built through the same function.
     recall = default_history_recall(factory)
-    scaffolds = [s for s in sa.app_scaffolds(threshold, recall=recall) if not only or s.name in only]
+    from app.api.models import SUMMARIZER_MODELS
+    from app.llm.factory import has_credentials
+
+    others = [m for m in SUMMARIZER_MODELS if m != default_summarizer() and has_credentials(m)]
+    scaffolds = [s for s in sa.app_scaffolds(threshold, recall=recall, other_summarizers=others)
+                 if not only or s.name in only]
     if not scaffolds:
         raise ValueError(f"no such scaffold; choose from {', '.join(s.name for s in sa.app_scaffolds(threshold))}")
     prices = PriceBook(load_prices(), datetime.now(timezone.utc).date().isoformat())

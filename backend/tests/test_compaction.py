@@ -689,7 +689,7 @@ def test_sentence_recall_brings_back_only_the_matching_sentences():
 def test_the_default_summarizer_is_the_first_one_with_a_key():
     from app.services.graph import default_summarizer
 
-    assert default_summarizer({"GOOGLE_API_KEY": "k", "OPENAI_API_KEY": "k"}) == "gemini-3.8-flash"
+    assert default_summarizer({"GOOGLE_API_KEY": "k", "OPENAI_API_KEY": "k"}) == "gpt-6-luna"
+    assert default_summarizer({"GOOGLE_API_KEY": "k", "ANTHROPIC_API_KEY": "k"}) == "gemini-3.8-flash"
     assert default_summarizer({"ANTHROPIC_API_KEY": "k"}) == "claude-haiku-4-5-20251001"
-    assert default_summarizer({"OPENAI_API_KEY": "k"}) == "gpt-6-luna"  # used to get a Gemini model it could not call
-    assert default_summarizer({}) == "gemini-3.8-flash"  # no key anywhere: unchanged
+    assert default_summarizer({}) == "gpt-6-luna"  # no key anywhere: the first offered
