@@ -584,3 +584,18 @@ def test_task_scenario_sets_relevance_by_goal_not_wording():
     assert later in a.turns[-2].text and "priority" in a.turns[-2].text  # the switch comes last
     for f in a.facts:
         assert f.statement in a.turns[a.positions[f.key]].text
+
+
+def test_guided_recall_sees_the_summary_and_the_recent_turns():
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+    from app.compaction import GuidedRecall
+
+    seen = []
+    msgs = [HumanMessage(content="The ledger service listens on port 6543.")]
+    msgs += [HumanMessage(content=f"filler {i}") if i % 2 == 0 else AIMessage(content=f"reply {i}") for i in range(10)]
+    msgs += [SystemMessage(content="PREVIOUS CONTEXT SUMMARY: gist"),
+             HumanMessage(content="Change of plans: the ledger service is now the priority."), AIMessage(content="ok"),
+             HumanMessage(content="Which port for the system of record for money movements?")]
+    graph_mod.sanitize_messages(msgs, recall=GuidedRecall(lambda q, h: seen.append(h) or "ledger service port"))
+    assert "gist" in seen[0] and "Change of plans" in seen[0]
