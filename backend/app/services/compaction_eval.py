@@ -864,7 +864,7 @@ async def estimate_cost(
     thread_prefix: str,
     calibration_cost: float = 0.0,
     grid=None,
-    cached_replays: frozenset = frozenset(),
+    known_replays: frozenset = frozenset(),
 ) -> CostEstimate:
     """Dry-run every condition with the oracle answering and a stand-in
     summary of the calibrated size: that gives exactly what each probe reads
@@ -879,7 +879,17 @@ async def estimate_cost(
     by_condition: dict[str, float] = {}
     by_model: dict[str, float] = {}
     summaries: dict[str, float] = {}
+    # A replay is paid once: when it is already cached, or when an earlier
+    # condition in this run produces the same one (same key).
+    paid = set(known_replays)
     for condition in conditions:
+        free_labels = set()
+        for label, sc in scenarios.items():
+            key = replay_key(sc, condition, model_ids[0]) if model_ids else None
+            if key in paid:
+                free_labels.add(label)
+            elif key:
+                paid.add(key)
         dry = await (grid or run_live_grid)(
             graph_app, scenarios, [ORACLE], [condition],
             thread_prefix=f"{thread_prefix}::estimate", model_factory=EvalModelFactory(
@@ -896,7 +906,7 @@ async def estimate_cost(
         if condition.name in summarizers:
             s = summarizers[condition.name]
             setup = [u for r in dry for n, u in r.setup_usage.items()
-                     if n == "sized-summarizer" and (r.scenario, condition.name) not in cached_replays]
+                     if n == "sized-summarizer" and r.scenario not in free_labels]
             during = [u for r in dry for n, u in r.usage.items() if n == "sized-summarizer"]
             calls = (sum(u["output_tokens"] for u in setup) + branches * sum(u["output_tokens"] for u in during)) / max(1, s.summary_tokens)
             read_in = sum(u["input_tokens"] for u in setup) + branches * sum(u["input_tokens"] for u in during)
@@ -1043,7 +1053,7 @@ async def run_budgeted(
                   for m in real}
         estimate = await estimate_cost(graph_app, scenarios, model_ids, conditions, prices, answer, summ,
                                        thread_prefix=prefix, calibration_cost=spend.total, grid=grid,
-                                       cached_replays=_cached_replays(scenarios, conditions, model_ids, replay_cache))
+                                       known_replays=_cached_replays(scenarios, conditions, model_ids, replay_cache))
         estimate.factor = factor
         if on_estimate:
             on_estimate(estimate)
@@ -1074,12 +1084,12 @@ async def run_budgeted(
     return BudgetedRun(results, spend, estimate, prefix, skipped)
 
 
-def _cached_replays(scenarios, conditions, model_ids, replay_cache) -> set:
-    """(scenario label, condition name) pairs whose replay is already on disk."""
+def _cached_replays(scenarios, conditions, model_ids, replay_cache) -> frozenset:
+    """Replay keys this run needs that are already on disk."""
     if not replay_cache or not model_ids:
-        return set()
-    return {(label, c.name) for label, sc in scenarios.items() for c in conditions
-            if replay_cache.has(replay_key(sc, c, model_ids[0]))}
+        return frozenset()
+    keys = {replay_key(sc, c, model_ids[0]) for sc in scenarios.values() for c in conditions}
+    return frozenset(k for k in keys if replay_cache.has(k))
 
 
 def summarizer_key(condition: Condition, sample_tokens: int) -> str:
