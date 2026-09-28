@@ -1076,6 +1076,12 @@ async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_
     spend = ce.spend_summary(run, budget)
     if spend and spend["model_errors"]:
         raise ValueError(f"a model call failed, audit not recorded: {spend['model_errors'][0]}")
+    # Every probe, so a verdict can be traced to the answers behind it.
+    runs_dir = sa.DEFAULT_HISTORY.parent / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    (runs_dir / f"{prefix}.json").write_text(json.dumps({"run": prefix, "records": records, "spend": spend,
+                                                         "probes": ce.results_as_dicts(run.results)},
+                                                        ensure_ascii=False, indent=1))
     sa.append_history(records, {"run": prefix, "summarizer": default_summarizer(), "recall_model": default_recall_model(),
                                 "threshold": threshold,
                                 "seeds": seeds, "questions": questions, "cost": spend["total"] if spend else None})

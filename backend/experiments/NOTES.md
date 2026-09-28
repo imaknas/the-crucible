@@ -1112,3 +1112,45 @@ Off-goal facts in context (oracle):
 - Spent $0.33 + $0.21 = $0.53 against estimates of $0.74 + $0.73 (0.36×;
   estimates keep running high on these small runs).
 
+## 2026-09-28 — First scaffold audit (after guided recall became the default)
+
+`crucible scaffold-audit --scaffold compaction --scaffold verbatim-window
+--scaffold recall -m gpt-6-luna -m gemini-3.1-flash-lite`, cap $3.10, spent
+$1.41 (estimate $1.75). Dense scenario, 2 conversations × 24 facts, direct
+questions, threshold 8,000, summarizer gemini-3.8-flash, recall model
+gpt-6-luna. Recorded in `experiments/audit/history.jsonl` (run
+scaffold-audit-20260928T095722). Only the three mechanisms on the default
+path; the candidates (state instruction, keep-user-messages, keyword
+recall) and claude-haiku-4-5 as an answerer were left out ($10.84 for all).
+
+| scaffold | model | without → with | verdict |
+|---|---|---|---|
+| compaction (vs never) | gpt-6-luna | 0.92 → 1.00 | inconclusive |
+| | gemini-3.1-flash-lite | 0.96 → 0.81 | **harmful** (−0.15, [−0.28, −0.02]) |
+| | oracle-strict | 1.00 → 0.92 | inconclusive |
+| verbatim window (vs none) | gpt-6-luna | 0.96 → 1.00 | inconclusive |
+| | gemini-3.1-flash-lite | 0.71 → 0.81 | inconclusive |
+| | oracle-strict | 0.90 → 0.92 | inconclusive |
+| recall (vs no recall) | gpt-6-luna | 0.90 → 1.00 | **keep** (+0.10, [0.01, 0.22]) |
+| | gemini-3.1-flash-lite | 0.90 → 0.81 | inconclusive |
+| | oracle-strict | 0.90 → 0.92 | inconclusive |
+
+- **Recall helps a capable answerer and can mislead a weak one.** The
+  audit did not save per-probe results (fixed now: `experiments/audit/runs/`),
+  so answers were rebuilt from the audit threads (45–47 of 48 probes per
+  cell found). With recall, flash-lite gave the same value to different
+  questions — "Liesel Fairweather" for both the partner-API and the
+  image-resizer owner, "41,800" for both the backup-job and fraud-scorer
+  caps: the recalled excerpts (up to 4 messages) carry several subjects'
+  values, and it takes the wrong subject's. gpt-6-luna answered the same
+  excerpts correctly (42 → 47 of 47 rebuilt).
+- Flash-lite's "harmful" compaction verdict is mostly this: full history
+  46/48, compacted without recall 41/45, with recall 36/45 (rebuilt).
+- On this scenario the summary already keeps most facts (oracle 0.90
+  without recall), so recall has little to add: its value showed in the
+  task scenarios (pilots 16–18), which the audit does not yet run.
+- What this suggests testing next: narrower recall (fewer messages, or
+  only the sentences that mention the subject) against the flash-lite
+  confusion; and an audit option for the task scenario with indirect
+  questions, where recall is supposed to earn its place.
+
