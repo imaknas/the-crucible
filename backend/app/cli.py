@@ -657,12 +657,13 @@ def compaction_eval(
     ),
     user_budget: int = typer.Option(20_000, "--user-budget", help="Token budget for --keep user (Codex CLI uses 20,000)."),
     instructions: Optional[List[str]] = typer.Option(
-        None, "--instruction", help="Summary instruction (repeat): 'brief' (the app's), 'handoff' (Codex CLI's), 'state' (state + index) or 'index' (topics only). Default: brief."
+        None, "--instruction", help="Summary instruction (repeat): 'brief' (the app's), 'handoff' (Codex CLI's), 'state' (state + index), 'index' (topics only) or 'allsubjects' (brief + keep every subject's specifics, priorities may change). Default: brief."
     ),
     recalls: Optional[List[str]] = typer.Option(
         None, "--recall", help="Bring hidden messages back per request (repeat): 'none', 'keyword', 'embedding' (the app's local embedding model) or 'guided' (a model reads the summary and names what to search for, then keyword search). Default: none."
     ),
     rewriters: Optional[List[str]] = typer.Option(None, "--rewriter", help="Model that chooses search terms for --recall guided (repeat: one condition per model). Default: gpt-6-luna."),
+    foreshadow: bool = typer.Option(False, "--foreshadow", help="Task scenario only: the goal reminders also name the next priority, so the change of goal is knowable in advance; pair with a run without it."),
     asides: bool = typer.Option(False, "--asides", help="State every fact as a throwaway remark (dense only); pair with a run without it."),
     questions: str = typer.Option("direct", "--questions", help="Probe by the subject's name ('direct') or by what it does ('indirect'; dense only)."),
     fact_variants: str = typer.Option("plain,distractor,update", "--fact-variants", help="Variants the facts cycle through (dense only), e.g. 'plain' for plain facts only."),
@@ -697,9 +698,9 @@ def compaction_eval(
     _load_env()
     if scenario not in ("dense", "task", "basic") or compaction not in ("live", "once"):
         _fail("--scenario is dense|task|basic and --compaction is live|once", as_json)
-    if (not set(keeps or []) <= {"recent", "user"} or not set(instructions or []) <= {"brief", "handoff", "state", "index"}
+    if (not set(keeps or []) <= {"recent", "user"} or not set(instructions or []) <= {"brief", "handoff", "state", "index", "allsubjects"}
             or not set(recalls or []) <= {"none", "keyword", "embedding", "guided"} or questions not in ("direct", "indirect")):
-        _fail("--keep is recent|user, --instruction brief|handoff|state|index, --recall none|keyword|embedding|guided, --questions direct|indirect", as_json)
+        _fail("--keep is recent|user, --instruction brief|handoff|state|index|allsubjects, --recall none|keyword|embedding|guided, --questions direct|indirect", as_json)
     if not dry_run and budget is None and not estimate_only:
         _fail("a real run needs --budget (USD); use --estimate to see what it would cost", as_json)
     model_ids = [ORACLE] if dry_run else list(models or _cheapest_models())
@@ -728,6 +729,7 @@ def compaction_eval(
         "questions": questions,
         "rewriters": list(rewriters or ["gpt-6-luna"]),
         "asides": asides,
+        "foreshadow": foreshadow,
         "assistant_facts": assistant_facts,
         "fact_variants": fact_variants.split(","),
         "repeat_facts": repeat_facts,
@@ -834,6 +836,7 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
 
     from app.compaction import (
         DetailedBrief,
+        AllSubjects,
         HandoffBrief,
         EmbeddingRecall,
         GuidedRecall,
@@ -864,7 +867,8 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
                      for s in range(options["seeds"])}
     elif options["scenario"] == "task":
         scenarios = {str(s): build_task_scenario(exchanges=options["exchanges"], seed=s,
-                                                 assistant_facts=options["assistant_facts"], questions=options["questions"])
+                                                 assistant_facts=options["assistant_facts"], questions=options["questions"],
+                                                 foreshadow=options["foreshadow"])
                      for s in range(options["seeds"])}
     else:
         scenarios = {str(s): build_scenario(exchanges=options["exchanges"], seed=s) for s in range(options["seeds"])}
@@ -872,7 +876,7 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
     all_facts = [f for sc in scenarios.values() for f in sc.facts]
     factory = ce.EvalModelFactory(all_facts, inner=None if dry_run else default_model_factory())
     retentions = {"recent": None, "user": KeepUserMessages(options["user_budget"])}
-    bases = {"brief": None, "handoff": HandoffBrief(), "state": StateAndIndex(), "index": IndexOnly()}
+    bases = {"brief": None, "handoff": HandoffBrief(), "state": StateAndIndex(), "index": IndexOnly(), "allsubjects": AllSubjects()}
     recallers = {"none": None, "keyword": KeywordRecall()}
     if "embedding" in options["recalls"]:
         from app.services import rag

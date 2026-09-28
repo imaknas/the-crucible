@@ -87,6 +87,29 @@ class IndexOnly:
         return f"{self.instruction}\n\n{transcript}"
 
 
+class AllSubjects:
+    """Another instruction plus a warning that priorities may change, asking
+    for the specifics of every subject rather than only the current goal.
+    Knows nothing about the conversation: it tests whether a generic hedge,
+    written before anyone knows the next goal, prevents off-goal loss."""
+
+    note = (
+        " Priorities may change later in this conversation: keep the specific values (numbers, names, "
+        "identifiers, dates, decisions, exclusions) for every subject that came up, not only the current goal."
+    )
+
+    def __init__(self, base: SummaryInstruction = DetailedBrief()):
+        self.base = base
+        self.name = f"{base.name}-allsubjects"
+
+    @property
+    def instruction(self) -> str:
+        return self.base.instruction + self.note
+
+    def prompt(self, transcript: str) -> str:
+        return self.base.prompt(transcript).replace(self.base.instruction, self.instruction, 1)
+
+
 class LengthTarget:
     """The original instruction plus a length limit, and nothing else, so a
     comparison with DetailedBrief isolates the effect of length."""

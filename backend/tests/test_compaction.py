@@ -643,3 +643,25 @@ def test_a_cached_replay_is_not_summarized_again(eval_setup, tmp_path):
     assert replayed > 0
     assert len(calls) - replayed < replayed  # only summaries written while probing, none for the replay
     assert [r.correct for r in first] == [r.correct for r in second]
+
+
+def test_foreshadowing_changes_only_whether_the_next_goal_is_known():
+    from app.compaction import build_task_scenario
+
+    plain, told = build_task_scenario(seed=3), build_task_scenario(seed=3, foreshadow=True)
+    assert plain.facts == told.facts and plain.positions == told.positions
+    later = next(f.subject for f in told.facts if f.variant == "off-goal")
+    before = lambda sc: [t.text for t in sc.turns[:-2]]  # noqa: E731
+    assert sum(later in t for t in before(told)) > sum(later in t for t in before(plain))
+    assert "next priority will be the " + later in told.turns[0].text
+    assert "As planned" in told.turns[-2].text and "Change of plans" in plain.turns[-2].text
+
+
+def test_all_subjects_adds_a_generic_hedge_to_its_base():
+    from app.compaction import AllSubjects, DetailedBrief, HandoffBrief
+
+    brief = AllSubjects()
+    assert brief.name == "brief-allsubjects"
+    assert brief.prompt("T").startswith(DetailedBrief.instruction) and "every subject" in brief.prompt("T")
+    handoff = AllSubjects(HandoffBrief())
+    assert handoff.prompt("T").startswith("T\n\n") and "every subject" in handoff.prompt("T")

@@ -594,6 +594,8 @@ _GOAL_OPENERS = [
 _GOAL_REMINDER = "Reminder: this week's only priority is {g}; everything else can wait."
 _SWITCH = "Change of plans: {h} is now the priority, and {g} can wait. Let's pick it up."
 _SWITCH_REPLY = "Understood, switching to {h}."
+_NEXT_GOAL = " Once that is done, the next priority will be {h}."
+_PLANNED_SWITCH = "As planned, {g} is wrapped up for now: {h} is the priority. Let's pick it up."
 
 
 def build_task_scenario(
@@ -603,10 +605,17 @@ def build_task_scenario(
     assistant_facts: float = 0.0,
     questions: str = "direct",
     reminder_every: int = 12,
+    foreshadow: bool = False,
 ) -> Scenario:
     """One conversation about a goal, eight facts on it and eight about a
     subject nobody is working on yet, then a switch of goal to that subject.
-    Facts carry `variant` "on-goal" or "off-goal"."""
+    Facts carry `variant` "on-goal" or "off-goal".
+
+    `foreshadow` makes the future knowable: every goal reminder also names
+    the next priority, and the switch arrives as planned. Everything else
+    (facts, filler, positions) is identical to the same seed without it, so
+    the pair isolates whether off-goal loss comes from not knowing what
+    comes next."""
     rng = random.Random(f"task:{seed}")
     goal, later = rng.sample(SUBJECTS, 2)
     values = _Values(random.Random(f"task-facts:{seed}"))
@@ -636,7 +645,8 @@ def build_task_scenario(
         opener = rng.choice(_GOAL_OPENERS if about == goal else _OPENERS).format(g=f"the {goal}", t=f"the {about}")
         parts = [opener, _filler_fact(rng, about)]
         if ex % reminder_every == 0:
-            parts.insert(0, _GOAL_REMINDER.format(g=f"the {goal}"))
+            parts.insert(0, _GOAL_REMINDER.format(g=f"the {goal}")
+                         + (_NEXT_GOAL.format(h=f"the {later}") if foreshadow else ""))
         fact = slots.get(ex)
         if fact and stated_by[fact.key] == "user":
             parts.append(fact.statement)
@@ -649,7 +659,7 @@ def build_task_scenario(
             positions[fact.key] = len(turns) + (1 if stated_by[fact.key] == "assistant" else 0)
         turns.append(Turn("user", " ".join(parts), fact.key if fact and stated_by[fact.key] == "user" else None))
         turns.append(Turn("assistant", " ".join(reply), fact.key if fact and stated_by[fact.key] == "assistant" else None))
-    turns.append(Turn("user", _SWITCH.format(h=f"the {later}", g=f"the {goal}")))
+    turns.append(Turn("user", (_PLANNED_SWITCH if foreshadow else _SWITCH).format(h=f"the {later}", g=f"the {goal}")))
     turns.append(Turn("assistant", _SWITCH_REPLY.format(h=f"the {later}")))
     return Scenario(turns=turns, facts=facts, positions=positions, stated_by=stated_by, questions=questions)
 
