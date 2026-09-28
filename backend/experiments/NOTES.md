@@ -55,7 +55,12 @@ to fetch?):
     now judges relevance. A small embedding model is weak either way.
 11. Letting a model choose the search terms from the summary recovers most
     of it (index + guided recall 19 → 49/72; handoff 28 → 54/72), not all.
-12. Tentative / failed: phrasing facts as throwaway remarks did *not* make
+12. **Summaries drop what the current task doesn't need, across families,
+    and recall brings it back** (pilots 11, 14–16): after a change of goal,
+    OpenAI and Anthropic summarizers kept 4–13 of 32 off-goal facts (Gemini
+    kept most); recall restored 32/32 for both gpt-6-sol and claude-haiku-4-5.
+    Not "stronger drops more" — the family's style decides how much.
+13. Tentative / failed: phrasing facts as throwaway remarks did *not* make
     summaries drop them (a lossy summarizer kept more). Surface wording is
     not low salience; the structural question (relevance that cannot be
     foreseen when a fact is stated) is still untested.
@@ -883,3 +888,33 @@ everything off-goal (gpt-6-sol: 4/32).
 Estimates now overshoot (actual 0.44× and 0.51×): the learned margin and the
 two-step calibration are conservative for short runs, and the calibration
 cache made the run use exactly the approved estimate.
+
+## 2026-09-28 — Pilot 16: recall brings back every off-goal fact (two families)
+
+`--scenario task`, 4 conversations, oracle only, t=8000; gpt-6-sol and
+claude-haiku-4-5 summaries (the two most goal-selective in pilot 14), each
+without recall, with keyword recall, and with guided recall (gpt-6-luna
+choosing the terms). Estimated $2.23, spent $0.65.
+
+| strict oracle | on-goal | off-goal | off-goal vs no recall |
+|---|---|---|---|
+| gpt-6-sol | 31/32 | **4/32** | – |
+| gpt-6-sol + keyword recall | 32/32 | **32/32** | +88 [+69, +95] |
+| gpt-6-sol + guided recall | 32/32 | **32/32** | +88 |
+| claude-haiku-4-5 | 20/32 | **5/32** | – |
+| claude-haiku-4-5 + keyword recall | 32/32 | **32/32** | +84 [+65, +93] |
+| claude-haiku-4-5 + guided recall | 32/32 | **32/32** | +84 |
+
+- **Deciding at read time recovers exactly what deciding at write time
+  loses.** A summary is written for the goal of the moment; the facts it
+  leaves out are the ones a later goal needs. Recall looks at the history
+  after the question exists, so the change of plans costs nothing — in both
+  families, from 4–5 of 32 to 32 of 32.
+- Recall also repaired Haiku's on-goal losses (20 → 32/32, +38).
+- Caveat that carries over from pilot 8: these probes name their subject, so
+  keyword recall suffices. With indirect questions the retriever becomes the
+  weak point, and a model has to choose what to fetch (pilot 9).
+- Together with pilot 14 this is the structural result the study was after:
+  every summarizer family tested drops what the current task does not need
+  (4 of 6 significantly), no summarizer can anticipate a change of goal, and
+  only a design that keeps the originals reachable is immune.
