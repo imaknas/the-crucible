@@ -80,8 +80,8 @@ to fetch?):
     summaries 9× longer (5.5k of an 8k threshold) and twice as many passes.
     A weaker summarizer (claude-haiku-4-5) adds a second, separate loss: told
     the future *and* hedged, it still kept only 20/32 and lost on-goal facts
-    too. Caveat: announcing the next goal also names its subject repeatedly
-    (salience) — not yet separated from knowing the future.
+    too. Not salience (pilot 20): naming the subject as often, but as out
+    of scope, left sol at 6/32.
 
 **Changed in the app:** the re-summarize thrash fix; `SUMMARIZER_MODELS`
 now leads with gemini-3.8-flash; the price list, cost estimate, `--budget`
@@ -1074,4 +1074,37 @@ On-goal facts: 26–32/32 everywhere except haiku with the future announced
   19b. A control that names it equally often without making it the next
   goal ("the X is out of scope this quarter") would separate the two.
 - Spent $1.31 + $1.57 = $2.88 against estimates of $2.14 + $2.46 (0.63×).
+
+## 2026-09-28 — Pilot 20: salience control for pilot 19
+
+`--foreshadow` is now `--later-subject unknown|announced|mentioned`
+("announced" is pilot 19b's scenario, unchanged). "mentioned" names the
+later subject in every goal reminder exactly as often as "announced" —
+"The X is out of scope this quarter; nobody is picking it up." — and the
+switch is a surprise ("Change of plans"). Facts, filler and positions are
+identical across the three for a seed, so probes pair across pilots 19–20.
+gpt-6-sol with the all-subjects instruction was left out: it kept 32/32
+under both earlier conditions, so the control could not move it.
+
+Off-goal facts in context (oracle):
+
+| summarizer, instruction | unknown (19a) | mentioned (20) | announced (19b) |
+|---|---|---|---|
+| gpt-6-sol, brief | 4/32 | **6/32** | 30/32 |
+| claude-haiku-4-5, brief | 5/32 | 4/32 | 10/32 |
+| claude-haiku-4-5, all-subjects | 10/32 | 15/32 | 20/32 |
+
+- **gpt-6-sol: salience explains almost none of it.** Mentioned vs unknown:
+  2 pairs gained, 0 lost; mentioned vs announced: 24 lost, 0 gained. Of the
+  26-fact gain from announcing the next goal, about 2 come from the name
+  standing out and 24 from knowing it comes next.
+- claude-haiku-4-5, brief: mentioning does nothing (4 vs 5); announcing
+  helps a little (10). All-subjects: mentioning sits halfway (15, between
+  10 and 20) — with an instruction to keep "every subject that came up", a
+  subject named more often is more clearly one that came up.
+- Pilot 19's conclusion stands without its caveat: for a summarizer that
+  selects by goal, what decides whether off-goal facts survive is whether
+  the next goal is knowable when the summary is written.
+- Spent $0.33 + $0.21 = $0.53 against estimates of $0.74 + $0.73 (0.36×;
+  estimates keep running high on these small runs).
 
