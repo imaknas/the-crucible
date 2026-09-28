@@ -988,10 +988,10 @@ def scaffold_audit_cmd(
     from app.services import scaffold_audit as sa
 
     as_json = _check_format(format_output)
+    _load_env()  # the report compares against the recall model the keys select
     if report:
         _scaffold_report(as_json)
         return
-    _load_env()
     if budget is None and not estimate_only:
         _fail("a real audit needs --budget (USD); use --estimate to see what it would cost", as_json)
     from app.services.compaction_eval import STRICT_ORACLE
@@ -1022,10 +1022,12 @@ def _scaffold_report(as_json: bool) -> None:
     from app.catalog.store import DEFAULT_CATALOG
     from app.services import scaffold_audit as sa
     from app.services.graph import default_summarizer
+    from app.services.recall import default_recall_model
 
     history = sa.load_history()
     synced = _json.loads(DEFAULT_CATALOG.read_text()).get("synced") if DEFAULT_CATALOG.exists() else None
-    stale = sa.staleness(history, summarizer=default_summarizer(), catalog_synced=synced)
+    stale = sa.staleness(history, summarizer=default_summarizer(), catalog_synced=synced,
+                         recall_model=default_recall_model())
     rows = list(sa.latest(history).values())
     if as_json:
         _emit_json({"stale": stale, "latest": rows})
@@ -1048,15 +1050,16 @@ async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_
     from app.services import scaffold_audit as sa
     from app.services.arena import open_graph
     from app.services.graph import default_summarizer
+    from app.services.recall import default_history_recall, default_recall_model
 
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     db.DB_PATH = db_path
     scenarios = {str(s): build_dense_scenario(n_facts=24, exchanges=140, seed=s, assistant_facts=0.5, questions=questions)
                  for s in range(seeds)}
     factory = ce.EvalModelFactory([f for sc in scenarios.values() for f in sc.facts], inner=default_model_factory())
-    cheapest = next(m for m in model_ids if m not in ce.ORACLES)
-    scaffolds = [s for s in sa.app_scaffolds(threshold, rewriter=ce.model_rewriter(factory, cheapest))
-                 if not only or s.name in only]
+    # The recall the app itself attaches, built through the same function.
+    recall = default_history_recall(factory)
+    scaffolds = [s for s in sa.app_scaffolds(threshold, recall=recall) if not only or s.name in only]
     if not scaffolds:
         raise ValueError(f"no such scaffold; choose from {', '.join(s.name for s in sa.app_scaffolds(threshold))}")
     prices = PriceBook(load_prices(), datetime.now(timezone.utc).date().isoformat())
@@ -1073,7 +1076,8 @@ async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_
     spend = ce.spend_summary(run, budget)
     if spend and spend["model_errors"]:
         raise ValueError(f"a model call failed, audit not recorded: {spend['model_errors'][0]}")
-    sa.append_history(records, {"run": prefix, "summarizer": default_summarizer(), "threshold": threshold,
+    sa.append_history(records, {"run": prefix, "summarizer": default_summarizer(), "recall_model": default_recall_model(),
+                                "threshold": threshold,
                                 "seeds": seeds, "questions": questions, "cost": spend["total"] if spend else None})
     return {"run": prefix, "records": records, "spend": spend}
 

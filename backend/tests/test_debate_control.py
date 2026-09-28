@@ -35,7 +35,7 @@ class FakeGraph:
         self.stall_after_draft = stall_after_draft
         self.cancelled = 0
 
-    async def astream_events(self, state, config, version="v2"):
+    async def astream_events(self, state, config, version="v2", **_kwargs):
         self.prompts.append(state["messages"][0][1])
         try:
             await asyncio.sleep(self.delay)

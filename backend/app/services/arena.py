@@ -16,6 +16,7 @@ from app.api.models import DEFAULT_ARENA_MODELS, FAMILY_META, MODEL_REGISTRY
 from app.core import database as db
 from app.llm import has_credentials
 from app.services.graph import workflow
+from app.services.recall import INTERNAL_TAG, with_default_recall
 from app.services.runs import (
     final_state_of_run,
     resolve_fork_point,
@@ -111,7 +112,7 @@ async def stream_run(
     The ``end`` event carries the full reply and the checkpoint this run
     wrote (not its parent).
     """
-    config = thread_config(thread_id, parent_checkpoint_id)
+    config = with_default_recall(thread_config(thread_id, parent_checkpoint_id))
     run_id = tag_run(config)
     initial_state = {
         "active_peer": model,
@@ -119,7 +120,7 @@ async def stream_run(
         "toggles": {"use_rag": False, **(toggles or {})},
     }
     buffer = ""
-    async for event in graph_app.astream_events(initial_state, config, version="v2"):
+    async for event in graph_app.astream_events(initial_state, config, version="v2", exclude_tags=[INTERNAL_TAG]):
         if event.get("event") != "on_chat_model_stream":
             continue
         if event.get("metadata", {}).get("langgraph_node") != "draft":

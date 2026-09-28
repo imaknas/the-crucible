@@ -1,0 +1,3515 @@
+{
+ "run": "compaction-eval-20260928T091843",
+ "models": [
+  "oracle",
+  "oracle-strict"
+ ],
+ "scenario": "task",
+ "facts": 24,
+ "seeds": 4,
+ "exchanges": 140,
+ "thresholds": [
+  8000
+ ],
+ "summarizers": [
+  "claude-haiku-4-5-20251001"
+ ],
+ "lengths": [],
+ "keeps": [],
+ "user_budget": 20000,
+ "instructions": [
+  "allsubjects"
+ ],
+ "recalls": [],
+ "questions": "indirect",
+ "rewriters": [
+  "gpt-6-luna"
+ ],
+ "asides": false,
+ "later_subject": "mentioned",
+ "assistant_facts": 0.0,
+ "fact_variants": [
+  "plain",
+  "distractor",
+  "update"
+ ],
+ "repeat_facts": false,
+ "compaction": "live",
+ "baseline": false,
+ "concurrency": 4,
+ "dry_run": false,
+ "recall": {
+  "t8000-claude-haiku-4-5-20251001-allsubjects / oracle": {
+   "n": 64,
+   "correct": 39,
+   "stale": 0,
+   "by_kind": {
+    "number": [
+     5,
+     8
+    ],
+    "name": [
+     1,
+     8
+    ],
+    "identifier": [
+     3,
+     8
+    ],
+    "negation": [
+     5,
+     8
+    ],
+    "date": [
+     5,
+     8
+    ],
+    "port": [
+     5,
+     8
+    ],
+    "quote": [
+     8,
+     8
+    ],
+    "choice": [
+     7,
+     8
+    ]
+   },
+   "by_variant": {
+    "on-goal": [
+     24,
+     32
+    ],
+    "off-goal": [
+     15,
+     32
+    ]
+   },
+   "by_compactions": {
+    "2": [
+     18,
+     32
+    ],
+    "1": [
+     17,
+     23
+    ],
+    "0": [
+     2,
+     2
+    ],
+    "3": [
+     2,
+     7
+    ]
+   },
+   "by_stated_by": {
+    "user": [
+     39,
+     64
+    ]
+   },
+   "recall": 0.609
+  },
+  "t8000-claude-haiku-4-5-20251001-allsubjects / oracle-strict": {
+   "n": 64,
+   "correct": 38,
+   "stale": 0,
+   "by_kind": {
+    "number": [
+     5,
+     8
+    ],
+    "name": [
+     1,
+     8
+    ],
+    "identifier": [
+     3,
+     8
+    ],
+    "negation": [
+     5,
+     8
+    ],
+    "date": [
+     5,
+     8
+    ],
+    "port": [
+     5,
+     8
+    ],
+    "quote": [
+     8,
+     8
+    ],
+    "choice": [
+     6,
+     8
+    ]
+   },
+   "by_variant": {
+    "on-goal": [
+     23,
+     32
+    ],
+    "off-goal": [
+     15,
+     32
+    ]
+   },
+   "by_compactions": {
+    "2": [
+     18,
+     32
+    ],
+    "1": [
+     16,
+     23
+    ],
+    "0": [
+     2,
+     2
+    ],
+    "3": [
+     2,
+     7
+    ]
+   },
+   "by_stated_by": {
+    "user": [
+     38,
+     64
+    ]
+   },
+   "recall": 0.594
+  }
+ },
+ "comparisons": [],
+ "usage": {
+  "t8000-claude-haiku-4-5-20251001-allsubjects / availability-oracle": {
+   "input_tokens": 752236,
+   "output_tokens": 144,
+   "cache_read": 0
+  },
+  "t8000-claude-haiku-4-5-20251001-allsubjects setup / claude-haiku-4-5-20251001": {
+   "input_tokens": 65685,
+   "output_tokens": 16278,
+   "cache_read": 0
+  },
+  "t8000-claude-haiku-4-5-20251001-allsubjects / claude-haiku-4-5-20251001": {
+   "input_tokens": 30106,
+   "output_tokens": 6167,
+   "cache_read": 0
+  }
+ },
+ "spend": {
+  "total": 0.208,
+  "budget": 1.3,
+  "estimate": 0.7305,
+  "by_model": {
+   "claude-haiku-4-5-20251001": 0.208
+  },
+  "unpriced_calls": {},
+  "stopped_by_budget": false,
+  "skipped_conditions": [],
+  "model_errors": []
+ },
+ "probes": [
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "89,400",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7099,
+     "output_tokens": 1,
+     "total_tokens": 7100
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {
+    "claude-haiku-4-5-20251001": {
+     "total_tokens": 16484,
+     "input_tokens": 14307,
+     "input_token_details": {
+      "cache_read": 0,
+      "ephemeral_1h_input_tokens": 0,
+      "cache_creation": 14301,
+      "ephemeral_5m_input_tokens": 14301
+     },
+     "output_tokens": 2177
+    }
+   },
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "40,800",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7148,
+     "output_tokens": 1,
+     "total_tokens": 7149
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7195,
+     "output_tokens": 1,
+     "total_tokens": 7196
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7244,
+     "output_tokens": 1,
+     "total_tokens": 7245
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "orchid-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7295,
+     "output_tokens": 1,
+     "total_tokens": 7296
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7344,
+     "output_tokens": 1,
+     "total_tokens": 7345
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "kafka",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7391,
+     "output_tokens": 1,
+     "total_tokens": 7392
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "grpc",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7437,
+     "output_tokens": 1,
+     "total_tokens": 7438
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "22 may",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7483,
+     "output_tokens": 1,
+     "total_tokens": 7484
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "16 march",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7530,
+     "output_tokens": 1,
+     "total_tokens": 7531
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9422",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_tokens": 7514,
+     "output_tokens": 1513,
+     "total_tokens": 9027,
+     "input_token_details": {
+      "cache_read": 0,
+      "cache_creation": 7511,
+      "ephemeral_5m_input_tokens": 7511,
+      "ephemeral_1h_input_tokens": 0
+     }
+    },
+    "availability-oracle": {
+     "input_tokens": 1581,
+     "output_tokens": 1,
+     "total_tokens": 1582
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1662,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9172",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1629,
+     "output_tokens": 1,
+     "total_tokens": 1630
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1662,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "simplicity first, security second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 1856,
+     "input_tokens": 1854,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1662,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, polish second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 1925,
+     "input_tokens": 1923,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1662,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1791,
+     "output_tokens": 1,
+     "total_tokens": 1792
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1662,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "lucerne",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1838,
+     "output_tokens": 1,
+     "total_tokens": 1839
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1662,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "29,400",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6855,
+     "output_tokens": 1,
+     "total_tokens": 6856
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {
+    "claude-haiku-4-5-20251001": {
+     "total_tokens": 16327,
+     "input_tokens": 14296,
+     "input_token_details": {
+      "cache_read": 0,
+      "ephemeral_1h_input_tokens": 0,
+      "cache_creation": 14290,
+      "ephemeral_5m_input_tokens": 14290
+     },
+     "output_tokens": 2031
+    }
+   },
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6905,
+     "output_tokens": 1,
+     "total_tokens": 6906
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6953,
+     "output_tokens": 1,
+     "total_tokens": 6954
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7002,
+     "output_tokens": 1,
+     "total_tokens": 7003
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "basalt-4",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7051,
+     "output_tokens": 1,
+     "total_tokens": 7052
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7101,
+     "output_tokens": 1,
+     "total_tokens": 7102
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "airflow",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7146,
+     "output_tokens": 1,
+     "total_tokens": 7147
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7193,
+     "output_tokens": 1,
+     "total_tokens": 7194
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "18 november",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7240,
+     "output_tokens": 1,
+     "total_tokens": 7241
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7289,
+     "output_tokens": 1,
+     "total_tokens": 7290
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "7314",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7338,
+     "output_tokens": 1,
+     "total_tokens": 7339
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7387,
+     "output_tokens": 1,
+     "total_tokens": 7388
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "features first, security second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 7615,
+     "input_tokens": 7613,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "accuracy first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 7691,
+     "input_tokens": 7689,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "wingtip",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7548,
+     "output_tokens": 1,
+     "total_tokens": 7549
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 0,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "adatum",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7595,
+     "output_tokens": 1,
+     "total_tokens": 7596
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 0,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 5757,
+     "output_tokens": 1,
+     "total_tokens": 5758
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {
+    "claude-haiku-4-5-20251001": {
+     "total_tokens": 31992,
+     "input_tokens": 22622,
+     "input_token_details": {
+      "cache_read": 0,
+      "ephemeral_1h_input_tokens": 0,
+      "cache_creation": 22613,
+      "ephemeral_5m_input_tokens": 22613
+     },
+     "output_tokens": 9370
+    }
+   },
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "27,300",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 5807,
+     "output_tokens": 1,
+     "total_tokens": 5808
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 5853,
+     "output_tokens": 1,
+     "total_tokens": 5854
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 5901,
+     "output_tokens": 1,
+     "total_tokens": 5902
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 5950,
+     "output_tokens": 1,
+     "total_tokens": 5951
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 5999,
+     "output_tokens": 1,
+     "total_tokens": 6000
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "kubernetes",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6045,
+     "output_tokens": 1,
+     "total_tokens": 6046
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "terraform",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6091,
+     "output_tokens": 1,
+     "total_tokens": 6092
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6137,
+     "output_tokens": 1,
+     "total_tokens": 6138
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 december",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6185,
+     "output_tokens": 1,
+     "total_tokens": 6186
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6573",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6234,
+     "output_tokens": 1,
+     "total_tokens": 6235
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6280,
+     "output_tokens": 1,
+     "total_tokens": 6281
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, security second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 6507,
+     "input_tokens": 6505,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "reliability first, speed second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 6582,
+     "input_tokens": 6580,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "wingtip",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6441,
+     "output_tokens": 1,
+     "total_tokens": 6442
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "margie",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6485,
+     "output_tokens": 1,
+     "total_tokens": 6486
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "36,800",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7135,
+     "output_tokens": 1,
+     "total_tokens": 7136
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {
+    "claude-haiku-4-5-20251001": {
+     "total_tokens": 17160,
+     "input_tokens": 14460,
+     "input_token_details": {
+      "cache_read": 0,
+      "ephemeral_1h_input_tokens": 0,
+      "cache_creation": 14454,
+      "ephemeral_5m_input_tokens": 14454
+     },
+     "output_tokens": 2700
+    }
+   },
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7181,
+     "output_tokens": 1,
+     "total_tokens": 7182
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Okonkwo",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7230,
+     "output_tokens": 1,
+     "total_tokens": 7231
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7274,
+     "output_tokens": 1,
+     "total_tokens": 7275
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "juniper-5",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7324,
+     "output_tokens": 1,
+     "total_tokens": 7325
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7370,
+     "output_tokens": 1,
+     "total_tokens": 7371
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7417,
+     "output_tokens": 1,
+     "total_tokens": 7418
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7462,
+     "output_tokens": 1,
+     "total_tokens": 7463
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "18 november",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7510,
+     "output_tokens": 1,
+     "total_tokens": 7511
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_tokens": 7524,
+     "output_tokens": 1641,
+     "total_tokens": 9165,
+     "input_token_details": {
+      "cache_read": 0,
+      "cache_creation": 7521,
+      "ephemeral_5m_input_tokens": 7521,
+      "ephemeral_1h_input_tokens": 0
+     }
+    },
+    "availability-oracle": {
+     "input_tokens": 1609,
+     "output_tokens": 1,
+     "total_tokens": 1610
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1741,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "5377",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1659,
+     "output_tokens": 1,
+     "total_tokens": 1660
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1741,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1704,
+     "output_tokens": 1,
+     "total_tokens": 1705
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1741,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "coverage first, accuracy second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 1930,
+     "input_tokens": 1928,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1741,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "polish first, accuracy second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 2003,
+     "input_tokens": 2001,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1741,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "woodgrove",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1863,
+     "output_tokens": 1,
+     "total_tokens": 1864
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1741,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "lucerne",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1907,
+     "output_tokens": 1,
+     "total_tokens": 1908
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1741,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "89,400",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7099,
+     "output_tokens": 1,
+     "total_tokens": 7100
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "40,800",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7148,
+     "output_tokens": 1,
+     "total_tokens": 7149
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7195,
+     "output_tokens": 1,
+     "total_tokens": 7196
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7244,
+     "output_tokens": 1,
+     "total_tokens": 7245
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "orchid-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7295,
+     "output_tokens": 1,
+     "total_tokens": 7296
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7344,
+     "output_tokens": 1,
+     "total_tokens": 7345
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "kafka",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7391,
+     "output_tokens": 1,
+     "total_tokens": 7392
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "grpc",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7437,
+     "output_tokens": 1,
+     "total_tokens": 7438
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "22 may",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7483,
+     "output_tokens": 1,
+     "total_tokens": 7484
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "16 march",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7530,
+     "output_tokens": 1,
+     "total_tokens": 7531
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1242,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9422",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_tokens": 7530,
+     "output_tokens": 1499,
+     "total_tokens": 9029,
+     "input_token_details": {
+      "cache_read": 0,
+      "cache_creation": 7527,
+      "ephemeral_5m_input_tokens": 7527,
+      "ephemeral_1h_input_tokens": 0
+     }
+    },
+    "availability-oracle": {
+     "input_tokens": 1596,
+     "output_tokens": 1,
+     "total_tokens": 1597
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9172",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1644,
+     "output_tokens": 1,
+     "total_tokens": 1645
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "simplicity first, security second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 1871,
+     "input_tokens": 1869,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, polish second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 1942,
+     "input_tokens": 1940,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1806,
+     "output_tokens": 1,
+     "total_tokens": 1807
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "lucerne",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1853,
+     "output_tokens": 1,
+     "total_tokens": 1854
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "29,400",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6855,
+     "output_tokens": 1,
+     "total_tokens": 6856
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6905,
+     "output_tokens": 1,
+     "total_tokens": 6906
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6953,
+     "output_tokens": 1,
+     "total_tokens": 6954
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7002,
+     "output_tokens": 1,
+     "total_tokens": 7003
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "basalt-4",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7051,
+     "output_tokens": 1,
+     "total_tokens": 7052
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7101,
+     "output_tokens": 1,
+     "total_tokens": 7102
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "airflow",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7146,
+     "output_tokens": 1,
+     "total_tokens": 7147
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7193,
+     "output_tokens": 1,
+     "total_tokens": 7194
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "18 november",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7240,
+     "output_tokens": 1,
+     "total_tokens": 7241
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7289,
+     "output_tokens": 1,
+     "total_tokens": 7290
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "7314",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7338,
+     "output_tokens": 1,
+     "total_tokens": 7339
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7387,
+     "output_tokens": 1,
+     "total_tokens": 7388
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "features first, security second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 7615,
+     "input_tokens": 7613,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "accuracy first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 7687,
+     "input_tokens": 7685,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "wingtip",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7548,
+     "output_tokens": 1,
+     "total_tokens": 7549
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 0,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "adatum",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7595,
+     "output_tokens": 1,
+     "total_tokens": 7596
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 0,
+   "setup_usage": {},
+   "summary_tokens": 1220,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 5757,
+     "output_tokens": 1,
+     "total_tokens": 5758
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "27,300",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 5807,
+     "output_tokens": 1,
+     "total_tokens": 5808
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 5853,
+     "output_tokens": 1,
+     "total_tokens": 5854
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 5901,
+     "output_tokens": 1,
+     "total_tokens": 5902
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 5950,
+     "output_tokens": 1,
+     "total_tokens": 5951
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 5999,
+     "output_tokens": 1,
+     "total_tokens": 6000
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "kubernetes",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6045,
+     "output_tokens": 1,
+     "total_tokens": 6046
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "terraform",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6091,
+     "output_tokens": 1,
+     "total_tokens": 6092
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6137,
+     "output_tokens": 1,
+     "total_tokens": 6138
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 december",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6185,
+     "output_tokens": 1,
+     "total_tokens": 6186
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6573",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6234,
+     "output_tokens": 1,
+     "total_tokens": 6235
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6280,
+     "output_tokens": 1,
+     "total_tokens": 6281
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, security second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 6507,
+     "input_tokens": 6505,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "reliability first, speed second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 6577,
+     "input_tokens": 6575,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "wingtip",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6441,
+     "output_tokens": 1,
+     "total_tokens": 6442
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "margie",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6485,
+     "output_tokens": 1,
+     "total_tokens": 6486
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3086,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "36,800",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7135,
+     "output_tokens": 1,
+     "total_tokens": 7136
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7181,
+     "output_tokens": 1,
+     "total_tokens": 7182
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "Okonkwo",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7230,
+     "output_tokens": 1,
+     "total_tokens": 7231
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7274,
+     "output_tokens": 1,
+     "total_tokens": 7275
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "juniper-5",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7324,
+     "output_tokens": 1,
+     "total_tokens": 7325
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7370,
+     "output_tokens": 1,
+     "total_tokens": 7371
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7417,
+     "output_tokens": 1,
+     "total_tokens": 7418
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7462,
+     "output_tokens": 1,
+     "total_tokens": 7463
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "18 november",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7510,
+     "output_tokens": 1,
+     "total_tokens": 7511
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1261,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "claude-haiku-4-5-20251001": {
+     "input_tokens": 7538,
+     "output_tokens": 1514,
+     "total_tokens": 9052,
+     "input_token_details": {
+      "cache_read": 0,
+      "cache_creation": 7535,
+      "ephemeral_5m_input_tokens": 7535,
+      "ephemeral_1h_input_tokens": 0
+     }
+    },
+    "availability-oracle": {
+     "input_tokens": 1485,
+     "output_tokens": 1,
+     "total_tokens": 1486
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "5377",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1535,
+     "output_tokens": 1,
+     "total_tokens": 1536
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1580,
+     "output_tokens": 1,
+     "total_tokens": 1581
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "coverage first, accuracy second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 1807,
+     "input_tokens": 1805,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "polish first, accuracy second",
+   "usage": {
+    "availability-oracle": {
+     "total_tokens": 1875,
+     "input_tokens": 1873,
+     "output_tokens": 2
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1740,
+     "output_tokens": 1,
+     "total_tokens": 1741
+    }
+   },
+   "scenario": "3",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t8000-claude-haiku-4-5-20251001-allsubjects",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "lucerne",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 1784,
+     "output_tokens": 1,
+     "total_tokens": 1785
+    }
+   },
+   "scenario": "3",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 1632,
+   "stated_by": "user"
+  }
+ ]
+}

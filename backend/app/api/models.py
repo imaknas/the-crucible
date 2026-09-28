@@ -259,6 +259,13 @@ DEFAULT_ARENA_MODELS = ["gpt-5.4", "claude-sonnet-5", "gemini-3.1-pro-preview"]
 # pilot 4); the Lite models are cheaper still but lose about half.
 SUMMARIZER_MODELS = ["gemini-3.8-flash", "claude-haiku-4-5-20251001"]
 
+# Which model chooses what to fetch back once history is summarized; the
+# first offered one with an API key wins, none means no recall. Choosing is
+# easy once the question is known: gpt-6-luna matched the strongest models
+# at 1/24 the cost (30/32 off-goal facts; haiku 28, gemini-3.8-flash 31,
+# gemini-3.5-flash-lite only 25), experiments/NOTES.md pilot 18.
+RECALL_MODELS = ["gpt-6-luna", "claude-haiku-4-5-20251001", "gemini-3.8-flash"]
+
 
 FAMILY_META: Dict[str, Dict[str, str]] = {
     "openai": {"label": "OpenAI", "color": "#10b981", "env_key": "OPENAI_API_KEY"},

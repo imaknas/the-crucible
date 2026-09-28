@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Iterable, Optional, Sequence
 
 from app.compaction import (
-    GuidedRecall,
+    HistoryRecall,
     KeepRecent,
     KeepUserMessages,
     KeywordRecall,
@@ -54,33 +54,38 @@ class Scaffold:
     why: str
 
 
-def app_scaffolds(threshold: int, *, rewriter=None) -> list[Scaffold]:
-    """The scaffolds the app runs by default, and the candidates it could
-    adopt, each against the baseline it has to beat. `rewriter` (a model
-    rewrite function) enables the model-guided recall candidate."""
+def app_scaffolds(threshold: int, *, recall: Optional[HistoryRecall] = None) -> list[Scaffold]:
+    """The scaffolds on the app's default path, and the candidates it could
+    adopt, each against the baseline it has to beat. `recall` is the recall
+    the app attaches by default (services/recall.default_history_recall);
+    pass the same object the app would use, so the audit measures what
+    ships. None: the app runs without recall (no key for any recall model)."""
     policy = ThresholdPolicy(fixed_tokens(threshold))
-    compacted = Condition(f"t{threshold}", policy)
+    app = Condition(f"t{threshold}-app", policy, recall=recall)
     scaffolds = [
-        Scaffold("compaction", NON_INFERIOR, True, Condition("never", NeverCompact()), compacted,
+        Scaffold("compaction", NON_INFERIOR, True, Condition("never", NeverCompact()), app,
                  "Summarizing past the threshold must not lose detail against the full history."),
         Scaffold("verbatim-window", IMPROVES, True,
-                 Condition(f"t{threshold}-keep0", policy, retention=KeepRecent(0)), compacted,
+                 Condition(f"t{threshold}-app-keep0", policy, retention=KeepRecent(0), recall=recall), app,
                  "The newest messages stay verbatim after pruning."),
-        Scaffold("state-instruction", IMPROVES, False, compacted,
-                 Condition(f"t{threshold}-state", policy, instruction=StateAndIndex()),
-                 "Asking for current state and an index keeps more than the detailed brief."),
-        Scaffold("keep-user-messages", IMPROVES, False, compacted,
-                 Condition(f"t{threshold}-keepuser20k", policy, retention=KeepUserMessages(20_000)),
-                 "Everything the user wrote stays verbatim (Codex CLI's rule)."),
-        Scaffold("recall-keyword", IMPROVES, False, compacted,
-                 Condition(f"t{threshold}-recallkeyword", policy, recall=KeywordRecall()),
-                 "Hidden messages matching the request come back."),
     ]
-    if rewriter is not None:
+    if recall is not None:
         scaffolds.append(Scaffold(
-            "recall-guided", IMPROVES, False, compacted,
-            Condition(f"t{threshold}-recallguided", policy, recall=GuidedRecall(rewriter)),
-            "A model reads the summary and names what to fetch."))
+            "recall", IMPROVES, True, Condition(f"t{threshold}-norecall", policy), app,
+            "Hidden originals the request is about come back, so the summary is not the only copy."))
+    scaffolds += [
+        Scaffold("state-instruction", IMPROVES, False, app,
+                 Condition(f"t{threshold}-app-state", policy, instruction=StateAndIndex(), recall=recall),
+                 "Asking for current state and an index keeps more than the detailed brief."),
+        Scaffold("keep-user-messages", IMPROVES, False, app,
+                 Condition(f"t{threshold}-app-keepuser20k", policy, retention=KeepUserMessages(20_000), recall=recall),
+                 "Everything the user wrote stays verbatim (Codex CLI's rule)."),
+        # Without a recall model, keyword recall has to add something; with
+        # one, it is a cheaper replacement that only has to lose nothing.
+        Scaffold("recall-keyword", IMPROVES if recall is None else NON_INFERIOR, False, app,
+                 Condition(f"t{threshold}-recallkeyword", policy, recall=KeywordRecall()),
+                 "Word-overlap recall, no model call." + ("" if recall is None else " Could replace the default recall.")),
+    ]
     return scaffolds
 
 
@@ -161,13 +166,16 @@ def latest(history: Sequence[dict]) -> dict[tuple[str, str], dict]:
     return out
 
 
-def staleness(history: Sequence[dict], *, summarizer: str, catalog_synced: Optional[str]) -> Optional[str]:
+def staleness(history: Sequence[dict], *, summarizer: str, catalog_synced: Optional[str],
+              recall_model: Optional[str] = None) -> Optional[str]:
     """Why the last audit no longer describes the app, or None if it still does."""
     if not history:
         return "scaffolding has never been audited"
     last = max(history, key=lambda r: r["date"])
     if last.get("summarizer") != summarizer:
         return f"the default summarizer changed ({last.get('summarizer')} → {summarizer}) since the last audit on {last['date']}"
+    if last.get("recall_model") != recall_model:
+        return f"the recall model changed ({last.get('recall_model')} → {recall_model}) since the last audit on {last['date']}"
     if catalog_synced and catalog_synced > last["date"]:
         return f"the model catalog was synced on {catalog_synced}, after the last audit on {last['date']}"
     return None

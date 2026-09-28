@@ -8,6 +8,7 @@ their own branches.
 
 from typing import Any, AsyncIterator, Dict, Mapping, Optional
 
+from app.services.recall import INTERNAL_TAG, with_default_recall
 from app.services.runs import final_state_of_run, tag_run, thread_config
 from app.utils.helpers import clean_string, extract_text
 
@@ -97,7 +98,7 @@ async def stream_turn(
 ) -> AsyncIterator[Dict[str, Any]]:
     """Run one model's turn. Yields ``token`` events, then one ``end`` event
     carrying the new checkpoint id and the path's messages. Raises on failure."""
-    config = thread_config(thread_id, parent_checkpoint_id)
+    config = with_default_recall(thread_config(thread_id, parent_checkpoint_id))
     run_id = tag_run(config)
     state = await graph_app.aget_state(config)
 
@@ -116,7 +117,7 @@ async def stream_turn(
         is_deliberation=is_deliberation,
     )
 
-    async for event in graph_app.astream_events(turn_input, config, version="v2"):
+    async for event in graph_app.astream_events(turn_input, config, version="v2", exclude_tags=[INTERNAL_TAG]):
         if event.get("event") != "on_chat_model_stream":
             continue
         if event.get("metadata", {}).get("langgraph_node") != "draft":

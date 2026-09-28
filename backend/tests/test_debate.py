@@ -194,7 +194,7 @@ async def test_run_debate_event_sequence():
     from app.services.debate import run_debate
 
     # Build a minimal mock graph_app that yields one on_chat_model_stream + on_chain_end
-    async def fake_astream_events(state, config, version="v2"):
+    async def fake_astream_events(state, config, version="v2", **_kwargs):
         chunk = MagicMock()
         chunk.content = "Hello"
         yield {"event": "on_chat_model_stream", "metadata": {"langgraph_node": "draft"}, "data": {"chunk": chunk}}

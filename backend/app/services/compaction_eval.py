@@ -60,6 +60,7 @@ from app.services.graph import (
     model_budget,
     summarize_history,
 )
+from app.services.recall import ModelRewriter
 from app.services.runs import final_state_of_run, tag_run, thread_config
 from app.utils.helpers import extract_text
 
@@ -982,34 +983,6 @@ def cached_embedder(embed_documents, size: int = 20_000):
             return [cache[t] for t in texts]
 
     return embed
-
-
-REWRITE_PROMPT = (
-    "Earlier parts of this conversation are hidden. What is still visible about them:\n{hint}\n\n"
-    "A new question: {query}\n\n"
-    "Which topics or subjects from the earlier conversation is this question about? Reply with their exact "
-    "names and the key terms to search for, on one line, nothing else."
-)
-
-
-@dataclass(frozen=True)
-class ModelRewriter:
-    """A GuidedRecall rewrite step backed by chat model `model_id` from
-    `factory`. Knows its model, so an estimate can meter it with a stand-in
-    (`on`) instead of calling the real one."""
-
-    model_id: str
-    factory: Any
-
-    def prompt(self, query: str, hint: str) -> str:
-        return REWRITE_PROMPT.format(hint=hint[:8000], query=query)
-
-    def __call__(self, query: str, hint: str) -> str:
-        reply = self.factory.chat(self.model_id).invoke([HumanMessage(content=self.prompt(query, hint))])
-        return extract_text(reply.content)
-
-    def on(self, factory) -> "ModelRewriter":
-        return replace(self, factory=factory)
 
 
 def model_rewriter(factory, model_id: str) -> ModelRewriter:

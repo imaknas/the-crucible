@@ -87,9 +87,13 @@ to fetch?):
 now leads with gemini-3.8-flash; the price list, cost estimate, `--budget`
 hard cap, and experiments halting on any failed model call; prompt caching
 that actually hits on every provider (stable prefix, per-request context
-placed per provider — see the caching entry). **Measured, not adopted:**
-`StateAndIndex`, `KeywordRecall`, `GuidedRecall`, `KeepUserMessages` —
-candidates, not defaults.
+placed per provider — see the caching entry); and **guided recall is the
+default** (pilots 16–20): once history is pruned, the first of
+`RECALL_MODELS` with a key (gpt-6-luna, then claude-haiku-4-5, then
+gemini-3.8-flash) picks which hidden originals to show again. It is audited
+against no recall (`crucible scaffold-audit`). **Measured, not adopted:**
+`StateAndIndex`, `KeywordRecall`, `KeepUserMessages` — candidates, not
+defaults.
 
 **Limitations:** synthetic conversations only; 3 conversations × 24 facts
 per cell; small and mid-size models; one threshold (8,000 tokens); no

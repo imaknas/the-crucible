@@ -16,6 +16,7 @@ from app.core import database as db
 from app.services.chat import auto_title, build_turn_input
 from app.services.chat import stream_turn
 from app.services.message_format import format_chat_messages
+from app.services.recall import with_default_recall
 from app.services.runs import (
     final_state_of_run,
     resolve_fork_point,
@@ -40,7 +41,7 @@ class ChatRequest(BaseModel):
 async def chat(request: ChatRequest, graph_app=Depends(get_graph_app)):
     """One non-streaming turn, for REST callers."""
     parent_id = request.parent_checkpoint_id or await resolve_fork_point(graph_app, request.thread_id)
-    config = thread_config(request.thread_id, parent_id)
+    config = with_default_recall(thread_config(request.thread_id, parent_id))
     run_id = tag_run(config)
     state = await graph_app.aget_state(config)
     turn_input = build_turn_input(

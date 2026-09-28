@@ -21,13 +21,24 @@ def test_verdicts_follow_the_claim():
 
 
 def test_every_scaffold_names_its_baseline():
-    scaffolds = sa.app_scaffolds(8000, rewriter=lambda q, h: q)
+    from app.compaction import GuidedRecall
+
+    scaffolds = sa.app_scaffolds(8000, recall=GuidedRecall(lambda q, h: q))
     names = [s.name for s in scaffolds]
     assert len(names) == len(set(names))
     for s in scaffolds:
         assert s.baseline.name != s.treatment.name and s.claim in (sa.IMPROVES, sa.NON_INFERIOR) and s.why
     conditions = sa.conditions_for(scaffolds)
     assert len({c.name for c in conditions}) == len(conditions)  # shared baselines run once
+    by_name = {s.name: s for s in scaffolds}
+    assert by_name["recall"].active and by_name["recall"].baseline.recall is None
+    assert by_name["compaction"].treatment is by_name["recall"].treatment  # the app's own path
+
+
+def test_without_a_recall_model_the_app_path_has_no_recall():
+    names = {s.name: s for s in sa.app_scaffolds(8000)}
+    assert "recall" not in names and names["compaction"].treatment.recall is None
+    assert names["recall-keyword"].claim == sa.IMPROVES
 
 
 def test_history_and_staleness(tmp_path):
@@ -39,6 +50,7 @@ def test_history_and_staleness(tmp_path):
     assert sa.staleness(history, summarizer="m", catalog_synced=None) is None
     assert "summarizer changed" in sa.staleness(history, summarizer="other", catalog_synced=None)
     assert "synced" in sa.staleness(history, summarizer="m", catalog_synced="2999-01-01")
+    assert "recall model changed" in sa.staleness(history, summarizer="m", catalog_synced=None, recall_model="r")
 
 
 @pytest.fixture

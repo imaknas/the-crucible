@@ -15,6 +15,7 @@ from uuid import uuid4
 
 from app.core import database as db
 from app.services.convergence import build_convergence_check
+from app.services.recall import INTERNAL_TAG, with_default_recall
 from app.services.runs import final_state_of_run, tag_run, thread_config
 from app.utils.helpers import extract_text
 
@@ -323,9 +324,9 @@ async def _stream_round(
                 "current_thesis": "",
                 "documents": documents,
             }
-            langgraph_config = thread_config(
+            langgraph_config = with_default_recall(thread_config(
                 thread_id, parent_checkpoint_id if round_num == 0 else None
-            )
+            ))
             run_id = tag_run(langgraph_config)
 
             await queue.put({
@@ -336,7 +337,7 @@ async def _stream_round(
             })
 
             async with asyncio.timeout(MODEL_TIMEOUT_SECONDS):
-                async for event in graph_app.astream_events(initial_state, langgraph_config, version="v2"):
+                async for event in graph_app.astream_events(initial_state, langgraph_config, version="v2", exclude_tags=[INTERNAL_TAG]):
                     kind = event.get("event")
                     if kind == "on_chain_end" and event.get("name") == "draft":
                         draft_done = True
@@ -518,14 +519,14 @@ async def _stream_synthesis(
         "current_thesis": "",
         "documents": {},
     }
-    config = thread_config(synthesis_thread_id)
+    config = with_default_recall(thread_config(synthesis_thread_id))
     run_id = tag_run(config)
     buffer = ""
     checkpoint_id = ""
 
     try:
       async with asyncio.timeout(MODEL_TIMEOUT_SECONDS):
-        async for event in graph_app.astream_events(initial_state, config, version="v2"):
+        async for event in graph_app.astream_events(initial_state, config, version="v2", exclude_tags=[INTERNAL_TAG]):
             kind = event.get("event")
             if kind == "on_chat_model_stream":
                 node_name = event.get("metadata", {}).get("langgraph_node", "")

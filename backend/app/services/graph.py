@@ -28,7 +28,8 @@ INSTRUCTION_CONFIG_KEY = "summary_instruction"
 _DEFAULT_INSTRUCTION = DetailedBrief()
 # What stays verbatim before the summary once history is pruned.
 RETENTION_CONFIG_KEY = "history_retention"
-# Which hidden messages to bring back for a request; none by default.
+# Which hidden messages to bring back for a request. None unless the run
+# names one: the app's entry points attach services/recall's default.
 RECALL_CONFIG_KEY = "history_recall"
 _DEFAULT_RETENTION = KeepRecent(KEEP_VERBATIM)
 _ROLE = {"human": "user", "ai": "assistant"}
@@ -213,7 +214,11 @@ def sanitize_messages(
             # What the model itself can still see: the summary and the
             # messages kept verbatim (e.g. the turn that changed the goal).
             hint = "\n".join([str(tail_messages[0]["content"])] + [str(p["content"]) for p in recovery + tail_messages[1:-1]])
-            chosen = [hidden[j] for j in recall.select(query, [str(earlier[i]["content"]) for i in hidden], hint)]
+            try:
+                chosen = [hidden[j] for j in recall.select(query, [str(earlier[i]["content"]) for i in hidden], hint)]
+            except Exception as e:  # recall is an extra; the turn goes on without it
+                print(f"[Sanitizer] Recall failed (non-fatal): {e}")
+                chosen = []
             if chosen:
                 lines = [f"[{'User' if earlier[i]['role'] == 'human' else earlier[i].get('name') or 'assistant'}]: {earlier[i]['content']}"
                          for i in chosen]
