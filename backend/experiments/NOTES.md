@@ -755,3 +755,33 @@ Each provider caches a different way; one message layout does not suit all.
   on the per-request block wrote every turn and never read.
 - **Gemini** — implicit prefix caching, no markers; hits are probabilistic
   (76% over 24 consecutive probes, 0 over three quick calls).
+
+## 2026-09-28 — Toward model-independent results: scaffold audit and task scenarios
+
+Principle: every mechanism between the conversation and the model must name
+the baseline it beats and carry a test that shows when it stops beating it.
+The gap it closes is both the research variable and the retirement signal:
+when a newer model closes the gap by itself, the scaffold has nothing left to
+fix and can only get in the way.
+
+- `crucible scaffold-audit` (`services/scaffold_audit.py`): compaction
+  (non-inferior to the full history), the verbatim window, and the measured
+  candidates (state-and-index, keep-user-messages, keyword and guided recall),
+  each paired against its baseline on current models; verdicts keep / retire /
+  harmful / inconclusive appended to `experiments/audit/history.jsonl`;
+  `--report` flags stale verdicts; `catalog-sync` prompts a re-audit when
+  models are added or changed. It only protects what the probes measure
+  (detail recall), not tone, refusals or latency.
+- `--scenario task` (`probe.build_task_scenario`): one stated goal, eight
+  on-goal facts and eight about a subject nobody is working on yet (stated
+  plainly, mentioned nowhere else), then a switch of goal to that subject.
+  Relevance is set by the task, not by wording — the fix for pilot 10's failed
+  manipulation. The stand-in summarizer cannot show goal-awareness, so the
+  manipulation check needs a small real run (a task-focused handoff should
+  drop off-goal facts; if it doesn't, the design failed again).
+
+Estimates (oracle only): manipulation check, 2 conversations × six
+summarizer/instruction conditions, $1.07 (plan up to $1.44); retention
+horizon, dense scenarios at 300 exchanges and t=4000 (~22 summaries per
+conversation) for flash and flash-lite × brief/state, $3.25 (plan up to
+$4.38).
