@@ -64,6 +64,14 @@ to fetch?):
     summaries drop them (a lossy summarizer kept more). Surface wording is
     not low salience; the structural question (relevance that cannot be
     foreseen when a fact is stated) is still untested.
+14. **Deciding what to fetch does not need a strong model** (pilots 17–18):
+    with indirect questions, guided recall restored 25–31 of 32 off-goal
+    facts whichever of six models (three families, two tiers each) chose the
+    terms, against 16/32 for keyword recall. The cheapest (gpt-6-luna, $0.02
+    for 128 calls) matched the most expensive (gemini-3.8-flash, $0.59);
+    only gemini-3.5-flash-lite fell somewhat behind (25 vs 31). Once the
+    question is known, relevance is an easy call; before it is known (in
+    the summary) no model can make it reliably.
 
 **Changed in the app:** the re-summarize thrash fix; `SUMMARIZER_MODELS`
 now leads with gemini-3.8-flash; the price list, cost estimate, `--budget`
@@ -76,8 +84,9 @@ candidates, not defaults.
 **Limitations:** synthetic conversations only; 3 conversations × 24 facts
 per cell; small and mid-size models; one threshold (8,000 tokens); no
 multiple-comparison correction; keyword recall is favoured by probes that
-name their subject. Total spend about $60, about $41 of it before the
-budget guard existed.
+name their subject. Total spend about $70: about $41 before the budget
+guard existed, $26 metered since, and about $3 of unmetered rewriter calls
+made by cost estimates before that was fixed (see pilot 18).
 
 ## 2026-09-26 — Pilot 1: cheap models, synthetic filler
 
@@ -950,4 +959,55 @@ Off-goal facts still in context (strict oracle):
   relevance. The next test varies it across families and tiers. Replays are
   not cached today (only calibrations are), so that test currently re-pays
   the summaries; caching replays per scenario and condition would make
-  rewriter comparisons cost almost nothing.
+  rewriter comparisons cost almost nothing. (Both done: replay cache in ef1cb0c, the test is pilot 18.)
+
+## 2026-09-28 — Pilot 18: does the model that chooses what to fetch matter?
+
+`--scenario task --questions indirect`, 4 conversations, oracles only, one
+fixed summarizer (gpt-6-sol, the one that dropped the most off-goal facts in
+pilot 14) with keyword recall and guided recall, the guided search terms
+chosen by six models: one cheap/strong pair per family (gpt-6-luna /
+gpt-6-sol, claude-haiku-4-5 / claude-sonnet-5, gemini-3.5-flash-lite /
+gemini-3.8-flash). The 12 summaries were written once and replayed from the
+new replay cache for every condition, so the rewriter is the only variable.
+Estimated $3.58, spent $1.94.
+
+Off-goal facts in context (oracle; on-goal were 31–32/32 everywhere):
+
+| recall | off-goal | rewriter cost (128 calls) |
+|---|---|---|
+| keyword | 16/32 | – |
+| guided, gpt-6-luna | 30/32 | $0.02 |
+| guided, gpt-6-sol | 29/32 | ~$0.17 |
+| guided, claude-haiku-4-5 | 28/32 | $0.28 |
+| guided, claude-sonnet-5 | 30/32 | $0.49 |
+| guided, gemini-3.5-flash-lite | 25/32 | $0.07 |
+| guided, gemini-3.8-flash | 31/32 | $0.59 |
+
+- Every rewriter beats keyword recall (paired, all "B better").
+- Within families: luna vs sol **equivalent** (effect −0.02, interval
+  [−0.09, 0.05] inside ±0.1); haiku vs sonnet no detectable difference
+  (2 vs 4 discordant pairs); flash-lite vs 3.8-flash 0 vs 6 discordant
+  pairs, interval [0.015, 0.19] — probably a real but small gap, not
+  called at the 10-point threshold. Across families the strong models are
+  pairwise equivalent to luna.
+- Keyword recall matches pilot 17 (16/32), so the replayed summaries
+  behave like fresh ones.
+- Reading: the relevance decision is easy once the question is known;
+  a model an order of magnitude cheaper makes it as well as the strongest.
+  That is the durable part (it is about *when* the decision is made, not
+  which model makes it). Which cheap model is good enough is the perishable
+  part — flash-lite already shows it can fall short.
+- Limits: one summarizer, one threshold, 32 off-goal facts per cell,
+  synthetic conversations.
+
+**Bug found on the way (fixed in 42e650c).** Guided recall held the real
+model factory, so an `--estimate` dry run called the real rewriter models
+and priced them at $0. The first estimate for this pilot made ~384 real
+calls (about $3, unmetered); pilots 16–17's estimates did the same with
+luna (a few cents). Rewriters are now `ModelRewriter` values that know their
+model: estimates meter them with a stand-in, and each is calibrated with one
+metered call. The estimate was 1.8× the actual here; per rewriter it ranged
+from 0.3× (3.8-flash, calibrated on a longer hint than real ones) to 1.5×
+(haiku).
+
