@@ -104,10 +104,11 @@ defaults.
 **Limitations:** synthetic conversations only; 3 conversations × 24 facts
 per cell; small and mid-size models; one threshold (8,000 tokens); no
 multiple-comparison correction; keyword recall is favoured by probes that
-name their subject. Total spend about $75: about $41 before the budget
-guard existed, about $31 metered since (calibration for refused runs
-included), and about $3 of unmetered rewriter calls made by cost estimates
-before that was fixed (see pilot 18).
+name their subject. Total spend about $80: about $41 before the budget
+guard existed, about $36 metered since ($34.0 in the result and audit
+files, plus calibration for runs that were then refused), and about $3 of
+unmetered rewriter calls made by cost estimates before that was fixed
+(see pilot 18).
 
 ## 2026-09-26 — Pilot 1: cheap models, synthetic filler
 
