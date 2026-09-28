@@ -668,7 +668,7 @@ def compaction_eval(
     fact_variants: str = typer.Option("plain,distractor,update", "--fact-variants", help="Variants the facts cycle through (dense only), e.g. 'plain' for plain facts only."),
     repeat_facts: bool = typer.Option(False, "--repeat-facts", help="Restate every fact once more later with the same value (dense only); pair with a run without it."),
     assistant_facts: float = typer.Option(0.0, "--assistant-facts", help="Share of planted facts stated by the assistant instead of the user (dense only)."),
-    scenario: str = typer.Option("dense", "--scenario", help="dense: specifics everywhere, distractors and updates. basic: pilot 1's generic filler."),
+    scenario: str = typer.Option("dense", "--scenario", help="dense: specifics everywhere, distractors and updates. task: a stated goal, facts on and off it, then a switch of goal. basic: pilot 1's generic filler."),
     facts: int = typer.Option(24, "--facts", help="Planted facts per scenario (dense only)."),
     seeds: int = typer.Option(3, "--seeds", help="Number of scenarios (different filler and ordering)."),
     exchanges: Optional[int] = typer.Option(None, "--exchanges", help="User/assistant pairs per scenario. Default: 140 (dense), 40 (basic)."),
@@ -695,8 +695,8 @@ def compaction_eval(
 
     as_json = _check_format(format_output)
     _load_env()
-    if scenario not in ("dense", "basic") or compaction not in ("live", "once"):
-        _fail("--scenario is dense|basic and --compaction is live|once", as_json)
+    if scenario not in ("dense", "task", "basic") or compaction not in ("live", "once"):
+        _fail("--scenario is dense|task|basic and --compaction is live|once", as_json)
     if (not set(keeps or []) <= {"recent", "user"} or not set(instructions or []) <= {"brief", "handoff", "state", "index"}
             or not set(recalls or []) <= {"none", "keyword", "embedding", "guided"} or questions not in ("direct", "indirect")):
         _fail("--keep is recent|user, --instruction brief|handoff|state|index, --recall none|keyword|embedding|guided, --questions direct|indirect", as_json)
@@ -717,8 +717,8 @@ def compaction_eval(
         "scenario": scenario,
         "facts": facts,
         "seeds": seeds,
-        "exchanges": exchanges or (140 if scenario == "dense" else 40),
-        "thresholds": thresholds or ([6000] if scenario == "dense" else [2000, 4000]),
+        "exchanges": exchanges or (40 if scenario == "basic" else 140),
+        "thresholds": thresholds or ([2000, 4000] if scenario == "basic" else [6000]),
         "summarizers": list(summarizers or []),
         "lengths": list(lengths or []),
         "keeps": list(keeps or []),
@@ -805,6 +805,7 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
         ThresholdPolicy,
         build_dense_scenario,
         build_scenario,
+        build_task_scenario,
         fixed_tokens,
     )
     from app.core import database as db
@@ -819,6 +820,10 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
                                                   assistant_facts=options["assistant_facts"],
                                                   variants=options["fact_variants"], repeat_facts=options["repeat_facts"],
                                                   questions=options["questions"], asides=options["asides"])
+                     for s in range(options["seeds"])}
+    elif options["scenario"] == "task":
+        scenarios = {str(s): build_task_scenario(exchanges=options["exchanges"], seed=s,
+                                                 assistant_facts=options["assistant_facts"], questions=options["questions"])
                      for s in range(options["seeds"])}
     else:
         scenarios = {str(s): build_scenario(exchanges=options["exchanges"], seed=s) for s in range(options["seeds"])}

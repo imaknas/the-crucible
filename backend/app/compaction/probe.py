@@ -579,6 +579,81 @@ def build_dense_scenario(
                     questions=questions)
 
 
+# ─── Task scenarios: relevance set by the goal, not by wording ───
+#
+# Every conversation pursues one stated goal. On-goal facts are about that
+# goal's subject; off-goal facts are about another subject, stated plainly
+# in passing, and are irrelevant to the task when said. At the end the goal
+# switches to that other subject, and every fact is probed. A summarizer
+# that keeps what matters *for the task* should drop the off-goal facts; one
+# that keeps specifics regardless should not. Wording is identical in kind.
+
+_GOAL_OPENERS = [
+    "Back to {g}.", "More on {g}.", "Next step for {g}.", "Quick update on {g}.", "Following up on {g}.",
+]
+_GOAL_REMINDER = "Reminder: this week's only priority is {g}; everything else can wait."
+_SWITCH = "Change of plans: {h} is now the priority, and {g} can wait. Let's pick it up."
+_SWITCH_REPLY = "Understood, switching to {h}."
+
+
+def build_task_scenario(
+    *,
+    exchanges: int = 140,
+    seed: int = 0,
+    assistant_facts: float = 0.0,
+    questions: str = "direct",
+    reminder_every: int = 12,
+) -> Scenario:
+    """One conversation about a goal, eight facts on it and eight about a
+    subject nobody is working on yet, then a switch of goal to that subject.
+    Facts carry `variant` "on-goal" or "off-goal"."""
+    rng = random.Random(f"task:{seed}")
+    goal, later = rng.sample(SUBJECTS, 2)
+    values = _Values(random.Random(f"task-facts:{seed}"))
+
+    def make(subject: str, side: str) -> list[PlantedFact]:
+        out = []
+        for kind in FACT_KINDS:
+            f = _fact(kind, "plain", subject, f"{side}-{kind}", values)
+            out.append(replace(f, subject=subject, variant=side,
+                               indirect_question=_INDIRECT[kind].format(d=SUBJECT_DESCRIPTIONS[subject])))
+        return out
+
+    on, off = make(goal, "on-goal"), make(later, "off-goal")
+    facts = [f for pair in zip(on, off) for f in pair]
+    by_assistant = set(random.Random(f"task-roles:{seed}").sample(range(len(facts)), round(assistant_facts * len(facts))))
+    stated_by = {f.key: ("assistant" if i in by_assistant else "user") for i, f in enumerate(facts)}
+    start, end = int(exchanges * 0.08), int(exchanges * 0.80)
+    if len(facts) > end - start:
+        raise ValueError("too many facts for this many exchanges")
+    slots = {start + round(i * (end - start) / (len(facts) - 1)): f for i, f in enumerate(facts)}
+    others = [x for x in SUBJECTS if x not in (goal, later)]  # nobody discusses `later` before the switch
+
+    turns: list[Turn] = []
+    positions: dict[str, int] = {}
+    for ex in range(exchanges - 1):
+        about = goal if rng.random() < 0.85 else rng.choice(others)
+        opener = rng.choice(_GOAL_OPENERS if about == goal else _OPENERS).format(g=f"the {goal}", t=f"the {about}")
+        parts = [opener, _filler_fact(rng, about)]
+        if ex % reminder_every == 0:
+            parts.insert(0, _GOAL_REMINDER.format(g=f"the {goal}"))
+        fact = slots.get(ex)
+        if fact and stated_by[fact.key] == "user":
+            parts.append(fact.statement)
+        parts += [_filler_fact(rng, rng.choice([goal] + others)), rng.choice(_USER_BODY)]
+        reply = [_filler_fact(rng, rng.choice([goal, goal] + others)) for _ in range(3)] + rng.sample(_DENSE_ADVICE, 3)
+        rng.shuffle(reply)
+        if fact and stated_by[fact.key] == "assistant":
+            reply.insert(1, fact.statement)
+        if fact:
+            positions[fact.key] = len(turns) + (1 if stated_by[fact.key] == "assistant" else 0)
+        turns.append(Turn("user", " ".join(parts), fact.key if fact and stated_by[fact.key] == "user" else None))
+        turns.append(Turn("assistant", " ".join(reply), fact.key if fact and stated_by[fact.key] == "assistant" else None))
+    turns.append(Turn("user", _SWITCH.format(h=f"the {later}", g=f"the {goal}")))
+    turns.append(Turn("assistant", _SWITCH_REPLY.format(h=f"the {later}")))
+    return Scenario(turns=turns, facts=facts, positions=positions, stated_by=stated_by, questions=questions)
+
+
 # ─── Scoring ─────────────────────────────────────────────────────
 
 

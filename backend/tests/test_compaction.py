@@ -564,3 +564,23 @@ def test_openai_payload_moves_the_per_request_block_out_of_the_user_message():
     untouched = [{"role": "user", "content": "plain"}]
     split_request_notes(untouched)
     assert untouched == [{"role": "user", "content": "plain"}]
+
+
+def test_task_scenario_sets_relevance_by_goal_not_wording():
+    from app.compaction import build_task_scenario
+
+    a, b = build_task_scenario(seed=2), build_task_scenario(seed=2)
+    assert [t.text for t in a.turns] == [t.text for t in b.turns]
+    on = [f for f in a.facts if f.variant == "on-goal"]
+    off = [f for f in a.facts if f.variant == "off-goal"]
+    assert len(on) == len(off) == 8
+    goal, later = on[0].subject, off[0].subject
+    before_switch = [t.text for t in a.turns[:-2]]
+    # The later subject is only ever mentioned in its own fact statements...
+    assert sum(later in t for t in before_switch) == len(off)
+    # ...stated like every other fact (no aside markers), and the goal dominates.
+    assert all("Side note" not in f.statement and "irrelevant" not in f.statement for f in off)
+    assert sum(goal in t for t in before_switch) > 100
+    assert later in a.turns[-2].text and "priority" in a.turns[-2].text  # the switch comes last
+    for f in a.facts:
+        assert f.statement in a.turns[a.positions[f.key]].text
