@@ -23,7 +23,8 @@ The Crucible is a full-stack research interface for putting the same question to
 | **🤝 Synthesis** | Combine divergent answers into one, stating where the models agree and where they don't. |
 | **📎 Documents & RAG** | Attach PDF, TXT, Markdown or CSV files (up to 10 MB). With *Search my documents* on, relevant passages are retrieved and graded before the model answers, with citations. |
 | **🌐 Web search** | Let models that support it use their provider's native web-search tool. |
-| **🧠 Context management** | When a thread outgrows a model's budget, older history is summarized (keeping who said what) instead of being cut off. |
+| **🧠 Context management** | When a thread outgrows a model's budget, older history is summarized (keeping who said what) instead of being cut off — and the summary is never the only copy: for each new question a small model picks which original messages it is about and shows them again. Choose the summarizer in **Control Panel → Summarizer**, or leave it on Automatic. |
+| **🔬 Compaction research tools** | Measure what summarization loses on your own models (`crucible compaction-eval`), and re-check that every piece of context machinery still beats going without it whenever models change (`crucible scaffold-audit`). See [Research](#-research-what-survives-compaction). |
 | **📐 LaTeX** | `$inline$` and `$$block$$` math rendered with KaTeX. |
 | **⌨️ CLI & 🤖 MCP** | Run arenas, debates and syntheses from the terminal or from another agent, against the same database as the web UI. |
 
@@ -113,7 +114,31 @@ uv run crucible tree --thread <thread_id> [--open]        # --open shows it in t
 uv run crucible threads
 ```
 
+`arena` also takes `--summarizer <model>` to choose who summarizes long history.
+
 `arena`, `deliberate`, `synthesize`, `chat`, `threads` and `models` accept `--format json`: stdout then carries only the JSON document, and failures exit non-zero with the message on stderr. Everything the CLI creates appears in the web UI.
+
+### Measuring context management
+
+```bash
+uv run crucible compaction-eval --estimate --scenario task -s gemini-3.8-flash --recall none --recall guided
+uv run crucible compaction-eval --budget 2 --scenario task -s gemini-3.8-flash --recall none --recall guided
+uv run crucible scaffold-audit --estimate          # then --budget N to run; --report for the latest verdicts
+```
+
+Every real run needs `--budget` (USD): it calibrates each model with one call, estimates the whole run, refuses to start if the estimate is over budget, and stops starting calls once the budget is spent. `--estimate` only estimates.
+
+---
+
+## 🔬 Research: what survives compaction?
+
+The Crucible doubles as a testbed for one question: when a long conversation is summarized to fit the context window, which details survive, and why are the rest lost? Facts are planted in long synthetic conversations, the app's real pipeline summarizes them turn by turn, and an *oracle* checks whether each fact is still in the context — separating "the summary dropped it" from "the model didn't use it". Pilot-scale findings so far:
+
+- **Summaries keep what the current goal needs.** After a change of plans, OpenAI and Anthropic summaries had kept only 4–13 of the 32 facts the new goal needed.
+- **The cause is not knowing what comes next.** Announcing the next goal in advance restored 30 of 32; naming the subject just as often without making it next restored 6. Without that knowledge, the only fix at write time is to barely compress.
+- **Deciding at read time recovers it.** Keeping the originals and fetching the relevant ones once the question is known brought back 28–32 of 32 — and the cheapest model chose what to fetch as well as the strongest.
+
+These are synthetic conversations at an 8,000-token threshold; the full lab notes, every number and every mistake are in [`backend/experiments/NOTES.md`](backend/experiments/NOTES.md), and the raw results in `backend/experiments/results/`.
 
 ---
 
@@ -162,9 +187,12 @@ the-crucible/
 │       ├── api/             HTTP & WebSocket routes — transport only
 │       ├── services/        Behaviour: chat turns, debates, convergence, tree, RAG
 │       ├── llm/             Model providers and the ModelFactory
+│       ├── catalog/         Model facts and prices from the providers' own sources
+│       ├── compaction/      When to summarize, what to keep, what to recall (no app imports)
 │       ├── core/            SQLite persistence and the graph state schema
 │       ├── cli.py           `crucible` command
 │       └── mcp_server.py    MCP tools
+│   └── experiments/         Compaction lab notes, raw results, scaffold-audit history
 ├── frontend/                Next.js + MUI + React Flow
 │   └── src/
 │       ├── app/page.tsx     App shell: composes hooks and components
@@ -175,7 +203,7 @@ the-crucible/
 └── scripts/                 Demo data and the README recording
 ```
 
-- **One LangGraph workflow** handles every turn: summarize if needed → optional retrieval and grading → draft → update the thread's running thesis. State lives in SQLite checkpoints, which is what makes branching from any node possible.
+- **One LangGraph workflow** handles every turn: summarize if needed → optional retrieval and grading → draft (with recalled originals when history was pruned) → update the thread's running thesis. State lives in SQLite checkpoints, which is what makes branching from any node possible.
 - **Parallel models fork from one checkpoint.** Every model in a turn is pinned to the same parent, so answers land on sibling branches instead of reading each other's half-finished turn.
 - **Models come from a factory.** Each provider is a small strategy class in `backend/app/llm/providers.py`; nothing else in the code branches on the provider, and tests inject scripted models instead of patching globals.
 - **Debates run per model.** Each participant gets its own sub-thread, all stream concurrently each round, and convergence checks are interchangeable strategies.
