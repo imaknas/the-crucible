@@ -215,13 +215,14 @@ def sanitize_messages(
             # messages kept verbatim (e.g. the turn that changed the goal).
             hint = "\n".join([str(tail_messages[0]["content"])] + [str(p["content"]) for p in recovery + tail_messages[1:-1]])
             try:
-                chosen = [hidden[j] for j in recall.select(query, [str(earlier[i]["content"]) for i in hidden], hint)]
+                chosen = [(hidden[j], text) for j, text in
+                          recall.excerpts(query, [str(earlier[i]["content"]) for i in hidden], hint)]
             except Exception as e:  # recall is an extra; the turn goes on without it
                 print(f"[Sanitizer] Recall failed (non-fatal): {e}")
                 chosen = []
             if chosen:
-                lines = [f"[{'User' if earlier[i]['role'] == 'human' else earlier[i].get('name') or 'assistant'}]: {earlier[i]['content']}"
-                         for i in chosen]
+                lines = [f"[{'User' if earlier[i]['role'] == 'human' else earlier[i].get('name') or 'assistant'}]: {text}"
+                         for i, text in chosen]
                 request_notes = list(request_notes or []) + [
                     "Earlier messages retrieved from the full conversation (oldest first):\n" + "\n".join(lines)
                 ]

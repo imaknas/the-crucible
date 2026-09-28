@@ -663,6 +663,7 @@ def compaction_eval(
         None, "--recall", help="Bring hidden messages back per request (repeat): 'none', 'keyword', 'embedding' (the app's local embedding model) or 'guided' (a model reads the summary and names what to search for, then keyword search). Default: none."
     ),
     rewriters: Optional[List[str]] = typer.Option(None, "--rewriter", help="Model that chooses search terms for --recall guided (repeat: one condition per model). Default: gpt-6-luna."),
+    excerpts: Optional[List[str]] = typer.Option(None, "--excerpt", help="How recalled messages are shown (repeat to compare): 'message' (whole messages, the default) or 'sentences' (only the matching sentences)."),
     later_subject: str = typer.Option("unknown", "--later-subject", help="Task scenario only: what goal reminders say about the subject the conversation later switches to: 'unknown' (nothing), 'announced' (it is next) or 'mentioned' (named as often, as out of scope). Pair runs across values."),
     asides: bool = typer.Option(False, "--asides", help="State every fact as a throwaway remark (dense only); pair with a run without it."),
     questions: str = typer.Option("direct", "--questions", help="Probe by the subject's name ('direct') or by what it does ('indirect'; dense only)."),
@@ -700,8 +701,9 @@ def compaction_eval(
         _fail("--scenario is dense|task|basic and --compaction is live|once", as_json)
     if (not set(keeps or []) <= {"recent", "user"} or not set(instructions or []) <= {"brief", "handoff", "state", "index", "allsubjects"}
             or not set(recalls or []) <= {"none", "keyword", "embedding", "guided"} or questions not in ("direct", "indirect")
-            or later_subject not in ("unknown", "announced", "mentioned")):
-        _fail("--keep is recent|user, --instruction brief|handoff|state|index|allsubjects, --recall none|keyword|embedding|guided, --questions direct|indirect, --later-subject unknown|announced|mentioned", as_json)
+            or later_subject not in ("unknown", "announced", "mentioned")
+            or not set(excerpts or []) <= {"message", "sentences"}):
+        _fail("--keep is recent|user, --instruction brief|handoff|state|index|allsubjects, --recall none|keyword|embedding|guided, --questions direct|indirect, --later-subject unknown|announced|mentioned, --excerpt message|sentences", as_json)
     if not dry_run and budget is None and not estimate_only:
         _fail("a real run needs --budget (USD); use --estimate to see what it would cost", as_json)
     model_ids = [ORACLE] if dry_run else list(models or _cheapest_models())
@@ -731,6 +733,7 @@ def compaction_eval(
         "rewriters": list(rewriters or ["gpt-6-luna"]),
         "asides": asides,
         "later_subject": later_subject,
+        "excerpts": list(excerpts or ["message"]),
         "assistant_facts": assistant_facts,
         "fact_variants": fact_variants.split(","),
         "repeat_facts": repeat_facts,
@@ -839,6 +842,7 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
         DetailedBrief,
         AllSubjects,
         HandoffBrief,
+        SentenceRecall,
         EmbeddingRecall,
         GuidedRecall,
         IndexOnly,
@@ -891,6 +895,15 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
                 guided.name = f"guided-{model}"
             recallers[guided.name] = guided
             recall_choices.append(guided.name)
+    if "sentences" in options["excerpts"]:
+        narrowed = []
+        for rec in recall_choices:
+            if recallers[rec] is not None:
+                wrapped = SentenceRecall(recallers[rec])
+                recallers[wrapped.name] = wrapped
+                narrowed.append(wrapped.name)
+        keep_whole = "message" in options["excerpts"]
+        recall_choices = [r for r in recall_choices if keep_whole or recallers[r] is None] + narrowed
     for t in options["thresholds"]:
         for summarizer in options["summarizers"] or [None]:
             for length in options["lengths"] or [None]:

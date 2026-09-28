@@ -25,6 +25,11 @@ def _terms(text: str) -> list[str]:
 class HistoryRecall(Protocol):
     name: str
 
+    def excerpts(self, query: str, candidates: Sequence[str], hint: str = "") -> list[tuple[int, str]]:
+        """What to show again: (index into `candidates`, text) pairs, oldest
+        first. Whole messages, or only part of them."""
+        ...
+
     def select(self, query: str, candidates: Sequence[str], hint: str = "") -> list[int]:
         """Indexes into `candidates` (hidden messages, oldest first) to show
         again. `hint` is what the model can still see of the pruned history
@@ -32,7 +37,14 @@ class HistoryRecall(Protocol):
         ...
 
 
-class KeywordRecall:
+class _WholeMessages:
+    """Shows each selected message in full."""
+
+    def excerpts(self, query: str, candidates: Sequence[str], hint: str = "") -> list[tuple[int, str]]:
+        return [(i, candidates[i]) for i in self.select(query, candidates, hint)]
+
+
+class KeywordRecall(_WholeMessages):
     """The hidden messages sharing the most distinctive words with the
     request (IDF-weighted overlap), at most `limit`, returned oldest first so
     a later correction still reads as later."""
@@ -53,7 +65,7 @@ class KeywordRecall:
         return sorted(i for _, i in best)
 
 
-class EmbeddingRecall:
+class EmbeddingRecall(_WholeMessages):
     """The hidden messages closest in meaning to the request (cosine
     similarity of embeddings), at most `limit`, oldest first. `embed` maps
     texts to vectors; the host supplies it (and any caching)."""
@@ -76,7 +88,7 @@ class EmbeddingRecall:
         return sorted(best)
 
 
-class GuidedRecall:
+class GuidedRecall(_WholeMessages):
     """Lets a model decide what to look for: `rewrite(query, hint)` turns the
     request plus what is still visible (the summary, e.g. an index of topics)
     into search terms, which `base` then matches. Keeps the relevance
@@ -91,3 +103,37 @@ class GuidedRecall:
     def select(self, query: str, candidates: Sequence[str], hint: str = "") -> list[int]:
         terms = self.rewrite(query, hint)
         return self.base.select(f"{terms}\n{query}", candidates, hint)
+
+
+_SENTENCE = re.compile(r"(?<=[.!?])\s+")
+
+
+class SentenceRecall:
+    """Another recall run over sentences instead of whole messages: only the
+    matching sentences come back, grouped under their message. A message
+    that mentions several subjects no longer brings the others' values
+    along, which a weak model can answer from by mistake."""
+
+    def __init__(self, inner: HistoryRecall):
+        self.inner = inner
+        self.name = f"sentences-{inner.name}"
+
+    def _sentences(self, candidates: Sequence[str]) -> tuple[list[str], list[int]]:
+        texts, owners = [], []
+        for i, c in enumerate(candidates):
+            for s in _SENTENCE.split(c.strip()):
+                if s:
+                    texts.append(s)
+                    owners.append(i)
+        return texts, owners
+
+    def excerpts(self, query: str, candidates: Sequence[str], hint: str = "") -> list[tuple[int, str]]:
+        texts, owners = self._sentences(candidates)
+        grouped: dict[int, list[str]] = {}
+        for j in sorted(self.inner.select(query, texts, hint)):
+            grouped.setdefault(owners[j], []).append(texts[j])
+        return [(i, " … ".join(parts)) for i, parts in sorted(grouped.items())]
+
+    def select(self, query: str, candidates: Sequence[str], hint: str = "") -> list[int]:
+        return [i for i, _ in self.excerpts(query, candidates, hint)]
+

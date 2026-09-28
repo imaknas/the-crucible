@@ -23,6 +23,7 @@ Two ways to put a scenario on a branch:
 """
 
 import asyncio
+import copy
 import json
 import threading
 from dataclasses import asdict, dataclass, field, replace
@@ -989,9 +990,16 @@ def model_rewriter(factory, model_id: str) -> ModelRewriter:
     return ModelRewriter(model_id, factory)
 
 
+def _innermost(recall):
+    """The recall doing the selecting, through wrappers such as SentenceRecall."""
+    while hasattr(recall, "inner"):
+        recall = recall.inner
+    return recall
+
+
 def rewriter_of(condition: Condition) -> Optional[ModelRewriter]:
     """The model a condition's recall calls per probe, if any."""
-    rewrite = getattr(condition.recall, "rewrite", None)
+    rewrite = getattr(_innermost(condition.recall), "rewrite", None)
     return rewrite if isinstance(rewrite, ModelRewriter) else None
 
 
@@ -1016,10 +1024,16 @@ class _RewriteMeter:
 
 
 def _metered(condition: Condition, meter: _RewriteMeter) -> Condition:
-    recall = condition.recall
-    guided = GuidedRecall(rewriter_of(condition).on(meter), base=recall.base)
-    guided.name = recall.name
-    return replace(condition, recall=guided)
+    def swap(recall):
+        if hasattr(recall, "inner"):
+            wrapper = copy.copy(recall)
+            wrapper.inner = swap(recall.inner)
+            return wrapper
+        guided = GuidedRecall(recall.rewrite.on(meter), base=recall.base)
+        guided.name = recall.name
+        return guided
+
+    return replace(condition, recall=swap(condition.recall))
 
 
 # ─── Budgeted runs ───────────────────────────────────────────────

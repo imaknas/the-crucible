@@ -669,3 +669,18 @@ def test_all_subjects_adds_a_generic_hedge_to_its_base():
     assert brief.prompt("T").startswith(DetailedBrief.instruction) and "every subject" in brief.prompt("T")
     handoff = AllSubjects(HandoffBrief())
     assert handoff.prompt("T").startswith("T\n\n") and "every subject" in handoff.prompt("T")
+
+
+def test_sentence_recall_brings_back_only_the_matching_sentences():
+    from app.compaction import KeywordRecall, SentenceRecall
+
+    hidden = [
+        "The owner of the partner API is Liesel Fairweather. The owner of the image resizer is Tomas Reyes.",
+        "Lunch was fine. The cap for the backup job is 41,800.",
+    ]
+    whole = KeywordRecall(limit=1).excerpts("Who owns the image resizer?", hidden)
+    assert whole == [(0, hidden[0])]  # the partner API's owner comes along
+    narrow = SentenceRecall(KeywordRecall(limit=1)).excerpts("Who owns the image resizer?", hidden)
+    assert narrow == [(0, "The owner of the image resizer is Tomas Reyes.")]
+    both = SentenceRecall(KeywordRecall(limit=4)).excerpts("image resizer owner and backup job cap", hidden)
+    assert [i for i, _ in both] == [0, 1] and "Lunch" not in both[1][1]
