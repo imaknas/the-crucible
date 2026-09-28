@@ -10,6 +10,7 @@ import ModelPickerSection from "./control-panel/ModelPickerSection";
 import ParametersSection from "./control-panel/ParametersSection";
 import DebateDefaultsSection from "./control-panel/DebateDefaultsSection";
 import ApiKeysSection from "./control-panel/ApiKeysSection";
+import SummarizerSection from "./control-panel/SummarizerSection";
 
 interface ControlPanelProps {
   toggles: Toggles;
@@ -25,6 +26,10 @@ interface ControlPanelProps {
   setDebateDefaults: (next: DebateDefaults | ((prev: DebateDefaults) => DebateDefaults)) => void;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
+  summarizerChoice: string;
+  summarizer: string | null;
+  defaultSummarizer: string | null;
+  onSummarizerChange: (modelId: string) => void;
 }
 
 /** Width of the collapsed rail. */
@@ -49,6 +54,10 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
     setDebateDefaults,
     collapsed,
     onCollapsedChange,
+    summarizerChoice,
+    summarizer,
+    defaultSummarizer,
+    onSummarizerChange,
   }) => {
     const isDark = useTheme().palette.mode === "dark";
 
@@ -189,6 +198,13 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             setSelectedModels={setSelectedModels}
           />
           <ParametersSection isDark={isDark} toggles={toggles} setToggles={setToggles} />
+          <SummarizerSection
+            families={families}
+            choice={summarizerChoice}
+            summarizer={summarizer}
+            defaultSummarizer={defaultSummarizer}
+            onChange={onSummarizerChange}
+          />
           <DebateDefaultsSection
             isDark={isDark}
             debateDefaults={debateDefaults}

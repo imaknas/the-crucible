@@ -79,7 +79,7 @@ Copy `.env.example` to `backend/.env` and set at least one of: `OPENAI_API_KEY`,
 |---|---|---|
 | Assembly | `main.py` | `create_app()` only: patches, lifespan (compiles the graph once, `checkpointer.setup()`), CORS, routers. No endpoints. |
 | Transport | `api/*.py` | Parse/validate, call a service, shape the response. Routers get the graph via `Depends(get_graph_app)` (`api/deps.py`), never a global. |
-| Behaviour | `services/*.py` | No FastAPI/WebSocket imports. `chat.py` (one chat turn: `build_turn_input`, `stream_turn`, `auto_title`), `debate.py`, `convergence.py`, `arena.py` (CLI/MCP entry points), `runs.py`, `recall.py` (the default history recall), `tree.py`, `rag.py`, `message_format.py`. |
+| Behaviour | `services/*.py` | No FastAPI/WebSocket imports. `chat.py` (one chat turn: `build_turn_input`, `stream_turn`, `auto_title`), `debate.py`, `convergence.py`, `arena.py` (CLI/MCP entry points), `runs.py`, `recall.py` (the default history recall), `context.py` (`ContextSettings`: a run's history choices), `tree.py`, `rag.py`, `message_format.py`. |
 | Models | `llm/` | The only place clients are built. Everything asks a `ModelFactory`. |
 | Model facts | `catalog/` | What each provider model *is* (limits, capabilities, verified callable, web search works), built from first-party sources only. **Imports nothing from `app.*`.** |
 | Compaction research | `compaction/` | When to summarize/prune and how much detail survives. **Imports nothing from `app.*`** (a test enforces it) so it can become its own project. |
@@ -191,12 +191,13 @@ Composition only: calls the hooks below, keeps the few pieces of UI state that b
 - `useDebateSession.ts`: everything about the debate on screen — active session (persisted), transcript, status, the debate WebSocket, the sidebar's session list, and the actions (start, inject, redirect, pause/resume, synthesize, close, delete, switch). Wraps `useDebateTree`.
 - `lib/debateTranscript.ts`: **pure** `transcriptReducer` turning debate events into chat bubbles, plus `debateControls(status)` (which buttons exist in which state) and `restoredDebateStatus`. Unit-tested; put event→bubble logic here, not in the hook.
 - `useTreeActions.ts`: checkpoint actions for the conversation tree (select, delete, edit-and-rebranch, drag, tidy layout)
+- `useSummarizerChoice.ts`: the persisted summarizer choice ("" = automatic). Requests carry it only while that model's family has a key, so a removed key falls back to the backend default instead of failing every summary.
 - Small single-purpose hooks: `useToasts`, `useConfirm` (promise-based, rendered by `ConfirmDialog`), `useBackendStatus` (header connection line), `useModelCatalog` (GET /models + the arena selection + `modelLabel`), `useDebateDefaults` (persisted Control Panel defaults)
 
 **Key components**
 - `ChatView.tsx`: renders messages with `react-markdown` + KaTeX for LaTeX, syntax highlighting, thinking-block collapsing, and source citations; when `debateState` is set, renders `DebateBanner` (round, convergence, status, pause/resume/synthesize/close)
 - `TreeCanvas.tsx`: React Flow canvas showing the conversation tree; node click sets `activeCheckpoint` for branching; `debateMode` prop switches to lane layout with `DebateLaneHeaders` overlay and disables dagre auto-layout (debate nodes start at x=0 which would otherwise falsely trigger dagre)
-- `ControlPanel.tsx`: shell (collapsed rail or drawer) composing `components/control-panel/` sections — Status, ModelPicker, Parameters, DebateDefaults, ApiKeys. Model data comes from `useModelCatalog` via props; the panel fetches nothing itself.
+- `ControlPanel.tsx`: shell (collapsed rail or drawer) composing `components/control-panel/` sections — Status, ModelPicker, Parameters, Summarizer, DebateDefaults, ApiKeys. Model data comes from `useModelCatalog` via props; the panel fetches nothing itself.
 - `DebateConfigDialog.tsx`: per-session debate config overlay (overrides ControlPanel defaults for a single run)
 - `SynthesisTreeNode.tsx`: purple gradient React Flow node for synthesis checkpoints
 - `LandingView.tsx`: initial welcome screen before any thread is active
@@ -228,6 +229,7 @@ Where a change goes, so it lands in one place:
 | A debate event shown in the transcript | Handle it in `lib/debateTranscript.ts` (`transcriptReducer`, unit-tested) and route it in `useDebateSession.handleEvent`. |
 | A debate control button | `debateControls()` in `lib/debateTranscript.ts` decides availability; `DebateBanner` renders it. |
 | A chat behaviour | `services/chat.py` (testable without a socket); `api/chat.py` only forwards frames. |
+| A per-run history choice (summarizer today) | A field on `ContextSettings` (`services/context.py`): parsed by `from_frame`, checked by `problem()` at the transport, applied to the run config by `apply()`. Chat, arena and debates already carry it; the frontend sends it as a top-level frame field, never inside `toggles`. |
 | A REST route needing the graph | `graph_app=Depends(get_graph_app)`. |
 | A CLI command / MCP tool | Call `services/arena.py` / `services/debate.py`; don't orchestrate in `cli.py` or `mcp_server.py`. |
 | A Control Panel section | A component in `components/control-panel/`, composed in `ControlPanel.tsx`. |

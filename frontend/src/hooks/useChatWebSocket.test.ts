@@ -106,6 +106,18 @@ describe("useChatWebSocket", () => {
     expect(result.current.isLoading).toBe(false);
   });
 
+  it.each([
+    ["claude-haiku-4-5-20251001", "claude-haiku-4-5-20251001"],
+    [null, undefined],
+  ])("sends the chosen summarizer (%s) with the model's frame", async (summarizer, sent) => {
+    const { result } = renderHook(() => useChatWebSocket({ ...mockProps, summarizer }));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const frame = JSON.parse(MockWebSocket.instances[0].send.mock.calls[0][0]);
+    expect(frame.summarizer).toBe(sent); // automatic: omitted, the backend decides
+  });
+
   it("does not echo a message it could not send", async () => {
     const { result } = renderHook(() => useChatWebSocket(mockProps));
     MockWebSocket.instances[0].readyState = 3; // CLOSED

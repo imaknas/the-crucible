@@ -25,6 +25,7 @@ def ws_env():
 
     async def slow_debate(**kwargs):
         state["controls"].append(kwargs.get("control"))
+        state.setdefault("contexts", []).append(kwargs.get("context"))
         yield {"type": "debate_round_start", "round": 0}
         try:
             await asyncio.sleep(30)
@@ -121,3 +122,26 @@ def test_disconnect_mid_debate_marks_interrupted(ws_env):
         import time
         time.sleep(0.02)
     assert "interrupted" in state["statuses"]
+
+
+def test_a_redirect_keeps_the_summarizer_the_debate_started_with(ws_env, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    client, state = ws_env
+    with client.websocket_connect("/debate/ws/debate-ws") as ws:
+        ws.send_json({"type": "debate_start", "prompt": "Q", "summarizer": "gpt-6-luna"})
+        _recv_until(ws, "debate_round_start")
+        ws.send_json({"type": "debate_redirect", "message": "narrower"})
+        _recv_until(ws, "debate_round_start")
+        assert [c.summarizer for c in state["contexts"]] == ["gpt-6-luna", "gpt-6-luna"]
+        ws.send_json({"type": "debate_control", "action": "stop"})
+        _recv_until(ws, "debate_session_status", "completed")
+
+
+def test_a_summarizer_without_a_key_is_refused_before_the_debate_starts(ws_env, monkeypatch):
+    for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    client, state = ws_env
+    with client.websocket_connect("/debate/ws/debate-ws") as ws:
+        ws.send_json({"type": "debate_start", "prompt": "Q", "summarizer": "gpt-6-luna"})
+        assert "No API key" in _recv_until(ws, "error")["message"]
+    assert not state.get("contexts")

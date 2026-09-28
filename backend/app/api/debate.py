@@ -146,6 +146,9 @@ class DebateConnection:
         self._lock = asyncio.Lock()
         self._task: Optional[asyncio.Task] = None
         self.control = debate_svc.DebateControl()
+        # The start frame's history choices; a redirect frame carries none,
+        # so the redirected debate keeps them.
+        self.context = ContextSettings()
 
     # ─── plumbing ────────────────────────────────────────────────
     async def send(self, event: dict) -> None:
@@ -176,11 +179,13 @@ class DebateConnection:
             await self.send(event)
 
     async def _settings(self, data: dict) -> Optional[ContextSettings]:
-        """The frame's context settings, or None after reporting why they cannot be used."""
-        context = ContextSettings.from_frame(data)
+        """The frame's context settings (the connection's own when it names
+        none), or None after reporting why they cannot be used."""
+        context = ContextSettings.from_frame(data) if "summarizer" in data else self.context
         if problem := context.problem():
             await self.send({"type": "error", "session_id": self.session_id, "message": problem})
             return None
+        self.context = context
         return context
 
     async def _restart(self, prompt: str, data: dict, parent_checkpoint_id: Optional[str]) -> None:

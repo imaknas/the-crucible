@@ -24,6 +24,7 @@ import { useToasts } from "@/hooks/useToasts";
 import { useConfirm } from "@/hooks/useConfirm";
 import { useBackendStatus } from "@/hooks/useBackendStatus";
 import { useModelCatalog } from "@/hooks/useModelCatalog";
+import { useSummarizerChoice } from "@/hooks/useSummarizerChoice";
 import { useDebateDefaults } from "@/hooks/useDebateDefaults";
 import { useTreeActions } from "@/hooks/useTreeActions";
 
@@ -62,7 +63,9 @@ export default function Home() {
     setSelectedModels,
     allModelIds,
     modelLabel,
+    defaultSummarizer,
   } = useModelCatalog();
+  const { choice: summarizerChoice, summarizer, setChoice: setSummarizerChoice } = useSummarizerChoice(families);
   const { debateDefaults, setDebateDefaults } = useDebateDefaults();
 
   // ─── Conversation tree, threads, chat ───────────────────────────
@@ -137,6 +140,7 @@ export default function Home() {
     activeCheckpoint,
     selectedModels,
     toggles,
+    summarizer,
     documents,
     clearDocuments,
     onHistoryRefreshNeeded: fetchHistory,
@@ -371,7 +375,7 @@ export default function Home() {
                   onDebateStop={inDebate ? debate.close : undefined}
                   onDebateSynthesize={
                     inDebate && debate.controls.synthesize
-                      ? () => debate.synthesize(debateDefaults.synthesizer_model, toggles)
+                      ? () => debate.synthesize(debateDefaults.synthesizer_model, toggles, summarizer)
                       : undefined
                   }
                   onDebatePause={inDebate && debate.controls.pause ? debate.pause : undefined}
@@ -397,6 +401,10 @@ export default function Home() {
         setDebateDefaults={setDebateDefaults}
         collapsed={panelCollapsed}
         onCollapsedChange={setPanelCollapsed}
+        summarizerChoice={summarizerChoice}
+        summarizer={summarizer}
+        defaultSummarizer={defaultSummarizer}
+        onSummarizerChange={setSummarizerChoice}
       />
 
       <DebateConfigDialog
@@ -408,6 +416,7 @@ export default function Home() {
             toggles,
             documents,
             parentCheckpointId: activeCheckpoint,
+            summarizer,
           })
         }
         defaults={debateDefaults}

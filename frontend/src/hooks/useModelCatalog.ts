@@ -15,6 +15,8 @@ export function useModelCatalog() {
   const [families, setFamilies] = useState<api.ModelFamily[]>([]);
   const [status, setStatus] = useState<CatalogStatus>("loading");
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  // The summarizer the backend uses when none is chosen, for the keys that are set.
+  const [defaultSummarizer, setDefaultSummarizer] = useState<string | null>(null);
   // A ref as well, so long-lived socket handlers resolve names without
   // re-subscribing whenever the catalogue loads.
   const familiesRef = useRef<api.ModelFamily[]>([]);
@@ -26,6 +28,7 @@ export function useModelCatalog() {
         familiesRef.current = data.families;
         setFamilies(data.families);
         setStatus("ready");
+        setDefaultSummarizer(data.default_summarizer ?? null);
         if (data.default_model) {
           setSelectedModels((prev) => (prev.length ? prev : [data.default_model as string]));
         }
@@ -54,5 +57,6 @@ export function useModelCatalog() {
     setSelectedModels,
     allModelIds,
     modelLabel,
+    defaultSummarizer,
   };
 }

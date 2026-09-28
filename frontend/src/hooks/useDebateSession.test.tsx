@@ -97,6 +97,26 @@ beforeEach(() => {
 });
 
 describe("useDebateSession", () => {
+  it("carries the chosen summarizer into the debate's start and synthesis frames", async () => {
+    const { result, sockets } = setup();
+    (api.createDebateSession as jest.Mock).mockResolvedValueOnce({ session_id: "s1", participants: ["a", "b"] });
+    await act(async () => {
+      result.current.openDialog("Question?");
+      await result.current.start(DEFAULT_DEBATE_DEFAULTS, {
+        participants: ["a", "b"],
+        toggles: { use_rag: false, use_web_search: false },
+        documents: {},
+        parentCheckpointId: null,
+        summarizer: "gpt-6-luna",
+      });
+    });
+    const ws = sockets[0];
+    act(() => ws.open());
+    expect(ws.sent[0]).toMatchObject({ type: "debate_start", summarizer: "gpt-6-luna" });
+    act(() => result.current.synthesize(null, { use_rag: false, use_web_search: false }, "gpt-6-luna"));
+    expect(ws.sent.at(-1)).toMatchObject({ type: "debate_synthesize", summarizer: "gpt-6-luna" });
+  });
+
   it("starts a debate over the injected socket and streams the transcript", async () => {
     const { result, sockets } = setup();
     await startDebate(result);
@@ -105,6 +125,7 @@ describe("useDebateSession", () => {
     expect(ws.url).toBe("ws://test/debate/s1");
     act(() => ws.open());
     expect(ws.sent[0]).toMatchObject({ type: "debate_start", prompt: "Question?" });
+    expect(ws.sent[0]).not.toHaveProperty("summarizer"); // automatic unless chosen
 
     act(() => {
       ws.emit({ type: "debate_session_created", participants: ["a", "b"] });

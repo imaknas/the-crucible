@@ -133,6 +133,7 @@ export async function fetchModels(): Promise<{
   families: ModelFamily[];
   default_model?: string;
   default_arena_models?: string[];
+  default_summarizer?: string;
 }> {
   const res = await fetch(`${API_BASE}/models`);
   if (!res.ok) throw new Error("Failed to fetch models");

@@ -21,6 +21,8 @@ export interface DebateStartContext {
   toggles: Toggles;
   documents: Record<string, string>;
   parentCheckpointId: string | null;
+  /** Model that summarizes long history; null = the backend's default. */
+  summarizer?: string | null;
 }
 
 interface Options {
@@ -444,6 +446,7 @@ export function useDebateSession({
             type: "debate_start",
             prompt: promptRef.current,
             toggles: ctx.toggles,
+            summarizer: ctx.summarizer ?? undefined,
             documents: ctx.documents,
             parent_checkpoint_id: ctx.parentCheckpointId,
           },
@@ -485,12 +488,13 @@ export function useDebateSession({
   }, [socketOpen, send]);
 
   const synthesize = useCallback(
-    (synthesizerModel: string | null, toggles: Toggles) => {
+    (synthesizerModel: string | null, toggles: Toggles, summarizer: string | null = null) => {
       const frame = {
         type: "debate_synthesize",
         synthesizer_model: synthesizerModel || participantsRef.current[0],
         prompt: promptRef.current,
         toggles,
+        summarizer: summarizer ?? undefined,
       };
       if (isOpen(wsRef.current)) {
         send(frame);

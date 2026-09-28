@@ -8,6 +8,7 @@ export function useChatWebSocket({
   activeCheckpoint,
   selectedModels,
   toggles,
+  summarizer = null,
   documents,
   clearDocuments,
   onHistoryRefreshNeeded,
@@ -19,6 +20,8 @@ export function useChatWebSocket({
   activeCheckpoint: string | null;
   selectedModels: string[];
   toggles: Toggles;
+  /** Model that summarizes long history; null = the backend's default. */
+  summarizer?: string | null;
   documents: Record<string, string>;
   clearDocuments: () => void;
   onHistoryRefreshNeeded: (
@@ -270,6 +273,7 @@ export function useChatWebSocket({
           message: userMessage,
           model: model,
           toggles: toggles,
+          summarizer: summarizer ?? undefined,
           documents: documents,
           parent_checkpoint_id: activeCheckpointRef.current,
           is_deliberation: isDeliberation,
@@ -299,6 +303,7 @@ export function useChatWebSocket({
           message: synthesisPrompt,
           model: selectedModels[0],
           toggles: toggles,
+          summarizer: summarizer ?? undefined,
           documents: documents,
           parent_checkpoint_id: parentId,
           type: "synthesis",
