@@ -121,6 +121,9 @@ def arena(
     web_search: bool = typer.Option(
         False, "--web-search", "-w", help="Enable web search grounding."
     ),
+    summarizer: Optional[str] = typer.Option(
+        None, "--summarizer", help="Model that summarizes long history. Default: the first of SUMMARIZER_MODELS with a key."
+    ),
     format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
@@ -136,9 +139,14 @@ def arena(
     if synthesizer:
         _validate_models([synthesizer], as_json)
     thread_id = thread or _gen_thread_id("arena")
+    from app.services.context import ContextSettings
+
+    context = ContextSettings(summarizer=summarizer)
+    if problem := context.problem():
+        _fail(problem, as_json)
 
     result = _run(
-        _run_arena(prompt, resolved, thread_id, synthesizer, {"use_web_search": web_search}, as_json),
+        _run_arena(prompt, resolved, thread_id, synthesizer, {"use_web_search": web_search}, as_json, context),
         as_json,
     )
     if as_json:
@@ -147,7 +155,9 @@ def arena(
         raise typer.Exit(1)
 
 
-async def _run_arena(prompt, models, thread_id, synthesizer, toggles, as_json):
+async def _run_arena(prompt, models, thread_id, synthesizer, toggles, as_json, context=None):
+    from app.services.context import DEFAULT_CONTEXT
+
     from app.core import database as db
     from app.services.arena import open_graph, run_arena
     from app.cli_display import ArenaDisplay, print_header, print_info, print_success, print_error, render_synthesis
@@ -165,7 +175,8 @@ async def _run_arena(prompt, models, thread_id, synthesizer, toggles, as_json):
     async with open_graph() as graph_app:
         is_new = not (await graph_app.aget_state({"configurable": {"thread_id": thread_id}})).values
         try:
-            async for event in run_arena(graph_app, prompt, thread_id, models, toggles, synthesizer):
+            async for event in run_arena(graph_app, prompt, thread_id, models, toggles, synthesizer,
+                                         context=context or DEFAULT_CONTEXT):
                 kind = event["type"]
                 if kind == "token" and display:
                     display.update_token(event["model"], event["token"])

@@ -9,6 +9,7 @@ from app.api.deps import get_graph_app
 from app.api.models import MODEL_REGISTRY, FAMILY_META
 from app.core import database as db
 from app.services import debate as debate_svc
+from app.services.context import ContextSettings
 from app.services.tree import build_debate_tree, load_thread_states
 
 router = APIRouter(prefix="/debate", tags=["debate"])
@@ -174,10 +175,21 @@ class DebateConnection:
         async for event in events:
             await self.send(event)
 
+    async def _settings(self, data: dict) -> Optional[ContextSettings]:
+        """The frame's context settings, or None after reporting why they cannot be used."""
+        context = ContextSettings.from_frame(data)
+        if problem := context.problem():
+            await self.send({"type": "error", "session_id": self.session_id, "message": problem})
+            return None
+        return context
+
     async def _restart(self, prompt: str, data: dict, parent_checkpoint_id: Optional[str]) -> None:
         await self._cancel()
         if not db.get_debate_session(self.session_id):
             await self.send({"type": "error", "message": f"Session {self.session_id} not found"})
+            return
+        context = await self._settings(data)
+        if context is None:
             return
         self.control = debate_svc.DebateControl()
         self._task = asyncio.create_task(self._run(debate_svc.run_debate(
@@ -188,6 +200,7 @@ class DebateConnection:
             documents=data.get("documents", {}),
             parent_checkpoint_id=parent_checkpoint_id,
             control=self.control,
+            context=context,
         )))
 
     # ─── commands ────────────────────────────────────────────────
@@ -229,6 +242,9 @@ class DebateConnection:
         # Synthesising ends the debate: stop the rounds first so the old task
         # can't be orphaned beyond the reach of stop/disconnect.
         await self._cancel()
+        context = await self._settings(data)
+        if context is None:
+            return
 
         async def synthesize():
             await self._run(debate_svc.synthesize_session(
@@ -237,6 +253,7 @@ class DebateConnection:
                 prompt=data.get("prompt", ""),
                 synthesizer=data.get("synthesizer_model"),
                 toggles=data.get("toggles", {}),
+                context=context,
             ))
             await self.status("completed")
 

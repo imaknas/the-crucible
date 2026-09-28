@@ -16,7 +16,8 @@ from app.api.models import DEFAULT_ARENA_MODELS, FAMILY_META, MODEL_REGISTRY
 from app.core import database as db
 from app.llm import has_credentials
 from app.services.graph import workflow
-from app.services.recall import INTERNAL_TAG, with_default_recall
+from app.services.context import DEFAULT_CONTEXT, ContextSettings
+from app.services.recall import INTERNAL_TAG
 from app.services.runs import (
     final_state_of_run,
     resolve_fork_point,
@@ -106,13 +107,14 @@ async def stream_run(
     model: str,
     prompt: str,
     toggles: Optional[Dict[str, Any]] = None,
+    context: ContextSettings = DEFAULT_CONTEXT,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """One graph turn. Yields token events, then one ``end`` event.
 
     The ``end`` event carries the full reply and the checkpoint this run
     wrote (not its parent).
     """
-    config = with_default_recall(thread_config(thread_id, parent_checkpoint_id))
+    config = context.apply(thread_config(thread_id, parent_checkpoint_id))
     run_id = tag_run(config)
     initial_state = {
         "active_peer": model,
@@ -173,6 +175,7 @@ async def run_arena(
     toggles: Optional[Dict[str, Any]] = None,
     synthesizer: Optional[str] = None,
     timeout: float = ARENA_TIMEOUT_SECONDS,
+    context: ContextSettings = DEFAULT_CONTEXT,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Ask every model the same question in parallel, then optionally synthesize.
 
@@ -200,7 +203,7 @@ async def run_arena(
 
     async def _produce(model: str):
         try:
-            async for event in stream_run(graph_app, thread_id, parent, model, prompt, toggles):
+            async for event in stream_run(graph_app, thread_id, parent, model, prompt, toggles, context):
                 await queue.put(event)
         except Exception as e:
             await queue.put({"type": "end", "model": model, "content": "", "checkpoint_id": None, "error": str(e)})
@@ -237,14 +240,14 @@ async def run_arena(
     if not synthesizer or len(usable) < 2:
         return
 
-    async for event in _synthesize(graph_app, thread_id, parent, synthesizer, build_synthesis_prompt(prompt, usable), toggles):
+    async for event in _synthesize(graph_app, thread_id, parent, synthesizer, build_synthesis_prompt(prompt, usable), toggles, context):
         yield event
 
 
-async def _synthesize(graph_app, thread_id, parent, synthesizer, synthesis_prompt, toggles):
+async def _synthesize(graph_app, thread_id, parent, synthesizer, synthesis_prompt, toggles, context=DEFAULT_CONTEXT):
     yield {"type": "synthesis_start", "model": synthesizer}
     try:
-        async for event in stream_run(graph_app, thread_id, parent, synthesizer, synthesis_prompt, toggles):
+        async for event in stream_run(graph_app, thread_id, parent, synthesizer, synthesis_prompt, toggles, context):
             if event["type"] == "token":
                 yield {"type": "synthesis_token", "model": synthesizer, "token": event["token"]}
             else:

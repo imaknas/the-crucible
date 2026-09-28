@@ -7,7 +7,7 @@ import asyncio
 import json
 from typing import Dict, Optional, Set
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from app.api.deps import get_graph_app
@@ -16,7 +16,7 @@ from app.core import database as db
 from app.services.chat import auto_title, build_turn_input
 from app.services.chat import stream_turn
 from app.services.message_format import format_chat_messages
-from app.services.recall import with_default_recall
+from app.services.context import ContextSettings
 from app.services.runs import (
     final_state_of_run,
     resolve_fork_point,
@@ -35,13 +35,18 @@ class ChatRequest(BaseModel):
     toggles: Dict[str, bool] = {}
     documents: Optional[Dict[str, str]] = None
     parent_checkpoint_id: Optional[str] = None
+    # Model that writes summaries for this turn; None = the app's default.
+    summarizer: Optional[str] = None
 
 
 @router.post("/chat")
 async def chat(request: ChatRequest, graph_app=Depends(get_graph_app)):
     """One non-streaming turn, for REST callers."""
+    context = ContextSettings(summarizer=request.summarizer)
+    if problem := context.problem():
+        raise HTTPException(status_code=400, detail=problem)
     parent_id = request.parent_checkpoint_id or await resolve_fork_point(graph_app, request.thread_id)
-    config = with_default_recall(thread_config(request.thread_id, parent_id))
+    config = context.apply(thread_config(request.thread_id, parent_id))
     run_id = tag_run(config)
     state = await graph_app.aget_state(config)
     turn_input = build_turn_input(
@@ -150,6 +155,10 @@ class ChatConnection:
 
     async def _run_model(self, frame: dict, parent: Optional[str], is_new_thread: bool) -> None:
         model = frame.get("model", DEFAULT_MODEL)
+        context = ContextSettings.from_frame(frame)
+        if problem := context.problem():
+            await self.send({"type": "error", "message": problem, "model": model})
+            return
         try:
             await self.send({"type": "stream_start", "model": model})
             async for event in stream_turn(
@@ -161,6 +170,7 @@ class ChatConnection:
                 toggles=frame.get("toggles", {}),
                 documents=frame.get("documents", {}),
                 is_deliberation=frame.get("is_deliberation", False),
+                context=context,
             ):
                 if event["type"] == "token":
                     if not await self.send({"type": "stream_token", "token": event["token"], "model": model}):

@@ -339,4 +339,12 @@ async def get_models() -> Dict[str, Any]:
         "families": _build_families(),
         "default_model": DEFAULT_MODEL,
         "default_arena_models": DEFAULT_ARENA_MODELS,
+        # Resolved for the keys that are set, so the UI can name it.
+        "default_summarizer": _default_summarizer(),
     }
+
+
+def _default_summarizer() -> str:
+    from app.services.graph import default_summarizer  # graph imports this module
+
+    return default_summarizer()

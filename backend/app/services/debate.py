@@ -15,7 +15,8 @@ from uuid import uuid4
 
 from app.core import database as db
 from app.services.convergence import build_convergence_check
-from app.services.recall import INTERNAL_TAG, with_default_recall
+from app.services.context import DEFAULT_CONTEXT, ContextSettings
+from app.services.recall import INTERNAL_TAG
 from app.services.runs import final_state_of_run, tag_run, thread_config
 from app.utils.helpers import extract_text
 
@@ -108,6 +109,7 @@ async def run_debate(
     documents: dict[str, str],
     parent_checkpoint_id: Optional[str] = None,
     control: Optional[DebateControl] = None,
+    context: ContextSettings = DEFAULT_CONTEXT,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """
     Main debate generator. Yields WS-ready event dicts:
@@ -182,6 +184,7 @@ async def run_debate(
             documents=documents,
             parent_checkpoint_id=parent_checkpoint_id if round_num == 0 else None,
             curr_round_responses=curr_round_responses,
+            context=context,
         ):
             yield event
 
@@ -236,6 +239,7 @@ async def run_debate(
             prompt=prompt,
             all_responses=prev_round_responses,
             toggles=toggles,
+            context=context,
         ):
             yield event
 
@@ -304,6 +308,7 @@ async def _stream_round(
     documents: dict[str, str],
     parent_checkpoint_id: Optional[str],
     curr_round_responses: dict[str, str],
+    context: ContextSettings = DEFAULT_CONTEXT,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """Stream all models for one round concurrently, interleaving their tokens."""
     queue: asyncio.Queue = asyncio.Queue()
@@ -324,7 +329,7 @@ async def _stream_round(
                 "current_thesis": "",
                 "documents": documents,
             }
-            langgraph_config = with_default_recall(thread_config(
+            langgraph_config = context.apply(thread_config(
                 thread_id, parent_checkpoint_id if round_num == 0 else None
             ))
             run_id = tag_run(langgraph_config)
@@ -461,6 +466,7 @@ async def synthesize_session(
     prompt: str,
     synthesizer: Optional[str] = None,
     toggles: Optional[dict[str, Any]] = None,
+    context: ContextSettings = DEFAULT_CONTEXT,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """Synthesize a finished (or interrupted) debate from its latest responses."""
     session = db.get_debate_session(session_id)
@@ -481,6 +487,7 @@ async def synthesize_session(
         prompt=prompt,
         all_responses=responses,
         toggles=toggles or {},
+        context=context,
     ):
         yield event
     db.update_debate_session(session_id, status="completed")
@@ -493,6 +500,7 @@ async def _stream_synthesis(
     prompt: str,
     all_responses: dict[str, str],
     toggles: dict[str, Any],
+    context: ContextSettings = DEFAULT_CONTEXT,
 ) -> AsyncGenerator[dict[str, Any], None]:
     synthesizer = session["synthesizer_model"]
     parent_thread_id = session["parent_thread_id"]
@@ -519,7 +527,7 @@ async def _stream_synthesis(
         "current_thesis": "",
         "documents": {},
     }
-    config = with_default_recall(thread_config(synthesis_thread_id))
+    config = context.apply(thread_config(synthesis_thread_id))
     run_id = tag_run(config)
     buffer = ""
     checkpoint_id = ""
