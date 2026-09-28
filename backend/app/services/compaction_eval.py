@@ -23,6 +23,7 @@ Two ways to put a scenario on a branch:
 """
 
 import asyncio
+import json
 import threading
 from dataclasses import asdict, dataclass, field
 from typing import Any, Iterable, List, Mapping, Optional, Sequence
@@ -947,6 +948,7 @@ async def run_budgeted(
     on_estimate=None,
     on_progress=None,
     factor: float = HIGH_FACTOR,
+    calibration_cache=None,
 ) -> BudgetedRun:
     """Calibrate, estimate, refuse if the estimate (with margin) exceeds the
     budget, then run with the budget as a hard cap. Without `prices` (dry
@@ -963,9 +965,19 @@ async def run_budgeted(
         if unpriced:
             raise ValueError(f"no price for {', '.join(unpriced)}: add it to app/catalog/data/prices.json")
         spend = Spend(prices)
-        summ = {c.name: await calibrate_summarizer(c, factory, spend, sample_tokens)
+        async def cached(key, make):
+            profile = calibration_cache.get(key) if calibration_cache else None
+            if profile is None:
+                profile = await make()
+                if calibration_cache:
+                    calibration_cache.put(key, profile)
+            return profile
+
+        summ = {c.name: await cached(summarizer_key(c, sample_tokens),
+                                     lambda c=c: calibrate_summarizer(c, factory, spend, sample_tokens))
                 for c in conditions if not isinstance(c.policy, NeverCompact)}
-        answer = {m: await calibrate_answerer(graph_app, m, factory, spend, prefix) for m in real}
+        answer = {m: await cached(f"answer:{m}", lambda m=m: calibrate_answerer(graph_app, m, factory, spend, prefix))
+                  for m in real}
         estimate = await estimate_cost(graph_app, scenarios, model_ids, conditions, prices, answer, summ,
                                        thread_prefix=prefix, calibration_cost=spend.total, grid=grid)
         estimate.factor = factor
@@ -995,6 +1007,40 @@ async def run_budgeted(
         if spend and spend.errors:
             break
     return BudgetedRun(results, spend, estimate, prefix, skipped)
+
+
+def summarizer_key(condition: Condition, sample_tokens: int) -> str:
+    """What a summarizer calibration depends on: the model (with any thinking
+    level), what it is asked to write, and the stretch it summarizes."""
+    instruction = condition.instruction.name if condition.instruction else "brief"
+    return f"summarizer:{summarizer_of(condition)}:{instruction}:{sample_tokens}"
+
+
+class CalibrationCache:
+    """Calibration profiles reused for one day, so the run that follows an
+    --estimate checks the same numbers that were approved and doesn't pay
+    for calibration twice. `path` and `day` come from the caller."""
+
+    def __init__(self, path, day: str):
+        from pathlib import Path
+
+        self.path = Path(path)
+        self.day = day
+        try:
+            self._data = json.loads(self.path.read_text())
+        except (OSError, ValueError):
+            self._data = {}
+
+    def get(self, key: str) -> Optional[CallProfile]:
+        entry = self._data.get(key)
+        if not entry or entry.get("day") != self.day:
+            return None
+        return CallProfile(**entry["profile"])
+
+    def put(self, key: str, profile: CallProfile) -> None:
+        self._data[key] = {"day": self.day, "profile": asdict(profile)}
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(self._data, indent=1))
 
 
 def spend_summary(run: BudgetedRun, budget: Optional[float]) -> Optional[dict]:

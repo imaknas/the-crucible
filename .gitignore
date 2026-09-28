@@ -48,3 +48,6 @@ coverage/
 
 # Experiment databases (results JSON under backend/experiments/results is kept)
 backend/experiments/*.sqlite*
+
+# Same-day calibration profiles for cost estimates (local)
+backend/experiments/.calibration-cache.json

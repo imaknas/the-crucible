@@ -128,3 +128,15 @@ def test_the_planning_margin_is_learned_from_past_runs():
     runs = [{"spend": {"total": r, "estimate": 1.0}} for r in (0.6, 0.8, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 1.8)]
     assert planning_factor(runs) == 1.8
     assert planning_factor([{"spend": {"total": 0.5, "estimate": 1.0}}]) == HIGH_FACTOR  # never below the floor
+
+
+def test_calibration_profiles_are_reused_for_the_day(tmp_path):
+    from app.services.compaction_eval import CalibrationCache
+
+    path = tmp_path / "cache.json"
+    today = CalibrationCache(path, "2026-09-28")
+    assert today.get("summarizer:x:brief:8000") is None
+    today.put("summarizer:x:brief:8000", CallProfile("x", 1.1, 900.0, 3000, 0.02))
+    again = CalibrationCache(path, "2026-09-28")
+    assert again.get("summarizer:x:brief:8000") == CallProfile("x", 1.1, 900.0, 3000, 0.02)
+    assert CalibrationCache(path, "2026-09-29").get("summarizer:x:brief:8000") is None  # stale next day

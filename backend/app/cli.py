@@ -775,6 +775,17 @@ def _cheapest_models() -> List[str]:
     return cheapest_models(MODEL_REGISTRY, load_catalog(), PriceBook(load_prices(), date.today().isoformat()))
 
 
+def _calibration_cache():
+    """Today's calibration profiles, shared by --estimate and the run after it."""
+    from datetime import date
+    from pathlib import Path
+
+    from app.services import compaction_eval as ce
+
+    return ce.CalibrationCache(Path(__file__).resolve().parents[1] / "experiments" / ".calibration-cache.json",
+                               date.today().isoformat())
+
+
 def _planning_factor() -> float:
     """The cost margin learned from this project's past experiment runs."""
     from pathlib import Path
@@ -889,7 +900,7 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
             estimate_only=estimate_only, grid=grid, sample_tokens=max(options["thresholds"]),
             concurrency=options["concurrency"], prefix=prefix, on_estimate=lambda e: _print_estimate(e, budget),
             on_progress=(lambda rs: _write_partial(out, prefix, options, rs)) if out else None,
-            factor=_planning_factor(),
+            factor=_planning_factor(), calibration_cache=_calibration_cache(),
         )
     if estimate_only:
         e = run.estimate
@@ -1033,7 +1044,8 @@ async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_
         run = await ce.run_budgeted(graph_app, scenarios, model_ids, sa.conditions_for(scaffolds), factory,
                                     prices=prices, budget=budget, estimate_only=estimate_only,
                                     sample_tokens=threshold, prefix=prefix,
-                                    on_estimate=lambda e: _print_estimate(e, budget), factor=_planning_factor())
+                                    on_estimate=lambda e: _print_estimate(e, budget), factor=_planning_factor(),
+                                    calibration_cache=_calibration_cache())
     if estimate_only:
         return {"estimate": round(run.estimate.total, 2), "high": round(run.estimate.high, 2)}
     records = sa.audit(run.results, scaffolds, model_ids, min_effect=min_effect)
