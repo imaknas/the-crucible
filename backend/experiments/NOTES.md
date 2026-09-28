@@ -72,6 +72,16 @@ to fetch?):
     only gemini-3.5-flash-lite fell somewhat behind (25 vs 31). Once the
     question is known, relevance is an easy call; before it is known (in
     the summary) no model can make it reliably.
+15. **Why the summary drops them: it can't know what comes next** (pilot 19,
+    gpt-6-sol): the same conversation with the next goal announced in
+    advance took off-goal facts from 4 to 30 of 32 at +30% summary length.
+    Without that knowledge, the only fix was to stop compressing: a generic
+    "priorities may change, keep every subject" instruction kept 32/32 with
+    summaries 9× longer (5.5k of an 8k threshold) and twice as many passes.
+    A weaker summarizer (claude-haiku-4-5) adds a second, separate loss: told
+    the future *and* hedged, it still kept only 20/32 and lost on-goal facts
+    too. Caveat: announcing the next goal also names its subject repeatedly
+    (salience) — not yet separated from knowing the future.
 
 **Changed in the app:** the re-summarize thrash fix; `SUMMARIZER_MODELS`
 now leads with gemini-3.8-flash; the price list, cost estimate, `--budget`
@@ -1010,4 +1020,57 @@ model: estimates meter them with a stand-in, and each is calibrated with one
 metered call. The estimate was 1.8× the actual here; per rewriter it ranged
 from 0.3× (3.8-flash, calibrated on a longer hint than real ones) to 1.5×
 (haiku).
+
+## 2026-09-28 — Pilot 19: is off-goal loss about not knowing the future?
+
+Same task scenarios as pilots 14–18 (4 conversations, oracles only,
+threshold 8,000), two summarizers that dropped the most (gpt-6-sol,
+claude-haiku-4-5), two manipulations crossed:
+
+- `--foreshadow` (19b): every goal reminder adds "Once that is done, the
+  next priority will be X", and the switch arrives "as planned". Facts,
+  filler and positions are identical to the same seed without it (19a), so
+  probes pair across the two runs.
+- `--instruction allsubjects`: the brief plus "Priorities may change later
+  in this conversation: keep the specific values … for every subject that
+  came up, not only the current goal." It knows nothing about what comes
+  next.
+
+Predictions written before the run: if only foreshadowing restores the
+facts, the loss is about not knowing the future; if the generic hedge is
+enough, it is the summarizer's default style, fixable at write time (then
+check what it costs in length); if both only partly help, both matter.
+
+Off-goal facts in context (oracle), mean summary length in tokens:
+
+| summarizer, instruction | future unknown (19a) | future announced (19b) |
+|---|---|---|
+| gpt-6-sol, brief | 4/32 · 604 | **30/32** · 795 |
+| gpt-6-sol, all-subjects | 32/32 · 5,499 | 32/32 · 6,020 |
+| claude-haiku-4-5, brief | 5/32 · 1,258 | 10/32 · 1,058 |
+| claude-haiku-4-5, all-subjects | 10/32 · 2,636 | 20/32 · 1,328 |
+
+On-goal facts: 26–32/32 everywhere except haiku with the future announced
+(21/32 brief, 26/32 all-subjects).
+
+- **gpt-6-sol: knowing the future is what matters.** Announcing it moves
+  4 → 30 (26 pairs gained, 0 lost) for +30% summary length. The generic
+  hedge also reaches 32/32, but by not compressing: 5.5k-token summaries
+  against an 8k threshold, up to 4 passes instead of 2. Without knowledge
+  of the next goal, keeping off-goal facts at write time costs the
+  compression itself.
+- **claude-haiku-4-5: a second loss that knowledge does not fix.** Hedge
+  5 → 10 (paired, b better), announcement 5 → 10 (6 gained, 1 lost), both
+  together 20/32, and with the future announced it drops on-goal facts it
+  had kept. Its summaries stay short (1–2.6k) whatever it is told: this
+  looks like fidelity/capacity, not selection.
+- So the write-time failure has two parts: **selection under an unknown
+  future** (sol: fully explained by it) and **fidelity** (haiku: remains
+  when the future is known). Read-time recall (pilots 16–18) sidesteps both,
+  because the originals are still there.
+- **Confound not yet separated:** the announcement names the later subject
+  in every reminder (~12 times), so salience alone could explain part of
+  19b. A control that names it equally often without making it the next
+  goal ("the X is out of scope this quarter") would separate the two.
+- Spent $1.31 + $1.57 = $2.88 against estimates of $2.14 + $2.46 (0.63×).
 
