@@ -999,7 +999,7 @@ Off-goal facts in context (oracle; on-goal were 31–32/32 everywhere):
 | recall | off-goal | rewriter cost (128 calls) |
 |---|---|---|
 | keyword | 16/32 | – |
-| guided, gpt-6-luna | 30/32 | $0.02 |
+| guided, gpt-6-luna | 30/32 | $0.024 |
 | guided, gpt-6-sol | 29/32 | ~$0.17 |
 | guided, claude-haiku-4-5 | 28/32 | $0.28 |
 | guided, claude-sonnet-5 | 30/32 | $0.49 |
