@@ -599,3 +599,47 @@ def test_guided_recall_sees_the_summary_and_the_recent_turns():
              HumanMessage(content="Which port for the system of record for money movements?")]
     graph_mod.sanitize_messages(msgs, recall=GuidedRecall(lambda q, h: seen.append(h) or "ledger service port"))
     assert "gist" in seen[0] and "Change of plans" in seen[0]
+
+
+def test_replay_key_changes_only_with_what_shapes_the_summaries():
+    from app.compaction import HandoffBrief, KeywordRecall, build_task_scenario
+    from app.services.compaction_eval import replay_key
+
+    direct = build_task_scenario(seed=1)
+    indirect = build_task_scenario(seed=1, questions="indirect")
+    t = ThresholdPolicy(fixed_tokens(8000))
+    base = Condition("a", t, "gpt-6-sol")
+    assert replay_key(direct, base, "m") == replay_key(indirect, base, "m")  # wording is answer-time
+    assert replay_key(direct, base, "m") == replay_key(direct, Condition("b", t, "gpt-6-sol", recall=KeywordRecall()), "m")
+    assert replay_key(direct, base, "m") != replay_key(direct, Condition("a", t, "claude-sonnet-5"), "m")
+    assert replay_key(direct, base, "m") != replay_key(direct, Condition("a", t, "gpt-6-sol", HandoffBrief()), "m")
+    assert replay_key(direct, base, "m") != replay_key(direct, Condition("a", ThresholdPolicy(fixed_tokens(4000)), "gpt-6-sol"), "m")
+    assert replay_key(direct, base, "m") != replay_key(build_task_scenario(seed=2), base, "m")
+
+
+def test_a_cached_replay_is_not_summarized_again(eval_setup, tmp_path):
+    import asyncio
+
+    from app.compaction import build_dense_scenario
+    from app.services.compaction_eval import ORACLE, EvalModelFactory, ReplayCache, run_live_grid
+
+    app, _ = eval_setup
+    calls = []
+
+    class CountingFactory(EvalModelFactory):
+        def chat(self, model_id, toggles=None):
+            if model_id != ORACLE:
+                calls.append(model_id)
+            return super().chat(model_id, toggles)
+
+    scenario = build_dense_scenario(n_facts=8, exchanges=40, seed=3)
+    cache = ReplayCache(tmp_path / "replays")
+    cond = [Condition("t1500", ThresholdPolicy(fixed_tokens(1_500)))]
+    first = asyncio.run(run_live_grid(app, {"3": scenario}, [ORACLE], cond, model_factory=CountingFactory(scenario.facts),
+                                      replay_cache=cache, thread_prefix="first"))
+    replayed = len(calls)
+    second = asyncio.run(run_live_grid(app, {"3": scenario}, [ORACLE], cond, model_factory=CountingFactory(scenario.facts),
+                                       replay_cache=cache, thread_prefix="second"))
+    assert replayed > 0
+    assert len(calls) - replayed < replayed  # only summaries written while probing, none for the replay
+    assert [r.correct for r in first] == [r.correct for r in second]

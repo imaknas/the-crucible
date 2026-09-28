@@ -662,7 +662,7 @@ def compaction_eval(
     recalls: Optional[List[str]] = typer.Option(
         None, "--recall", help="Bring hidden messages back per request (repeat): 'none', 'keyword', 'embedding' (the app's local embedding model) or 'guided' (a model reads the summary and names what to search for, then keyword search). Default: none."
     ),
-    rewriter: str = typer.Option("gpt-6-luna", "--rewriter", help="Model that chooses search terms for --recall guided."),
+    rewriters: Optional[List[str]] = typer.Option(None, "--rewriter", help="Model that chooses search terms for --recall guided (repeat: one condition per model). Default: gpt-6-luna."),
     asides: bool = typer.Option(False, "--asides", help="State every fact as a throwaway remark (dense only); pair with a run without it."),
     questions: str = typer.Option("direct", "--questions", help="Probe by the subject's name ('direct') or by what it does ('indirect'; dense only)."),
     fact_variants: str = typer.Option("plain,distractor,update", "--fact-variants", help="Variants the facts cycle through (dense only), e.g. 'plain' for plain facts only."),
@@ -712,7 +712,7 @@ def compaction_eval(
             bases = [split_thinking(s)[0] for s in summarizers or []]
         except ValueError as e:
             _fail(str(e), as_json)
-        _validate_models([m for m in model_ids if m not in ORACLES] + bases, as_json)
+        _validate_models([m for m in model_ids if m not in ORACLES] + bases + list(rewriters or []), as_json)
     options = {
         "scenario": scenario,
         "facts": facts,
@@ -726,7 +726,7 @@ def compaction_eval(
         "instructions": list(instructions or []),
         "recalls": list(recalls or []),
         "questions": questions,
-        "rewriter": rewriter,
+        "rewriters": list(rewriters or ["gpt-6-luna"]),
         "asides": asides,
         "assistant_facts": assistant_facts,
         "fact_variants": fact_variants.split(","),
@@ -773,6 +773,15 @@ def _cheapest_models() -> List[str]:
     from app.services.compaction_eval import cheapest_models
 
     return cheapest_models(MODEL_REGISTRY, load_catalog(), PriceBook(load_prices(), date.today().isoformat()))
+
+
+def _replay_cache():
+    """Replayed conversations with their summaries, reused across runs."""
+    from pathlib import Path
+
+    from app.services import compaction_eval as ce
+
+    return ce.ReplayCache(Path(__file__).resolve().parents[1] / "experiments" / ".replay-cache")
 
 
 def _calibration_cache():
@@ -869,14 +878,20 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
         from app.services import rag
 
         recallers["embedding"] = EmbeddingRecall(ce.cached_embedder(rag.get_embeddings().embed_documents))
+    recall_choices = [r for r in options["recalls"] or ["none"] if r != "guided"]
     if "guided" in options["recalls"]:
-        recallers["guided"] = GuidedRecall(ce.model_rewriter(factory, options["rewriter"]))
+        for model in options["rewriters"]:
+            guided = GuidedRecall(ce.model_rewriter(factory, model))
+            if len(options["rewriters"]) > 1:  # one model keeps the historical name
+                guided.name = f"guided-{model}"
+            recallers[guided.name] = guided
+            recall_choices.append(guided.name)
     for t in options["thresholds"]:
         for summarizer in options["summarizers"] or [None]:
             for length in options["lengths"] or [None]:
                 for keep in options["keeps"] or ["recent"]:
                     for base in options["instructions"] or ["brief"]:
-                        for rec in options["recalls"] or ["none"]:
+                        for rec in recall_choices:
                             name = (f"t{t}" + (f"-{summarizer}" if summarizer else "") + (f"-len{length}" if length else "")
                                     + (f"-keep{retentions[keep].name}" if retentions[keep] else "")
                                     + (f"-{base}" if bases[base] else "")
@@ -901,6 +916,7 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
             concurrency=options["concurrency"], prefix=prefix, on_estimate=lambda e: _print_estimate(e, budget),
             on_progress=(lambda rs: _write_partial(out, prefix, options, rs)) if out else None,
             factor=_planning_factor(), calibration_cache=_calibration_cache(),
+            replay_cache=None if dry_run else _replay_cache(),
         )
     if estimate_only:
         e = run.estimate
@@ -1045,7 +1061,7 @@ async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_
                                     prices=prices, budget=budget, estimate_only=estimate_only,
                                     sample_tokens=threshold, prefix=prefix,
                                     on_estimate=lambda e: _print_estimate(e, budget), factor=_planning_factor(),
-                                    calibration_cache=_calibration_cache())
+                                    calibration_cache=_calibration_cache(), replay_cache=_replay_cache())
     if estimate_only:
         return {"estimate": round(run.estimate.total, 2), "high": round(run.estimate.high, 2)}
     records = sa.audit(run.results, scaffolds, model_ids, min_effect=min_effect)

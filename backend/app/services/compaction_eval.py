@@ -259,6 +259,59 @@ def _latest_summary_tokens(messages: Sequence[BaseMessage]) -> int:
     return 0
 
 
+# Bump when summarize_history or the replay itself changes what it produces.
+REPLAY_VERSION = 1
+
+
+def replay_key(scenario: Scenario, condition: Condition, active_peer: str) -> str:
+    """What a replay's summaries depend on: the conversation, when the policy
+    summarizes, which model summarizes and exactly what it is asked. Not the
+    question wording, recall or retention, which only act at answer time — so
+    direct and indirect runs, and runs that vary recall, share one replay."""
+    import hashlib
+
+    from app.services.graph import summary_instruction_from
+
+    instruction = summary_instruction_from(condition.configure({"configurable": {}}))
+    policy = getattr(condition.policy, "describe", lambda: condition.policy.name)()
+    parts = [str(REPLAY_VERSION), policy, summarizer_of(condition), instruction.prompt("{transcript}"), active_peer]
+    parts += [f"{t.role}:{t.text}" for t in scenario.turns]
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:32]
+
+
+class ReplayCache:
+    """Replayed conversations (with their summaries) on disk, one file per
+    key, so experiments that differ only at answer time reuse the same
+    summaries instead of paying for (and re-rolling) them. Only real replays
+    belong here: stand-in dry runs never get a cache."""
+
+    def __init__(self, directory):
+        from pathlib import Path
+
+        self.directory = Path(directory)
+
+    def _path(self, key: str):
+        return self.directory / f"{key}.json"
+
+    def has(self, key: str) -> bool:
+        return self._path(key).exists()
+
+    def get(self, key: str):
+        from langchain_core.messages import messages_from_dict
+
+        path = self._path(key)
+        if not path.exists():
+            return None
+        data = json.loads(path.read_text())
+        return messages_from_dict(data["messages"]), {}
+
+    def put(self, key: str, messages, usage: dict) -> None:
+        from langchain_core.messages import messages_to_dict
+
+        self.directory.mkdir(parents=True, exist_ok=True)
+        self._path(key).write_text(json.dumps({"messages": messages_to_dict(messages), "usage": usage}))
+
+
 def _compactions_since(messages: Sequence[BaseMessage], statement: str) -> int:
     """Summaries after the first message (user's or assistant's) stating `statement`."""
     texts = [extract_text(m.content) for m in messages]
@@ -403,6 +456,7 @@ async def run_live_grid(
     model_factory=None,
     concurrency: int = 4,
     spend: Optional[Spend] = None,
+    replay_cache: Optional[ReplayCache] = None,
 ) -> list[ProbeResult]:
     """Like run_grid, but each condition's branch is built by live replay.
 
@@ -417,8 +471,14 @@ async def run_live_grid(
     replays: dict[tuple[str, str], asyncio.Task] = {}
 
     async def replay(label: str, scenario: Scenario, condition: Condition):
+        key = replay_key(scenario, condition, model_ids[0]) if replay_cache else None
+        if key and replay_cache.has(key):
+            return replay_cache.get(key)  # cached: no summarizer calls, no setup cost
         async with sem:
-            return await replay_with_compaction(scenario, condition, model_ids[0], model_factory, spend=spend)
+            messages, usage = await replay_with_compaction(scenario, condition, model_ids[0], model_factory, spend=spend)
+        if key:
+            replay_cache.put(key, messages, usage)
+        return messages, usage
 
     for label, scenario in scenarios.items():
         for condition in conditions:
@@ -804,6 +864,7 @@ async def estimate_cost(
     thread_prefix: str,
     calibration_cost: float = 0.0,
     grid=None,
+    cached_replays: frozenset = frozenset(),
 ) -> CostEstimate:
     """Dry-run every condition with the oracle answering and a stand-in
     summary of the calibrated size: that gives exactly what each probe reads
@@ -834,7 +895,8 @@ async def estimate_cost(
             cost += c
         if condition.name in summarizers:
             s = summarizers[condition.name]
-            setup = [u for r in dry for n, u in r.setup_usage.items() if n == "sized-summarizer"]
+            setup = [u for r in dry for n, u in r.setup_usage.items()
+                     if n == "sized-summarizer" and (r.scenario, condition.name) not in cached_replays]
             during = [u for r in dry for n, u in r.usage.items() if n == "sized-summarizer"]
             calls = (sum(u["output_tokens"] for u in setup) + branches * sum(u["output_tokens"] for u in during)) / max(1, s.summary_tokens)
             read_in = sum(u["input_tokens"] for u in setup) + branches * sum(u["input_tokens"] for u in during)
@@ -949,6 +1011,7 @@ async def run_budgeted(
     on_progress=None,
     factor: float = HIGH_FACTOR,
     calibration_cache=None,
+    replay_cache: Optional[ReplayCache] = None,
 ) -> BudgetedRun:
     """Calibrate, estimate, refuse if the estimate (with margin) exceeds the
     budget, then run with the budget as a hard cap. Without `prices` (dry
@@ -979,7 +1042,8 @@ async def run_budgeted(
         answer = {m: await cached(f"answer:{m}", lambda m=m: calibrate_answerer(graph_app, m, factory, spend, prefix))
                   for m in real}
         estimate = await estimate_cost(graph_app, scenarios, model_ids, conditions, prices, answer, summ,
-                                       thread_prefix=prefix, calibration_cost=spend.total, grid=grid)
+                                       thread_prefix=prefix, calibration_cost=spend.total, grid=grid,
+                                       cached_replays=_cached_replays(scenarios, conditions, model_ids, replay_cache))
         estimate.factor = factor
         if on_estimate:
             on_estimate(estimate)
@@ -1000,13 +1064,22 @@ async def run_budgeted(
         if spend and spend.total + by_condition.get(condition.name, 0.0) * factor > budget:
             skipped.append(condition.name)
             continue
+        extra = {"replay_cache": replay_cache} if replay_cache and grid is run_live_grid else {}
         results += await grid(graph_app, scenarios, model_ids, [condition], thread_prefix=prefix,
-                              model_factory=factory, concurrency=concurrency, spend=spend)
+                              model_factory=factory, concurrency=concurrency, spend=spend, **extra)
         if on_progress:
             on_progress(results)
         if spend and spend.errors:
             break
     return BudgetedRun(results, spend, estimate, prefix, skipped)
+
+
+def _cached_replays(scenarios, conditions, model_ids, replay_cache) -> set:
+    """(scenario label, condition name) pairs whose replay is already on disk."""
+    if not replay_cache or not model_ids:
+        return set()
+    return {(label, c.name) for label, sc in scenarios.items() for c in conditions
+            if replay_cache.has(replay_key(sc, c, model_ids[0]))}
 
 
 def summarizer_key(condition: Condition, sample_tokens: int) -> str:

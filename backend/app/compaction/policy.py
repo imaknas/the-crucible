@@ -65,14 +65,30 @@ class CompactionPolicy(Protocol):
 Threshold = Callable[[ModelBudget], int]
 
 
-def fraction_of_limit(fraction: float) -> Threshold:
+class fraction_of_limit:
     """Threshold at a fraction of the host's soft limit (1.0 = the limit itself)."""
-    return lambda budget: int(budget.soft_limit * fraction)
+
+    def __init__(self, fraction: float):
+        self.fraction = fraction
+
+    def __call__(self, budget: ModelBudget) -> int:
+        return int(budget.soft_limit * self.fraction)
+
+    def __repr__(self) -> str:
+        return f"fraction_of_limit({self.fraction})"
 
 
-def fixed_tokens(tokens: int) -> Threshold:
+class fixed_tokens:
     """The same threshold for every model — the knob experiments sweep."""
-    return lambda _budget: tokens
+
+    def __init__(self, tokens: int):
+        self.tokens = tokens
+
+    def __call__(self, _budget: ModelBudget) -> int:
+        return self.tokens
+
+    def __repr__(self) -> str:
+        return f"fixed_tokens({self.tokens})"
 
 
 class ThresholdPolicy:
@@ -102,6 +118,10 @@ class ThresholdPolicy:
         self.name = name or "threshold"
         self.min_new_fraction = min_new_fraction
 
+    def describe(self) -> str:
+        """Everything that decides when this policy summarizes, as a stable string."""
+        return f"threshold({self.threshold!r}, keep_recent={self.keep_recent}, min_new={self.min_new_fraction})"
+
     def should_summarize(self, ctx: ContextSnapshot, budget: ModelBudget) -> Decision:
         if ctx.total_messages <= self.keep_recent:
             return Decision(False, "too few messages")
@@ -129,6 +149,9 @@ class NeverCompact:
     """Baseline: the model always sees the full raw history."""
 
     name = "never"
+
+    def describe(self) -> str:
+        return "never"
 
     def should_summarize(self, ctx: ContextSnapshot, budget: ModelBudget) -> Decision:
         return Decision(False, "never compact")
