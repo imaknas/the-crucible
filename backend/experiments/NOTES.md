@@ -1154,3 +1154,25 @@ recall) and claude-haiku-4-5 as an answerer were left out ($10.84 for all).
   confusion; and an audit option for the task scenario with indirect
   questions, where recall is supposed to earn its place.
 
+## 2026-09-28 — Pilot 22 (planned): which summarizer, now that recall is the default
+
+Written before the run. Candidates: gemini-3.8-flash (the default),
+gemini-3.5-flash-lite, gpt-6-luna, claude-haiku-4-5 (optionally gpt-6-sol
+and claude-sonnet-5). Each with no recall and with the app's guided recall
+(gpt-6-luna choosing), on two scenarios: dense (140 exchanges, half the
+facts stated by the assistant, direct questions) and task (goal switch,
+indirect questions); 4 conversations each, threshold 8,000, the app's
+brief instruction; oracles only.
+
+Decision rule:
+1. Primary measure: facts still attached to their subject (strict oracle)
+   **with guided recall** — the path the app runs — on each scenario.
+2. Eligible: no worse than the best candidate on either scenario (paired,
+   outcome "equivalent" or better at ±0.1).
+3. Among eligible: the lowest cost per summary at the prices in force on
+   2027-01-01 (gemini-3.8-flash's introductory price ends 2026-12-31).
+4. Tie: the shorter summary (every later call reads it).
+Reported alongside: retention without recall (what is left if recall
+fails or finds nothing). Conclusions are conditional on the threshold,
+instruction and synthetic conversations.
+
