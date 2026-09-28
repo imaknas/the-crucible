@@ -684,3 +684,12 @@ def test_sentence_recall_brings_back_only_the_matching_sentences():
     assert narrow == [(0, "The owner of the image resizer is Tomas Reyes.")]
     both = SentenceRecall(KeywordRecall(limit=4)).excerpts("image resizer owner and backup job cap", hidden)
     assert [i for i, _ in both] == [0, 1] and "Lunch" not in both[1][1]
+
+
+def test_the_default_summarizer_is_the_first_one_with_a_key():
+    from app.services.graph import default_summarizer
+
+    assert default_summarizer({"GOOGLE_API_KEY": "k", "OPENAI_API_KEY": "k"}) == "gemini-3.8-flash"
+    assert default_summarizer({"ANTHROPIC_API_KEY": "k"}) == "claude-haiku-4-5-20251001"
+    assert default_summarizer({"OPENAI_API_KEY": "k"}) == "gpt-6-luna"  # used to get a Gemini model it could not call
+    assert default_summarizer({}) == "gemini-3.8-flash"  # no key anywhere: unchanged

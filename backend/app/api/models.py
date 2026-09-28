@@ -253,11 +253,11 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
 # main.py, cli.py, graph.py and page.tsx, which is how they drifted stale.
 DEFAULT_MODEL = "gpt-5.4"
 DEFAULT_ARENA_MODELS = ["gpt-5.4", "claude-sonnet-5", "gemini-3.1-pro-preview"]
-# Models used to summarise history when the context limit is hit, first
-# registered one wins. gemini-3.8-flash kept as much planted detail as
+# Models used to summarise history when the context limit is hit: the first
+# offered one with an API key wins (a run may name another). gemini-3.8-flash kept as much planted detail as
 # gemini-3.5-flash at ~1/6 of the cost per summary (experiments/NOTES.md,
 # pilot 4); the Lite models are cheaper still but lose about half.
-SUMMARIZER_MODELS = ["gemini-3.8-flash", "claude-haiku-4-5-20251001"]
+SUMMARIZER_MODELS = ["gemini-3.8-flash", "claude-haiku-4-5-20251001", "gpt-6-luna"]
 
 # Which model chooses what to fetch back once history is summarized; the
 # first offered one with an API key wins, none means no recall. Choosing is

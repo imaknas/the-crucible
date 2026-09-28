@@ -1,6 +1,7 @@
 import asyncio
 import functools
-from typing import List, Optional
+import os
+from typing import List, Mapping, Optional
 from dotenv import load_dotenv
 import tiktoken
 
@@ -671,11 +672,15 @@ def synthesis_node(state: CrucibleState, config: RunnableConfig):
         return {"current_thesis": state.get("current_thesis", "")}
 
 
-def default_summarizer() -> str:
-    """The model that writes summaries unless a run names another."""
+def default_summarizer(env: Mapping[str, str] = os.environ) -> str:
+    """The model that writes summaries unless a run names another: the first
+    of SUMMARIZER_MODELS that is offered and has an API key. Without any key
+    (tests, the fake LLM) the first offered one."""
     from app.api.models import SUMMARIZER_MODELS
+    from app.llm.factory import has_credentials
 
-    return next((m for m in SUMMARIZER_MODELS if m in MODEL_REGISTRY), SUMMARIZER_MODELS[-1])
+    offered = [m for m in SUMMARIZER_MODELS if m in MODEL_REGISTRY] or SUMMARIZER_MODELS[-1:]
+    return next((m for m in offered if has_credentials(m, env)), offered[0])
 
 
 def summarize_history(state: CrucibleState, config: RunnableConfig):
