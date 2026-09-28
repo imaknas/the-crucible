@@ -595,6 +595,9 @@ _GOAL_REMINDER = "Reminder: this week's only priority is {g}; everything else ca
 _SWITCH = "Change of plans: {h} is now the priority, and {g} can wait. Let's pick it up."
 _SWITCH_REPLY = "Understood, switching to {h}."
 _NEXT_GOAL = " Once that is done, the next priority will be {h}."
+_OUT_OF_SCOPE = " {H} is out of scope this quarter; nobody is picking it up."
+# What the conversation says about the later subject before the switch.
+LATER_SUBJECT = ("unknown", "announced", "mentioned")
 _PLANNED_SWITCH = "As planned, {g} is wrapped up for now: {h} is the priority. Let's pick it up."
 
 
@@ -605,17 +608,20 @@ def build_task_scenario(
     assistant_facts: float = 0.0,
     questions: str = "direct",
     reminder_every: int = 12,
-    foreshadow: bool = False,
+    later_subject: str = "unknown",
 ) -> Scenario:
     """One conversation about a goal, eight facts on it and eight about a
     subject nobody is working on yet, then a switch of goal to that subject.
     Facts carry `variant` "on-goal" or "off-goal".
 
-    `foreshadow` makes the future knowable: every goal reminder also names
-    the next priority, and the switch arrives as planned. Everything else
-    (facts, filler, positions) is identical to the same seed without it, so
-    the pair isolates whether off-goal loss comes from not knowing what
-    comes next."""
+    `later_subject` sets what the goal reminders say about the subject the
+    conversation will switch to: "unknown" (nothing), "announced" (it is the
+    next priority, and the switch arrives as planned) or "mentioned" (named
+    as often, but as out of scope, and the switch is a surprise; separates
+    knowing the future from the name merely standing out). Facts, filler and
+    positions are identical across the three for a seed, so probes pair."""
+    if later_subject not in LATER_SUBJECT:
+        raise ValueError(f"later_subject is one of {', '.join(LATER_SUBJECT)}")
     rng = random.Random(f"task:{seed}")
     goal, later = rng.sample(SUBJECTS, 2)
     values = _Values(random.Random(f"task-facts:{seed}"))
@@ -645,8 +651,9 @@ def build_task_scenario(
         opener = rng.choice(_GOAL_OPENERS if about == goal else _OPENERS).format(g=f"the {goal}", t=f"the {about}")
         parts = [opener, _filler_fact(rng, about)]
         if ex % reminder_every == 0:
-            parts.insert(0, _GOAL_REMINDER.format(g=f"the {goal}")
-                         + (_NEXT_GOAL.format(h=f"the {later}") if foreshadow else ""))
+            hint = {"unknown": "", "announced": _NEXT_GOAL.format(h=f"the {later}"),
+                    "mentioned": _OUT_OF_SCOPE.format(H=f"The {later}")}[later_subject]
+            parts.insert(0, _GOAL_REMINDER.format(g=f"the {goal}") + hint)
         fact = slots.get(ex)
         if fact and stated_by[fact.key] == "user":
             parts.append(fact.statement)
@@ -659,7 +666,7 @@ def build_task_scenario(
             positions[fact.key] = len(turns) + (1 if stated_by[fact.key] == "assistant" else 0)
         turns.append(Turn("user", " ".join(parts), fact.key if fact and stated_by[fact.key] == "user" else None))
         turns.append(Turn("assistant", " ".join(reply), fact.key if fact and stated_by[fact.key] == "assistant" else None))
-    turns.append(Turn("user", (_PLANNED_SWITCH if foreshadow else _SWITCH).format(h=f"the {later}", g=f"the {goal}")))
+    turns.append(Turn("user", (_PLANNED_SWITCH if later_subject == "announced" else _SWITCH).format(h=f"the {later}", g=f"the {goal}")))
     turns.append(Turn("assistant", _SWITCH_REPLY.format(h=f"the {later}")))
     return Scenario(turns=turns, facts=facts, positions=positions, stated_by=stated_by, questions=questions)
 

@@ -645,16 +645,20 @@ def test_a_cached_replay_is_not_summarized_again(eval_setup, tmp_path):
     assert [r.correct for r in first] == [r.correct for r in second]
 
 
-def test_foreshadowing_changes_only_whether_the_next_goal_is_known():
+def test_the_later_subject_is_unknown_announced_or_only_mentioned():
     from app.compaction import build_task_scenario
 
-    plain, told = build_task_scenario(seed=3), build_task_scenario(seed=3, foreshadow=True)
-    assert plain.facts == told.facts and plain.positions == told.positions
+    plain, told, named = (build_task_scenario(seed=3, later_subject=v) for v in ("unknown", "announced", "mentioned"))
+    assert plain.facts == told.facts == named.facts and plain.positions == told.positions == named.positions
     later = next(f.subject for f in told.facts if f.variant == "off-goal")
-    before = lambda sc: [t.text for t in sc.turns[:-2]]  # noqa: E731
-    assert sum(later in t for t in before(told)) > sum(later in t for t in before(plain))
+    mentions = lambda sc: sum(later in t.text for t in sc.turns[:-2])  # noqa: E731
+    assert mentions(told) == mentions(named) > mentions(plain)  # same salience, different meaning
     assert "next priority will be the " + later in told.turns[0].text
-    assert "As planned" in told.turns[-2].text and "Change of plans" in plain.turns[-2].text
+    assert "out of scope" in named.turns[0].text and "next priority" not in named.turns[0].text
+    assert "As planned" in told.turns[-2].text
+    assert "Change of plans" in plain.turns[-2].text and "Change of plans" in named.turns[-2].text
+    with pytest.raises(ValueError):
+        build_task_scenario(later_subject="soon")
 
 
 def test_all_subjects_adds_a_generic_hedge_to_its_base():

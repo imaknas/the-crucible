@@ -663,7 +663,7 @@ def compaction_eval(
         None, "--recall", help="Bring hidden messages back per request (repeat): 'none', 'keyword', 'embedding' (the app's local embedding model) or 'guided' (a model reads the summary and names what to search for, then keyword search). Default: none."
     ),
     rewriters: Optional[List[str]] = typer.Option(None, "--rewriter", help="Model that chooses search terms for --recall guided (repeat: one condition per model). Default: gpt-6-luna."),
-    foreshadow: bool = typer.Option(False, "--foreshadow", help="Task scenario only: the goal reminders also name the next priority, so the change of goal is knowable in advance; pair with a run without it."),
+    later_subject: str = typer.Option("unknown", "--later-subject", help="Task scenario only: what goal reminders say about the subject the conversation later switches to: 'unknown' (nothing), 'announced' (it is next) or 'mentioned' (named as often, as out of scope). Pair runs across values."),
     asides: bool = typer.Option(False, "--asides", help="State every fact as a throwaway remark (dense only); pair with a run without it."),
     questions: str = typer.Option("direct", "--questions", help="Probe by the subject's name ('direct') or by what it does ('indirect'; dense only)."),
     fact_variants: str = typer.Option("plain,distractor,update", "--fact-variants", help="Variants the facts cycle through (dense only), e.g. 'plain' for plain facts only."),
@@ -699,8 +699,9 @@ def compaction_eval(
     if scenario not in ("dense", "task", "basic") or compaction not in ("live", "once"):
         _fail("--scenario is dense|task|basic and --compaction is live|once", as_json)
     if (not set(keeps or []) <= {"recent", "user"} or not set(instructions or []) <= {"brief", "handoff", "state", "index", "allsubjects"}
-            or not set(recalls or []) <= {"none", "keyword", "embedding", "guided"} or questions not in ("direct", "indirect")):
-        _fail("--keep is recent|user, --instruction brief|handoff|state|index|allsubjects, --recall none|keyword|embedding|guided, --questions direct|indirect", as_json)
+            or not set(recalls or []) <= {"none", "keyword", "embedding", "guided"} or questions not in ("direct", "indirect")
+            or later_subject not in ("unknown", "announced", "mentioned")):
+        _fail("--keep is recent|user, --instruction brief|handoff|state|index|allsubjects, --recall none|keyword|embedding|guided, --questions direct|indirect, --later-subject unknown|announced|mentioned", as_json)
     if not dry_run and budget is None and not estimate_only:
         _fail("a real run needs --budget (USD); use --estimate to see what it would cost", as_json)
     model_ids = [ORACLE] if dry_run else list(models or _cheapest_models())
@@ -729,7 +730,7 @@ def compaction_eval(
         "questions": questions,
         "rewriters": list(rewriters or ["gpt-6-luna"]),
         "asides": asides,
-        "foreshadow": foreshadow,
+        "later_subject": later_subject,
         "assistant_facts": assistant_facts,
         "fact_variants": fact_variants.split(","),
         "repeat_facts": repeat_facts,
@@ -868,7 +869,7 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
     elif options["scenario"] == "task":
         scenarios = {str(s): build_task_scenario(exchanges=options["exchanges"], seed=s,
                                                  assistant_facts=options["assistant_facts"], questions=options["questions"],
-                                                 foreshadow=options["foreshadow"])
+                                                 later_subject=options["later_subject"])
                      for s in range(options["seeds"])}
     else:
         scenarios = {str(s): build_scenario(exchanges=options["exchanges"], seed=s) for s in range(options["seeds"])}
