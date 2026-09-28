@@ -16,6 +16,7 @@ from app.services.compaction_eval import (
     Spend,
     cheapest_models,
     estimate_cost,
+    model_rewriter,
     run_live_grid,
 )
 
@@ -89,6 +90,24 @@ async def test_estimate_prices_the_dry_run_with_calibrated_profiles(graph_app):
     assert "cheap-1-mini" in never_read and "cheap-1" in never_read
     assert est.summaries["t2000"] >= 2 and "never" not in est.summaries
     assert est.by_condition["never"] > 0 and est.high >= est.total
+
+
+@pytest.mark.asyncio
+async def test_estimate_meters_the_recall_rewriter_without_calling_it(graph_app):
+    from app.compaction import GuidedRecall
+
+    class Forbidden:
+        def chat(self, model_id, toggles=None):
+            raise AssertionError("an estimate called a real rewriter")
+
+    scenario = build_dense_scenario(n_facts=8, exchanges=40, seed=4)
+    policy = ThresholdPolicy(fixed_tokens(2_000))
+    conditions = [Condition("t2000-guided", policy, "cheap-1", recall=GuidedRecall(model_rewriter(Forbidden(), "cheap-1-mini")))]
+    summarizers = {"t2000-guided": CallProfile("cheap-1", input_ratio=1.0, output_tokens=5_000, summary_tokens=800)}
+    rewriters = {"cheap-1-mini": CallProfile("cheap-1-mini", input_ratio=1.0, output_tokens=200)}
+    est = await estimate_cost(graph_app, {"4": scenario}, [ORACLE], conditions, BOOK, {}, summarizers,
+                              thread_prefix="est", rewriters=rewriters)
+    assert est.by_model["cheap-1-mini"] > 0
 
 
 def test_default_models_are_the_cheapest_offered_per_family():

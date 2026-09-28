@@ -25,7 +25,7 @@ Two ways to put a scenario on a branch:
 import asyncio
 import json
 import threading
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from typing import Any, Iterable, List, Mapping, Optional, Sequence
 
 from langchain_core.callbacks import BaseCallbackHandler, UsageMetadataCallbackHandler
@@ -36,6 +36,7 @@ from langchain_core.runnables import RunnableLambda
 
 from app.compaction import (
     CompactionPolicy,
+    GuidedRecall,
     HistoryRecall,
     PlantedFact,
     Retention,
@@ -803,6 +804,23 @@ async def calibrate_answerer(graph_app, model_id: str, factory, spend: Spend, th
     )
 
 
+async def calibrate_rewriter(model_id: str, factory, spend: Spend, hint_tokens: int = 2_000) -> CallProfile:
+    """One real rewrite call on a summary-sized hint (the rewriter reads at
+    most 8,000 characters of it)."""
+    rewriter = ModelRewriter(model_id, factory)
+    prompt = rewriter.prompt("Which of the options we discussed did we settle on?", _sample_transcript(hint_tokens))
+    usage = UsageMetadataCallbackHandler()
+    before = spend.total
+    await factory.chat(model_id).ainvoke([HumanMessage(content=prompt)], config={"callbacks": [usage, spend]})
+    used = next(iter(usage.usage_metadata.values()))
+    return CallProfile(
+        model=model_id,
+        input_ratio=used["input_tokens"] / count_tokens([HumanMessage(content=prompt)]),
+        output_tokens=used["output_tokens"],
+        cost=spend.total - before,
+    )
+
+
 HIGH_FACTOR = 1.35  # floor for the planning margin; see planning_factor
 
 
@@ -865,13 +883,16 @@ async def estimate_cost(
     calibration_cost: float = 0.0,
     grid=None,
     known_replays: frozenset = frozenset(),
+    rewriters: Mapping[str, CallProfile] = {},
 ) -> CostEstimate:
     """Dry-run every condition with the oracle answering and a stand-in
     summary of the calibrated size: that gives exactly what each probe reads
     and how many summaries are written (shared replay, plus per-branch ones
     while probing). Priced with the calibrated profiles.
 
-    `summarizers` is keyed by condition name; `answerers` by model id.
+    `summarizers` is keyed by condition name; `answerers` and `rewriters`
+    by model id. A recall step that calls a model is metered with a stand-in:
+    the dry run never calls a real model.
     """
     facts = [f for sc in scenarios.values() for f in sc.facts]
     branches = len(model_ids)  # every answering model, oracles included, probes each condition
@@ -890,8 +911,9 @@ async def estimate_cost(
                 free_labels.add(label)
             elif key:
                 paid.add(key)
+        rewriter, meter = rewriter_of(condition), _RewriteMeter()
         dry = await (grid or run_live_grid)(
-            graph_app, scenarios, [ORACLE], [condition],
+            graph_app, scenarios, [ORACLE], [_metered(condition, meter) if rewriter else condition],
             thread_prefix=f"{thread_prefix}::estimate", model_factory=EvalModelFactory(
                 facts, inner=_SizedFactory(summarizers[condition.name].summary_tokens if condition.name in summarizers else 0)),
         )
@@ -914,6 +936,13 @@ async def estimate_cost(
             c = price.cost(int(read_in * s.input_ratio), int(calls * s.output_tokens))
             summaries[condition.name] = calls
             by_model[s.model] = by_model.get(s.model, 0.0) + c
+            cost += c
+        if rewriter:
+            # Every answering model's probe asks the rewriter again.
+            r = rewriters[rewriter.model_id]
+            c = branches * prices.price(rewriter.model_id).cost(int(meter.tokens * r.input_ratio),
+                                                                int(meter.calls * r.output_tokens))
+            by_model[rewriter.model_id] = by_model.get(rewriter.model_id, 0.0) + c
             cost += c
         by_condition[condition.name] = cost
     return CostEstimate(sum(by_condition.values()), by_condition, by_model, summaries, calibration_cost)
@@ -963,14 +992,61 @@ REWRITE_PROMPT = (
 )
 
 
-def model_rewriter(factory, model_id: str):
-    """A GuidedRecall rewrite step backed by a chat model from `factory`."""
+@dataclass(frozen=True)
+class ModelRewriter:
+    """A GuidedRecall rewrite step backed by chat model `model_id` from
+    `factory`. Knows its model, so an estimate can meter it with a stand-in
+    (`on`) instead of calling the real one."""
 
-    def rewrite(query: str, hint: str) -> str:
-        reply = factory.chat(model_id).invoke([HumanMessage(content=REWRITE_PROMPT.format(hint=hint[:8000], query=query))])
+    model_id: str
+    factory: Any
+
+    def prompt(self, query: str, hint: str) -> str:
+        return REWRITE_PROMPT.format(hint=hint[:8000], query=query)
+
+    def __call__(self, query: str, hint: str) -> str:
+        reply = self.factory.chat(self.model_id).invoke([HumanMessage(content=self.prompt(query, hint))])
         return extract_text(reply.content)
 
-    return rewrite
+    def on(self, factory) -> "ModelRewriter":
+        return replace(self, factory=factory)
+
+
+def model_rewriter(factory, model_id: str) -> ModelRewriter:
+    return ModelRewriter(model_id, factory)
+
+
+def rewriter_of(condition: Condition) -> Optional[ModelRewriter]:
+    """The model a condition's recall calls per probe, if any."""
+    rewrite = getattr(condition.recall, "rewrite", None)
+    return rewrite if isinstance(rewrite, ModelRewriter) else None
+
+
+class _RewriteMeter:
+    """Stand-in rewrite model for dry runs: counts what each call would read
+    and returns no terms (recall then falls back to the question itself)."""
+
+    def __init__(self):
+        self.calls = 0
+        self.tokens = 0
+        self._lock = threading.Lock()
+
+    def chat(self, model_id: str, toggles: Optional[Mapping[str, Any]] = None):
+        return self
+
+    def invoke(self, messages, config=None):
+        n = count_tokens(messages)
+        with self._lock:
+            self.calls += 1
+            self.tokens += n
+        return AIMessage(content="")
+
+
+def _metered(condition: Condition, meter: _RewriteMeter) -> Condition:
+    recall = condition.recall
+    guided = GuidedRecall(rewriter_of(condition).on(meter), base=recall.base)
+    guided.name = recall.name
+    return replace(condition, recall=guided)
 
 
 # ─── Budgeted runs ───────────────────────────────────────────────
@@ -1033,7 +1109,8 @@ async def run_budgeted(
     spend, estimate = None, None
     if prices is not None:
         real = [m for m in model_ids if m not in ORACLES]
-        unpriced = sorted({m for m in real + [split_thinking(summarizer_of(c))[0] for c in conditions]
+        rewriting = sorted({rewriter_of(c).model_id for c in conditions if rewriter_of(c)})
+        unpriced = sorted({m for m in real + rewriting + [split_thinking(summarizer_of(c))[0] for c in conditions]
                            if prices.price(m) is None})
         if unpriced:
             raise ValueError(f"no price for {', '.join(unpriced)}: add it to app/catalog/data/prices.json")
@@ -1051,9 +1128,12 @@ async def run_budgeted(
                 for c in conditions if not isinstance(c.policy, NeverCompact)}
         answer = {m: await cached(f"answer:{m}", lambda m=m: calibrate_answerer(graph_app, m, factory, spend, prefix))
                   for m in real}
+        rewrite = {m: await cached(f"rewrite:{m}", lambda m=m: calibrate_rewriter(m, factory, spend))
+                   for m in rewriting}
         estimate = await estimate_cost(graph_app, scenarios, model_ids, conditions, prices, answer, summ,
                                        thread_prefix=prefix, calibration_cost=spend.total, grid=grid,
-                                       known_replays=_cached_replays(scenarios, conditions, model_ids, replay_cache))
+                                       known_replays=_cached_replays(scenarios, conditions, model_ids, replay_cache),
+                                       rewriters=rewrite)
         estimate.factor = factor
         if on_estimate:
             on_estimate(estimate)
