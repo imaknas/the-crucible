@@ -139,7 +139,7 @@ The Crucible doubles as a testbed for one question: when a long conversation is 
 - **Deciding at read time recovers it.** Keeping the originals and fetching the relevant ones once the question is known brought back 28–32 of 32 — and the cheapest model chose what to fetch as well as the strongest.
 - **With recall on, the cheapest summarizer is enough.** Its summaries plus recall kept 93/96 facts on the detail-heavy scenario (statistically equivalent to the best summarizer's 96) and 62/64 after a change of plans (the best), at about 1/25 of the cost per summary — though alone they keep less than half. Once the originals can be fetched, the summary only has to point to them. (It is now the default; pick another under **Control Panel → Summarizer**.)
 
-These are synthetic conversations at an 8,000-token threshold; the full lab notes, every number and every mistake are in [`backend/experiments/NOTES.md`](backend/experiments/NOTES.md), and the raw results in `backend/experiments/results/`.
+The full write-up is [**What Survives Compaction?**](https://www.imaknas.com/writing/what-survives-compaction/). These are synthetic conversations at an 8,000-token threshold; the full lab notes, every number and every mistake are in [`backend/experiments/NOTES.md`](backend/experiments/NOTES.md), and the raw results in `backend/experiments/results/`.
 
 ---
 
