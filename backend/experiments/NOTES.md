@@ -1227,3 +1227,44 @@ What else the table says:
 - Conditional on: synthetic conversations, threshold 8,000, the brief
   instruction, recall chosen by gpt-6-luna.
 
+## 2026-09-28 — Second scaffold audit (gpt-6-luna summarizing)
+
+Same scenario, conversations and answering models as the first audit, now
+with the pilot-22 default (gpt-6-luna summarizes, guided recall on) and
+the two other summarizers as candidates. Spent $1.28 (estimate $1.90).
+Run scaffold-audit-20260928T113602; every probe in `experiments/audit/runs/`.
+
+| scaffold | gpt-6-luna | gemini-3.1-flash-lite | oracle-strict |
+|---|---|---|---|
+| compaction (vs never) | 0.92 → 0.98, inconclusive | 0.98 → 0.88, inconclusive | 1.00 → 1.00, **keep** |
+| verbatim window | 1.00 → 0.98, inconclusive | 0.92 → 0.88, inconclusive | 1.00 → 1.00, retire |
+| recall (vs none) | 0.40 → 0.98, **keep** | 0.40 → 0.88, **keep** | 0.46 → 1.00, **keep** |
+| summarizer gemini-3.8-flash (vs luna) | 0.98 → 0.98, retire | 0.88 → 0.81, inconclusive | 1.00 → 0.88, harmful |
+| summarizer claude-haiku-4-5 (vs luna) | 0.98 → 1.00, inconclusive | 0.88 → 0.81, inconclusive | 1.00 → 0.88, harmful |
+
+- **The pilot-22 default holds for real answering models.** Neither
+  alternative summarizer beats luna for either reader; for flash-lite —
+  the reader the first audit found misled by recall — both score lower
+  (0.81 vs 0.88). The worry that luna's thin summaries would hurt weak
+  readers did not show up.
+- **Recall is now essential, not a bonus**: without it the app path keeps
+  0.40–0.46; with it 0.88–1.00. It no longer hurts flash-lite (the first
+  audit, with 3.8-flash summaries: 0.90 → 0.81; now 0.40 → 0.88): with a
+  thin summary, the recalled excerpts are the main source, not a
+  distraction added on top of a full one.
+- **gemini-3.8-flash's path again ends below luna's on the strict oracle**
+  (42/48 vs 48/48; misses are mostly updated values and choices, two
+  "don't know") — the same unexplained gap as pilot 22's goal-switch
+  scenario, now reproduced. A hypothesis to test: a thorough-looking
+  summary leads the rewriter to ask for less, while its values are
+  detached from their subjects (strict fails).
+- **Verbatim window: "retire" on the oracle, not acted on.** With recall
+  on, the newest messages add nothing to *fact* availability here; for the
+  real readers the verdict is inconclusive. The probes only measure
+  planted facts, not what the window is for (continuity with the last
+  turns: "as you just said"), so its claim is under-measured, not
+  disproved. Next audit: a probe about the latest turns, or restate the
+  claim.
+- Flash-lite's compaction verdict moved from harmful (−0.15) to
+  inconclusive (−0.10).
+
