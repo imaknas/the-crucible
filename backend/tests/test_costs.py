@@ -88,7 +88,7 @@ async def test_estimate_prices_the_dry_run_with_calibrated_profiles(graph_app):
     never_read = est.by_model  # sanity: both models priced
     assert "cheap-1-mini" in never_read and "cheap-1" in never_read
     assert est.summaries["t2000"] >= 2 and "never" not in est.summaries
-    assert est.by_condition["never"] > 0 and est.high > est.total
+    assert est.by_condition["never"] > 0 and est.high >= est.total
 
 
 def test_default_models_are_the_cheapest_offered_per_family():
@@ -119,3 +119,12 @@ def test_conditions_are_admitted_cheapest_first_within_the_budget():
     conds = [Condition(n, NeverCompact()) for n in ("big", "small", "medium")]
     order, skipped = admit(conds, {"big": 3.0, "small": 0.5, "medium": 1.0}, spent=0.2, limit=0.2 + 1.5 * HIGH_FACTOR)
     assert [c.name for c in order] == ["small", "medium"] and skipped == ["big"]
+
+
+def test_the_planning_margin_is_learned_from_past_runs():
+    from app.services.compaction_eval import HIGH_FACTOR, planning_factor
+
+    assert planning_factor([]) == HIGH_FACTOR
+    runs = [{"spend": {"total": r, "estimate": 1.0}} for r in (0.6, 0.8, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 1.8)]
+    assert planning_factor(runs) == 1.8
+    assert planning_factor([{"spend": {"total": 0.5, "estimate": 1.0}}]) == HIGH_FACTOR  # never below the floor

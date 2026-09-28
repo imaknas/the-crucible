@@ -818,3 +818,29 @@ cheapest first, admits a condition only if the remaining budget covers its
 planned cost, and saves results after each (`--out` is written
 progressively); summarizer calibration folds a first summary into a second,
 so growth is in the estimate.
+
+## 2026-09-28 — Pilot 12b: horizon, strong summarizer (partial); planning margin learned
+
+**Pilot 12b** (dense, 300 exchanges, t=4000, gemini-3.8-flash brief, oracle
+only): estimated $0.81, stopped at its $1.40 cap after $1.45 — one condition,
+so admission kept the probes it had: 24 of 48. Facts that went through 3–22
+summaries: 17/24 kept (0.71), losses scattered across pass counts with no
+visible cliff (earlier: ~100% at 4–5 passes). Some decay at long horizons;
+too few probes for a shape. Median summary 3.4k tokens.
+
+**Pilot 13** (task replication with recall and gpt-6-luna) was refused before
+running: re-calibrated with the two-step summarizer calibration, the plan was
+$5.68 against a $4.60 cap. $0.42 of calibration spent.
+
+**The planning margin is now learned** (`compaction_eval.planning_factor`):
+the 90th percentile of actual / estimated cost over past result files
+(runs stopped at their cap count with their lower-bound ratio), never below
+1.35. Past runs cost 0.55× to 1.8× their estimate; the learned margin is
+currently 1.78×. The CLI passes it to `run_budgeted`, which uses it for the
+refusal check and for admitting conditions.
+
+**Scope warning for every summarizer result so far:** all summarizers were
+Gemini (3.5-flash, 3.8-flash, 3.5-flash-lite). Answering models spanned
+OpenAI, Anthropic and Google; summarizers did not. Until a cheap and a strong
+summarizer from each family show the same direction, these are findings
+about Gemini summarizers.

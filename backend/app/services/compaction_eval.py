@@ -742,7 +742,37 @@ async def calibrate_answerer(graph_app, model_id: str, factory, spend: Spend, th
     )
 
 
-HIGH_FACTOR = 1.35
+HIGH_FACTOR = 1.35  # floor for the planning margin; see planning_factor
+
+
+def planning_factor(results: Iterable[Mapping[str, Any]], quantile: float = 0.9, floor: float = HIGH_FACTOR) -> float:
+    """The margin to plan with, learned from past runs: a high quantile of
+    actual / estimated cost. Runs stopped at their cap only give a lower
+    bound, which still pushes the margin up. With no history, the floor."""
+    ratios = sorted(
+        r["spend"]["total"] / r["spend"]["estimate"]
+        for r in results
+        if (r.get("spend") or {}).get("estimate")
+    )
+    if not ratios:
+        return floor
+    q = ratios[min(len(ratios) - 1, int(quantile * len(ratios)))]
+    return max(floor, round(q, 2))
+
+
+def load_run_summaries(directory) -> list[dict]:
+    """Result files' top-level fields (spend, estimate), without the probes."""
+    import json
+    from pathlib import Path
+
+    out = []
+    for path in sorted(Path(directory).glob("*.json")):
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        out.append({k: v for k, v in data.items() if k != "probes"})
+    return out
 
 
 @dataclass
@@ -752,14 +782,13 @@ class CostEstimate:
     by_model: dict[str, float]
     summaries: dict[str, float]
     calibration: float
+    # Planning margin (see planning_factor); runs have cost 0.55x-1.8x their estimate.
+    factor: float = HIGH_FACTOR
 
     @property
     def high(self) -> float:
-        """What to plan for. Later summaries fold in the previous one, so
-        they read and reason more than the one calibration call, and real
-        answers are longer than the oracle's. Back-tested on pilot 2c: the
-        estimate was $6.27, the run cost $8.28 (×1.32)."""
-        return self.total * HIGH_FACTOR
+        """What to plan for: the estimate times the margin past runs needed."""
+        return self.total * self.factor
 
 
 async def estimate_cost(
@@ -885,14 +914,14 @@ class BudgetedRun:
 
 
 def admit(conditions: Sequence[Condition], by_condition: Mapping[str, float], spent: float,
-          limit: float) -> tuple[list[Condition], list[str]]:
+          limit: float, factor: float = HIGH_FACTOR) -> tuple[list[Condition], list[str]]:
     """Cheapest first; a condition starts only if the budget left covers its
-    planned cost (estimate x HIGH_FACTOR). Returns the run order and the
-    names that will not fit at all."""
+    planned cost (estimate x factor). Returns the run order and the names
+    that will not fit at all."""
     order = sorted(conditions, key=lambda c: by_condition.get(c.name, 0.0))
     fits, skipped, total = [], [], spent
     for c in order:
-        cost = by_condition.get(c.name, 0.0) * HIGH_FACTOR
+        cost = by_condition.get(c.name, 0.0) * factor
         if total + cost > limit:
             skipped.append(c.name)
         else:
@@ -917,6 +946,7 @@ async def run_budgeted(
     prefix: str = "compaction-eval",
     on_estimate=None,
     on_progress=None,
+    factor: float = HIGH_FACTOR,
 ) -> BudgetedRun:
     """Calibrate, estimate, refuse if the estimate (with margin) exceeds the
     budget, then run with the budget as a hard cap. Without `prices` (dry
@@ -938,6 +968,7 @@ async def run_budgeted(
         answer = {m: await calibrate_answerer(graph_app, m, factory, spend, prefix) for m in real}
         estimate = await estimate_cost(graph_app, scenarios, model_ids, conditions, prices, answer, summ,
                                        thread_prefix=prefix, calibration_cost=spend.total, grid=grid)
+        estimate.factor = factor
         if on_estimate:
             on_estimate(estimate)
         if estimate_only:
@@ -950,11 +981,11 @@ async def run_budgeted(
     # the cap is reached, only the condition in progress is lost (running all
     # replays at once lost every one of them when a long run hit its cap).
     by_condition = estimate.by_condition if estimate else {}
-    order, skipped = (admit(conditions, by_condition, spend.total, budget) if spend
+    order, skipped = (admit(conditions, by_condition, spend.total, budget, factor) if spend
                       else (list(conditions), []))
     results: list = []
     for condition in order:
-        if spend and spend.total + by_condition.get(condition.name, 0.0) * HIGH_FACTOR > budget:
+        if spend and spend.total + by_condition.get(condition.name, 0.0) * factor > budget:
             skipped.append(condition.name)
             continue
         results += await grid(graph_app, scenarios, model_ids, [condition], thread_prefix=prefix,
