@@ -775,6 +775,18 @@ def _cheapest_models() -> List[str]:
     return cheapest_models(MODEL_REGISTRY, load_catalog(), PriceBook(load_prices(), date.today().isoformat()))
 
 
+def _write_partial(out, prefix, options, results) -> None:
+    """Save what has finished so far, so a stopped run keeps its completed conditions."""
+    from pathlib import Path
+
+    from app.services import compaction_eval as ce
+
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    Path(out).write_text(json.dumps({"run": prefix, **options, "partial": True, "recall": ce.summarize_results(results),
+                                     "usage": ce.usage_totals(results), "probes": ce.results_as_dicts(results)},
+                                    ensure_ascii=False, indent=1))
+
+
 def _print_estimate(est, budget) -> None:
     lines = [f"Estimated cost: ${est.total:.2f} (plan for up to ${est.high:.2f}), "
              f"calibration already spent ${est.calibration:.2f}"]
@@ -867,6 +879,7 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
             graph_app, scenarios, model_ids, conditions, factory, prices=prices, budget=budget,
             estimate_only=estimate_only, grid=grid, sample_tokens=max(options["thresholds"]),
             concurrency=options["concurrency"], prefix=prefix, on_estimate=lambda e: _print_estimate(e, budget),
+            on_progress=(lambda rs: _write_partial(out, prefix, options, rs)) if out else None,
         )
     if estimate_only:
         e = run.estimate

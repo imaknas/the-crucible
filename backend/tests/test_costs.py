@@ -110,3 +110,12 @@ def test_a_failed_model_call_halts_the_run():
     assert spend.exhausted
     with pytest.raises(Exception, match="a model call failed"):
         spend.check()
+
+
+def test_conditions_are_admitted_cheapest_first_within_the_budget():
+    from app.compaction import NeverCompact
+    from app.services.compaction_eval import HIGH_FACTOR, admit
+
+    conds = [Condition(n, NeverCompact()) for n in ("big", "small", "medium")]
+    order, skipped = admit(conds, {"big": 3.0, "small": 0.5, "medium": 1.0}, spent=0.2, limit=0.2 + 1.5 * HIGH_FACTOR)
+    assert [c.name for c in order] == ["small", "medium"] and skipped == ["big"]

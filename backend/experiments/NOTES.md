@@ -785,3 +785,36 @@ summarizer/instruction conditions, $1.07 (plan up to $1.44); retention
 horizon, dense scenarios at 300 exchanges and t=4000 (~22 summaries per
 conversation) for flash and flash-lite × brief/state, $3.25 (plan up to
 $4.38).
+
+## 2026-09-28 — Pilot 11: task-relevant facts (manipulation check) and a lost horizon run
+
+**Pilot 11** (`--scenario task`, 2 conversations, oracle only, t=8000,
+flash-lite and gemini-3.8-flash × brief / handoff / state). Spent $0.49 +
+$0.12 calibration.
+
+| strict oracle | on-goal kept | off-goal kept | off − on (paired by fact kind) |
+|---|---|---|---|
+| gemini-3.8-flash, all three instructions | 44/48 | 30/48 | **−29 points [−43, −14]** |
+| gemini-3.5-flash-lite, all three | 25/48 | 19/48 | −12 [−27, +3], no detectable difference |
+| per condition, 3.8-flash brief / handoff / state | 15, 13, 16 of 16 | 10, 6, 14 of 16 | – |
+
+- The manipulation works where pilot 10's failed: relevance set by the task,
+  not by wording, and the facts are stated exactly like every other.
+- **The strong summarizer is the task-selective one**: it keeps nearly every
+  on-goal fact and drops a third of the off-goal ones. The cheap one loses
+  both about equally. This is the first loss that a stronger summarizer makes
+  larger rather than smaller — what matters later but not now is what a good
+  summary is *designed* to leave out. Small sample (2 conversations);
+  needs replication, answering models, and recall conditions (recall should
+  bring off-goal facts back, since it decides after the goal switch).
+
+**Pilot 12 (retention horizon) produced nothing.** 300-exchange dense
+conversations at t=4000 (~22 summaries each): estimated $3.33, spent $5.13
+against a $5.00 cap, zero probes. All conditions replayed in parallel; the
+summaries grew with every fold, the estimate (one calibration summary) missed
+that by 1.54×, and the cap stopped every replay before any finished, losing
+all of them. Fixes: `run_budgeted` now runs conditions one at a time,
+cheapest first, admits a condition only if the remaining budget covers its
+planned cost, and saves results after each (`--out` is written
+progressively); summarizer calibration folds a first summary into a second,
+so growth is in the estimate.

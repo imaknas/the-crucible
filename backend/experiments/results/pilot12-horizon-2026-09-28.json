@@ -1,0 +1,165 @@
+{
+ "run": "compaction-eval-20260928T053321",
+ "models": [
+  "oracle",
+  "oracle-strict"
+ ],
+ "scenario": "dense",
+ "facts": 24,
+ "seeds": 3,
+ "exchanges": 300,
+ "thresholds": [
+  4000
+ ],
+ "summarizers": [
+  "gemini-3.8-flash",
+  "gemini-3.5-flash-lite"
+ ],
+ "lengths": [],
+ "keeps": [],
+ "user_budget": 20000,
+ "instructions": [
+  "brief",
+  "state"
+ ],
+ "recalls": [],
+ "questions": "direct",
+ "rewriter": "gpt-6-luna",
+ "asides": false,
+ "assistant_facts": 0.0,
+ "fact_variants": [
+  "plain",
+  "distractor",
+  "update"
+ ],
+ "repeat_facts": false,
+ "compaction": "live",
+ "baseline": false,
+ "concurrency": 4,
+ "dry_run": false,
+ "recall": {},
+ "comparisons": [
+  {
+   "model": "oracle",
+   "a": "t4000-gemini-3.8-flash",
+   "b": "t4000-gemini-3.8-flash-state",
+   "outcome": "no_detectable_diff",
+   "effect": null,
+   "interval": null,
+   "reason": "0 complete pairs < min_n=5"
+  },
+  {
+   "model": "oracle",
+   "a": "t4000-gemini-3.8-flash",
+   "b": "t4000-gemini-3.5-flash-lite",
+   "outcome": "no_detectable_diff",
+   "effect": null,
+   "interval": null,
+   "reason": "0 complete pairs < min_n=5"
+  },
+  {
+   "model": "oracle",
+   "a": "t4000-gemini-3.8-flash",
+   "b": "t4000-gemini-3.5-flash-lite-state",
+   "outcome": "no_detectable_diff",
+   "effect": null,
+   "interval": null,
+   "reason": "0 complete pairs < min_n=5"
+  },
+  {
+   "model": "oracle",
+   "a": "t4000-gemini-3.8-flash-state",
+   "b": "t4000-gemini-3.5-flash-lite",
+   "outcome": "no_detectable_diff",
+   "effect": null,
+   "interval": null,
+   "reason": "0 complete pairs < min_n=5"
+  },
+  {
+   "model": "oracle",
+   "a": "t4000-gemini-3.8-flash-state",
+   "b": "t4000-gemini-3.5-flash-lite-state",
+   "outcome": "no_detectable_diff",
+   "effect": null,
+   "interval": null,
+   "reason": "0 complete pairs < min_n=5"
+  },
+  {
+   "model": "oracle",
+   "a": "t4000-gemini-3.5-flash-lite",
+   "b": "t4000-gemini-3.5-flash-lite-state",
+   "outcome": "no_detectable_diff",
+   "effect": null,
+   "interval": null,
+   "reason": "0 complete pairs < min_n=5"
+  },
+  {
+   "model": "oracle-strict",
+   "a": "t4000-gemini-3.8-flash",
+   "b": "t4000-gemini-3.8-flash-state",
+   "outcome": "no_detectable_diff",
+   "effect": null,
+   "interval": null,
+   "reason": "0 complete pairs < min_n=5"
+  },
+  {
+   "model": "oracle-strict",
+   "a": "t4000-gemini-3.8-flash",
+   "b": "t4000-gemini-3.5-flash-lite",
+   "outcome": "no_detectable_diff",
+   "effect": null,
+   "interval": null,
+   "reason": "0 complete pairs < min_n=5"
+  },
+  {
+   "model": "oracle-strict",
+   "a": "t4000-gemini-3.8-flash",
+   "b": "t4000-gemini-3.5-flash-lite-state",
+   "outcome": "no_detectable_diff",
+   "effect": null,
+   "interval": null,
+   "reason": "0 complete pairs < min_n=5"
+  },
+  {
+   "model": "oracle-strict",
+   "a": "t4000-gemini-3.8-flash-state",
+   "b": "t4000-gemini-3.5-flash-lite",
+   "outcome": "no_detectable_diff",
+   "effect": null,
+   "interval": null,
+   "reason": "0 complete pairs < min_n=5"
+  },
+  {
+   "model": "oracle-strict",
+   "a": "t4000-gemini-3.8-flash-state",
+   "b": "t4000-gemini-3.5-flash-lite-state",
+   "outcome": "no_detectable_diff",
+   "effect": null,
+   "interval": null,
+   "reason": "0 complete pairs < min_n=5"
+  },
+  {
+   "model": "oracle-strict",
+   "a": "t4000-gemini-3.5-flash-lite",
+   "b": "t4000-gemini-3.5-flash-lite-state",
+   "outcome": "no_detectable_diff",
+   "effect": null,
+   "interval": null,
+   "reason": "0 complete pairs < min_n=5"
+  }
+ ],
+ "usage": {},
+ "spend": {
+  "total": 5.1252,
+  "budget": 5.0,
+  "estimate": 3.3336,
+  "by_model": {
+   "gemini-3.8-flash": 3.5101,
+   "gemini-3.5-flash-lite": 1.6151
+  },
+  "unpriced_calls": {},
+  "stopped_by_budget": true,
+  "model_errors": []
+ },
+ "probes": []
+}

@@ -691,21 +691,29 @@ def _sample_transcript(tokens: int) -> str:
 
 
 async def calibrate_summarizer(condition: Condition, factory, spend: Spend, sample_tokens: int) -> CallProfile:
-    """One real summary of a threshold-sized transcript."""
+    """Two real summaries: one of a threshold-sized transcript, then one that
+    folds that summary into the next stretch, as every later summary does.
+    Summaries grow as they fold (a single call made long runs cost 1.5x its
+    estimate), so the profile takes the second, larger one."""
     from app.services.graph import summary_instruction_from
 
-    prompt = summary_instruction_from(condition.configure({"configurable": {}})).prompt(_sample_transcript(sample_tokens))
-    usage = UsageMetadataCallbackHandler()
+    instruction = summary_instruction_from(condition.configure({"configurable": {}}))
+    first_part, second_part = _sample_transcript(sample_tokens), _sample_transcript(2 * sample_tokens)[len(_sample_transcript(sample_tokens)):]
     before = spend.total
-    reply = await factory.chat(summarizer_of(condition)).ainvoke(
-        [HumanMessage(content=prompt)], config={"callbacks": [usage, spend]}
-    )
-    used = next(iter(usage.usage_metadata.values()))
+    summary, used, prompt = "", {}, ""
+    for part in (first_part, second_part):
+        prompt = instruction.prompt((f"[System]: PREVIOUS CONTEXT SUMMARY: {summary}\n" if summary else "") + part.strip())
+        usage = UsageMetadataCallbackHandler()
+        reply = await factory.chat(summarizer_of(condition)).ainvoke(
+            [HumanMessage(content=prompt)], config={"callbacks": [usage, spend]}
+        )
+        used = next(iter(usage.usage_metadata.values()))
+        summary = extract_text(reply.content)
     return CallProfile(
         model=summarizer_of(condition),
         input_ratio=used["input_tokens"] / count_tokens([HumanMessage(content=prompt)]),
         output_tokens=used["output_tokens"],
-        summary_tokens=count_tokens([HumanMessage(content=extract_text(reply.content))]),
+        summary_tokens=count_tokens([HumanMessage(content=summary)]),
         cost=spend.total - before,
     )
 
@@ -872,6 +880,25 @@ class BudgetedRun:
     spend: Optional[Spend]
     estimate: Optional[CostEstimate]
     prefix: str
+    # Conditions not started because the remaining budget could not cover them.
+    skipped: list = field(default_factory=list)
+
+
+def admit(conditions: Sequence[Condition], by_condition: Mapping[str, float], spent: float,
+          limit: float) -> tuple[list[Condition], list[str]]:
+    """Cheapest first; a condition starts only if the budget left covers its
+    planned cost (estimate x HIGH_FACTOR). Returns the run order and the
+    names that will not fit at all."""
+    order = sorted(conditions, key=lambda c: by_condition.get(c.name, 0.0))
+    fits, skipped, total = [], [], spent
+    for c in order:
+        cost = by_condition.get(c.name, 0.0) * HIGH_FACTOR
+        if total + cost > limit:
+            skipped.append(c.name)
+        else:
+            fits.append(c)
+            total += cost
+    return fits, skipped
 
 
 async def run_budgeted(
@@ -889,6 +916,7 @@ async def run_budgeted(
     concurrency: int = 4,
     prefix: str = "compaction-eval",
     on_estimate=None,
+    on_progress=None,
 ) -> BudgetedRun:
     """Calibrate, estimate, refuse if the estimate (with margin) exceeds the
     budget, then run with the budget as a hard cap. Without `prices` (dry
@@ -918,9 +946,24 @@ async def run_budgeted(
             raise ValueError(f"estimated ${estimate.high:.2f} (+${spend.total:.2f} calibration) exceeds "
                              f"--budget ${budget or 0:.2f}; nothing was run")
         spend.limit = budget
-    results = await grid(graph_app, scenarios, model_ids, conditions, thread_prefix=prefix,
-                         model_factory=factory, concurrency=concurrency, spend=spend)
-    return BudgetedRun(results, spend, estimate, prefix)
+    # One condition at a time, cheapest first, each saved as it finishes: if
+    # the cap is reached, only the condition in progress is lost (running all
+    # replays at once lost every one of them when a long run hit its cap).
+    by_condition = estimate.by_condition if estimate else {}
+    order, skipped = (admit(conditions, by_condition, spend.total, budget) if spend
+                      else (list(conditions), []))
+    results: list = []
+    for condition in order:
+        if spend and spend.total + by_condition.get(condition.name, 0.0) * HIGH_FACTOR > budget:
+            skipped.append(condition.name)
+            continue
+        results += await grid(graph_app, scenarios, model_ids, [condition], thread_prefix=prefix,
+                              model_factory=factory, concurrency=concurrency, spend=spend)
+        if on_progress:
+            on_progress(results)
+        if spend and spend.errors:
+            break
+    return BudgetedRun(results, spend, estimate, prefix, skipped)
 
 
 def spend_summary(run: BudgetedRun, budget: Optional[float]) -> Optional[dict]:
@@ -934,5 +977,6 @@ def spend_summary(run: BudgetedRun, budget: Optional[float]) -> Optional[dict]:
         "by_model": {m: round(c, 4) for m, c in s.by_model.items()},
         "unpriced_calls": s.unpriced,
         "stopped_by_budget": s.exhausted and not s.errors,
+        "skipped_conditions": run.skipped,
         "model_errors": s.errors[:5],
     }
