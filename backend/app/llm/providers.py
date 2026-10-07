@@ -137,11 +137,33 @@ class AnthropicProvider:
         return llm.bind_tools([anthropic_web_search_tool(code_execution)])
 
 
+# Gemini 3.6+ ignores sampling parameters and the upcoming models reject
+# requests that carry them, but langchain-google-genai fills in
+# temperature=1.0 for every Gemini 3+ id. Leave the three out of the request
+# so the model uses its own defaults. (Thinking depth is `thinking_level`;
+# `thinking_budget` is rejected too, and nothing here sets it.)
+SAMPLING_PARAMETERS = ("temperature", "top_p", "top_k")
+
+
+@functools.lru_cache(maxsize=1)
+def _chat_google():
+    from langchain_google_genai import ChatGoogleGenerativeAI
+
+    class SamplingFreeChatGoogle(ChatGoogleGenerativeAI):
+        """ChatGoogleGenerativeAI that never sends temperature, top_p or top_k."""
+
+        def _build_base_generation_config(self, stop, **kwargs):
+            config = super()._build_base_generation_config(stop, **kwargs)
+            for name in SAMPLING_PARAMETERS:
+                config.pop(name, None)
+            return config
+
+    return SamplingFreeChatGoogle
+
+
 class GoogleProvider:
     def create(self, model_id: str) -> BaseChatModel:
-        from langchain_google_genai import ChatGoogleGenerativeAI
-
-        return ChatGoogleGenerativeAI(model=model_id)
+        return _chat_google()(model=model_id)
 
     def with_web_search(self, llm: Any) -> Runnable:
         return llm.bind_tools([{"google_search": {}}])
