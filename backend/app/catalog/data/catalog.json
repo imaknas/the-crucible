@@ -10,6 +10,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "server_tools": true,
     "structured_outputs": true,
     "thinking": true
    },
@@ -23,10 +24,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -40,6 +41,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "server_tools": true,
     "structured_outputs": true,
     "thinking": true
    },
@@ -53,10 +55,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -70,6 +72,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": false,
+    "server_tools": true,
     "structured_outputs": true,
     "thinking": true
    },
@@ -83,10 +86,41 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": true,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": true,
+    "server_tools": true,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Haiku 5.5",
+   "id": "claude-haiku-5-5",
+   "input_limit": 1000000,
+   "output_limit": 128000,
+   "provider": "anthropic",
+   "released": "2026-10-07",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-10-25",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -100,6 +134,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": false,
+    "server_tools": true,
     "structured_outputs": true,
     "thinking": true
    },
@@ -113,10 +148,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -130,6 +165,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "server_tools": true,
     "structured_outputs": true,
     "thinking": true
    },
@@ -143,10 +179,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -160,6 +196,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "server_tools": true,
     "structured_outputs": true,
     "thinking": true
    },
@@ -173,10 +210,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -190,6 +227,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "server_tools": true,
     "structured_outputs": true,
     "thinking": true
    },
@@ -203,10 +241,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -220,6 +258,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "server_tools": true,
     "structured_outputs": true,
     "thinking": true
    },
@@ -233,10 +272,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -250,6 +289,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "server_tools": true,
     "structured_outputs": true,
     "thinking": true
    },
@@ -263,10 +303,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -280,12 +320,13 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": false,
+    "server_tools": true,
     "structured_outputs": true,
     "thinking": true
    },
    "display_name": "Claude Sonnet 4.5",
    "id": "claude-sonnet-4-5-20250929",
-   "input_limit": 1000000,
+   "input_limit": 200000,
    "output_limit": 64000,
    "provider": "anthropic",
    "released": "2025-09-29",
@@ -293,10 +334,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -310,6 +351,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "server_tools": true,
     "structured_outputs": true,
     "thinking": true
    },
@@ -323,10 +365,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -340,6 +382,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "server_tools": true,
     "structured_outputs": true,
     "thinking": true
    },
@@ -353,10 +396,41 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "batch": true,
+    "citations": true,
+    "code_execution": true,
+    "context_management": true,
+    "effort": true,
+    "image_input": true,
+    "pdf_input": true,
+    "provider_compaction": true,
+    "server_tools": true,
+    "structured_outputs": true,
+    "thinking": true
+   },
+   "display_name": "Claude Sonnet 5.5",
+   "id": "claude-sonnet-5-5",
+   "input_limit": 1000000,
+   "output_limit": 128000,
+   "provider": "anthropic",
+   "released": "2026-09-28",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-10-25",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -626,6 +700,28 @@
   },
   {
    "capabilities": {
+    "context_caching": false,
+    "thinking": true
+   },
+   "display_name": "Gemini 4 Argon",
+   "id": "gemini-4-argon",
+   "input_limit": 1048576,
+   "output_limit": 32768,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-10-25",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-10-25",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
     "context_caching": true,
     "thinking": true
    },
@@ -665,6 +761,28 @@
     "chat_ok": true,
     "error": null,
     "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": false,
+    "thinking": true
+   },
+   "display_name": "Nano Banana 2.1",
+   "id": "gemini-nano-banana-2.1",
+   "input_limit": 65536,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-10-25",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -932,46 +1050,50 @@
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-4.1",
    "id": "gpt-4.1",
    "input_limit": 1014808,
    "output_limit": 32768,
    "provider": "openai",
    "released": "2025-04-10",
-   "shutdown_date": null,
+   "shutdown_date": "2027-01-14",
    "sources": {
     "input_limit": "openai docs (1,047,576 context window − 32,768 max output): https://developers.openai.com/api/docs/models/gpt-4.1",
     "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-4.1"
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-4.1-mini",
    "id": "gpt-4.1-mini",
    "input_limit": 1014808,
    "output_limit": 32768,
    "provider": "openai",
    "released": "2025-04-10",
-   "shutdown_date": null,
+   "shutdown_date": "2027-01-14",
    "sources": {
     "input_limit": "openai docs (1,047,576 context window − 32,768 max output): https://developers.openai.com/api/docs/models/gpt-4.1-mini",
     "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-4.1-mini"
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -1000,46 +1122,50 @@
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-4o",
    "id": "gpt-4o",
    "input_limit": 111616,
    "output_limit": 16384,
    "provider": "openai",
    "released": "2024-05-10",
-   "shutdown_date": null,
+   "shutdown_date": "2027-01-14",
    "sources": {
     "input_limit": "openai docs (128,000 context window − 16,384 max output): https://developers.openai.com/api/docs/models/gpt-4o",
     "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-4o"
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-4o-mini",
    "id": "gpt-4o-mini",
    "input_limit": 111616,
    "output_limit": 16384,
    "provider": "openai",
    "released": "2024-07-16",
-   "shutdown_date": null,
+   "shutdown_date": "2027-01-14",
    "sources": {
     "input_limit": "openai docs (128,000 context window − 16,384 max output): https://developers.openai.com/api/docs/models/gpt-4o-mini",
     "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-4o-mini"
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -1126,32 +1252,34 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
-    "error": "web search: HTTP 429: Rate limit reached for gpt-5-pro in organization org-… on tokens per min (TPM): Limit 200000, Used 192391, Requested 15491. Please try again in 2.364s. Visit https://platform.openai.com/account/rate-l",
+    "error": "web search: HTTP 429: Rate limit reached for gpt-5-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 382774, Requested 24000. Please try again in 1.016s. Visit https://platform.openai.com/account/rate-l",
     "web_search_checked": null,
     "web_search_ok": null
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-5.1",
    "id": "gpt-5.1",
    "input_limit": 272000,
    "output_limit": 128000,
    "provider": "openai",
    "released": "2025-11-10",
-   "shutdown_date": null,
+   "shutdown_date": "2027-04-01",
    "sources": {
     "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.1",
     "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.1"
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -1194,9 +1322,9 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
-    "error": "web search: HTTP 429: Rate limit reached for gpt-5.2-pro in organization org-… on tokens per min (TPM): Limit 200000, Used 190416, Requested 19273. Please try again in 2.906s. Visit https://platform.openai.com/account/rate",
+    "error": "web search: HTTP 429: Rate limit reached for gpt-5.2-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 378570, Requested 30070. Please try again in 1.296s. Visit https://platform.openai.com/account/rate",
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -1246,24 +1374,26 @@
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-5.4-nano",
    "id": "gpt-5.4-nano",
    "input_limit": 272000,
    "output_limit": 128000,
    "provider": "openai",
    "released": "2026-03-14",
-   "shutdown_date": null,
+   "shutdown_date": "2027-04-01",
    "sources": {
     "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5.4-nano",
     "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5.4-nano"
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
@@ -1284,9 +1414,9 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
-    "error": "web search: HTTP 429: Rate limit reached for gpt-5.4-pro in organization org-… on tokens per min (TPM): Limit 200000, Used 199085, Requested 17703. Please try again in 5.036s. Visit https://platform.openai.com/account/rate",
+    "error": "web search: HTTP 429: Rate limit reached for gpt-5.4-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 389144, Requested 18329. Please try again in 1.12s. Visit https://platform.openai.com/account/rate-",
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -1330,11 +1460,11 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-10-25",
     "chat_ok": true,
-    "error": "web search: HTTP 429: Rate limit reached for gpt-5.5-pro in organization org-… on tokens per min (TPM): Limit 500000, Used 450661, Requested 53503. Please try again in 499ms. Visit https://platform.openai.com/account/rate-",
-    "web_search_checked": null,
-    "web_search_ok": null
+    "error": null,
+    "web_search_checked": "2026-10-25",
+    "web_search_ok": true
    }
   },
   {
@@ -1473,6 +1603,30 @@
    "capabilities": {
     "api": "chat_completions"
    },
+   "display_name": "gpt-6.1-sol",
+   "id": "gpt-6.1-sol",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-09-27",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-6.1-sol"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-10-25",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-10-25",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "o1",
    "id": "o1",
    "input_limit": 100000,
@@ -1586,5 +1740,5 @@
    }
   }
  ],
- "synced": "2026-09-26"
+ "synced": "2026-10-25"
 }

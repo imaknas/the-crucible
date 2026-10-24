@@ -169,11 +169,11 @@ export async function newSession(page: Page) {
   await expect(page.getByPlaceholder(/Ask the arena/i)).toBeVisible();
 }
 
-/** Add a model to the arena selection (gpt-5.4 is selected by default). */
+/** Add a model to the arena selection (gpt-6.1-sol is selected by default). */
 export async function addModel(page: Page, family: string, name: string) {
   // The default model is applied once /models answers; selecting before that
   // would stop the default from being added at all.
-  await expect(page.getByText("GPT-5.4", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("GPT-6.1 Sol", { exact: true }).first()).toBeVisible();
   const familyButton = page.getByRole("button", { name: new RegExp(`^${family} \\d+ models$`) });
   if ((await page.getByRole("button", { name }).count()) === 0) await familyButton.click();
   await page.getByRole("button", { name }).first().click();

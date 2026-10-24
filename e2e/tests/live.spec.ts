@@ -20,8 +20,8 @@ import {
  * model raise. Each test works in a fresh session.
  */
 
-const GPT = "gpt-5.4";
-const CLAUDE = "claude-sonnet-5";
+const GPT = "gpt-6.1-sol";
+const CLAUDE = "claude-sonnet-5-5";
 const answerFrom = (id: string) => new RegExp(`Scripted answer from ${id.replace(".", "\\.")}`);
 
 test.describe("live flows (scripted models)", () => {
@@ -31,7 +31,7 @@ test.describe("live flows (scripted models)", () => {
   });
 
   test("two models answer in parallel, each on its own branch", async ({ page, request }) => {
-    await addModel(page, "Anthropic", "Claude Sonnet 5");
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     await send(page, "Compare the two approaches");
 
@@ -71,7 +71,7 @@ test.describe("live flows (scripted models)", () => {
   });
 
   test("a debate pauses between rounds, resumes, and completes", async ({ page }) => {
-    await addModel(page, "Anthropic", "Claude Sonnet 5");
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await startDebate(page, "Is a hot dog a sandwich?", 3);
 
     await page.getByRole("button", { name: "Pause debate" }).click();
@@ -88,7 +88,7 @@ test.describe("live flows (scripted models)", () => {
   });
 
   test("a model that fails mid-debate is closed out, not left spinning", async ({ page }) => {
-    await addModel(page, "Anthropic", "Claude Sonnet 5");
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await startDebate(page, `Settle it [[fail:${CLAUDE}]]`, 1);
 
     await expect(page.getByText(/failed \(scripted/).first()).toBeVisible();
@@ -104,7 +104,7 @@ test.describe("live flows (scripted models)", () => {
     page,
     request,
   }) => {
-    await addModel(page, "Anthropic", "Claude Sonnet 5");
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await startDebate(page, "Tabs or spaces?", 3);
     await expect(page.getByText("DEBATE · ROUND 2/3")).toBeVisible({ timeout: 20_000 });
     const sessionId = await page.evaluate(() => localStorage.getItem("crucible_active_debate"));
@@ -124,7 +124,7 @@ test.describe("live flows (scripted models)", () => {
   });
 
   test("a debate can be deleted from the sidebar", async ({ page, request }) => {
-    await addModel(page, "Anthropic", "Claude Sonnet 5");
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await startDebate(page, "Delete me afterwards", 1);
     await expect(debateStatus(page)).toHaveText("completed", { timeout: 20_000 });
     const sessionId = await page.evaluate(() => localStorage.getItem("crucible_active_debate"));

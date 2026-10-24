@@ -1,6 +1,6 @@
 {
  "_about": "USD per 1M tokens, standard tier, text input, base context tier (all experiment contexts are well below the 200k/272k tiers). Hand-maintained: no provider API exposes prices. cached_input is the cache-hit price. A price with 'until' is replaced by 'after' from the next day.",
- "checked": "2026-09-27",
+ "checked": "2026-10-25",
  "sources": {
   "openai": "https://developers.openai.com/api/docs/pricing",
   "anthropic": "https://platform.claude.com/docs/en/about-claude/pricing",
@@ -8,6 +8,7 @@
  },
  "models": {
   "gpt-6-astra": {"source": "openai", "input": 10.00, "cached_input": 1.00, "output": 50.00},
+  "gpt-6.1-sol": {"source": "openai", "input": 2.00, "cached_input": 0.10, "output": 10.00, "note": "<272K context tier"},
   "gpt-6-sol": {"source": "openai", "input": 2.00, "cached_input": 0.20, "output": 10.00},
   "gpt-6-luna": {"source": "openai", "input": 0.10, "cached_input": 0.01, "output": 0.50},
   "gpt-5.6-terra": {"source": "openai", "input": 2.00, "cached_input": 0.20, "output": 12.00},
@@ -24,10 +25,14 @@
   "claude-fable-5-1": {"source": "anthropic", "input": 10.00, "cached_input": 0.25, "output": 50.00},
   "claude-opus-5-5": {"source": "anthropic", "input": 4.00, "cached_input": 0.20, "output": 20.00},
   "claude-opus-5": {"source": "anthropic", "input": 5.00, "cached_input": 0.50, "output": 25.00},
+  "claude-sonnet-5-5": {"source": "anthropic", "input": 2.00, "cached_input": 0.10, "output": 10.00},
   "claude-sonnet-5": {"source": "anthropic", "input": 2.00, "cached_input": 0.20, "output": 10.00},
+  "claude-haiku-5-5": {"source": "anthropic", "input": 0.10, "cached_input": 0.01, "output": 0.50, "note": "prompts up to 100K tokens; over 100K: 0.50 / 0.05 / 2.50"},
   "claude-haiku-4-5-20251001": {"source": "anthropic", "input": 1.00, "cached_input": 0.10, "output": 5.00},
   "claude-opus-4-6": {"source": "anthropic", "input": 5.00, "cached_input": 0.50, "output": 25.00},
   "claude-sonnet-4-6": {"source": "anthropic", "input": 3.00, "cached_input": 0.30, "output": 15.00},
+  "gemini-4-argon": {"source": "google", "input": 2.00, "cached_input": 0.10, "output": 10.00, "until": "2026-11-30",
+                     "after": {"input": 4.00, "cached_input": 0.20, "output": 20.00}},
   "gemini-3.1-pro-preview": {"source": "google", "input": 2.00, "cached_input": 0.20, "output": 12.00, "note": "<=200k context tier"},
   "gemini-3.8-flash": {"source": "google", "input": 0.75, "cached_input": 0.075, "output": 3.75, "until": "2026-12-31",
                        "after": {"input": 1.50, "cached_input": 0.15, "output": 7.50}},

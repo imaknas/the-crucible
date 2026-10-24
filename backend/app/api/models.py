@@ -24,6 +24,14 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "limit": 100_000,
         "native_search": True,
     },
+    "gpt-6.1-sol": {
+        "family": "openai",
+        "id": "gpt-6.1-sol",
+        "name": "GPT-6.1 Sol",
+        "desc": "Balanced",
+        "limit": 100_000,
+        "native_search": True,
+    },
     "gpt-6-sol": {
         "family": "openai",
         "id": "gpt-6-sol",
@@ -148,6 +156,14 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "limit": 700_000,  # 70% of 1M window
         "native_search": True,
     },
+    "claude-sonnet-5-5": {
+        "family": "anthropic",
+        "id": "claude-sonnet-5-5",
+        "name": "Claude Sonnet 5.5",
+        "desc": "Balanced",
+        "limit": 700_000,  # 70% of 1M window
+        "native_search": True,
+    },
     "claude-sonnet-5": {
         "family": "anthropic",
         "id": "claude-sonnet-5",
@@ -162,6 +178,16 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "Claude Fable 5.1",
         "desc": "Balanced",
         "limit": 700_000,  # 70% of 1M window
+        "native_search": True,
+    },
+    "claude-haiku-5-5": {
+        "family": "anthropic",
+        "id": "claude-haiku-5-5",
+        "name": "Claude Haiku 5.5",
+        "desc": "Fast",
+        # Not the 1M window: a prompt over 100K tokens costs 5x per token,
+        # so summarise before a thread gets there.
+        "limit": 70_000,
         "native_search": True,
     },
     "claude-haiku-4-5-20251001": {
@@ -190,6 +216,14 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "native_search": True,
     },
     # ─── Google ────────────────────────────────────────────────
+    "gemini-4-argon": {
+        "family": "google",
+        "id": "gemini-4-argon",
+        "name": "Gemini 4 Argon",
+        "desc": "Flagship",
+        "limit": 800_000,
+        "native_search": True,
+    },
     "gemini-3.1-pro-preview": {
         "family": "google",
         "id": "gemini-3.1-pro-preview",
@@ -251,8 +285,12 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
 
 # Single source of truth for defaults. These were previously duplicated across
 # main.py, cli.py, graph.py and page.tsx, which is how they drifted stale.
-DEFAULT_MODEL = "gpt-5.4"
-DEFAULT_ARENA_MODELS = ["gpt-5.4", "claude-sonnet-5", "gemini-3.1-pro-preview"]
+# gpt-6.1-sol and Sonnet 5.5 are the newest balanced models and cost no
+# more than what they replace (gpt-5.4 was set before the gpt-6 family
+# existed). Gemini stays on 3.1 Pro: 4 Argon doubles to $4/$20 on
+# 2026-12-01 and has half the output limit.
+DEFAULT_MODEL = "gpt-6.1-sol"
+DEFAULT_ARENA_MODELS = ["gpt-6.1-sol", "claude-sonnet-5-5", "gemini-3.1-pro-preview"]
 # Models used to summarise history when the context limit is hit: the first
 # offered one with an API key wins (a run may name another). Chosen with
 # recall on, as the app runs (experiments/NOTES.md, pilot 22): gpt-6-luna was
@@ -260,7 +298,10 @@ DEFAULT_ARENA_MODELS = ["gpt-5.4", "claude-sonnet-5", "gemini-3.1-pro-preview"]
 # facts) and the cheapest, ~1/25 of gemini-3.8-flash per summary at 2027
 # prices. Its summaries alone keep much less (42/96): it relies on recall.
 # gemini-3.8-flash keeps the most without recall; haiku trails on dense detail.
-SUMMARIZER_MODELS = ["gpt-6-luna", "gemini-3.8-flash", "claude-haiku-4-5-20251001"]
+# claude-haiku-5-5 is listed last so scaffold-audit measures it against the
+# default (the audit tries every listed summarizer); it is not yet a fallback
+# anyone reaches, since claude-haiku-4-5 comes first on an Anthropic key.
+SUMMARIZER_MODELS = ["gpt-6-luna", "gemini-3.8-flash", "claude-haiku-4-5-20251001", "claude-haiku-5-5"]
 
 # Which model chooses what to fetch back once history is summarized; the
 # first offered one with an API key wins, none means no recall. Choosing is
