@@ -18,6 +18,7 @@ from app.llm import has_credentials
 from app.services.graph import workflow
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.recall import INTERNAL_TAG
+from app.services.synthesis import INDEPENDENT, build_synthesis_prompt
 from app.services.runs import (
     final_state_of_run,
     resolve_fork_point,
@@ -156,15 +157,8 @@ async def stream_run(
 # ─── Arena ───────────────────────────────────────────────────────
 
 
-def build_synthesis_prompt(question: str, answers: List[Dict[str, str]]) -> str:
-    body = "\n\n".join(f"[{a['model']}]:\n{a['content']}" for a in answers)
-    return (
-        f"Original question: {question}\n\n"
-        f"Independent answers from {len(answers)} models:\n\n{body}\n\n"
-        "Synthesize these into one answer. State where the models agree, resolve "
-        "or flag where they contradict each other, and keep the strongest "
-        "supported points. Attribute claims to models where it matters."
-    )
+def _independent_synthesis_prompt(question: str, answers: List[Dict[str, Any]]) -> str:
+    return build_synthesis_prompt(question, ((a["model"], a["content"]) for a in answers), INDEPENDENT)
 
 
 async def run_arena(
@@ -240,7 +234,7 @@ async def run_arena(
     if not synthesizer or len(usable) < 2:
         return
 
-    async for event in _synthesize(graph_app, thread_id, parent, synthesizer, build_synthesis_prompt(prompt, usable), toggles, context):
+    async for event in _synthesize(graph_app, thread_id, parent, synthesizer, _independent_synthesis_prompt(prompt, usable), toggles, context):
         yield event
 
 
@@ -332,7 +326,7 @@ async def synthesize_thread(
     yield {"type": "start", "models": [a["model"] for a in answers], "thread_id": thread_id, "parent_checkpoint_id": parent}
     for a in answers:
         yield {"type": "end", "model": a["model"], "content": a["content"], "checkpoint_id": a["checkpoint_id"], "error": None}
-    async for event in _synthesize(graph_app, thread_id, parent, synthesizer, build_synthesis_prompt(question, answers), toggles):
+    async for event in _synthesize(graph_app, thread_id, parent, synthesizer, _independent_synthesis_prompt(question, answers), toggles):
         yield event
 
 

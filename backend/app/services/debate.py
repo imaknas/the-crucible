@@ -17,6 +17,7 @@ from app.core import database as db
 from app.services.convergence import build_convergence_check
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.recall import INTERNAL_TAG
+from app.services.synthesis import AFTER_DEBATE, build_synthesis_prompt
 from app.services.runs import final_state_of_run, tag_run, thread_config
 from app.utils.helpers import extract_text
 
@@ -509,16 +510,7 @@ async def _stream_synthesis(
 
     yield {"type": "debate_synthesis_start", "session_id": session_id, "model": synthesizer}
 
-    arguments = "\n\n".join(
-        f"[{model}]:\n{content}" for model, content in all_responses.items()
-    )
-    synthesis_prompt = (
-        f"Original question: {prompt}\n\n"
-        f"Arguments from all models:\n{arguments}\n\n"
-        "As the synthesizer, produce a single cohesive academic consensus. "
-        "Where do the models converge? What are the strongest arguments? "
-        "Provide a definitive, balanced conclusion."
-    )
+    synthesis_prompt = build_synthesis_prompt(prompt, all_responses.items(), AFTER_DEBATE)
 
     initial_state = {
         "active_peer": synthesizer,
