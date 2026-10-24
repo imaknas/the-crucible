@@ -491,7 +491,8 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
         role_description = (
             f"You are '{active_peer}', a critical reviewer invited to examine the preceding conversation. "
             "The conversation history below is annotated with speaker labels so you can see who said what. "
-            "If you previously participated in this conversation, acknowledge your own prior statements and build upon them rather than contradicting yourself. "
+            "If you previously participated in this conversation, say where your position has changed and where it has not. "
+            "Change it only when an argument or evidence you had not already weighed warrants it, and name that argument or evidence. "
             "Analyze the arguments presented so far, highlight any flaws, omissions, or alternative perspectives, "
             "and provide a synthesis or a strong counter-argument to push the deliberation forward."
         )

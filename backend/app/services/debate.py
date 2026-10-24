@@ -292,7 +292,8 @@ def _base_round_prompts(
             f"Other models' previous responses:\n{peer_context}\n\n"
             f"You are {model_id}. Critically analyze the other models' arguments. "
             "Where do you agree? Where do you disagree? What are they missing? "
-            "Provide your updated position."
+            "State your position now. If it changed, name the argument or evidence that "
+            "changed it; agreement alone, or how many models hold a view, is not a reason."
         )
     return prompts
 
