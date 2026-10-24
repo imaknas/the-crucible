@@ -80,7 +80,7 @@ def test_cosine_similarity_zero_vector():
     assert _cosine_similarity([0.0, 0.0], [1.0, 0.0]) == 0.0
 
 
-def test_compute_sync_converged_all_mode():
+def test_compute_sync_every_model_stable():
     # Create mock embeddings that return identical vectors → similarity = 1.0
     mock_embeddings = MagicMock()
     mock_embeddings.embed_query.side_effect = lambda text: [1.0, 0.0, 0.0]
@@ -89,7 +89,6 @@ def test_compute_sync_converged_all_mode():
         score, converged = _compute_sync(
             prev_responses={"m1": "text A", "m2": "text B"},
             curr_responses={"m1": "text A", "m2": "text B"},
-            mode="all",
             threshold=0.92,
         )
     assert score == pytest.approx(1.0)
@@ -108,47 +107,24 @@ def test_compute_sync_not_converged():
         score, converged = _compute_sync(
             prev_responses={"m1": "prev_text"},
             curr_responses={"m1": "curr_text"},
-            mode="all",
             threshold=0.92,
         )
     assert score == pytest.approx(0.0)
     assert converged is False
 
 
-def test_compute_sync_any_mode_one_converged():
-    call_count = 0
-    def mock_embed(text):
-        nonlocal call_count
-        call_count += 1
-        # Return identical vectors for m1 (converged), different for m2
-        if "m1" in text:
-            return [1.0, 0.0]
-        return [0.0, 1.0]
+def test_compute_sync_one_stable_model_is_not_enough():
+    def embed(text):
+        return [1.0, 0.0, 0.0] if text == "same" else [0.0, 1.0, 0.0] if text == "different1" else [0.0, 0.0, 1.0]
 
-    mock_embeddings = MagicMock()
-    mock_embeddings.embed_query.side_effect = mock_embed
-
-    with patch("app.services.rag.get_embeddings", return_value=mock_embeddings):
-        # m1 prev/curr both get [1.0, 0.0] → similarity 1.0
-        # m2 prev gets [0.0, 1.0], curr gets [0.0, 1.0] → also 1.0 in this mock
-        # Let's patch differently
-        pass
-
-    # Simpler: test that mode="any" converges when at least one exceeds threshold
-    def embed_v2(text):
-        return [1.0, 0.0, 0.0] if text == "same" else [0.0, 1.0, 0.0]
-
-    mock_embeddings2 = MagicMock()
-    mock_embeddings2.embed_query.side_effect = embed_v2
-
-    with patch("app.services.rag.get_embeddings", return_value=mock_embeddings2):
-        score, converged = _compute_sync(
-            prev_responses={"m1": "same", "m2": "different1"},
-            curr_responses={"m1": "same", "m2": "different2"},
-            mode="any",
-            threshold=0.92,
-        )
-    assert converged is True  # m1 similarity = 1.0 ≥ 0.92
+    score, stable = _compute_sync(
+        prev_responses={"m1": "same", "m2": "different1"},
+        curr_responses={"m1": "same", "m2": "different2"},
+        threshold=0.92,
+        embed=embed,
+    )
+    assert score == pytest.approx(0.5)
+    assert stable is False  # m1 = 1.0, but m2 moved
 
 
 def test_compute_sync_empty_responses():
@@ -157,7 +133,6 @@ def test_compute_sync_empty_responses():
         score, converged = _compute_sync(
             prev_responses={},
             curr_responses={"m1": "text"},
-            mode="all",
             threshold=0.92,
         )
     assert score == 0.0

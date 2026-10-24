@@ -168,11 +168,11 @@ async def test_timeout_after_draft_keeps_the_answer(monkeypatch):
     assert not any(e["type"] == "error" for e in events)
 
 
-def test_all_mode_not_converged_when_a_model_failed():
+def test_not_stable_when_a_model_failed():
     embeddings = MagicMock()
     embeddings.embed_query.side_effect = lambda text: [1.0, 0.0]
     with patch("app.services.rag.get_embeddings", return_value=embeddings):
         score, converged = _compute_sync(
-            {"a": "x", "b": "y"}, {"a": "x", "b": ""}, mode="all", threshold=0.9
+            {"a": "x", "b": "y"}, {"a": "x", "b": ""}, threshold=0.9
         )
     assert not converged

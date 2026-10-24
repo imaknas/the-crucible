@@ -32,15 +32,10 @@ def _judge_factory(reply):
 
 
 @pytest.mark.asyncio
-async def test_stability_all_requires_every_model():
-    v = await StabilityCheck(0.9, "all", embed).evaluate(PREV, CURR)
-    assert (v.converged, v.method, v.score) == (False, "stability", 0.5)
-
-
-@pytest.mark.asyncio
-async def test_stability_any_needs_one_model():
-    v = await StabilityCheck(0.9, "any", embed).evaluate(PREV, CURR)
-    assert v.converged and v.reason == "stability=0.500"
+async def test_stability_requires_every_model():
+    # a stopped changing, b did not: one settled model doesn't end the debate.
+    v = await StabilityCheck(0.9, embed).evaluate(PREV, CURR)
+    assert (v.converged, v.method, v.score, v.reason) == (False, "stability", 0.5, "stability=0.500")
 
 
 @pytest.mark.asyncio
@@ -48,7 +43,7 @@ async def test_stability_is_not_agreement():
     # Each model repeats its own answer while the two answers are opposite:
     # perfectly stable, and nothing here says they agree.
     opposite = {"yes1": [1.0, 0.0], "yes2": [1.0, 0.0], "no1": [0.0, 1.0], "no2": [0.0, 1.0]}
-    v = await StabilityCheck(0.9, "all", opposite.__getitem__).evaluate(
+    v = await StabilityCheck(0.9, opposite.__getitem__).evaluate(
         {"a": "yes1", "b": "no1"}, {"a": "yes2", "b": "no2"}
     )
     assert v.converged and v.method == "stability"

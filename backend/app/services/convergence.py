@@ -17,7 +17,8 @@ use them):
 
   convergence_threshold only  → StabilityCheck
   llm_judge only              → JudgeCheck
-  both                        → CombinedCheck(mode="all" | "any")
+  both                        → CombinedCheck(mode="all" | "any"): both
+                                  must hold, or either is enough
   neither                     → None (the debate runs all its rounds)
 
 To add a new kind of check, implement ConvergenceCheck and wire it into
@@ -71,13 +72,14 @@ def _default_embed() -> Embed:
 def _compute_sync(
     prev_responses: Responses,
     curr_responses: Responses,
-    mode: str,
     threshold: float,
     embed: Optional[Embed] = None,
 ) -> tuple[float, bool]:
     """Blocking: returns (mean self-similarity, stable). Run it in an executor.
 
-    Each model is compared only with its own previous answer."""
+    Each model is compared only with its own previous answer, and the debate
+    is stable only when every model is: one model that stopped changing
+    says nothing about the others."""
     embed = embed or _default_embed()
     models = [m for m in curr_responses if m in prev_responses]
     if not models:
@@ -95,28 +97,24 @@ def _compute_sync(
         return 0.0, False
 
     mean_sim = float(np.mean(similarities))
-    if mode == "all":
-        # A model that errored or timed out this round has no similarity; "all"
-        # must not be satisfied by the models that happened to answer.
-        converged = len(similarities) == len(models) and all(s >= threshold for s in similarities)
-    else:
-        converged = any(s >= threshold for s in similarities)
-    return mean_sim, converged
+    # A model that errored or timed out this round has no similarity; the
+    # models that happened to answer must not make the debate stable.
+    stable = len(similarities) == len(models) and all(s >= threshold for s in similarities)
+    return mean_sim, stable
 
 
 class StabilityCheck:
     """Stop when each model's answer stopped changing (embedding cosine against
     its own previous round). Not a measure of agreement between models."""
 
-    def __init__(self, threshold: float, mode: str = "all", embed: Optional[Embed] = None):
+    def __init__(self, threshold: float, embed: Optional[Embed] = None):
         self.threshold = threshold
-        self.mode = mode
         self._embed = embed
 
     async def evaluate(self, previous: Responses, current: Responses) -> Verdict:
         loop = asyncio.get_running_loop()
         score, converged = await loop.run_in_executor(
-            None, _compute_sync, previous, current, self.mode, self.threshold, self._embed
+            None, _compute_sync, previous, current, self.threshold, self._embed
         )
         return Verdict(converged=converged, method="stability", reason=f"stability={score:.3f}", score=score)
 
@@ -197,7 +195,7 @@ def build_convergence_check(policy: Mapping, factory=None, embed: Optional[Embed
     mode = policy.get("mode", "all")
     checks: list[ConvergenceCheck] = []
     if policy.get("convergence_threshold") is not None:
-        checks.append(StabilityCheck(policy["convergence_threshold"], mode, embed))
+        checks.append(StabilityCheck(policy["convergence_threshold"], embed))
     if policy.get("llm_judge"):
         checks.append(JudgeCheck(policy["llm_judge"], factory))
     if not checks:

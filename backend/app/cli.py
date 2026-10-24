@@ -226,7 +226,7 @@ def deliberate(
     threshold: Optional[float] = typer.Option(
         None, "--threshold", help="Stop early once every model's answer stops changing: similarity to its own previous round (0-1). Measures stability, not agreement."
     ),
-    mode: str = typer.Option("all", "--mode", help="all or any: whether every model (and every condition) must be met, or one is enough."),
+    mode: str = typer.Option("all", "--mode", help="With both --threshold and --convergence-judge: all = both must hold, any = either is enough."),
     convergence_judge: Optional[str] = typer.Option(
         None, "--convergence-judge", help="Model that judges whether the models now agree; stops the debate if they do."
     ),

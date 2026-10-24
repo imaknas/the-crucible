@@ -166,8 +166,8 @@ export default function DebateConfigDialog({
             </Select>
           </Box>
 
-          {/* How the stop conditions combine */}
-          {(config.convergence_threshold !== null || config.llm_judge) && (
+          {/* How the two stop conditions combine; meaningless with only one */}
+          {config.convergence_threshold !== null && config.llm_judge && (
             <Box sx={rowSx}>
               <Typography sx={labelSx}>Stop when</Typography>
               <Select

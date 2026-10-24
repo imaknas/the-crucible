@@ -128,9 +128,10 @@ async def run_debate(
 
     Every round, each model sees its peers' previous answers and responds. The
     debate stops after max_rounds, or earlier if convergence_threshold is
-    reached (cosine similarity between each model's answer and its own
-    previous one, 0-1: stability, not agreement) or the convergence_judge
-    model says the models agree. If synthesizer is set, it writes a final
+    reached by every model (cosine similarity between each model's answer
+    and its own previous one, 0-1: stability, not agreement) or the
+    convergence_judge model says the models agree. With both set, mode="all"
+    needs both, mode="any" either. If synthesizer is set, it writes a final
     synthesis. This can take several minutes.
 
     Returns: {session_id, thread_id, rounds: [{round, responses, errors, convergence_score}], converged, synthesis}.
