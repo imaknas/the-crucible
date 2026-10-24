@@ -73,12 +73,17 @@ export interface DebateSession {
   synthesizer_model: string | null;
 }
 
-/** Debate status as the UI tracks it. "pausing" = pause requested, current round finishing. */
+/**
+ * Debate status as the UI tracks it. "pausing" = pause requested, current round
+ * finishing. A debate that stopped early is "converged" when a judge found the
+ * models agree, "stable" when their answers only stopped changing.
+ */
 export type DebateUiStatus =
   | "running"
   | "pausing"
   | "paused"
   | "converged"
+  | "stable"
   | "completed"
   | "interrupted";
 
@@ -105,7 +110,7 @@ export interface DebateTreeResponse {
     session_id: string;
     status: string;
     current_round: number;
-    /** Convergence score per round, keyed by round number as a string. */
+    /** Stability per round (each model vs its own previous answer), keyed by round number as a string. */
     round_scores?: Record<string, number>;
     max_round?: number;
   };

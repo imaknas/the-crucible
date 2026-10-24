@@ -140,7 +140,7 @@ Critical function called before every LLM invocation. Ensures non-empty content,
 **Persistence — `core/database.py`**
 SQLite at `backend/checkpoints.sqlite` (path overridable via `DATABASE_PATH` env var). Stores `thread_metadata` (title), `node_positions` (x/y for React Flow canvas), and `node_metadata` (confidence, conflict). LangGraph uses the same SQLite file for its own checkpoint tables via `AsyncSqliteSaver`.
 - Deletes cascade: `delete_thread_data()` also removes every `{thread_id}::*` debate sub-thread and the `debate_sessions` rows; `delete_debate_session()` removes the participant and synthesis sub-threads. Sub-threads are matched by `substr(thread_id, 1, ?)`, not `LIKE`, because thread ids contain `_`.
-- `debate_sessions.round_scores` is a JSON object of `{round: score}`, written by `record_round_score()` so convergence survives a page reload. Added by migration in `init_db()`.
+- `debate_sessions.round_scores` is a JSON object of `{round: score}`, written by `record_round_score()` so the per-round stability score survives a page reload. Added by migration in `init_db()`.
 
 **RAG — `services/rag.py`**
 ChromaDB persistent vector store at `backend/chroma_db/`. Local HuggingFace embeddings (`all-MiniLM-L6-v2`). Documents are indexed per `thread_id`.
@@ -167,10 +167,11 @@ FastMCP tools returning dicts: `list_models`, `invoke_arena`, `run_debate`, `lis
 Multi-round structured debate between ≥2 models. Key design points:
 - Each model gets its own LangGraph sub-thread: `{parent_thread_id}::{model_id}`; synthesis uses `{parent_thread_id}::synthesis`
 - All models stream concurrently per round via `asyncio.Queue` in `_stream_round`
+- Rounds ≥1 ask a model to say where its position changed and to change it only for an argument or evidence it had not weighed (in the deliberation system prompt and the cross-examination prompt); they used to tell it not to contradict itself, which held wrong answers as firmly as right ones. Debate synthesis uses the same prompt as Arena (`services/synthesis.py`), told that the answers came after the models read each other, not asked for a consensus.
 - Cross-examination (round ≥1): each model receives all peers' previous responses as a single HumanMessage (not raw AIMessages — this is intentional to avoid `sanitize_messages` breaking alternating-turn invariants)
-- Convergence detection: cosine similarity via `run_in_executor` (reuses `rag.get_embeddings()`), optional LLM judge, configurable `mode: "any"|"all"`
+- Early stop has two meanings that must not be conflated. **Stability** (`StabilityCheck`): each model's answer is compared with *its own* previous answer (embedding cosine via `run_in_executor`, reuses `rag.get_embeddings()`); two models holding opposite positions are perfectly stable. **Agreement** (`JudgeCheck`): an LLM judge reads all current answers; it is the only check that may be called consensus or "converged". Configurable `mode: "any"|"all"`. The UI shows a stability stop as "answers stopped changing" (status `stable`) and only a judge stop as "models agree" (`converged`), via `earlyStopStatus(method)`; `CombinedCheck` reports the method of the check that actually stopped the debate. The policy key `convergence_threshold`, the `convergence_score` / `debate_converged` frames and `round_scores` keep their names because stored sessions and clients use them; all three carry stability.
 - `api/debate.py`: `DebateConnection` owns one client socket and the debate task; client frames dispatch through its `COMMANDS` table (`debate_start`, `debate_redirect`, `debate_inject`, `debate_control`, `debate_synthesize`).
-- Convergence (`services/convergence.py`) is a strategy: `build_convergence_check(policy)` returns `SimilarityCheck` (embedding cosine, `embed` injectable), `JudgeCheck` (LLM judge, factory injectable), a `CombinedCheck(mode)` of both, or `None`. `run_debate` only calls `check.evaluate(previous, current) -> Verdict`.
+- Convergence (`services/convergence.py`) is a strategy: `build_convergence_check(policy)` returns `StabilityCheck` (embedding cosine against each model's own previous answer, `embed` injectable), `JudgeCheck` (LLM judge, factory injectable), a `CombinedCheck(mode)` of both, or `None`. `run_debate` only calls `check.evaluate(previous, current) -> Verdict`.
 - REST: `POST /debate/sessions`, `GET /debate/sessions/{id}`, `GET /debate/sessions/{id}/tree`, `DELETE /debate/sessions/{id}`
 - WebSocket: `WS /debate/ws/{session_id}` — handles `debate_start`, `debate_inject`, `debate_redirect`, `debate_control` (`stop`/`pause`/`resume`), `debate_synthesize`
 - Live controls are a per-connection `DebateControl`: pause takes effect **between rounds** (the handler acks `pausing`, `run_debate` reports `paused` then `running`), and injected messages are appended to the next round's prompts; one that arrives after the final round is reported as an `error`, not dropped. Synthesize and redirect cancel a running debate first. A debate cannot outlive its socket: disconnect cancels it and sets `status="interrupted"`, so a restored session is never shown as running.
@@ -196,7 +197,7 @@ Composition only: calls the hooks below, keeps the few pieces of UI state that b
 - Small single-purpose hooks: `useToasts`, `useConfirm` (promise-based, rendered by `ConfirmDialog`), `useBackendStatus` (header connection line), `useModelCatalog` (GET /models + the arena selection + `modelLabel`), `useDebateDefaults` (persisted Control Panel defaults)
 
 **Key components**
-- `ChatView.tsx`: renders messages with `react-markdown` + KaTeX for LaTeX, syntax highlighting, thinking-block collapsing, and source citations; when `debateState` is set, renders `DebateBanner` (round, convergence, status, pause/resume/synthesize/close)
+- `ChatView.tsx`: renders messages with `react-markdown` + KaTeX for LaTeX, syntax highlighting, thinking-block collapsing, and source citations; when `debateState` is set, renders `DebateBanner` (round, stability, status, pause/resume/synthesize/close)
 - `TreeCanvas.tsx`: React Flow canvas showing the conversation tree; node click sets `activeCheckpoint` for branching; `debateMode` prop switches to lane layout with `DebateLaneHeaders` overlay and disables dagre auto-layout (debate nodes start at x=0 which would otherwise falsely trigger dagre)
 - `ControlPanel.tsx`: shell (collapsed rail or drawer) composing `components/control-panel/` sections — Status, ModelPicker, Parameters, Summarizer, DebateDefaults, ApiKeys. Model data comes from `useModelCatalog` via props; the panel fetches nothing itself.
 - `DebateConfigDialog.tsx`: per-session debate config overlay (overrides ControlPanel defaults for a single run)
@@ -208,7 +209,7 @@ Composition only: calls the hooks below, keeps the few pieces of UI state that b
 Multi-model Arena: `useChatWebSocket` sends one WS message per selected model simultaneously. Branching: `activeCheckpoint` (a LangGraph checkpoint ID) is passed as `parent_checkpoint_id` in every WS request, telling the backend which node to branch from.
 
 **Debate flow**
-User selects ≥2 models → types prompt → clicks Swords button in ChatInput → `DebateConfigDialog` opens → on Start: `POST /debate/sessions` creates session, WS connects to `/debate/ws/{session_id}`, `debate_start` frame is sent. `useDebateSession` owns the debate WS lifecycle: the transcript (tokens RAF-batched per model, applied through `transcriptReducer`), round/status/convergence state, and `useDebateTree` for the tree canvas. TreeCanvas switches to debate mode when there is an active session.
+User selects ≥2 models → types prompt → clicks Swords button in ChatInput → `DebateConfigDialog` opens → on Start: `POST /debate/sessions` creates session, WS connects to `/debate/ws/{session_id}`, `debate_start` frame is sent. `useDebateSession` owns the debate WS lifecycle: the transcript (tokens RAF-batched per model, applied through `transcriptReducer`), round/status/stability state, and `useDebateTree` for the tree canvas. TreeCanvas switches to debate mode when there is an active session.
 
 ## Key Conventions
 
@@ -225,7 +226,7 @@ Where a change goes, so it lands in one place:
 |---|---|
 | A model | `uv run crucible catalog-sync` (lists and probes it), its price in `app/catalog/data/prices.json` (from the provider's pricing page), then an entry in `MODEL_REGISTRY`; `test_registry_catalog.py` enforces all three. |
 | A provider family | `FAMILY_META` entry + a `ChatProvider` in `llm/providers.py` (`PROVIDERS`) + a `ProviderSource` in `catalog/sources.py` (`SOURCES`) + its models. |
-| A convergence rule | A class with `async evaluate(previous, current) -> Verdict` in `services/convergence.py`, wired into `build_convergence_check`. |
+| An early-stop rule (stability, agreement, …) | A class with `async evaluate(previous, current) -> Verdict` in `services/convergence.py`, wired into `build_convergence_check`. |
 | A debate client command | A `DebateConnection.on_*` handler in `api/debate.py`, registered in `COMMANDS`; the frontend sends it from `useDebateSession`. |
 | A debate event shown in the transcript | Handle it in `lib/debateTranscript.ts` (`transcriptReducer`, unit-tested) and route it in `useDebateSession.handleEvent`. |
 | A debate control button | `debateControls()` in `lib/debateTranscript.ts` decides availability; `DebateBanner` renders it. |

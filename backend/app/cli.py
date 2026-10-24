@@ -224,11 +224,11 @@ def deliberate(
     ),
     no_synthesize: bool = typer.Option(False, "--no-synthesize", help="Skip the final synthesis."),
     threshold: Optional[float] = typer.Option(
-        None, "--threshold", help="Stop early when round-over-round similarity reaches this (0-1)."
+        None, "--threshold", help="Stop early once every model's answer stops changing: similarity to its own previous round (0-1). Measures stability, not agreement."
     ),
-    mode: str = typer.Option("all", "--mode", help="Convergence mode: all or any model must converge."),
+    mode: str = typer.Option("all", "--mode", help="all or any: whether every model (and every condition) must be met, or one is enough."),
     convergence_judge: Optional[str] = typer.Option(
-        None, "--convergence-judge", help="Model that judges whether the debate has converged."
+        None, "--convergence-judge", help="Model that judges whether the models now agree; stops the debate if they do."
     ),
     thread: Optional[str] = typer.Option(
         None, "--thread", "-t", help="Parent thread for the debate (default: a new one)."
@@ -243,7 +243,8 @@ def deliberate(
 
     Runs the same debate engine as the web UI: each model debates on its own
     branch, sees its peers' previous answers every round, and the debate can
-    stop early on convergence. The session shows up in the web UI.
+    stop early once answers stop changing or a judge finds agreement. The
+    session shows up in the web UI.
     """
     as_json = _check_format(format_output)
     _load_env()
@@ -343,11 +344,12 @@ async def _run_deliberate(prompt, models, thread_id, policy, synthesizer, toggle
                     if current is not None:
                         current["convergence_score"] = event.get("convergence_score")
                     if not as_json and event.get("convergence_score") is not None:
-                        print_info(f"Convergence: {event['convergence_score']:.3f}")
+                        print_info(f"Stability: {event['convergence_score']:.3f}")
                 elif kind == "debate_converged":
                     result["converged"] = {k: event.get(k) for k in ("round", "score", "reason", "method")}
                     if not as_json:
-                        print_success(f"Converged after round {event['round'] + 1} ({event.get('reason')})")
+                        why = "the models agree" if event.get("method") == "judge" else "answers stopped changing"
+                        print_success(f"Stopped after round {event['round'] + 1}: {why} ({event.get('reason')})")
                 elif kind == "debate_synthesis_start" and not as_json:
                     console.print()
                     print_info(f"Synthesizing with {event['model']}…")

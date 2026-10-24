@@ -1,10 +1,21 @@
-"""Convergence detection for debates, as interchangeable strategies.
+"""When a debate may stop early, as interchangeable strategies.
 
 A debate asks one ConvergenceCheck, after every round from round 1 on, whether
-the models have settled. build_convergence_check() turns a session's
-termination policy into that check:
+it can stop. There are two different reasons to stop, and they must not be
+confused:
 
-  convergence_threshold only  → SimilarityCheck
+  StabilityCheck  each model's answer stopped changing from its own previous
+                  round (embedding cosine). Two models holding opposite
+                  positions are perfectly stable; this says nothing about
+                  agreement.
+  JudgeCheck      a judge model says the models now hold the same position.
+                  The only check that measures agreement.
+
+build_convergence_check() turns a session's termination policy into a check
+(the policy keys predate the distinction and are kept because stored sessions
+use them):
+
+  convergence_threshold only  → StabilityCheck
   llm_judge only              → JudgeCheck
   both                        → CombinedCheck(mode="all" | "any")
   neither                     → None (the debate runs all its rounds)
@@ -26,10 +37,11 @@ Responses = Mapping[str, str]
 @dataclass(frozen=True)
 class Verdict:
     converged: bool
-    # How the verdict was reached: "similarity" or "judge".
+    # Why the debate may stop: "stability" (answers stopped changing) or
+    # "judge" (the models agree).
     method: str
     reason: Optional[str] = None
-    # Mean round-over-round similarity, when the check measures one.
+    # Mean round-over-round stability, when the check measures one.
     score: Optional[float] = None
 
 
@@ -39,7 +51,7 @@ class ConvergenceCheck(Protocol):
         ...
 
 
-# ─── Similarity ──────────────────────────────────────────────────
+# ─── Stability ───────────────────────────────────────────────────
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -63,7 +75,9 @@ def _compute_sync(
     threshold: float,
     embed: Optional[Embed] = None,
 ) -> tuple[float, bool]:
-    """Blocking: returns (mean_similarity, converged). Run it in an executor."""
+    """Blocking: returns (mean self-similarity, stable). Run it in an executor.
+
+    Each model is compared only with its own previous answer."""
     embed = embed or _default_embed()
     models = [m for m in curr_responses if m in prev_responses]
     if not models:
@@ -90,8 +104,9 @@ def _compute_sync(
     return mean_sim, converged
 
 
-class SimilarityCheck:
-    """Converged when each model's answer stopped changing (embedding cosine)."""
+class StabilityCheck:
+    """Stop when each model's answer stopped changing (embedding cosine against
+    its own previous round). Not a measure of agreement between models."""
 
     def __init__(self, threshold: float, mode: str = "all", embed: Optional[Embed] = None):
         self.threshold = threshold
@@ -103,7 +118,7 @@ class SimilarityCheck:
         score, converged = await loop.run_in_executor(
             None, _compute_sync, previous, current, self.mode, self.threshold, self._embed
         )
-        return Verdict(converged=converged, method="similarity", reason=f"similarity={score:.3f}", score=score)
+        return Verdict(converged=converged, method="stability", reason=f"stability={score:.3f}", score=score)
 
 
 # ─── LLM judge ───────────────────────────────────────────────────
@@ -161,12 +176,17 @@ class CombinedCheck:
     async def evaluate(self, previous: Responses, current: Responses) -> Verdict:
         verdicts = await asyncio.gather(*(c.evaluate(previous, current) for c in self.checks))
         combine = all if self.mode == "all" else any
-        judge = next((v for v in verdicts if v.method == "judge"), None)
+        converged = combine(v.converged for v in verdicts)
+        # Report why the debate stops. With mode="any" that may be stability
+        # alone while the judge said no; calling it "judge" claimed an
+        # agreement the judge had just denied.
+        deciding = [v for v in verdicts if v.converged] if converged else verdicts
+        judge = next((v for v in deciding if v.method == "judge"), None)
         score = next((v.score for v in verdicts if v.score is not None), None)
-        reason = (judge.reason if judge else None) or next((v.reason for v in verdicts if v.reason), None)
+        reason = (judge.reason if judge else None) or next((v.reason for v in deciding if v.reason), None)
         return Verdict(
-            converged=combine(v.converged for v in verdicts),
-            method="judge" if judge else verdicts[0].method,
+            converged=converged,
+            method="judge" if judge else deciding[0].method,
             reason=reason,
             score=score,
         )
@@ -177,7 +197,7 @@ def build_convergence_check(policy: Mapping, factory=None, embed: Optional[Embed
     mode = policy.get("mode", "all")
     checks: list[ConvergenceCheck] = []
     if policy.get("convergence_threshold") is not None:
-        checks.append(SimilarityCheck(policy["convergence_threshold"], mode, embed))
+        checks.append(StabilityCheck(policy["convergence_threshold"], mode, embed))
     if policy.get("llm_judge"):
         checks.append(JudgeCheck(policy["llm_judge"], factory))
     if not checks:

@@ -64,13 +64,13 @@ test.describe("debate tree", () => {
     expect(columns.size).toBeGreaterThanOrEqual(3);
   });
 
-  test("labels each round and shows the recorded convergence score", async ({
+  test("labels each round and shows the recorded stability score", async ({
     page,
   }) => {
     await expect(page.getByText("Round 1", { exact: false })).toBeVisible();
     await expect(page.getByText("Round 2", { exact: false })).toBeVisible();
     // seed_db.py records 0.91 for round index 1, which renders on Round 2.
-    await expect(page.getByText("91% converged")).toBeVisible();
+    await expect(page.getByText("91% stable")).toBeVisible();
   });
 
   test("hangs synthesis below every lane", async ({ page }) => {

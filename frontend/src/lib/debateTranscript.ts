@@ -159,6 +159,15 @@ export function restoredDebateStatus(status: DebateSession["status"]): DebateUiS
   return status === "completed" ? "completed" : "interrupted";
 }
 
+/**
+ * The status after a debate stops early. Only a judge measures agreement; a
+ * stability stop means each model's answer stopped changing, which two models
+ * holding opposite positions also satisfy.
+ */
+export function earlyStopStatus(method: string | undefined): DebateUiStatus {
+  return method === "judge" ? "converged" : "stable";
+}
+
 export interface DebateControls {
   inject: boolean;
   redirect: boolean;

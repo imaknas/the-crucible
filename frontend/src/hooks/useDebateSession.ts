@@ -4,6 +4,7 @@ import { modelFamilyColor } from "@/lib/colors";
 import {
   EMPTY_TRANSCRIPT,
   debateControls,
+  earlyStopStatus,
   restoredDebateStatus,
   transcriptReducer,
   type TranscriptEvent,
@@ -206,7 +207,7 @@ export function useDebateSession({
           break;
 
         case "debate_converged":
-          setStatus("converged");
+          setStatus(earlyStopStatus(msg.method));
           if (msg.score != null) setConvergenceScore(msg.score);
           break;
 
@@ -301,7 +302,7 @@ export function useDebateSession({
         wsRef.current = null;
         stopPolling();
         clearPendingNodes();
-        setStatus((prev) => (prev === "completed" || prev === "converged" ? prev : "interrupted"));
+        setStatus((prev) => (prev === "completed" || prev === "converged" || prev === "stable" ? prev : "interrupted"));
         refreshSessions();
       };
       return ws;

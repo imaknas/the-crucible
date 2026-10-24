@@ -52,7 +52,7 @@ interface TreeCanvasProps {
   // Debate mode
   debateMode?: boolean;
   lanes?: DebateLane[];
-  /** Convergence score per round, keyed by round number as a string. */
+  /** Stability per round (each model vs its own previous answer), keyed by round number as a string. */
   roundScores?: Record<string, number>;
   maxRound?: number;
 }

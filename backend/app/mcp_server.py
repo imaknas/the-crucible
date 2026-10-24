@@ -127,12 +127,15 @@ async def run_debate(
     """Run a multi-round structured debate between two or more models.
 
     Every round, each model sees its peers' previous answers and responds. The
-    debate stops after max_rounds, or earlier if convergence_threshold
-    (cosine similarity between a model's consecutive answers, 0-1) or the
-    convergence_judge model says the positions have converged. If synthesizer
-    is set, it writes a final synthesis. This can take several minutes.
+    debate stops after max_rounds, or earlier if convergence_threshold is
+    reached (cosine similarity between each model's answer and its own
+    previous one, 0-1: stability, not agreement) or the convergence_judge
+    model says the models agree. If synthesizer is set, it writes a final
+    synthesis. This can take several minutes.
 
-    Returns: {session_id, thread_id, rounds: [{round, responses, errors, convergence_score}], converged, synthesis}
+    Returns: {session_id, thread_id, rounds: [{round, responses, errors, convergence_score}], converged, synthesis}.
+    convergence_score is that round's stability; converged.method says why the
+    debate stopped early: "stability" or "judge" (agreement).
     """
     if len(models) < 2:
         raise ToolError("A debate needs at least two models.")

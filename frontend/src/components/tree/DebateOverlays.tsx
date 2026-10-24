@@ -86,7 +86,7 @@ export function DebateLaneHeaders({
 }
 
 /**
- * Horizontal band per debate round, with its convergence score when one was
+ * Horizontal band per debate round, with its stability score when one was
  * recorded. Without these the rounds are only distinguishable by y-position.
  *
  * Drawn in canvas space (it consumes the same transform React Flow applies to
@@ -143,7 +143,7 @@ export function DebateRoundBands({
         </span>
         {score != null && (
           <span
-            title="Cosine similarity against the previous round"
+            title="Stability: each model's answer compared with its own previous round (embedding cosine). Not agreement between models."
             style={{
               fontSize: 10,
               fontWeight: 700,
@@ -161,7 +161,7 @@ export function DebateRoundBands({
                       : "rgba(100,116,139,0.08)",
             }}
           >
-            {(score * 100).toFixed(0)}% converged
+            {(score * 100).toFixed(0)}% stable
           </span>
         )}
       </div>,

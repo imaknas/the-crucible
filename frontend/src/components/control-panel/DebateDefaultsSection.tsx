@@ -71,8 +71,8 @@ export default function DebateDefaultsSection({
         />
         <ToggleRow
           isDark={isDark}
-          label="Convergence Detection"
-          subtitle="Stop early when model responses become semantically similar."
+          label="Stop When Answers Stop Changing"
+          subtitle="Stop early once each model's answer barely changes from its previous round. This is stability, not agreement."
           icon={<Swords width={16} height={16} />}
           checked={debateDefaults.convergence_threshold !== null}
           onChange={() =>

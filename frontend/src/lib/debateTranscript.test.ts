@@ -1,6 +1,7 @@
 import {
   EMPTY_TRANSCRIPT,
   debateControls,
+  earlyStopStatus,
   restoredDebateStatus,
   transcriptReducer,
   type Transcript,
@@ -95,6 +96,12 @@ describe("debate status helpers", () => {
     expect(restoredDebateStatus("running")).toBe("interrupted");
     expect(restoredDebateStatus("paused")).toBe("interrupted");
     expect(restoredDebateStatus("completed")).toBe("completed");
+  });
+
+  it("calls an early stop agreement only when a judge decided it", () => {
+    expect(earlyStopStatus("judge")).toBe("converged");
+    expect(earlyStopStatus("stability")).toBe("stable");
+    expect(earlyStopStatus(undefined)).toBe("stable");
   });
 
   it("offers controls that match the status", () => {

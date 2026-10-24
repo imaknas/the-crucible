@@ -15,8 +15,15 @@ const DEBATE_STATUS_STYLE: Record<DebateUiStatus, { bg: string; fg: string }> = 
   pausing: { bg: "rgba(245,158,11,0.2)", fg: "#f59e0b" },
   paused: { bg: "rgba(245,158,11,0.2)", fg: "#f59e0b" },
   converged: { bg: "rgba(139,92,246,0.2)", fg: "#a78bfa" },
+  stable: { bg: "rgba(100,116,139,0.2)", fg: "text.secondary" },
   completed: { bg: "rgba(100,116,139,0.2)", fg: "text.secondary" },
   interrupted: { bg: "rgba(100,116,139,0.2)", fg: "text.secondary" },
+};
+
+const STATUS_LABEL: Partial<Record<DebateUiStatus, string>> = {
+  pausing: "pausing after this round",
+  converged: "models agree",
+  stable: "answers stopped changing",
 };
 
 /**
@@ -59,8 +66,12 @@ export default function DebateBanner({
         DEBATE · ROUND {state.round + 1}/{state.maxRounds}
       </Typography>
       {state.convergenceScore != null && (
-        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
-          convergence {(state.convergenceScore * 100).toFixed(0)}%
+        <Typography
+          variant="caption"
+          title="How little each model's answer changed from its own previous round. Not agreement between models."
+          sx={{ color: "text.secondary", fontSize: "0.7rem" }}
+        >
+          stability {(state.convergenceScore * 100).toFixed(0)}%
         </Typography>
       )}
       <Box
@@ -76,7 +87,7 @@ export default function DebateBanner({
           textTransform: "uppercase",
         }}
       >
-        {state.status === "pausing" ? "pausing after this round" : state.status}
+        {STATUS_LABEL[state.status] ?? state.status}
       </Box>
       <Box sx={{ flex: 1 }} />
       {(onPause || onResume) && (

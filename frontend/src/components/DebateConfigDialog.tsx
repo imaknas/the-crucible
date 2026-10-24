@@ -111,9 +111,14 @@ export default function DebateConfigDialog({
             />
           </Box>
 
-          {/* Convergence detection */}
+          {/* Stop on stability: answers stopped changing (not agreement) */}
           <Box sx={rowSx}>
-            <Typography sx={labelSx}>Convergence detection</Typography>
+            <Typography
+              sx={labelSx}
+              title="Stops once each model's answer is nearly the same as its own previous one. Models holding opposite positions also stop changing; use the agreement judge to stop on agreement."
+            >
+              Stop when answers stop changing
+            </Typography>
             <Switch
               size="small"
               checked={config.convergence_threshold !== null}
@@ -127,14 +132,16 @@ export default function DebateConfigDialog({
             />
             {config.convergence_threshold !== null && (
               <Typography variant="caption" sx={{ color: "text.disabled" }}>
-                threshold {config.convergence_threshold}
+                similarity {config.convergence_threshold}
               </Typography>
             )}
           </Box>
 
           {/* LLM Judge */}
           <Box sx={rowSx}>
-            <Typography sx={labelSx}>LLM judge</Typography>
+            <Typography sx={labelSx} title="A model that reads every answer each round and stops the debate when the models agree.">
+              Agreement judge
+            </Typography>
             <Select
               size="small"
               value={config.llm_judge ?? "__none__"}
@@ -159,7 +166,7 @@ export default function DebateConfigDialog({
             </Select>
           </Box>
 
-          {/* Convergence mode */}
+          {/* How the stop conditions combine */}
           {(config.convergence_threshold !== null || config.llm_judge) && (
             <Box sx={rowSx}>
               <Typography sx={labelSx}>Stop when</Typography>
