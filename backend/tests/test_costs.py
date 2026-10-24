@@ -161,3 +161,38 @@ def test_calibration_profiles_are_reused_for_the_day(tmp_path):
     again = CalibrationCache(path, "2026-09-28")
     assert again.get("summarizer:x:brief:8000") == CallProfile("x", 1.1, 900.0, 3000, 0.02)
     assert CalibrationCache(path, "2026-09-29").get("summarizer:x:brief:8000") is None  # stale next day
+
+
+@pytest.mark.asyncio
+async def test_a_rejected_answer_stops_the_run_and_keeps_the_request(graph_app, tmp_path):
+    """A provider rejecting the answering call (OpenAI's invalid_prompt, say)
+    used to escape run_live_grid as an exception, losing the spend report and
+    any trace of which request it was."""
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+
+    from app.llm import CallableModelFactory
+    from app.services.compaction_eval import write_failures
+
+    class Rejecting(FakeListChatModel):
+        def _call(self, *args, **kwargs):
+            raise ValueError("Invalid prompt: flagged")
+
+        async def _acall(self, *args, **kwargs):
+            raise ValueError("Invalid prompt: flagged")
+
+    scenario = build_dense_scenario(n_facts=4, exchanges=10, seed=3)
+    spend = Spend(BOOK, limit=100.0)
+    factory = CallableModelFactory(lambda *_: Rejecting(responses=["unused"]))
+    results = await run_live_grid(
+        graph_app, {"3": scenario}, ["gpt-6-luna"], [Condition("never", NeverCompact())],
+        model_factory=factory, spend=spend,
+    )
+    assert results == []
+    assert spend.exhausted and "Invalid prompt" in spend.errors[0]
+    failure = spend.failures[0]
+    assert failure["node"] == "draft" and "Invalid prompt" in failure["error"]
+    assert failure["last_human"]  # the rejected request, to read locally
+
+    saved = write_failures(spend, tmp_path / "failed.json")
+    assert saved and "last_human" in (tmp_path / "failed.json").read_text()
+    assert write_failures(Spend(BOOK), tmp_path / "none.json") is None

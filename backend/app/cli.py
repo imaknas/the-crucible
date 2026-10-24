@@ -776,6 +776,9 @@ def compaction_eval(
     console.print(f"\nUsage: {json.dumps(result['usage'], indent=1)}")
     if result.get("spend", {}).get("model_errors"):
         console.print(f"[bold red]Stopped: a model call failed[/bold red] ({result['spend']['model_errors'][0]}). Results are incomplete.")
+        if result["spend"].get("failed_requests"):
+            console.print(f"The failed request is saved in {result['spend']['failed_requests']}; inspect it there "
+                          "rather than sending it again (a provider that flagged a prompt may flag the account).")
     if result.get("spend"):
         sp = result["spend"]
         console.print(f"Spent ${sp['total']:.2f} of ${sp['budget']:.2f} (estimate was ${sp['estimate']:.2f})"
@@ -792,6 +795,13 @@ def _cheapest_models() -> List[str]:
     from app.services.compaction_eval import cheapest_models
 
     return cheapest_models(MODEL_REGISTRY, load_catalog(), PriceBook(load_prices(), date.today().isoformat()))
+
+
+def _failures_path(prefix: str):
+    """Where a run's failed requests are saved (gitignored)."""
+    from pathlib import Path
+
+    return Path(__file__).resolve().parents[1] / "experiments" / ".failures" / f"{prefix}.json"
 
 
 def _replay_cache():
@@ -980,6 +990,9 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
     }
     if run.spend:
         summary["spend"] = ce.spend_summary(run, budget)
+        failures = ce.write_failures(run.spend, _failures_path(run.prefix))
+        if failures:
+            summary["spend"]["failed_requests"] = failures
     if out:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         Path(out).write_text(json.dumps({**summary, "probes": ce.results_as_dicts(results)}, ensure_ascii=False, indent=1))
@@ -1106,7 +1119,13 @@ async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_
     records = sa.audit(run.results, scaffolds, model_ids, min_effect=min_effect)
     spend = ce.spend_summary(run, budget)
     if spend and spend["model_errors"]:
-        raise ValueError(f"a model call failed, audit not recorded: {spend['model_errors'][0]}")
+        failures = ce.write_failures(run.spend, _failures_path(prefix))
+        raise ValueError(
+            f"a model call failed, audit not recorded: {spend['model_errors'][0]}. "
+            f"Spent ${spend['total']:.2f} of ${budget:.2f}."
+            + (f" The failed request is saved in {failures}; inspect it there rather than sending it again."
+               if failures else "")
+        )
     # Every probe, so a verdict can be traced to the answers behind it.
     runs_dir = sa.DEFAULT_HISTORY.parent / "runs"
     runs_dir.mkdir(parents=True, exist_ok=True)

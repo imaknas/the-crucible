@@ -158,13 +158,37 @@ class Spend(BaseCallbackHandler):
         # it; in an experiment that silently turns a compacted condition into
         # an uncompacted one. Any failed model call halts the run instead.
         self.errors: list[str] = []
+        # What each failed call was asked, so a rejected request (a provider
+        # flagging a prompt, say) can be inspected locally instead of being
+        # sent again to find out which one it was.
+        self.failures: list[dict[str, Any]] = []
+        self._calls: dict[Any, dict[str, Any]] = {}
         self._lock = threading.Lock()
 
-    def on_llm_error(self, error: BaseException, **kwargs: Any) -> None:
+    def on_chat_model_start(self, serialized, messages, *, run_id=None, metadata=None, **kwargs: Any) -> None:
+        metadata = metadata or {}
+        model = metadata.get("ls_model_name") or ((serialized or {}).get("kwargs") or {}).get("model_name")
+        flat = [m for batch in messages for m in batch]
+        last_human = next((m for m in reversed(flat) if getattr(m, "type", "") == "human"), None)
         with self._lock:
-            self.errors.append(f"{type(error).__name__}: {str(error)[:200]}")
+            self._calls[run_id] = {
+                "model": model,
+                "thread_id": metadata.get("thread_id"),
+                "node": metadata.get("langgraph_node"),
+                "messages": len(flat),
+                "last_human": str(last_human.content) if last_human is not None else None,
+            }
+
+    def on_llm_error(self, error: BaseException, *, run_id=None, **kwargs: Any) -> None:
+        with self._lock:
+            call = self._calls.pop(run_id, {})
+            where = f" [{call['model']}]" if call.get("model") else ""
+            self.errors.append(f"{type(error).__name__}{where}: {str(error)[:200]}")
+            self.failures.append({**call, "error": f"{type(error).__name__}: {error}"})
 
     def on_llm_end(self, response, **kwargs: Any) -> None:
+        with self._lock:
+            self._calls.pop(kwargs.get("run_id"), None)
         try:
             message = response.generations[0][0].message
         except (IndexError, AttributeError):
@@ -500,9 +524,12 @@ async def run_live_grid(
     batches = await asyncio.gather(*(
         one(m, label, sc, cond) for m in model_ids for label, sc in scenarios.items() for cond in conditions
     ), return_exceptions=True)
-    # A branch whose replay hit the budget has no results; anything else is a real failure.
+    # A branch whose replay hit the budget has no results; anything else is a
+    # real failure. A failed model call is already recorded in `spend`, which
+    # stops the run with its spend and the failing request reported; raising
+    # it here lost both.
     failures = [b for b in batches if isinstance(b, BaseException) and not isinstance(b, BudgetExhausted)]
-    if failures:
+    if failures and not (spend and spend.errors):
         raise failures[0]
     return [r for batch in batches if not isinstance(batch, BaseException) for r in batch]
 
@@ -1191,6 +1218,20 @@ class CalibrationCache:
         self._data[key] = {"day": self.day, "profile": asdict(profile)}
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(self._data, indent=1))
+
+
+def write_failures(spend: Optional[Spend], path) -> Optional[str]:
+    """Save what each failed call was asked to `path` (JSON) and return it,
+    or None when nothing failed. Kept out of results files: it is for finding
+    which request a provider rejected without sending it again."""
+    if not spend or not spend.failures:
+        return None
+    from pathlib import Path
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(spend.failures, ensure_ascii=False, indent=1))
+    return str(path)
 
 
 def spend_summary(run: BudgetedRun, budget: Optional[float]) -> Optional[dict]:

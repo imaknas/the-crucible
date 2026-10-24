@@ -52,3 +52,5 @@ backend/experiments/*.sqlite*
 # Same-day calibration profiles for cost estimates (local)
 backend/experiments/.calibration-cache.json
 backend/experiments/.replay-cache/
+# Requests a provider rejected during an experiment, for local inspection
+backend/experiments/.failures/
