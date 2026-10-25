@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import * as api from "@/lib/api";
 import { modelDisplayName } from "@/lib/modelNames";
 
@@ -17,15 +17,11 @@ export function useModelCatalog() {
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   // The summarizer the backend uses when none is chosen, for the keys that are set.
   const [defaultSummarizer, setDefaultSummarizer] = useState<string | null>(null);
-  // A ref as well, so long-lived socket handlers resolve names without
-  // re-subscribing whenever the catalogue loads.
-  const familiesRef = useRef<api.ModelFamily[]>([]);
 
   const load = useCallback(() => {
     return api
       .fetchModels()
       .then((data) => {
-        familiesRef.current = data.families;
         setFamilies(data.families);
         setStatus("ready");
         setDefaultSummarizer(data.default_summarizer ?? null);
@@ -46,7 +42,9 @@ export function useModelCatalog() {
     load();
   }, [load]);
 
-  const modelLabel = useCallback((id: string) => modelDisplayName(id, familiesRef.current), []);
+  // Changes identity once the catalogue loads, so memoised views that show
+  // names re-render with them. Socket handlers read it through a ref.
+  const modelLabel = useCallback((id: string) => modelDisplayName(id, families), [families]);
   const allModelIds = families.flatMap((f) => f.models.map((m) => m.id));
 
   return {

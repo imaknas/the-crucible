@@ -13,7 +13,7 @@ import { CheckCircle2, Sparkles, Network, Scale, Swords, X as XIcon, Pause, Play
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatInput } from "./ChatInput";
 import DebateBanner, { type DebateBannerState } from "./DebateBanner";
-import { MessageBubble, getModelColor, getModelLabel } from "./MessageBubble";
+import { MessageBubble, getModelColor } from "./MessageBubble";
 import { DebateUiStatus, Message } from "@/lib/types";
 
 interface ChatViewProps {
@@ -46,6 +46,8 @@ interface ChatViewProps {
   onDebateSynthesize?: () => void;
   onDebatePause?: () => void;
   onDebateResume?: () => void;
+  /** Display name for a model ID; raw IDs only appear in tooltips. */
+  modelLabel: (id: string) => string;
 }
 
 
@@ -79,6 +81,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onDebateSynthesize,
   onDebatePause,
   onDebateResume,
+  modelLabel,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerContentRef = useRef<HTMLDivElement>(null);
@@ -599,6 +602,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                     isDark={isDark}
                     onMount={registerMessageRef}
                     index={i}
+                    modelLabel={modelLabel}
                   />
                 );
               }
@@ -612,6 +616,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                   isDark={isDark}
                   onMount={registerMessageRef}
                   index={i}
+                  modelLabel={modelLabel}
                 />
               );
             })}
@@ -732,7 +737,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                     const isActive = sib.id === activeCheckpoint;
                     const sibModel = sib.metadata?.active_peer || "assistant";
                     const sibColor = getModelColor(sibModel);
-                    const sibLabel = getModelLabel(sibModel);
+                    const sibLabel = sib.metadata?.model_name || modelLabel(sibModel);
 
                     return (
                       <Paper
@@ -796,6 +801,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                             />
                             <Typography
                               variant="overline"
+                              title={sibModel}
                               sx={{
                                 fontSize: "0.75rem",
                                 fontWeight: 800,

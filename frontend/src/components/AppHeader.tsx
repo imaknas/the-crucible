@@ -17,12 +17,14 @@ export default function AppHeader({
   showTree,
   onShowTreeChange,
   onHome,
+  modelLabel,
 }: {
   connection: { tone: ConnectionTone; label: string };
   selectedModels: string[];
   showTree: boolean;
   onShowTreeChange: (tree: boolean) => void;
   onHome: () => void;
+  modelLabel: (id: string) => string;
 }) {
   const { isDark, toggleMode } = useThemeMode();
   return (
@@ -167,8 +169,9 @@ export default function AppHeader({
           </Box>
           <Typography
             variant="overline"
+            title={selectedModels.join(", ")}
             sx={{
-              fontSize: "0.6rem",
+              fontSize: "0.6875rem",
               fontWeight: 800,
               letterSpacing: "0.1em",
               color: "text.secondary",
@@ -176,7 +179,7 @@ export default function AppHeader({
             }}
           >
             {selectedModels.length === 1
-              ? selectedModels[0].split("-")[0].toUpperCase()
+              ? modelLabel(selectedModels[0])
               : `${selectedModels.length} models`}
           </Typography>
         </Box>

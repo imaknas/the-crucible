@@ -5,6 +5,7 @@ import type { ModelFamily } from "@/lib/api";
 import type { DebateDefaults, Toggles } from "@/lib/types";
 import type { CatalogStatus } from "@/hooks/useModelCatalog";
 import { modelFamilyColor } from "@/lib/colors";
+import { modelDisplayName } from "@/lib/modelNames";
 import StatusSection from "./control-panel/StatusSection";
 import ModelPickerSection from "./control-panel/ModelPickerSection";
 import ParametersSection from "./control-panel/ParametersSection";
@@ -102,7 +103,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
           {/* Selected models stay legible on the rail as family dots. */}
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, mt: 0.5 }}>
             {selectedModels.map((m) => (
-              <Tooltip key={m} title={m} placement="left" arrow>
+              <Tooltip key={m} title={modelDisplayName(m, families)} placement="left" arrow>
                 <Box
                   sx={{
                     width: 9,

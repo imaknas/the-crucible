@@ -138,6 +138,7 @@ export default function Home() {
     setActiveCheckpoint,
     setErrorModals,
     showConfirm,
+    modelLabel,
   });
 
   useEffect(() => {
@@ -271,6 +272,7 @@ export default function Home() {
           showTree={showTree}
           onShowTreeChange={setShowTree}
           onHome={() => switchThread("")}
+          modelLabel={modelLabel}
         />
 
         <div className="flex-1 relative flex flex-col min-h-0 w-full h-full">
@@ -372,6 +374,7 @@ export default function Home() {
                   }
                   onDebatePause={inDebate && debate.controls.pause ? debate.pause : undefined}
                   onDebateResume={inDebate && debate.controls.resume ? debate.resume : undefined}
+                  modelLabel={modelLabel}
                 />
               </motion.div>
             )}
@@ -413,6 +416,7 @@ export default function Home() {
         }
         defaults={debateDefaults}
         availableModels={allModelIds.length ? allModelIds : selectedModels}
+        modelLabel={modelLabel}
       />
 
       <ConfirmDialog request={confirmRequest} onAnswer={answerConfirm} />

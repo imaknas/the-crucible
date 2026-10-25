@@ -519,6 +519,10 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
                             "content": text,
                             "type": role,
                             "model": msg_model,
+                            # What a person reads; the raw id stays in `model`.
+                            "model_name": display_name(msg_model)
+                            if role == "assistant"
+                            else None,
                             "sources": sources,
                         }
                     )

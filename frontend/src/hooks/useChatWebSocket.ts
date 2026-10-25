@@ -15,6 +15,7 @@ export function useChatWebSocket({
   setActiveCheckpoint,
   setErrorModals,
   showConfirm,
+  modelLabel = (id: string) => id,
 }: {
   threadId: string | null;
   activeCheckpoint: string | null;
@@ -32,6 +33,8 @@ export function useChatWebSocket({
   setActiveCheckpoint: (cpId: string | null) => void;
   setErrorModals: React.Dispatch<React.SetStateAction<any[]>>;
   showConfirm: (title: string, message: string) => Promise<boolean>;
+  /** Display name for a model ID. */
+  modelLabel?: (id: string) => string;
 }) {
   const openSocket = useSocketFactory();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -57,6 +60,11 @@ export function useChatWebSocket({
   useEffect(() => {
     onHistoryRefreshRef.current = onHistoryRefreshNeeded;
   }, [onHistoryRefreshNeeded]);
+
+  const modelLabelRef = useRef(modelLabel);
+  useEffect(() => {
+    modelLabelRef.current = modelLabel;
+  }, [modelLabel]);
 
   const setActiveCheckpointRef = useRef(setActiveCheckpoint);
   useEffect(() => {
@@ -178,7 +186,7 @@ export function useChatWebSocket({
             ...prev,
             {
               id: Math.random().toString(36).substring(7),
-              title: data.model ? `${data.model} Error` : "API Error",
+              title: data.model ? `${modelLabelRef.current(data.model)} failed` : "API Error",
               details: data.message,
               suggestion: "Check your API keys and model parameters.",
             },

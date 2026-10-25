@@ -38,6 +38,9 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.getByText(answerFrom(GPT))).toBeVisible();
     await expect(page.getByText(answerFrom(CLAUDE))).toBeVisible();
     await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+    // Replies are labelled with display names, never a reshuffled raw ID.
+    await expect(page.getByText(/^Claude Sonnet 5\.5$/i).first()).toBeVisible();
+    await expect(page.getByText(/claude sonnet 5 5/i)).toHaveCount(0);
 
     // Regression guard for parallel-run isolation: each model's branch holds
     // exactly one prompt and its own reply, never the other model's turn.

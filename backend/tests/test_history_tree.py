@@ -163,6 +163,20 @@ class TestFormatMessages:
         assert result[0]["role"] == "assistant"
         assert result[0]["model"] == "gpt-5.2"
 
+    def test_replies_carry_a_display_name(self):
+        from app.api.models import MODEL_REGISTRY
+        from app.services.tree import format_messages
+
+        model_id = next(iter(MODEL_REGISTRY))
+        user = _make_state("cp1", messages=[_make_message("Hello", "human")])
+        reply = _make_state(
+            "cp2", parent_id="cp1", messages=[_make_message("Reply", "ai")], active_peer=model_id
+        )
+        result = format_messages("cp2", {"cp1": user, "cp2": reply})
+        assert result[0]["model_name"] is None
+        assert result[1]["model"] == model_id
+        assert result[1]["model_name"] == MODEL_REGISTRY[model_id]["name"]
+
     def test_mixed_messages(self):
         from app.services.tree import format_messages
 

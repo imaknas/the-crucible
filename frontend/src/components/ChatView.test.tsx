@@ -1,6 +1,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import ChatView from "./ChatView";
+import { replyAuthor } from "./MessageBubble";
 
 // Mock high-level hooks and dependencies
 jest.mock("@/hooks/useChatWebSocket", () => ({
@@ -87,6 +88,7 @@ describe("ChatView", () => {
     onHistoryRefreshNeeded: jest.fn(),
     setActiveCheckpoint: jest.fn(),
     setErrorModals: jest.fn(),
+    modelLabel: (id: string) => (id === "claude-sonnet-5-5" ? "Claude Sonnet 5.5" : id),
   };
 
   it("renders messages correctly", () => {
@@ -108,5 +110,34 @@ describe("ChatView", () => {
   it("shows welcome screen when no threadId exists", () => {
     render(<ChatView {...mockProps} threadId={null} />);
     expect(screen.getByText(/Ask the arena anything/i)).toBeInTheDocument();
+  });
+
+  it("labels a reply with the model's display name, raw ID only in the tooltip", () => {
+    render(
+      <ChatView
+        {...mockProps}
+        messages={[
+          { id: "u", role: "user", content: "Hi", type: "human" },
+          { id: "a", role: "assistant", content: "Hello", type: "ai", model: "claude-sonnet-5-5" },
+        ]}
+      />,
+    );
+    const label = screen.getByText("Claude Sonnet 5.5");
+    expect(label).toHaveAttribute("title", "claude-sonnet-5-5");
+    expect(screen.queryByText(/CLAUDE SONNET 5 5/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("replyAuthor", () => {
+  const label = (id: string) => (id === "gpt-6.1-sol" ? "GPT-6.1 Sol" : id);
+  it("prefers the backend's display name", () => {
+    expect(replyAuthor({ model: "gpt-6.1-sol", model_name: "Backend Name" }, label)).toBe("Backend Name");
+  });
+  it("falls back to the catalogue", () => {
+    expect(replyAuthor({ model: "gpt-6.1-sol" }, label)).toBe("GPT-6.1 Sol");
+  });
+  it("never invents a name from an unknown author", () => {
+    expect(replyAuthor({ model: "assistant" }, label)).toBe("Assistant");
+    expect(replyAuthor({}, label)).toBe("Assistant");
   });
 });

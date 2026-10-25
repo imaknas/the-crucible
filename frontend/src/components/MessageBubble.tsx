@@ -88,16 +88,17 @@ export function getModelColor(model?: string): {
   };
 }
 
-export function getModelLabel(model?: string): string {
-  if (!model) return "Crucible Core";
-  // Capitalize each segment: "gpt-5.2" → "GPT 5.2", "claude-sonnet-4-6" → "Claude Sonnet 4 6"
-  return model
-    .split("-")
-    .map((s, i) => {
-      if (i === 0) return s.toUpperCase();
-      return s.charAt(0).toUpperCase() + s.slice(1);
-    })
-    .join(" ");
+/**
+ * Who wrote a reply, as a person reads it: the backend's display name, then
+ * the catalogue's, never a reshuffled raw ID.
+ */
+export function replyAuthor(
+  msg: Pick<Message, "model" | "model_name">,
+  modelLabel: (id: string) => string,
+): string {
+  if (msg.model_name) return msg.model_name;
+  if (!msg.model || msg.model === "assistant") return "Assistant";
+  return modelLabel(msg.model);
 }
 
 // ─── MessageBubble ────────────────────────────────────────────────────────────
@@ -108,12 +109,16 @@ interface MessageBubbleProps {
   isDark: boolean;
   onMount: (node: HTMLDivElement | null, idx: number) => void;
   index: number;
+  /** Resolves a model ID to its display name (useModelCatalog's modelLabel). */
+  modelLabel?: (id: string) => string;
 }
 
+const identity = (id: string) => id;
+
 export const MessageBubble = React.memo(
-  ({ msg, isUser, isDark, onMount, index }: MessageBubbleProps) => {
+  ({ msg, isUser, isDark, onMount, index, modelLabel = identity }: MessageBubbleProps) => {
     const modelColor = getModelColor(isUser ? undefined : msg.model);
-    const modelLabel = getModelLabel(msg.model);
+    const author = replyAuthor(msg, modelLabel);
 
     // Standardize content string extraction for the whole component
     const rawContent =
@@ -182,6 +187,7 @@ export const MessageBubble = React.memo(
             )}
             <Typography
               variant="overline"
+              title={isUser ? undefined : msg.model}
               sx={{
                 fontSize: "0.7rem",
                 fontWeight: 800,
@@ -189,7 +195,7 @@ export const MessageBubble = React.memo(
                 lineHeight: 1,
               }}
             >
-              {isUser ? "You" : modelLabel}
+              {isUser ? "You" : author}
             </Typography>
           </Box>
           <Box

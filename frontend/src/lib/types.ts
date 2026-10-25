@@ -7,6 +7,8 @@ export interface Message {
   content: string;
   type?: string;
   model?: string;
+  /** Display name for `model`, from the backend; the raw ID stays in `model`. */
+  model_name?: string;
   streaming?: boolean;
   sources?: { text: string; filename: string }[];
 }

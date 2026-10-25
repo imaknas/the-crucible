@@ -269,7 +269,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5, width: "100%" }}>
                         <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: result.role === "user" ? "primary.main" : "success.main" }} />
                         <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", fontSize: "0.6rem", color: "text.secondary" }}>
-                          {result.model || (result.role === "user" ? "User" : "AI")}
+                          {result.role === "user" ? "You" : result.model ? modelLabel(result.model) : "Assistant"}
                         </Typography>
                       </Box>
                       <Typography variant="body2" sx={{ fontSize: "0.75rem", color: "text.primary", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontStyle: "italic", opacity: 0.8 }}>

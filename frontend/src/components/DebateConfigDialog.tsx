@@ -25,6 +25,8 @@ interface DebateConfigDialogProps {
   onStart: (config: DebateDefaults) => void;
   defaults: DebateDefaults;
   availableModels: string[];
+  /** Display name for a model ID; the ID itself goes in a tooltip. */
+  modelLabel: (id: string) => string;
 }
 
 export default function DebateConfigDialog({
@@ -33,6 +35,7 @@ export default function DebateConfigDialog({
   onStart,
   defaults,
   availableModels,
+  modelLabel,
 }: DebateConfigDialogProps) {
   const isDark = useTheme().palette.mode === "dark";
   const [config, setConfig] = useState<DebateDefaults>(defaults);
@@ -160,8 +163,8 @@ export default function DebateConfigDialog({
                 </Typography>
               </MenuItem>
               {availableModels.map((m) => (
-                <MenuItem key={m} value={m}>
-                  <Typography variant="caption">{m}</Typography>
+                <MenuItem key={m} value={m} title={m}>
+                  <Typography variant="caption">{modelLabel(m)}</Typography>
                 </MenuItem>
               ))}
             </Select>
@@ -223,8 +226,8 @@ export default function DebateConfigDialog({
                   </Typography>
                 </MenuItem>
                 {availableModels.map((m) => (
-                  <MenuItem key={m} value={m}>
-                    <Typography variant="caption">{m}</Typography>
+                  <MenuItem key={m} value={m} title={m}>
+                    <Typography variant="caption">{modelLabel(m)}</Typography>
                   </MenuItem>
                 ))}
               </Select>
