@@ -1,6 +1,8 @@
-from typing import Annotated, Dict, List, Optional, TypedDict
-from langchain_core.messages import BaseMessage
+from typing import Annotated, Any, Dict, List, Optional, TypedDict
+from langchain_core.messages import BaseMessage, SystemMessage
 from langgraph.graph.message import add_messages
+
+from app.utils.helpers import extract_text
 
 
 class CrucibleState(TypedDict):
@@ -28,3 +30,49 @@ class CrucibleState(TypedDict):
 
     # Immediate Session Documents (non-RAG)
     documents: Optional[Dict[str, str]]
+
+
+# ─── Context summaries ─────────────────────────────────────────────
+# summarize_history appends a system message holding the summary. It is
+# recognised by a flag on the message, not by its text: a user message or an
+# attached document that merely quotes the marker must never be taken for a
+# summary (sanitize_messages drops everything before one).
+SUMMARY_MARKER = "PREVIOUS CONTEXT SUMMARY:"
+SUMMARY_FLAG = "crucible_summary"
+
+
+def summary_message(text: str) -> SystemMessage:
+    """The system message summarize_history writes."""
+    return SystemMessage(
+        content=f"{SUMMARY_MARKER} {text}",
+        additional_kwargs={SUMMARY_FLAG: True},
+    )
+
+
+def _field(message: Any, name: str) -> Any:
+    if isinstance(message, dict):
+        return message.get(name)
+    return getattr(message, name, None)
+
+
+def is_summary_message(message: Any) -> bool:
+    """Whether `message` (a LangChain message or its dict form) is a summary
+    written by summarize_history.
+
+    Only system messages qualify. Summaries written before the flag existed
+    carry no flag but always start with the marker, so an unflagged system
+    message counts when its text starts with it; the drafting system prompt,
+    which embeds attached documents and RAG chunks, never does.
+    """
+    role = _field(message, "type") or _field(message, "role")
+    if role != "system":
+        return False
+    if (_field(message, "additional_kwargs") or {}).get(SUMMARY_FLAG):
+        return True
+    return extract_text(_field(message, "content") or "").lstrip().startswith(SUMMARY_MARKER)
+
+
+def summary_text(message: Any) -> str:
+    """A summary message's text without the marker."""
+    text = extract_text(_field(message, "content") or "").lstrip()
+    return text[len(SUMMARY_MARKER):].strip() if text.startswith(SUMMARY_MARKER) else text.strip()

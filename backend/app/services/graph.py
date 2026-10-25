@@ -7,7 +7,9 @@ import tiktoken
 
 from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
 from langgraph.graph import StateGraph, END
-from app.core.schema import CrucibleState
+from app.core.schema import CrucibleState, is_summary_message, summary_message
+# Re-exported: the eval harness and tests read the marker from here.
+from app.core.schema import SUMMARY_MARKER as SUMMARY_MARKER
 from app.api.models import MODEL_REGISTRY
 from langchain_core.runnables import RunnableConfig
 
@@ -17,7 +19,6 @@ from app.llm import model_factory_from
 from app.llm.providers import REQUEST_NOTES_HEADER
 from app.compaction import ContextSnapshot, DetailedBrief, EarlierMessage, KeepRecent, ModelBudget, ThresholdPolicy
 
-SUMMARY_MARKER = "PREVIOUS CONTEXT SUMMARY:"
 # Messages kept verbatim after a summary: left out of the summary when it is
 # written, and shown as-is before everything newer on every later turn.
 KEEP_VERBATIM = 5
@@ -88,11 +89,8 @@ def model_budget(model_id: str) -> ModelBudget:
 
 def _last_summary_index(messages: list) -> int:
     for i in range(len(messages) - 1, -1, -1):
-        try:
-            if SUMMARY_MARKER in extract_text(messages[i].content):
-                return i
-        except Exception:
-            pass
+        if is_summary_message(messages[i]):
+            return i
     return -1
 
 
@@ -155,7 +153,11 @@ def sanitize_messages(
         if not model_id and hasattr(m, "additional_kwargs"):
             model_id = m.additional_kwargs.get("model_id")
 
-        processed.append({"role": m.type, "content": clean_text, "name": model_id})
+        processed.append({
+            "role": m.type, "content": clean_text, "name": model_id,
+            # Decided on the message itself: the dict form drops its flags.
+            "summary": is_summary_message(m),
+        })
 
     if not processed:
         return [HumanMessage(content="Analyze.")]
@@ -165,12 +167,10 @@ def sanitize_messages(
     if not prune_history:
         # If the model can handle full history, we keep it all.
         # But we STRIP out any existing summary markers to keep it clean.
-        processed = [
-            p for p in processed if "PREVIOUS CONTEXT SUMMARY:" not in str(p["content"])
-        ]
+        processed = [p for p in processed if not p["summary"]]
     else:
         for i, p in enumerate(processed):
-            if "PREVIOUS CONTEXT SUMMARY:" in str(p["content"]):
+            if p["summary"]:
                 summary_index = i
 
     if summary_index != -1:
@@ -181,8 +181,7 @@ def sanitize_messages(
         sys_messages = [
             p
             for p in processed[:summary_index]
-            if p["role"] == "system"
-            and "PREVIOUS CONTEXT SUMMARY:" not in str(p["content"])
+            if p["role"] == "system" and not p["summary"]
         ]
 
         # 2. Key fix: Keep everything FROM the summary onwards
@@ -716,7 +715,7 @@ def summarize_history(state: CrucibleState, config: RunnableConfig):
         if last_summary_pos != -1:
             carried = [
                 m for m in messages[max(0, last_summary_pos - KEEP_VERBATIM):last_summary_pos]
-                if SUMMARY_MARKER not in extract_text(m.content)
+                if not is_summary_message(m)
             ]
             to_summarize = [messages[last_summary_pos]] + carried + messages[last_summary_pos + 1:-KEEP_VERBATIM]
         else:
@@ -761,9 +760,7 @@ def summarize_history(state: CrucibleState, config: RunnableConfig):
         raw_summary = extract_text(summary.content)
         clean_summary = re.sub(r"\[\{.*?\}\]", "", raw_summary)
 
-        summary_msg = SystemMessage(
-            content=f"PREVIOUS CONTEXT SUMMARY: {clean_summary.strip() or 'Context summarized.'}"
-        )
+        summary_msg = summary_message(clean_summary.strip() or "Context summarized.")
 
         # NON-DESTRUCTIVE: We no longer use RemoveMessage here.
         # This keeps the full history available for large-context models like Gemini.

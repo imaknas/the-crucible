@@ -17,6 +17,7 @@ from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
 from app.core import database as db
+from app.core.schema import is_summary_message, summary_text
 from app.services import arena as arena_svc
 from app.services import debate as debate_svc
 
@@ -244,12 +245,10 @@ async def get_thread_summary(thread_id: str) -> Dict[str, Any]:
         state = await graph_app.aget_state({"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}})
     if not state.values:
         raise ToolError(f"Thread {thread_id} not found.")
-    summary = None
-    for msg in reversed(state.values.get("messages", [])):
-        content = str(msg.content)
-        if "PREVIOUS CONTEXT SUMMARY:" in content:
-            summary = content.split("PREVIOUS CONTEXT SUMMARY:", 1)[1].strip()
-            break
+    summary = next(
+        (summary_text(m) for m in reversed(state.values.get("messages", [])) if is_summary_message(m)),
+        None,
+    )
     return {
         "thread_id": thread_id,
         "thesis": state.values.get("current_thesis") or None,

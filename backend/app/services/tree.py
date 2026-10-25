@@ -3,6 +3,7 @@ from collections import deque
 from typing import List, Dict, Optional, Any, Set, Tuple
 from app.core import database as db
 from app.core.database import load_node_positions
+from app.core.schema import is_summary_message
 from app.api.models import display_name
 from app.services.runs import is_seed
 from app.utils.helpers import extract_text, get_preview_text
@@ -220,7 +221,7 @@ def deduplicate_checkpoints(
             elif isinstance(last, dict):
                 content = last.get("content", "")
 
-            if content and "PREVIOUS CONTEXT SUMMARY:" in content:
+            if content and is_summary_message(last):
                 summary_ids.add(vis_id)
 
     significant_ids = significant_ids - summary_ids
@@ -469,7 +470,7 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
 
             # 3. Filter technical markers
             is_technical = (
-                "PREVIOUS CONTEXT SUMMARY:" in content_str
+                is_summary_message(msg)
                 or "Please act as the Crucible Lead" in content_str
                 or getattr(msg, "type", "") == "remove"
             )

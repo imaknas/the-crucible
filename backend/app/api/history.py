@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from app.core import database as db
+from app.core.schema import is_summary_message
 from app.services.tree import build_history_tree, load_thread_states
 from app.api.deps import get_graph_app
 
@@ -165,7 +166,7 @@ async def search_history(thread_id: str, q: str, graph_app=Depends(get_graph_app
 
         # Filter technical markers (summaries, synthesis prompts, remove operations)
         if (
-            "PREVIOUS CONTEXT SUMMARY:" in content_str
+            is_summary_message(last_msg)
             or "Please act as the Crucible Lead" in content_str
             or getattr(last_msg, "type", "") == "remove"
         ):

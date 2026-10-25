@@ -1,5 +1,6 @@
 """Turning stored LangChain messages into what the chat client renders."""
 
+from app.core.schema import is_summary_message
 from app.utils.helpers import extract_text
 
 
@@ -17,7 +18,7 @@ def format_chat_messages(raw_messages: list, active_model: str) -> list:
             else (m.get("content", "") if isinstance(m, dict) else str(m))
         )
         # Skip technical system markers
-        if "PREVIOUS CONTEXT SUMMARY:" in str(content):
+        if is_summary_message(m):
             continue
         meaningful_messages.append(m)
 
