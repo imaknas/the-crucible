@@ -298,10 +298,13 @@ DEFAULT_ARENA_MODELS = ["gpt-6.1-sol", "claude-sonnet-5-5", "gemini-3.1-pro-prev
 # facts) and the cheapest, ~1/25 of gemini-3.8-flash per summary at 2027
 # prices. Its summaries alone keep much less (42/96): it relies on recall.
 # gemini-3.8-flash keeps the most without recall; haiku trails on dense detail.
-# On an Anthropic key alone it is claude-haiku-5-5: in the 2026-10-25 audit
-# its summaries lost nothing measurable against luna's (strict oracle 1.00 →
-# 0.98, readers equal), while claude-haiku-4-5's were harmful (1.00 → 0.79),
-# at a tenth of 4.5's price.
+# On an Anthropic key alone it is claude-haiku-5-5: a tenth of claude-haiku-4-5's
+# price and not detectably worse in the 2026-10-25 audit. (That audit's
+# "4.5 harmful, 1.00 → 0.79" reading was a harness artifact; NOTES.md,
+# 2026-10-25 "Harness bias".) Rescored, pilot 22's rule picks gemini-3.8-flash
+# over luna by a margin inside the noise; luna stays first on cost (17–30×
+# cheaper per summary) until a rerun on the fixed harness with more
+# conversations settles it.
 SUMMARIZER_MODELS = ["gpt-6-luna", "gemini-3.8-flash", "claude-haiku-5-5"]
 
 # Which model chooses what to fetch back once history is summarized; the
