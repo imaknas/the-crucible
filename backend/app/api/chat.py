@@ -17,6 +17,7 @@ from app.services.chat import auto_title, build_turn_input
 from app.services.chat import stream_turn
 from app.services.message_format import format_chat_messages
 from app.services.context import ContextSettings
+from app.services.documents import attach_documents
 from app.services.runs import (
     final_state_of_run,
     resolve_fork_point,
@@ -48,13 +49,13 @@ async def chat(request: ChatRequest, graph_app=Depends(get_graph_app)):
     parent_id = request.parent_checkpoint_id or await resolve_fork_point(graph_app, request.thread_id)
     config = context.apply(thread_config(request.thread_id, parent_id))
     run_id = tag_run(config)
+    await attach_documents(config, request.documents)
     state = await graph_app.aget_state(config)
     turn_input = build_turn_input(
         state.values,
         message=request.message,
         model=request.model,
         toggles=request.toggles,
-        documents=request.documents,
     )
     result = await graph_app.ainvoke(turn_input, config)
     new_state = await final_state_of_run(graph_app, request.thread_id, run_id)

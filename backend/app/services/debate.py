@@ -17,6 +17,7 @@ from app.api.models import MODEL_REGISTRY
 from app.core import database as db
 from app.services.convergence import build_convergence_check
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
+from app.services.documents import attach_documents
 from app.services.recall import INTERNAL_TAG
 from app.services.synthesis import AFTER_DEBATE, build_synthesis_prompt
 from app.services.runs import (
@@ -30,9 +31,9 @@ from app.utils.helpers import extract_text
 
 # ─── Constants ───────────────────────────────────────────────────────────────
 
-# Per-model budget for one round's graph run (summarise → draft → metadata →
-# synthesis). A reply whose draft already finished is kept even if the later
-# bookkeeping nodes run past it.
+# Per-model budget for one round's graph run (summarise → draft and the
+# pass-through nodes after it). A reply whose draft already finished is kept
+# even if the later nodes run past it.
 MODEL_TIMEOUT_SECONDS = 120
 
 # Rounds a session may ask for. The API has no authentication, so this bounds
@@ -404,12 +405,16 @@ async def _stream_round(
                 "messages": [("user", model_prompt)],
                 "toggles": {**toggles, "use_rag": toggles.get("use_rag", False)},
                 "is_deliberation": round_num > 0,
-                "documents": documents,
+                "documents": {},
             }
             # Each model has its own sub-thread, so every round continues from
             # that thread's head: the seeded conversation, or the last round.
             langgraph_config = context.apply(thread_config(thread_id))
             run_id = tag_run(langgraph_config)
+            if round_num == 0:
+                # Each participant drafts on its own sub-thread, so the
+                # documents are stored for it; later rounds read them there.
+                await attach_documents(langgraph_config, documents)
 
             await queue.put({
                 "type": "stream_start",

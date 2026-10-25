@@ -9,6 +9,7 @@ their own branches.
 from typing import Any, AsyncIterator, Dict, Mapping, Optional
 
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
+from app.services.documents import attach_documents
 from app.services.recall import INTERNAL_TAG
 from app.services.runs import final_state_of_run, tag_run, thread_config
 from app.utils.helpers import clean_string, extract_text
@@ -23,13 +24,14 @@ def build_turn_input(
     message: Optional[str],
     model: str,
     toggles: Optional[Mapping[str, bool]] = None,
-    documents: Optional[Mapping[str, str]] = None,
     is_deliberation: bool = False,
 ) -> Dict[str, Any]:
     """The graph input for one model's turn, given the parent's state values.
 
-    Documents travel in state rather than in the message, to keep history
-    clean. Empty prompts get a stand-in: Anthropic rejects empty content.
+    Attached documents are not part of it: they are saved per thread
+    (services/documents.py). `documents` is reset so a parent checkpoint
+    from before that change stops handing its copy down to every new
+    checkpoint. Empty prompts get a stand-in: Anthropic rejects empty content.
     """
     text = clean_string(message or "")
     if len(text) > MAX_PROMPT_CHARS:
@@ -46,7 +48,7 @@ def build_turn_input(
         "active_peer": model,
         "toggles": {**state_values.get("toggles", {}), **(toggles or {})},
         "is_deliberation": is_deliberation,
-        "documents": dict(documents or {}),
+        "documents": {},
         "messages": [("user", prompt)],
     }
 
@@ -102,6 +104,7 @@ async def stream_turn(
     carrying the new checkpoint id and the path's messages. Raises on failure."""
     config = context.apply(thread_config(thread_id, parent_checkpoint_id))
     run_id = tag_run(config)
+    await attach_documents(config, documents)
     state = await graph_app.aget_state(config)
 
     current = state.values.get("messages", [])
@@ -115,7 +118,6 @@ async def stream_turn(
         message=message,
         model=model,
         toggles=toggles,
-        documents=documents,
         is_deliberation=is_deliberation,
     )
 

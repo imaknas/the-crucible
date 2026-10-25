@@ -1,7 +1,7 @@
 import sqlite3
 import json
 import os
-from typing import Any
+from typing import Any, Mapping
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Default to backend/root (two levels up from app/core), but allow override for Docker/Prod
@@ -63,6 +63,18 @@ def init_db():
         conn.execute(
             "ALTER TABLE debate_sessions ADD COLUMN round_scores TEXT DEFAULT '{}'"
         )
+
+    # Added later: documents attached to a thread, once per (thread, filename),
+    # instead of in the graph state of every checkpoint.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS thread_documents (
+            thread_id TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (thread_id, filename)
+        )
+    """)
 
     # Backfill: ensure all debate parent threads appear in thread_metadata
     conn.execute("""
@@ -230,6 +242,46 @@ def _purge_thread_rows(conn, thread_id: str) -> None:
     conn.execute("DELETE FROM writes WHERE thread_id = ?", (thread_id,))
     conn.execute("DELETE FROM node_positions WHERE thread_id = ?", (thread_id,))
     conn.execute("DELETE FROM thread_metadata WHERE thread_id = ?", (thread_id,))
+    conn.execute("DELETE FROM thread_documents WHERE thread_id = ?", (thread_id,))
+
+
+class ThreadDocumentStore:
+    """Documents attached to a conversation, stored once per thread and filename.
+
+    They used to travel in graph state, so every checkpoint a turn wrote (4-6
+    per model) carried the full text again (up to 10 MB a file). Saving is
+    idempotent: clients re-send the same documents, and a re-sent file with
+    new content replaces the old one.
+    """
+
+    def save(self, thread_id: str, documents: Mapping[str, str]) -> None:
+        if not documents:
+            return
+        conn = get_db_connection()
+        try:
+            conn.executemany(
+                """
+                INSERT INTO thread_documents (thread_id, filename, content) VALUES (?, ?, ?)
+                ON CONFLICT (thread_id, filename) DO UPDATE SET content = excluded.content
+                WHERE thread_documents.content <> excluded.content
+                """,
+                [(thread_id, str(name), str(text)) for name, text in documents.items()],
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def load(self, thread_id: str) -> dict[str, str]:
+        """The thread's documents, in the order they were first attached."""
+        conn = get_db_connection()
+        try:
+            rows = conn.execute(
+                "SELECT filename, content FROM thread_documents WHERE thread_id = ? ORDER BY created_at, rowid",
+                (thread_id,),
+            ).fetchall()
+        finally:
+            conn.close()
+        return {name: content for name, content in rows}
 
 
 def delete_debate_session(session_id: str) -> None:
@@ -388,7 +440,7 @@ def delete_thread_data(thread_id):
         # Sub-threads are namespaced "{thread_id}::…". Compared by prefix
         # rather than LIKE because thread ids contain "_", a LIKE wildcard.
         prefix = f"{thread_id}::"
-        for table in ("checkpoints", "writes", "node_positions", "thread_metadata"):
+        for table in ("checkpoints", "writes", "node_positions", "thread_metadata", "thread_documents"):
             conn.execute(
                 f"DELETE FROM {table} WHERE substr(thread_id, 1, ?) = ?",
                 (len(prefix), prefix),

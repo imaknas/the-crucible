@@ -10,6 +10,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Mapping, MutableMapping, Optional
 
+from app.services.documents import with_default_documents
 from app.services.recall import with_default_recall
 
 
@@ -38,12 +39,13 @@ class ContextSettings:
         return None
 
     def apply(self, config: MutableMapping[str, Any], env: Mapping[str, str] = os.environ):
-        """Put these settings, and the app's default recall, on a run config."""
+        """Put these settings, the app's default recall and its document
+        store on a run config."""
         from app.services.graph import SUMMARIZER_CONFIG_KEY
 
         if self.summarizer:
             config.setdefault("configurable", {})[SUMMARIZER_CONFIG_KEY] = self.summarizer
-        return with_default_recall(config, env)
+        return with_default_documents(with_default_recall(config, env))
 
 
 DEFAULT_CONTEXT = ContextSettings()

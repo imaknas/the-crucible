@@ -55,6 +55,9 @@ def isolated_db(tmp_path):
     conn.close()
 
     with patch("app.core.database.DB_PATH", test_db):
+        from app.core import database as db
+
+        db.init_db()  # the app's own tables and migrations on top
         yield test_db
 
 
