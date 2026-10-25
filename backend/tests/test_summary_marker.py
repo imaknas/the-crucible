@@ -90,7 +90,7 @@ def test_an_attached_document_quoting_the_marker_reaches_the_model():
     graph_mod.drafting_node(state, _cfg(model, thread_id="t-doc"))
     system = model.seen[0]
     assert system.type == "system"
-    assert "academic research assistant" in system.content
+    assert "[ATTACHED DOCUMENTS]" in system.content
     assert "we agreed on beta" in system.content
     sent = "\n".join(str(m.content) for m in model.seen)
     assert "First question about alpha" in sent

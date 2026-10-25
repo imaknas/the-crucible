@@ -20,6 +20,7 @@ from app.core import database as db
 from app.core.schema import is_summary_message, summary_text
 from app.services import arena as arena_svc
 from app.services import debate as debate_svc
+from app.services.context import ContextSettings
 from app.utils.helpers import extract_text
 
 load_dotenv()
@@ -70,6 +71,7 @@ async def invoke_arena(
     synthesizer: Optional[str] = None,
     use_rag: bool = False,
     use_web_search: bool = False,
+    system_prompt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Ask several models the same question in parallel and collect every answer.
 
@@ -85,11 +87,15 @@ async def invoke_arena(
         synthesizer: Model ID that writes the synthesis.
         use_rag: Search documents uploaded to this thread.
         use_web_search: Let models that support it search the web.
+        system_prompt: Instructions sent to every model (and the synthesizer) before the conversation. Default: none, so each model answers as it ships.
 
     Returns: {thread_id, answers: {model: {content, checkpoint_id, error}}, synthesis: {model, content, checkpoint_id, error} | null}
     """
     new_thread = not thread_id
     thread_id = thread_id or f"mcp-{uuid4().hex[:8]}"
+    context = ContextSettings.from_frame({"system_prompt": system_prompt})
+    if problem := context.problem():
+        raise ToolError(problem)
     try:
         resolved = arena_svc.resolve_models(models)
         chosen_synth = (synthesizer or resolved[0]) if synthesize else None
@@ -102,6 +108,7 @@ async def invoke_arena(
                     resolved,
                     {"use_rag": use_rag, "use_web_search": use_web_search},
                     chosen_synth,
+                    context=context,
                 )
             )
     except ValueError as e:

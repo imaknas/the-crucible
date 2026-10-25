@@ -197,7 +197,7 @@ class TestNodes:
         from langchain_core.messages import AIMessage, HumanMessage
 
         mock_llm = MagicMock()
-        mock_response = AIMessage(content="Confidence: 95%\nThis is a test.")
+        mock_response = AIMessage(content="This is a test. There is a contradiction here.")
         mock_llm.invoke.return_value = mock_response
         mock_get_model.return_value = mock_llm
 
@@ -213,22 +213,49 @@ class TestNodes:
 
         mock_get_model.assert_called_once_with("gpt-5.2", state["toggles"])
         mock_llm.invoke.assert_called_once()
+        (system, *_), = mock_llm.invoke.call_args.args
+        assert system.type == "system" and "Some facts." in system.content
 
         out_msg = res["messages"][0]
         assert "This is a test" in out_msg.content
         assert out_msg.name == "gpt-5.2"
-        assert out_msg.additional_kwargs["confidence"] == 0.95
-        assert out_msg.additional_kwargs["conflict"] is False
+        assert out_msg.additional_kwargs["model_id"] == "gpt-5.2"
+        # No self-reported confidence and no keyword "conflict" flag any more.
+        assert "confidence" not in out_msg.additional_kwargs
+        assert "conflict" not in out_msg.additional_kwargs
 
-    def test_drafting_node_deliberation_conflict(self):
-        mock_get_model = MagicMock()
+    @staticmethod
+    def _sent(state, **configurable):
         from app.services.graph import drafting_node
-        from langchain_core.messages import AIMessage, HumanMessage
+        from langchain_core.messages import AIMessage
 
         mock_llm = MagicMock()
-        mock_response = AIMessage(content="There is a contradiction here.")
-        mock_llm.invoke.return_value = mock_response
-        mock_get_model.return_value = mock_llm
+        mock_llm.invoke.return_value = AIMessage(content="ok")
+        res = drafting_node(state, config=_cfg(lambda *_: mock_llm, thread_id="test", **configurable))
+        return mock_llm.invoke.call_args.args[0], res
+
+    def test_drafting_node_sends_no_system_message_by_default(self):
+        """Models answer as they ship: no persona, no confidence instruction."""
+        from langchain_core.messages import HumanMessage
+
+        sent, _ = self._sent({"active_peer": "gpt-5.4", "toggles": {}, "messages": [HumanMessage(content="Hello")]})
+        assert [m.type for m in sent] == ["human"]
+        assert sent[0].content[0]["text"] == "Hello"  # the time note follows as its own block
+        text = "\n".join(str(m.content) for m in sent)
+        assert "metadata" not in text.lower() and "confidence" not in text.lower()
+
+    def test_a_custom_system_prompt_is_the_whole_system_message(self):
+        from app.services.graph import SYSTEM_PROMPT_CONFIG_KEY
+        from langchain_core.messages import HumanMessage
+
+        state = {"active_peer": "gpt-5.4", "toggles": {}, "messages": [HumanMessage(content="Hello")]}
+        sent, _ = self._sent(state, **{SYSTEM_PROMPT_CONFIG_KEY: "Answer in French."})
+        assert [m.type for m in sent] == ["system", "human"]
+        assert sent[0].content == "Answer in French."
+
+    def test_deliberation_puts_the_custom_prompt_before_the_critic_role(self):
+        from app.services.graph import SYSTEM_PROMPT_CONFIG_KEY
+        from langchain_core.messages import HumanMessage
 
         state = {
             "active_peer": "claude-sonnet-4-6",
@@ -236,11 +263,15 @@ class TestNodes:
             "messages": [HumanMessage(content="Hello")],
             "is_deliberation": True,
         }
-
-        res = drafting_node(state, config=_cfg(mock_get_model, thread_id="test"))
-        out_msg = res["messages"][0]
-        assert out_msg.additional_kwargs["conflict"] is True
+        sent, res = self._sent(state, **{SYSTEM_PROMPT_CONFIG_KEY: "Answer in French."})
+        system = sent[0].content
+        assert sent[0].type == "system"
+        assert system.index("Answer in French.") < system.index("critical reviewer")
         assert res["is_deliberation"] is False
+
+        # Without a custom prompt the critic role is still sent on its own.
+        sent, _ = self._sent(dict(state))
+        assert sent[0].type == "system" and sent[0].content.startswith("You are 'claude-sonnet-4-6', a critical reviewer")
 
     def test_synthesis_node_is_a_pass_through(self):
         """It used to call the turn's model on every turn to rewrite a thesis

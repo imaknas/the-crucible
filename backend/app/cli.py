@@ -124,6 +124,9 @@ def arena(
     summarizer: Optional[str] = typer.Option(
         None, "--summarizer", help="Model that summarizes long history. Default: the first of SUMMARIZER_MODELS with a key."
     ),
+    system: Optional[str] = typer.Option(
+        None, "--system", help="System prompt sent to every model. Default: none (each model's own behaviour)."
+    ),
     format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
@@ -141,7 +144,7 @@ def arena(
     thread_id = thread or _gen_thread_id("arena")
     from app.services.context import ContextSettings
 
-    context = ContextSettings(summarizer=summarizer)
+    context = ContextSettings.from_frame({"summarizer": summarizer, "system_prompt": system})
     if problem := context.problem():
         _fail(problem, as_json)
 

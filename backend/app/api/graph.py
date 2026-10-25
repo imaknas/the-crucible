@@ -16,10 +16,15 @@ class GraphTopology(BaseModel):
 
 
 @router.get("/{thread_id}/topology", response_model=GraphTopology)
-async def get_graph_topology(thread_id: str, graph_app=Depends(get_graph_app)):
+async def get_graph_topology(thread_id: str, _graph_app=Depends(get_graph_app)):
     """
     Returns the topological structure of a conversation thread.
     Useful for agents to identify branch points, leaf nodes, and consensus areas.
+
+    It reads the checkpoint tables directly; the graph dependency stays so the
+    route answers 503 until the lifespan has set those tables up. Each node's
+    `metadata` is empty: it used to carry a self-reported confidence and a
+    keyword "conflict" flag, which models are no longer asked for.
     """
     try:
         raw_edges = db.get_thread_checkpoint_graph(thread_id)
@@ -32,44 +37,8 @@ async def get_graph_topology(thread_id: str, graph_app=Depends(get_graph_app)):
 
         for cid, parent_cid in raw_edges:
             if cid not in seen_nodes:
-                config: RunnableConfig = {
-                    "configurable": {"thread_id": thread_id, "checkpoint_id": cid}
-                }
-                state = await graph_app.aget_state(config)
-                metadata = {}
-                if state.values and state.values.get("messages"):
-                    last_msg = state.values["messages"][-1]
-                    add_kwargs = {}
-                    if hasattr(last_msg, "additional_kwargs"):
-                        add_kwargs = last_msg.additional_kwargs
-                    elif isinstance(last_msg, dict):
-                        add_kwargs = last_msg.get("additional_kwargs", {})
-
-                    metadata["confidence"] = add_kwargs.get("confidence")
-                    metadata["conflict"] = add_kwargs.get("conflict")
-
-                    content_text = getattr(last_msg, "content", None)
-                    if content_text is None:
-                        content_text = (
-                            last_msg.get("content", "")
-                            if isinstance(last_msg, dict)
-                            else str(last_msg)
-                        )
-
-                    if (
-                        metadata["confidence"] is None
-                        and "confidence" in str(content_text).lower()
-                    ):
-                        import re
-
-                        conf_match = re.search(
-                            r"confidence:\s*(\d+)%", str(content_text).lower()
-                        )
-                        if conf_match:
-                            metadata["confidence"] = int(conf_match.group(1)) / 100.0
-
                 nodes.append(
-                    {"id": cid, "label": f"Node {cid[:8]}", "metadata": metadata}
+                    {"id": cid, "label": f"Node {cid[:8]}", "metadata": {}}
                 )
                 seen_nodes.add(cid)
 

@@ -37,8 +37,16 @@ RETENTION_CONFIG_KEY = "history_retention"
 RECALL_CONFIG_KEY = "history_recall"
 # The model that grades retrieved RAG chunks; default_grader() unless named.
 GRADER_CONFIG_KEY = "grader_model"
+# The person's own system prompt for a run. Unset, models get none: Arena
+# compares them as they ship, not under a persona the app chose.
+SYSTEM_PROMPT_CONFIG_KEY = "system_prompt"
 _DEFAULT_RETENTION = KeepRecent(KEEP_VERBATIM)
 _ROLE = {"human": "user", "ai": "assistant"}
+
+
+def system_prompt_from(config: Optional[RunnableConfig]) -> Optional[str]:
+    """The run's own system prompt, or None (models get no system prompt)."""
+    return ((config or {}).get("configurable") or {}).get(SYSTEM_PROMPT_CONFIG_KEY) or None
 
 
 def retention_from(config: Optional[RunnableConfig]):
@@ -470,7 +478,6 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     model = model_factory_from(config).chat(active_peer, state.get("toggles", {}))
 
     # RAG Context injection
-    prompt_prefix = ""
     rag_context = ""
     chunks = state.get("retrieved_chunks", [])
     if chunks:
@@ -488,20 +495,12 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
             rag_context += f"--- Document: {name} ---\n{content}\n"
         rag_context += "[END ATTACHED DOCUMENTS]\n\n"
 
-    if rag_context:
-        prompt_prefix = rag_context + prompt_prefix
-
-    # Default role
-    role_description = (
-        "You are an academic research assistant. "
-        "At the end of your response, provide your self-assessed confidence score and a brief explanation WITHIN <metadata></metadata> tags ONLY. "
-        "Do NOT use other tags like <confidence>. Example: <metadata>Confidence: 95%. Explanation: [REASON]</metadata>."
-    )
-
-    # Deliberation Mode
+    # Deliberation Mode: the critic role is a real mechanic, so it is the one
+    # instruction the app adds itself. The person's own prompt comes first.
     is_delib = state.get("is_deliberation", False)
+    critic = ""
     if is_delib:
-        role_description = (
+        critic = (
             f"You are '{active_peer}', a critical reviewer invited to examine the preceding conversation. "
             "The conversation history below is annotated with speaker labels so you can see who said what. "
             "If you previously participated in this conversation, say where your position has changed and where it has not. "
@@ -518,12 +517,15 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     now = datetime.datetime.now()
     time_note = f"[Current System Time: {now.strftime('%Y-%m-%d %H:%M:%S')} ({now.astimezone().tzname()})]"
 
-    system_msg = SystemMessage(content=f"{role_description} {prompt_prefix}")
+    # No system message at all unless something needs one: an empty one would
+    # still reach the model (sanitize_messages fills it in).
+    system_parts = [p for p in (system_prompt_from(config), critic, rag_context.strip()) if p]
+    system_msgs: List[BaseMessage] = [SystemMessage(content="\n\n".join(system_parts))] if system_parts else []
 
     # Build message list with model attribution for deliberation
     messages: List[BaseMessage] = []
     if is_delib:
-        attributed_messages: List[BaseMessage] = [system_msg]
+        attributed_messages: List[BaseMessage] = list(system_msgs)
         for msg in state["messages"]:
             # Skip "remove" messages, which are internal signals
             if getattr(msg, "type", "") == "remove":
@@ -544,7 +546,7 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
                 attributed_messages.append(msg)
         messages = attributed_messages
     else:
-        messages = [system_msg] + list(state["messages"])
+        messages = system_msgs + list(state["messages"])
 
     # Whether this call sees the raw history or jumps to the latest summary is
     # the compaction policy's call (default: prune once over the soft limit).
@@ -578,54 +580,9 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
         print(f"[LLM Error] Effective Tokens: {effective_tokens}")
         raise e
 
-    # --- Step 6: Metadata Extraction (Agentic Decision Support) ---
-    content = response.content
-    confidence = 0.8  # Default
-    conflict_detected = False
-
-    # Simple regex for self-reported confidence (e.g., "Confidence: 95%")
-    import re
-
-    conf_match = re.search(r"confidence:\s*(\d+)%", str(content).lower())
-    if conf_match:
-        confidence = int(conf_match.group(1)) / 100.0
-
-    # Conflict detection — use leading word-boundary so stems match ("contradict" matches
-    # "contradiction") but avoid mid-word matches like "error" in arbitrary tokens.
-    _en_conflict_re = re.compile(
-        r"\b(contradict|flaw|incorrect|disagree|bias|error|mislead)", re.IGNORECASE
-    )
-    _cjk_conflict_keywords = [
-        "矛盾",
-        "錯誤",
-        "漏洞",
-        "不符合",
-        "偏差",
-        "反對",
-        "質疑",
-        "分歧",  # Chinese
-        "誤り",
-        "欠陥",
-        "不一致",
-        "バイアス",
-        "反対",
-        "異議",  # Japanese
-    ]
-    content_str = str(content)
-    if _en_conflict_re.search(content_str) or any(
-        kw in content_str for kw in _cjk_conflict_keywords
-    ):
-        conflict_detected = True
-
-    # We can't get the NEW checkpoint_id yet (it's created after the node returns)
-    # So we'll need to save it in a follow-up or post-processing step if we want it perfect.
-    # However, we can use a "side-effect" approach if we have access to the checkpointer.
-
     # Tag the response with the model's name for future attribution
     response.name = active_peer
     response.additional_kwargs["model_id"] = active_peer
-    response.additional_kwargs["confidence"] = confidence
-    response.additional_kwargs["conflict"] = conflict_detected
 
     if state.get("retrieved_chunks"):
         response.additional_kwargs["sources"] = state["retrieved_chunks"]
@@ -779,8 +736,8 @@ def metadata_node(state: CrucibleState, config: RunnableConfig):
 
     It used to write confidence/conflict to the node_metadata table, but a
     node's config never carries a checkpoint_id, so nothing was ever written,
-    and nothing read the table. Confidence shown in the UI is parsed from the
-    reply's <metadata> block in api/graph.py instead.
+    and nothing read the table. Models are no longer asked for a confidence
+    at all; older replies' <metadata> blocks are only stripped for display.
     """
     return {}
 

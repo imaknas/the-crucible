@@ -38,12 +38,14 @@ class ChatRequest(BaseModel):
     parent_checkpoint_id: Optional[str] = None
     # Model that writes summaries for this turn; None = the app's default.
     summarizer: Optional[str] = None
+    # The person's own system prompt; None = models get no system prompt.
+    system_prompt: Optional[str] = None
 
 
 @router.post("/chat")
 async def chat(request: ChatRequest, graph_app=Depends(get_graph_app)):
     """One non-streaming turn, for REST callers."""
-    context = ContextSettings(summarizer=request.summarizer)
+    context = ContextSettings.from_frame(request.model_dump())
     if problem := context.problem():
         raise HTTPException(status_code=400, detail=problem)
     parent_id = request.parent_checkpoint_id or await resolve_fork_point(graph_app, request.thread_id)

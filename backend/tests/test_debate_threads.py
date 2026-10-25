@@ -54,10 +54,9 @@ def isolated(tmp_path, monkeypatch):
 
 
 def _draft_inputs(model_id: str, question: str) -> list[list[str]]:
-    """The draft calls that answered `question`. The graph's bookkeeping calls
-    (thesis update, judge) send a single message; a draft sends the system
-    prompt and the history."""
-    return [m for m in SEEN.get(model_id, []) if len(m) > 1 and question in str(m[-1])]
+    """The draft calls that answered `question`: the ones whose latest
+    message asks it (no other call in these debates does)."""
+    return [m for m in SEEN.get(model_id, []) if question in str(m[-1])]
 
 
 async def _debate(graph_app, thread_id: str, question: str, **kwargs) -> dict:

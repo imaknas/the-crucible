@@ -177,7 +177,7 @@ class DebateConnection:
     async def _settings(self, data: dict) -> Optional[ContextSettings]:
         """The frame's context settings (the connection's own when it names
         none), or None after reporting why they cannot be used."""
-        context = ContextSettings.from_frame(data) if "summarizer" in data else self.context
+        context = ContextSettings.from_frame(data) if ContextSettings.named_in(data) else self.context
         if problem := context.problem():
             await self.send({"type": "error", "session_id": self.session_id, "message": problem})
             return None

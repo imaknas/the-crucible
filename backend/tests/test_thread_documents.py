@@ -185,7 +185,7 @@ async def test_a_removed_attachment_is_gone_from_the_next_turn(graph_app):
 
     SEEN.clear()
     second = await _turn(graph_app, "t-rm", first, "And in Celsius?", {})
-    assert _system_prompts() and not any("412 kelvin" in s for s in _system_prompts())
+    assert SEEN and not any("412 kelvin" in str(m.content) for call in SEEN for m in call)
 
     # Attaching it again brings it back, from the one stored copy.
     SEEN.clear()
@@ -202,7 +202,7 @@ async def test_a_branch_sees_only_what_its_own_turns_attached(graph_app):
     await _turn(graph_app, "t-br", parent, "Sibling with the paper", DOC)
     SEEN.clear()
     await _turn(graph_app, "t-br", parent, "Sibling without it")
-    assert _system_prompts() and not any("412 kelvin" in s for s in _system_prompts())
+    assert SEEN and not any("412 kelvin" in str(m.content) for call in SEEN for m in call)
 
 
 @pytest.mark.asyncio
