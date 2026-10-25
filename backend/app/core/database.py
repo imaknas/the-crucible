@@ -1,7 +1,7 @@
 import sqlite3
 import json
 import os
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional, Sequence
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Default to backend/root (two levels up from app/core), but allow override for Docker/Prod
@@ -248,8 +248,9 @@ def _purge_thread_rows(conn, thread_id: str) -> None:
 class ThreadDocumentStore:
     """Documents attached to a conversation, stored once per thread and filename.
 
-    They used to travel in graph state, so every checkpoint a turn wrote (4-6
-    per model) carried the full text again (up to 10 MB a file). Saving is
+    Their content used to travel in graph state, so every checkpoint a turn
+    wrote (4-6 per model) carried the full text again (up to 10 MB a file);
+    a turn's state now names the files and the content lives here. Saving is
     idempotent: clients re-send the same documents, and a re-sent file with
     new content replaces the old one.
     """
@@ -271,17 +272,26 @@ class ThreadDocumentStore:
         finally:
             conn.close()
 
-    def load(self, thread_id: str) -> dict[str, str]:
-        """The thread's documents, in the order they were first attached."""
+    def load(self, thread_id: str, names: Optional[Sequence[str]] = None) -> dict[str, str]:
+        """The thread's documents named in `names`, in that order (all of
+        them, in the order first attached, when `names` is None). A name
+        with nothing stored is left out."""
+        query = "SELECT filename, content FROM thread_documents WHERE thread_id = ?"
+        params: list = [thread_id]
+        if names is not None:
+            if not names:
+                return {}
+            query += f" AND filename IN ({', '.join('?' for _ in names)})"
+            params += [str(n) for n in names]
         conn = get_db_connection()
         try:
-            rows = conn.execute(
-                "SELECT filename, content FROM thread_documents WHERE thread_id = ? ORDER BY created_at, rowid",
-                (thread_id,),
-            ).fetchall()
+            rows = conn.execute(query + " ORDER BY created_at, rowid", params).fetchall()
         finally:
             conn.close()
-        return {name: content for name, content in rows}
+        stored = {name: content for name, content in rows}
+        if names is None:
+            return stored
+        return {name: stored[name] for name in names if name in stored}
 
 
 def delete_debate_session(session_id: str) -> None:

@@ -142,7 +142,6 @@ async def test_a_round_with_a_repeated_participant_still_ends():
             thread_ids={A: "t::a", B: "t::b"},
             model_prompts={A: "q", B: "q"},
             toggles={},
-            documents={},
             curr_round_responses={},
         ):
             events.append(e)

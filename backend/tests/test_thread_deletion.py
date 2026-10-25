@@ -106,7 +106,10 @@ def test_uploads_land_in_their_threads_directory(tmp_path, monkeypatch):
     monkeypatch.setattr(upload_api, "_UPLOAD_DIR", str(tmp_path))
     monkeypatch.setattr(upload_api.rag_service, "index_document", lambda *a: 0)
     with TestClient(server) as client:
-        res = client.post("/upload", data={"thread_id": "t1"}, files={"file": ("n.txt", b"hello", "text/plain")})
+        res = client.post(
+            "/upload", data={"thread_id": "t1"}, files={"file": ("n.txt", b"hello", "text/plain")},
+            headers={"X-Crucible-Client": "1"},  # multipart POSTs need it (api/security.py)
+        )
     assert res.status_code == 200
     (stored,) = os.listdir(thread_upload_dir("t1", str(tmp_path)))
     assert stored.endswith("_n.txt")

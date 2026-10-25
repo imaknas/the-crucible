@@ -6,7 +6,7 @@ with a run id (see services/runs.py), so parallel models in one turn stay on
 their own branches.
 """
 
-from typing import Any, AsyncIterator, Dict, Mapping, Optional
+from typing import Any, AsyncIterator, Dict, Mapping, Optional, Sequence
 
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.documents import attach_documents
@@ -24,14 +24,17 @@ def build_turn_input(
     message: Optional[str],
     model: str,
     toggles: Optional[Mapping[str, bool]] = None,
+    document_names: Sequence[str] = (),
     is_deliberation: bool = False,
 ) -> Dict[str, Any]:
     """The graph input for one model's turn, given the parent's state values.
 
-    Attached documents are not part of it: they are saved per thread
-    (services/documents.py). `documents` is reset so a parent checkpoint
-    from before that change stops handing its copy down to every new
-    checkpoint. Empty prompts get a stand-in: Anthropic rejects empty content.
+    The turn's attached documents are named, not included: their content is
+    saved per thread (services/documents.py). Exactly the named ones are in
+    context, so a turn sent without documents has none. `documents` (their
+    content, as older checkpoints carry it) is reset so such a parent stops
+    handing its copy down. Empty prompts get a stand-in: Anthropic rejects
+    empty content.
     """
     text = clean_string(message or "")
     if len(text) > MAX_PROMPT_CHARS:
@@ -48,6 +51,7 @@ def build_turn_input(
         "active_peer": model,
         "toggles": {**state_values.get("toggles", {}), **(toggles or {})},
         "is_deliberation": is_deliberation,
+        "attached_documents": list(document_names),
         "documents": {},
         "messages": [("user", prompt)],
     }
@@ -104,7 +108,7 @@ async def stream_turn(
     carrying the new checkpoint id and the path's messages. Raises on failure."""
     config = context.apply(thread_config(thread_id, parent_checkpoint_id))
     run_id = tag_run(config)
-    await attach_documents(config, documents)
+    document_names = await attach_documents(config, documents)
     state = await graph_app.aget_state(config)
 
     current = state.values.get("messages", [])
@@ -118,6 +122,7 @@ async def stream_turn(
         message=message,
         model=model,
         toggles=toggles,
+        document_names=document_names,
         is_deliberation=is_deliberation,
     )
 

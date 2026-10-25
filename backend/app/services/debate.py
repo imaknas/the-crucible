@@ -10,14 +10,14 @@ Yields typed event dicts consumed by the WebSocket handler in api/debate.py.
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Container, Mapping, Optional
+from typing import Any, AsyncGenerator, Container, Mapping, Optional, Sequence
 from uuid import uuid4
 
 from app.api.models import MODEL_REGISTRY
 from app.core import database as db
 from app.services.convergence import build_convergence_check
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
-from app.services.documents import attach_documents
+from app.services.documents import DOCUMENT_THREAD_CONFIG_KEY, attach_documents
 from app.services.recall import INTERNAL_TAG
 from app.services.synthesis import AFTER_DEBATE, build_synthesis_prompt
 from app.services.runs import (
@@ -199,6 +199,11 @@ async def run_debate(
             [thread_ids[m] for m in participants],
         )
 
+    # The start frame's documents are in context for every round. Their
+    # content is stored once, for the parent thread; each participant's turns
+    # name the files and read them from there.
+    document_names = await attach_documents(context.apply(thread_config(parent_thread_id)), documents)
+
     # Track per-model responses per round for convergence detection
     prev_round_responses: dict[str, str] = {}
     curr_round_responses: dict[str, str] = {}
@@ -235,7 +240,8 @@ async def run_debate(
             thread_ids=thread_ids,
             model_prompts=model_prompts,
             toggles=toggles,
-            documents=documents,
+            document_names=document_names,
+            document_thread_id=parent_thread_id,
             curr_round_responses=curr_round_responses,
             context=context,
         ):
@@ -386,11 +392,15 @@ async def _stream_round(
     thread_ids: dict[str, str],
     model_prompts: dict[str, str],
     toggles: dict[str, Any],
-    documents: dict[str, str],
     curr_round_responses: dict[str, str],
     context: ContextSettings = DEFAULT_CONTEXT,
+    document_names: Sequence[str] = (),
+    document_thread_id: Optional[str] = None,
 ) -> AsyncGenerator[dict[str, Any], None]:
-    """Stream all models for one round concurrently, interleaving their tokens."""
+    """Stream all models for one round concurrently, interleaving their tokens.
+
+    `document_names` are attached documents already stored for
+    `document_thread_id` (the parent thread)."""
     queue: asyncio.Queue = asyncio.Queue()
 
     async def _model_producer(model_id: str):
@@ -405,16 +415,15 @@ async def _stream_round(
                 "messages": [("user", model_prompt)],
                 "toggles": {**toggles, "use_rag": toggles.get("use_rag", False)},
                 "is_deliberation": round_num > 0,
+                "attached_documents": list(document_names),
                 "documents": {},
             }
             # Each model has its own sub-thread, so every round continues from
             # that thread's head: the seeded conversation, or the last round.
             langgraph_config = context.apply(thread_config(thread_id))
+            if document_thread_id:
+                langgraph_config["configurable"][DOCUMENT_THREAD_CONFIG_KEY] = document_thread_id
             run_id = tag_run(langgraph_config)
-            if round_num == 0:
-                # Each participant drafts on its own sub-thread, so the
-                # documents are stored for it; later rounds read them there.
-                await attach_documents(langgraph_config, documents)
 
             await queue.put({
                 "type": "stream_start",

@@ -49,13 +49,14 @@ async def chat(request: ChatRequest, graph_app=Depends(get_graph_app)):
     parent_id = request.parent_checkpoint_id or await resolve_fork_point(graph_app, request.thread_id)
     config = context.apply(thread_config(request.thread_id, parent_id))
     run_id = tag_run(config)
-    await attach_documents(config, request.documents)
+    document_names = await attach_documents(config, request.documents)
     state = await graph_app.aget_state(config)
     turn_input = build_turn_input(
         state.values,
         message=request.message,
         model=request.model,
         toggles=request.toggles,
+        document_names=document_names,
     )
     result = await graph_app.ainvoke(turn_input, config)
     new_state = await final_state_of_run(graph_app, request.thread_id, run_id)

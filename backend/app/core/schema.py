@@ -29,7 +29,12 @@ class CrucibleState(TypedDict):
     # RAG Context
     retrieved_chunks: Optional[List[Dict[str, str]]]
 
-    # Immediate Session Documents (non-RAG)
+    # Attached documents (non-RAG) in this turn's context: filenames only;
+    # the content is in the thread's document store (services/documents.py).
+    attached_documents: Optional[List[str]]
+
+    # Legacy: attached documents' full content, as checkpoints written
+    # before the store carry it. New turns write {}.
     documents: Optional[Dict[str, str]]
 
 
