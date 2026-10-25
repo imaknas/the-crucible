@@ -4,6 +4,7 @@ from typing import List, Dict, Optional, Any, Set, Tuple
 from app.core import database as db
 from app.core.database import load_node_positions
 from app.api.models import display_name
+from app.services.runs import is_seed
 from app.utils.helpers import extract_text, get_preview_text
 
 
@@ -419,6 +420,14 @@ def build_graph_layout(
 # ─── Step 4: Format Messages ─────────────────────────────────────
 
 
+def _seeded_length(states) -> int:
+    """How many leading messages of a thread were seeded from another thread."""
+    return max(
+        (len(s.values.get("messages", [])) for s in states if is_seed(s)),
+        default=0,
+    )
+
+
 def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
     """
     Graph-Path Reconstruction: Walks backwards from the active checkpoint
@@ -428,12 +437,17 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
     path_messages = []
     seen_keys = set()
     curr_id = active_state_id
+    # Messages seeded from another thread (a debate's parent conversation)
+    # are context, not messages said on this one. The seed checkpoint and the
+    # run-input checkpoint after it both end on the seed's last message, so
+    # every checkpoint no longer than the seed is skipped.
+    seeded = _seeded_length(state_map.values())
 
     while curr_id in state_map:
         state = state_map[curr_id]
         m_list = state.values.get("messages", [])
 
-        if m_list:
+        if len(m_list) > seeded:
             msg = m_list[-1]
 
             # 1. Identify role
@@ -558,6 +572,7 @@ def build_single_thread_for_debate(
     children, _parents, forest_roots = build_significant_forest(
         id_to_vis, state_map, significant_ids
     )
+    seeded = _seeded_length(all_states)
 
     nodes: List[Dict] = []
     edges: List[Dict] = []
@@ -570,6 +585,14 @@ def build_single_thread_for_debate(
             v_id, round_num, prev_node_id = stack.pop()
             state = state_map.get(v_id)
             if state is None:
+                continue
+
+            if len(state.values.get("messages", [])) <= seeded:
+                # The parent conversation the debate started from (the seed,
+                # and the run-input checkpoint that still ends on it): context
+                # for every round, not a round, and not the debate question.
+                for kid in reversed(children.get(v_id, [])):
+                    stack.append((kid, round_num, prev_node_id))
                 continue
 
             role = get_checkpoint_role(state)

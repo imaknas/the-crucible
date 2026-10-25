@@ -19,7 +19,13 @@ from app.services.convergence import build_convergence_check
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.recall import INTERNAL_TAG
 from app.services.synthesis import AFTER_DEBATE, build_synthesis_prompt
-from app.services.runs import final_state_of_run, tag_run, thread_config
+from app.services.runs import (
+    final_state_of_run,
+    seed_thread,
+    seeded_message_count,
+    tag_run,
+    thread_config,
+)
 from app.utils.helpers import extract_text
 
 # ─── Constants ───────────────────────────────────────────────────────────────
@@ -186,6 +192,12 @@ async def run_debate(
         "thread_ids": thread_ids,
     }
 
+    if parent_checkpoint_id:
+        await seed_from_parent(
+            graph_app, parent_thread_id, parent_checkpoint_id,
+            [thread_ids[m] for m in participants],
+        )
+
     # Track per-model responses per round for convergence detection
     prev_round_responses: dict[str, str] = {}
     curr_round_responses: dict[str, str] = {}
@@ -223,7 +235,6 @@ async def run_debate(
             model_prompts=model_prompts,
             toggles=toggles,
             documents=documents,
-            parent_checkpoint_id=parent_checkpoint_id if round_num == 0 else None,
             curr_round_responses=curr_round_responses,
             context=context,
         ):
@@ -291,6 +302,33 @@ async def run_debate(
 # ─── Round helpers ───────────────────────────────────────────────────────────
 
 
+async def seed_from_parent(
+    graph_app,
+    parent_thread_id: str,
+    checkpoint_id: str,
+    sub_thread_ids: list[str],
+) -> int:
+    """Give each empty sub-thread the parent conversation as it stood at
+    ``checkpoint_id``; returns how many messages were copied.
+
+    A debate started from a node of a conversation is about that
+    conversation. The checkpoint id belongs to the parent thread, so running
+    round 0 "from" it on a sub-thread found nothing there and the models saw
+    only the debate prompt. A sub-thread that already has history (a start
+    frame sent again) is left alone.
+    """
+    parent = await graph_app.aget_state(thread_config(parent_thread_id, checkpoint_id))
+    messages = list((parent.values or {}).get("messages", [])) if parent else []
+    if not messages:
+        return 0
+    for thread_id in sub_thread_ids:
+        head = await graph_app.aget_state(thread_config(thread_id))
+        if head and head.values:
+            continue
+        await seed_thread(graph_app, thread_id, {"messages": messages})
+    return len(messages)
+
+
 def _build_round_prompts(
     round_num: int,
     prompt: str,
@@ -348,7 +386,6 @@ async def _stream_round(
     model_prompts: dict[str, str],
     toggles: dict[str, Any],
     documents: dict[str, str],
-    parent_checkpoint_id: Optional[str],
     curr_round_responses: dict[str, str],
     context: ContextSettings = DEFAULT_CONTEXT,
 ) -> AsyncGenerator[dict[str, Any], None]:
@@ -370,9 +407,9 @@ async def _stream_round(
                 "current_thesis": "",
                 "documents": documents,
             }
-            langgraph_config = context.apply(thread_config(
-                thread_id, parent_checkpoint_id if round_num == 0 else None
-            ))
+            # Each model has its own sub-thread, so every round continues from
+            # that thread's head: the seeded conversation, or the last round.
+            langgraph_config = context.apply(thread_config(thread_id))
             run_id = tag_run(langgraph_config)
 
             await queue.put({
@@ -489,7 +526,8 @@ async def latest_responses(graph_app, session: dict[str, Any]) -> dict[str, str]
 
 
 async def _original_question(graph_app, session: dict[str, Any]) -> str:
-    """The round-0 prompt, which every participant's sub-thread starts with.
+    """The round-0 prompt: the first message each participant's sub-thread
+    received after any seeded parent conversation.
 
     Sessions don't store it; the web UI passes it along, the CLI recovers it.
     """
@@ -499,6 +537,7 @@ async def _original_question(graph_app, session: dict[str, Any]) -> str:
             continue
         state = await graph_app.aget_state(thread_config(thread_id))
         msgs = state.values.get("messages", []) if state and state.values else []
+        msgs = msgs[await seeded_message_count(graph_app, thread_id):]
         first = next((m for m in msgs if getattr(m, "type", "") == "human"), None)
         if first is not None:
             return extract_text(first.content)

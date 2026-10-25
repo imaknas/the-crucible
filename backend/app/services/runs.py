@@ -12,6 +12,9 @@ import uuid
 from typing import Any, Dict, Optional, Tuple
 
 RUN_ID_KEY = "crucible_run_id"
+# Marks a checkpoint holding context copied in from elsewhere (a debate's
+# parent conversation), which is not a turn of the thread it sits on.
+SEED_KEY = "crucible_seed"
 
 
 def thread_config(thread_id: str, checkpoint_id: Optional[str] = None) -> Dict[str, Any]:
@@ -50,6 +53,33 @@ async def resolve_fork_point_ex(graph_app, thread_id: str) -> Tuple[str, bool]:
         as_node="synthesis",
     )
     return seeded["configurable"]["checkpoint_id"], True
+
+
+async def seed_thread(graph_app, thread_id: str, values: Dict[str, Any]) -> str:
+    """Write ``values`` as a checkpoint marked as seed; returns its id.
+
+    Written as the ``synthesis`` node, the last before END, so the next run
+    starts a fresh turn from it.
+    """
+    config = thread_config(thread_id)
+    config["metadata"] = {SEED_KEY: True}
+    written = await graph_app.aupdate_state(config, values, as_node="synthesis")
+    return written["configurable"]["checkpoint_id"]
+
+
+def is_seed(snapshot) -> bool:
+    """Whether a checkpoint was written by ``seed_thread``."""
+    metadata = getattr(snapshot, "metadata", None)
+    return isinstance(metadata, dict) and bool(metadata.get(SEED_KEY))
+
+
+async def seeded_message_count(graph_app, thread_id: str) -> int:
+    """How many of the thread's first messages were seeded rather than said on it."""
+    async for snapshot in graph_app.aget_state_history(
+        thread_config(thread_id), filter={SEED_KEY: True}, limit=1
+    ):
+        return len((snapshot.values or {}).get("messages", []))
+    return 0
 
 
 async def final_state_of_run(graph_app, thread_id: str, run_id: str):

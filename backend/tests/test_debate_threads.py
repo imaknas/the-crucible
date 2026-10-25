@@ -14,7 +14,9 @@ from app.api import debate as debate_api
 from app.core import database as db
 from app.llm import CallableModelFactory, use_model_factory
 from app.services import debate as debate_svc
+from app.api.history import get_history
 from app.services.arena import open_graph
+from app.services.runs import final_state_of_run, tag_run, thread_config
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
 A, B = "gpt-5.4", "claude-sonnet-5"
@@ -119,3 +121,90 @@ async def test_synthesis_goes_to_the_session_s_own_stored_thread():
     assert end["synthesis_thread_id"] == session["thread_ids"]["synthesis"]
     assert db.get_thread_checkpoint_graph(session["thread_ids"]["synthesis"])
     assert not db.get_thread_checkpoint_graph("t-syn::synthesis")
+
+
+# ─── Starting from a checkpoint of the parent conversation ───────
+
+
+async def _chat_turn(graph_app, thread_id: str, text: str) -> str:
+    """One chat turn on the parent thread; returns the checkpoint it produced."""
+    config = thread_config(thread_id)
+    run_id = tag_run(config)
+    await graph_app.ainvoke(
+        {"active_peer": A, "messages": [("user", text)], "toggles": {}, "documents": {}}, config
+    )
+    return (await final_state_of_run(graph_app, thread_id, run_id)).config["configurable"]["checkpoint_id"]
+
+
+@pytest.mark.asyncio
+async def test_a_debate_from_a_checkpoint_sees_the_conversation_up_to_it():
+    question = "Debate: was that answer right?"
+    async with open_graph() as graph_app:
+        fork = await _chat_turn(graph_app, "t-conv", "Earlier question about boiling water")
+        await _chat_turn(graph_app, "t-conv", "Later question after the fork")
+        SEEN.clear()
+        session = debate_svc.create_session("t-conv", [A, B], {**POLICY, "max_rounds": 2})
+        events = [
+            e async for e in debate_svc.run_debate(
+                graph_app, session["session_id"], question, {}, {}, parent_checkpoint_id=fork
+            )
+        ]
+        assert events[-1]["status"] == "completed", events
+        tree = await debate_api.get_debate_tree(session["session_id"], graph_app=graph_app)
+        recovered = await debate_svc._original_question(graph_app, session)
+        history = await get_history(session["thread_ids"][B], graph_app=graph_app)
+
+    for model in (A, B):
+        # The round-1 prompt restates the question, so both drafts match it.
+        round0, round1 = _draft_inputs(model, question)
+        text = " ".join(str(c) for c in round0)
+        # The conversation up to the fork, then the debate question.
+        assert "Earlier question about boiling water" in text
+        assert f"reply from {A}" in text
+        assert "Later question after the fork" not in text
+        assert text.index("Earlier question about boiling water") < text.index(question)
+        # Later rounds keep the conversation too.
+        assert "Other models' previous responses" in str(round1[-1])
+        assert "Earlier question about boiling water" in " ".join(str(c) for c in round1)
+
+    # The copied conversation is context, not a round: lanes hold rounds 0 and
+    # 1, and the shared prompt node is the debate question.
+    lanes = [n for n in tree["nodes"] if n["metadata"].get("role") == "ai"]
+    assert sorted((n["metadata"]["active_peer"], n["metadata"]["round_num"]) for n in lanes) == sorted(
+        [(A, 0), (A, 1), (B, 0), (B, 1)]
+    )
+    assert next(n for n in tree["nodes"] if n["id"] == "debate::prompt")["metadata"]["preview"] == question
+    assert recovered == question
+    # The restored transcript reads a sub-thread's history: it starts with the
+    # debate question; the seeded conversation is not shown as its messages.
+    contents = [m["content"] for m in history["messages"]]
+    assert contents[0] == question
+    assert "Earlier question about boiling water" not in contents
+    assert f"reply from {A}" not in contents
+
+
+@pytest.mark.asyncio
+async def test_a_debate_without_a_checkpoint_starts_empty():
+    question = "Fresh question?"
+    async with open_graph() as graph_app:
+        await _chat_turn(graph_app, "t-conv2", "Something said before")
+        SEEN.clear()
+        await _debate(graph_app, "t-conv2", question)
+
+    for model in (A, B):
+        (round0,) = _draft_inputs(model, question)
+        assert "Something said before" not in " ".join(str(c) for c in round0)
+
+
+@pytest.mark.asyncio
+async def test_seeding_is_skipped_for_a_sub_thread_that_already_has_history():
+    async with open_graph() as graph_app:
+        fork = await _chat_turn(graph_app, "t-conv3", "Context message")
+        session = debate_svc.create_session("t-conv3", [A, B], dict(POLICY))
+        tid = session["thread_ids"][A]
+        assert await debate_svc.seed_from_parent(graph_app, "t-conv3", fork, [tid]) == 2
+        before = len(db.get_thread_checkpoint_graph(tid))
+        await debate_svc.seed_from_parent(graph_app, "t-conv3", fork, [tid])
+        assert len(db.get_thread_checkpoint_graph(tid)) == before
+        # A checkpoint that isn't on the parent thread seeds nothing.
+        assert await debate_svc.seed_from_parent(graph_app, "t-conv3", "no-such-checkpoint", [session["thread_ids"][B]]) == 0

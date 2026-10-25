@@ -143,7 +143,6 @@ async def test_a_round_with_a_repeated_participant_still_ends():
             model_prompts={A: "q", B: "q"},
             toggles={},
             documents={},
-            parent_checkpoint_id=None,
             curr_round_responses={},
         ):
             events.append(e)
