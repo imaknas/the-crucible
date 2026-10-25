@@ -150,6 +150,30 @@ describe("useChatWebSocket", () => {
     expect(frame.summarizer).toBe(sent); // automatic: omitted, the backend decides
   });
 
+  it.each([
+    ["Answer in French.", "Answer in French."],
+    [null, undefined],
+    ["   ", undefined],
+  ])("sends the system prompt (%p) as a top-level field only when set", async (systemPrompt, sent) => {
+    const { result } = renderHook(() => useChatWebSocket({ ...mockProps, systemPrompt }));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const frame = JSON.parse(MockWebSocket.instances[0].send.mock.calls[0][0]);
+    expect(frame.system_prompt).toBe(sent);
+    expect("system_prompt" in frame).toBe(sent !== undefined);
+    expect(frame.toggles).not.toHaveProperty("system_prompt");
+  });
+
+  it("sends the system prompt with a synthesis turn", async () => {
+    const { result } = renderHook(() => useChatWebSocket({ ...mockProps, systemPrompt: "Be terse." }));
+    await act(async () => {
+      await result.current.synthesizeConsensus([{ author: "A", content: "x" }], "cp_1");
+    });
+    const frame = JSON.parse(MockWebSocket.instances[0].send.mock.calls[0][0]);
+    expect(frame).toMatchObject({ type: "synthesis", system_prompt: "Be terse." });
+  });
+
   it("does not echo a message it could not send", async () => {
     const { result } = renderHook(() => useChatWebSocket(mockProps));
     MockWebSocket.instances[0].readyState = 3; // CLOSED

@@ -199,6 +199,35 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.getByTestId("model-error")).toBeVisible();
   });
 
+  test("the Control Panel's system prompt goes out with each turn and is remembered", async ({ page }) => {
+    const sent: { message?: string; system_prompt?: string; toggles?: object }[] = [];
+    page.on("websocket", (ws) => {
+      if (!ws.url().includes("/ws/")) return;
+      ws.on("framesent", (f) => {
+        try {
+          sent.push(JSON.parse(String(f.payload)));
+        } catch {}
+      });
+    });
+    // The chat socket opened in beforeEach; a fresh session opens one we observe.
+    await newSession(page);
+    const field = page.getByLabel("System prompt");
+    await expect(field).toHaveValue(""); // none by default
+    await send(page, "Before any prompt");
+    await expect.poll(() => sent.find((f) => f.message === "Before any prompt")).toBeTruthy();
+    expect(sent.find((f) => f.message === "Before any prompt")).not.toHaveProperty("system_prompt");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    await field.fill("Answer in one word.");
+    await send(page, "With a prompt");
+    await expect.poll(() => sent.find((f) => f.message === "With a prompt")?.system_prompt).toBe("Answer in one word.");
+    expect(sent.find((f) => f.message === "With a prompt")?.toggles).not.toHaveProperty("system_prompt");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    await page.reload();
+    await expect(page.getByLabel("System prompt")).toHaveValue("Answer in one word.");
+  });
+
   test("switching threads mid-stream does not leave the new thread loading", async ({ page }) => {
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     await send(page, "[[slow]] take your time");

@@ -26,6 +26,7 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { useBackendStatus } from "@/hooks/useBackendStatus";
 import { useModelCatalog } from "@/hooks/useModelCatalog";
 import { useSummarizerChoice } from "@/hooks/useSummarizerChoice";
+import { useSystemPrompt } from "@/hooks/useSystemPrompt";
 import { useDebateDefaults } from "@/hooks/useDebateDefaults";
 import { useTreeActions } from "@/hooks/useTreeActions";
 
@@ -64,6 +65,7 @@ export default function Home() {
     defaultSummarizer,
   } = useModelCatalog();
   const { choice: summarizerChoice, summarizer, setChoice: setSummarizerChoice } = useSummarizerChoice(families);
+  const { text: systemPromptText, systemPrompt, setText: setSystemPromptText } = useSystemPrompt();
   const { debateDefaults, setDebateDefaults } = useDebateDefaults();
 
   // ─── Conversation tree, threads, chat ───────────────────────────
@@ -133,6 +135,7 @@ export default function Home() {
     selectedModels,
     toggles,
     summarizer,
+    systemPrompt,
     documents,
     clearDocuments,
     onHistoryRefreshNeeded: fetchHistory,
@@ -174,7 +177,7 @@ export default function Home() {
         },
         onClose: debate.close,
         onSynthesize: debate.controls.synthesize
-          ? () => debate.synthesize(debateDefaults.synthesizer_model, toggles, summarizer)
+          ? () => debate.synthesize(debateDefaults.synthesizer_model, toggles, { summarizer, systemPrompt })
           : undefined,
         onPause: debate.controls.pause ? debate.pause : undefined,
         onResume: debate.controls.resume ? debate.resume : undefined,
@@ -430,6 +433,8 @@ export default function Home() {
         summarizer={summarizer}
         defaultSummarizer={defaultSummarizer}
         onSummarizerChange={setSummarizerChoice}
+        systemPrompt={systemPromptText}
+        onSystemPromptChange={setSystemPromptText}
       />
 
       <DebateConfigDialog
@@ -442,6 +447,7 @@ export default function Home() {
             documents,
             parentCheckpointId: activeCheckpoint,
             summarizer,
+            systemPrompt,
           })
         }
         defaults={debateDefaults}

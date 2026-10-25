@@ -487,7 +487,8 @@ export const MessageBubble = React.memo(
                 content = content.replace(thinkGlobalRegex, "").trim();
                 // Handle unclosed tags during streaming
                 content = content.replace(thinkStreamingRegex, "").trim();
-                // Strip the self-reported confidence score from the visible body
+                // Older replies end with a self-reported confidence score
+                // (models were once asked for one); keep it out of the body.
                 content = content.replace(confidenceCleanupRegex, "").trim();
 
                 // Only preprocess LaTeX delimiters IF NOT STREAMING.

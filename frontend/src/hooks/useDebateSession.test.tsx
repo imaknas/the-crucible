@@ -97,7 +97,7 @@ beforeEach(() => {
 });
 
 describe("useDebateSession", () => {
-  it("carries the chosen summarizer into the debate's start and synthesis frames", async () => {
+  it("carries the chosen summarizer and system prompt into the debate's start and synthesis frames", async () => {
     const { result, sockets } = setup();
     (api.createDebateSession as jest.Mock).mockResolvedValueOnce({ session_id: "s1", participants: ["a", "b"] });
     await act(async () => {
@@ -108,13 +108,24 @@ describe("useDebateSession", () => {
         documents: {},
         parentCheckpointId: null,
         summarizer: "gpt-6-luna",
+        systemPrompt: "Be terse.",
       });
     });
     const ws = sockets[0];
     act(() => ws.open());
-    expect(ws.sent[0]).toMatchObject({ type: "debate_start", summarizer: "gpt-6-luna" });
-    act(() => result.current.synthesize(null, { use_rag: false, use_web_search: false }, "gpt-6-luna"));
-    expect(ws.sent.at(-1)).toMatchObject({ type: "debate_synthesize", summarizer: "gpt-6-luna" });
+    expect(ws.sent[0]).toMatchObject({ type: "debate_start", summarizer: "gpt-6-luna", system_prompt: "Be terse." });
+    expect(ws.sent[0].toggles).not.toHaveProperty("system_prompt");
+    act(() =>
+      result.current.synthesize(null, { use_rag: false, use_web_search: false }, {
+        summarizer: "gpt-6-luna",
+        systemPrompt: "Be terse.",
+      }),
+    );
+    expect(ws.sent.at(-1)).toMatchObject({
+      type: "debate_synthesize",
+      summarizer: "gpt-6-luna",
+      system_prompt: "Be terse.",
+    });
   });
 
   it("starts a debate over the injected socket and streams the transcript", async () => {
@@ -126,6 +137,7 @@ describe("useDebateSession", () => {
     act(() => ws.open());
     expect(ws.sent[0]).toMatchObject({ type: "debate_start", prompt: "Question?" });
     expect(ws.sent[0]).not.toHaveProperty("summarizer"); // automatic unless chosen
+    expect(ws.sent[0]).not.toHaveProperty("system_prompt"); // none unless set
 
     act(() => {
       ws.emit({ type: "debate_session_created", participants: ["a", "b"] });

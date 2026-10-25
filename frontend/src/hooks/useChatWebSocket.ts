@@ -3,6 +3,7 @@ import * as api from "@/lib/api";
 import { Message, ModelError, Toggles } from "@/lib/types";
 import { isOpen, useSocketFactory } from "@/lib/transport";
 import { buildSynthesisPrompt, lastReply, type SynthesisAnswer } from "@/lib/synthesis";
+import { contextFields } from "@/lib/runContext";
 
 export function useChatWebSocket({
   threadId,
@@ -10,6 +11,7 @@ export function useChatWebSocket({
   selectedModels,
   toggles,
   summarizer = null,
+  systemPrompt = null,
   documents,
   clearDocuments,
   onHistoryRefreshNeeded,
@@ -25,6 +27,8 @@ export function useChatWebSocket({
   toggles: Toggles;
   /** Model that summarizes long history; null = the backend's default. */
   summarizer?: string | null;
+  /** The person's system prompt; null = models get none. */
+  systemPrompt?: string | null;
   documents: Record<string, string>;
   clearDocuments: () => void;
   onHistoryRefreshNeeded: (
@@ -329,7 +333,7 @@ export function useChatWebSocket({
         message: userMessage,
         model: model,
         toggles: toggles,
-        summarizer: summarizer ?? undefined,
+        ...contextFields({ summarizer, systemPrompt }),
         documents: documents,
         parent_checkpoint_id: activeCheckpointRef.current,
         is_deliberation: isDeliberation,
@@ -388,7 +392,7 @@ export function useChatWebSocket({
       message: buildSynthesisPrompt(answers),
       model: synthesizer,
       toggles: toggles,
-      summarizer: summarizer ?? undefined,
+      ...contextFields({ summarizer, systemPrompt }),
       documents: documents,
       parent_checkpoint_id: parentId,
       type: "synthesis",

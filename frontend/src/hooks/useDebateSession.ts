@@ -14,17 +14,16 @@ import type { DebateDefaults, DebateSession, DebateUiStatus, Toggles } from "@/l
 import { useDebateTree } from "@/hooks/useDebateTree";
 import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
 import { isOpen, useSocketFactory } from "@/lib/transport";
+import { contextFields, type RunContext } from "@/lib/runContext";
 
 const STORAGE_KEY = "crucible_active_debate";
 
-export interface DebateStartContext {
+export interface DebateStartContext extends RunContext {
   participants: string[];
   prompt: string;
   toggles: Toggles;
   documents: Record<string, string>;
   parentCheckpointId: string | null;
-  /** Model that summarizes long history; null = the backend's default. */
-  summarizer?: string | null;
 }
 
 interface Options {
@@ -455,7 +454,7 @@ export function useDebateSession({
             type: "debate_start",
             prompt: promptRef.current,
             toggles: ctx.toggles,
-            summarizer: ctx.summarizer ?? undefined,
+            ...contextFields(ctx),
             documents: ctx.documents,
             parent_checkpoint_id: ctx.parentCheckpointId,
           },
@@ -497,13 +496,15 @@ export function useDebateSession({
   }, [socketOpen, send]);
 
   const synthesize = useCallback(
-    (synthesizerModel: string | null, toggles: Toggles, summarizer: string | null = null) => {
+    (synthesizerModel: string | null, toggles: Toggles, context: RunContext = {}) => {
+      // The synthesis frame carries the run's choices again: a frame that
+      // names any of them replaces the ones the debate started with.
       const frame = {
         type: "debate_synthesize",
         synthesizer_model: synthesizerModel || participantsRef.current[0],
         prompt: promptRef.current,
         toggles,
-        summarizer: summarizer ?? undefined,
+        ...contextFields(context),
       };
       if (isOpen(wsRef.current)) {
         send(frame);

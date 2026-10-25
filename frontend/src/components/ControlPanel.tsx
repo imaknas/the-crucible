@@ -13,6 +13,7 @@ import ParametersSection from "./control-panel/ParametersSection";
 import DebateDefaultsSection from "./control-panel/DebateDefaultsSection";
 import ApiKeysSection from "./control-panel/ApiKeysSection";
 import SummarizerSection from "./control-panel/SummarizerSection";
+import SystemPromptSection from "./control-panel/SystemPromptSection";
 
 interface ControlPanelProps {
   toggles: Toggles;
@@ -37,6 +38,9 @@ interface ControlPanelProps {
   summarizer: string | null;
   defaultSummarizer: string | null;
   onSummarizerChange: (modelId: string) => void;
+  /** The person's system prompt as typed ("" = none). */
+  systemPrompt: string;
+  onSystemPromptChange: (value: string) => void;
 }
 
 /** Width of the collapsed rail. */
@@ -68,6 +72,8 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
     summarizer,
     defaultSummarizer,
     onSummarizerChange,
+    systemPrompt,
+    onSystemPromptChange,
   }) => {
     const isDark = useTheme().palette.mode === "dark";
 
@@ -198,6 +204,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             setSelectedModels={setSelectedModels}
           />
           <ParametersSection isDark={isDark} toggles={toggles} setToggles={setToggles} />
+          <SystemPromptSection value={systemPrompt} onChange={onSystemPromptChange} />
           <SummarizerSection
             families={families}
             choice={summarizerChoice}
