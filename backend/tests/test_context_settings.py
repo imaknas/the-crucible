@@ -38,7 +38,7 @@ def test_models_endpoint_names_the_resolved_default_summarizer(monkeypatch):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
     body = TestClient(create_app()).get("/models").json()
-    assert body["default_summarizer"] == "claude-haiku-4-5-20251001"
+    assert body["default_summarizer"] == "claude-haiku-5-5"
 
 
 def test_post_chat_refuses_a_summarizer_without_a_key(monkeypatch):

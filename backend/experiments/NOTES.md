@@ -1269,3 +1269,45 @@ Run scaffold-audit-20260928T113602; every probe in `experiments/audit/runs/`.
 - Flash-lite's compaction verdict moved from harmful (−0.15) to
   inconclusive (−0.10).
 
+## 2026-10-25 — Third scaffold audit (partial: gpt-6-luna reading) and a rejected request
+
+After catalog-sync added claude-haiku-5-5 (cheapest Anthropic model, $0.10/$0.50
+under 100K-token prompts), it joined the summarizer candidates. The full audit
+(default readers gpt-6-luna, gemini-3.1-flash-lite, claude-haiku-5-5, strict
+oracle) stopped part-way: OpenAI answered one gpt-6-luna probe with
+`400 invalid_prompt` ("flagged as potentially violating our usage policy"; the
+error links to reasoning-model prompting advice). The request was one of the
+synthetic probes ("Quick check on something from earlier in this conversation:
+… Answer with just the value."). That run crashed instead of stopping, so its
+spend went unreported (capped at $5) and nothing was recorded; the runner now
+stops cleanly and saves a rejected request to `experiments/.failures/`.
+
+Re-run with only gpt-6-luna reading (plus the strict oracle): no rejection —
+the flag does not reproduce on the same scenarios. Spent $0.76 (estimate $1.09).
+Run scaffold-audit-20261025T053017.
+
+| scaffold | gpt-6-luna | oracle-strict |
+|---|---|---|
+| compaction (vs never) | 0.92 → 0.98, inconclusive | 1.00 → 1.00, **keep** |
+| verbatim window | 0.98 → 0.98, retire | 1.00 → 1.00, retire |
+| recall (vs none) | 0.35 → 0.98, **keep** | 0.40 → 1.00, **keep** |
+| summarizer gemini-3.8-flash (vs luna) | 0.98 → 0.98, retire | 1.00 → 1.00, retire |
+| summarizer claude-haiku-4-5 (vs luna) | 0.98 → 0.98, retire | 1.00 → 0.79, **harmful** |
+| summarizer claude-haiku-5-5 (vs luna) | 0.98 → 0.98, retire | 1.00 → 0.98, inconclusive |
+
+- **Haiku 5.5 replaces Haiku 4.5 as the Anthropic-only summarizer.** Its
+  summaries keep what luna's keep (no detectable loss on the strict oracle),
+  4.5's lose a fifth of the strict facts again, and 5.5 costs a tenth. Luna
+  stays the default; Haiku 4.5 leaves SUMMARIZER_MODELS.
+- Recall remains essential (0.35–0.40 without, 0.98–1.00 with); compaction
+  and the verbatim window read as before.
+- **Not measured**: flash-lite and Haiku 5.5 as readers. Rerunning them does
+  not use OpenAI as a reader, only as summarizer and recall rewriter, which
+  never drew a rejection.
+- Open: what triggered the rejection. The same content passed on the rerun,
+  and luna's answers varied in form (`<metadata>` one run,
+  `<self-assessed-confidence>` the next). One unverified suspicion is the
+  system prompt's request for a self-assessed confidence *with an
+  explanation*, which a reasoning model's filter may read as asking for its
+  reasoning; the next rejection will be saved and can be read locally.
+

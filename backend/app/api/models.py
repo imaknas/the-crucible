@@ -298,10 +298,11 @@ DEFAULT_ARENA_MODELS = ["gpt-6.1-sol", "claude-sonnet-5-5", "gemini-3.1-pro-prev
 # facts) and the cheapest, ~1/25 of gemini-3.8-flash per summary at 2027
 # prices. Its summaries alone keep much less (42/96): it relies on recall.
 # gemini-3.8-flash keeps the most without recall; haiku trails on dense detail.
-# claude-haiku-5-5 is listed last so scaffold-audit measures it against the
-# default (the audit tries every listed summarizer); it is not yet a fallback
-# anyone reaches, since claude-haiku-4-5 comes first on an Anthropic key.
-SUMMARIZER_MODELS = ["gpt-6-luna", "gemini-3.8-flash", "claude-haiku-4-5-20251001", "claude-haiku-5-5"]
+# On an Anthropic key alone it is claude-haiku-5-5: in the 2026-10-25 audit
+# its summaries lost nothing measurable against luna's (strict oracle 1.00 →
+# 0.98, readers equal), while claude-haiku-4-5's were harmful (1.00 → 0.79),
+# at a tenth of 4.5's price.
+SUMMARIZER_MODELS = ["gpt-6-luna", "gemini-3.8-flash", "claude-haiku-5-5"]
 
 # Which model chooses what to fetch back once history is summarized; the
 # first offered one with an API key wins, none means no recall. Choosing is
