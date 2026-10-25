@@ -150,6 +150,24 @@ test.describe("live flows (scripted models)", () => {
       .toBe(2);
   });
 
+  test("a chat synthesis is written by the chosen model and shown as a synthesis", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, "Rust or Go for a CLI?");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    await expect(page.getByText("Synthesize answers")).toBeVisible();
+    await page.getByLabel("Synthesis written by").click();
+    await page.getByRole("option", { name: "Claude Sonnet 5.5" }).click();
+    await page.getByText("Synthesize answers").click();
+
+    await expect(page.getByText(/^Synthesis · Claude Sonnet 5\.5$/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+    await showTree(page);
+    await expect(page.locator(".react-flow__node-synthesis")).toHaveCount(1);
+    await expect(page.locator(".react-flow__node-synthesis")).toContainText(/Synthesis · Claude Sonnet 5\.5/i);
+  });
+
   test("switching threads mid-stream does not leave the new thread loading", async ({ page }) => {
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     await send(page, "[[slow]] take your time");

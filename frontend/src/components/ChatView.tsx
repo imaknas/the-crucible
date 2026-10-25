@@ -7,6 +7,8 @@ import {
   Stack,
   Divider,
   CircularProgress,
+  Select,
+  MenuItem,
   useTheme,
 } from "@mui/material";
 import { CheckCircle2, Sparkles, Network, Scale, Swords, X as XIcon, Pause, Play } from "lucide-react";
@@ -25,7 +27,10 @@ interface ChatViewProps {
   setInput: (val: string) => void;
   onSendMessage: (text: string) => void;
   onSwitchCheckpoint: (id: string) => void;
-  onSynthesize: (contents: string[], parentId: string | null) => void;
+  /** Merge the answers at these checkpoints; `model` writes it (null = first selected). */
+  onSynthesize: (checkpointIds: string[], parentId: string | null, model?: string | null) => void;
+  /** Models a synthesis can be written by (those with a key). */
+  synthesizerOptions?: string[];
   onDeliberate: (text: string) => void;
   setShowTree: (val: boolean) => void;
   documents: Record<string, string>;
@@ -60,6 +65,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onSendMessage,
   onSwitchCheckpoint,
   onSynthesize,
+  synthesizerOptions = [],
   onDeliberate,
   setShowTree,
   documents,
@@ -229,16 +235,13 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
     }
   }, [messages, isLoading]);
 
-  // Arena Logic
-  // Synthesis Detection
+  // A synthesis reply is tagged by the backend (node type / metadata kind).
   const isSynthesisNode = React.useCallback(
-    (node: any) =>
-      node?.data?.label === "Consensus Convergence" ||
-      node?.data?.label?.includes(
-        "Please act as the Crucible Lead. Synthesize these viewpoints",
-      ),
+    (node: any) => node?.type === "synthesis" || node?.metadata?.kind === "synthesis",
     [],
   );
+  // "" = the first selected model, the original behaviour.
+  const [synthesizer, setSynthesizer] = React.useState("");
 
   const parentEdge = React.useMemo(
     () => edges.find((e) => e.target === activeCheckpoint),
@@ -525,8 +528,9 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                 return null;
               }
 
-              // Debate synthesis messages: show loading indicator while streaming, full content when done
-              if (msg.type === "synthesis") {
+              // Synthesis replies (chat or debate): a loading pill until text
+              // arrives, then a bubble that looks like a synthesis.
+              if (msg.type === "synthesis" || msg.kind === "synthesis") {
                 const hasSynthContent = msg.content && msg.content.trim().length > 0;
                 if (!hasSynthContent) {
                   // Still loading
@@ -570,7 +574,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                             letterSpacing: "0.02em",
                           }}
                         >
-                          Synthesizing Consensus...
+                          Synthesizing…
                         </Typography>
                         <CircularProgress
                           size={12}
@@ -581,7 +585,6 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                     </Box>
                   );
                 }
-                // Render completed synthesis as a regular assistant message
                 return (
                   <MessageBubble
                     key={msg.id || `synthesis-${i}`}
@@ -591,6 +594,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                     onMount={registerMessageRef}
                     index={i}
                     modelLabel={modelLabel}
+                    variant="synthesis"
                   />
                 );
               }
@@ -663,11 +667,9 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       whileTap={{ scale: 0.97 }}
                       onClick={() =>
                         onSynthesize(
-                          siblings.map((s: any) => {
-                            const msg = messages.find((m) => m.id === s.id);
-                            return msg?.content || s.data.label;
-                          }),
+                          siblings.map((s: any) => s.id),
                           parentId,
+                          synthesizer || null,
                         )
                       }
                       sx={{
@@ -697,8 +699,32 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                           marginTop: -2,
                         }}
                       />
-                      Synthesize Consensus
+                      Synthesize answers
                     </ButtonBase>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Typography component="label" htmlFor="synthesizer-select" sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
+                        written by
+                      </Typography>
+                      <Select
+                        size="small"
+                        variant="standard"
+                        disableUnderline
+                        value={synthesizer}
+                        displayEmpty
+                        onChange={(e) => setSynthesizer(String(e.target.value))}
+                        inputProps={{ id: "synthesizer-select", "aria-label": "Synthesis written by" }}
+                        sx={{ fontSize: "0.75rem", fontWeight: 600, color: "#a78bfa" }}
+                      >
+                        <MenuItem value="" sx={{ fontSize: "0.8rem" }}>
+                          {selectedModels[0] ? `${modelLabel(selectedModels[0])} (first selected)` : "First selected model"}
+                        </MenuItem>
+                        {synthesizerOptions.map((m) => (
+                          <MenuItem key={m} value={m} title={m} sx={{ fontSize: "0.8rem" }}>
+                            {modelLabel(m)}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </Box>
                   </Stack>
                   <Divider sx={{ flex: 1 }} />
                 </Box>

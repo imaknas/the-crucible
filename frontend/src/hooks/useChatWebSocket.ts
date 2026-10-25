@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import * as api from "@/lib/api";
 import { Message, Toggles } from "@/lib/types";
 import { isOpen, useSocketFactory } from "@/lib/transport";
+import { buildSynthesisPrompt, lastReply, type SynthesisAnswer } from "@/lib/synthesis";
 
 export function useChatWebSocket({
   threadId,
@@ -55,6 +56,8 @@ export function useChatWebSocket({
   const streamCheckpointsRef = useRef<string[]>([]);
   const expectedModelsCountRef = useRef<number>(0);
   const finishedModelsCountRef = useRef<number>(0);
+  // The model writing a synthesis right now, so its bubble streams as one.
+  const synthesisModelRef = useRef<string | null>(null);
 
   // Use refs for items that change frequently but shouldn't trigger WS reconnect
   const activeCheckpointRef = useRef(activeCheckpoint);
@@ -137,7 +140,7 @@ export function useChatWebSocket({
             id: `streaming-${data.model}-${Date.now()}`,
             role: "assistant",
             content: "",
-            type: "ai",
+            type: data.model === synthesisModelRef.current ? "synthesis" : "ai",
             model: data.model,
             streaming: true,
           },
@@ -223,6 +226,7 @@ export function useChatWebSocket({
           streamCheckpointsRef.current = [];
           expectedModelsCountRef.current = 0;
           finishedModelsCountRef.current = 0;
+          synthesisModelRef.current = null;
           setIsLoading(false);
           // A first turn is what makes a new thread exist on the server.
           onThreadsChangedRef.current?.();
@@ -306,36 +310,73 @@ export function useChatWebSocket({
     clearDocuments();
   };
 
+  /**
+   * Merge sibling answers into one, written by `model` (default: the first
+   * selected model). The turn is sent as type "synthesis", which the backend
+   * tags so the reply shows as a synthesis in the tree and the transcript.
+   */
   const synthesizeConsensus = async (
-    contents: string[],
+    answers: SynthesisAnswer[],
     parentId: string | null,
+    model?: string | null,
   ) => {
     if (isLoading) return;
+    const synthesizer = model || selectedModels[0];
+    if (!synthesizer || !isOpen(wsRef.current)) return;
     setIsLoading(true);
     expectedModelsCountRef.current = 1; // Synthesis is a single model call
     finishedModelsCountRef.current = 0;
+    synthesisModelRef.current = synthesizer;
 
-    const formattedContents = contents
-      .map((c, i) => `Model ${i + 1}: ${c}`)
-      .join("\n\n");
-    const synthesisPrompt = `I have received perspectives from multiple models:\n${formattedContents}\n\nPlease act as the Crucible Lead. Synthesize these viewpoints into a single, cohesive consensus that resolves contradictions and extracts the highest quality insights. Maintain an academic and rigorous tone.`;
+    wsRef.current?.send(
+      JSON.stringify({
+        message: buildSynthesisPrompt(answers),
+        model: synthesizer,
+        toggles: toggles,
+        summarizer: summarizer ?? undefined,
+        documents: documents,
+        parent_checkpoint_id: parentId,
+        type: "synthesis",
+      }),
+    );
+    clearDocuments();
+  };
 
-    if (isOpen(wsRef.current)) {
-      wsRef.current?.send(
-        JSON.stringify({
-          message: synthesisPrompt,
-          model: selectedModels[0],
-          toggles: toggles,
-          summarizer: summarizer ?? undefined,
-          documents: documents,
-          parent_checkpoint_id: parentId,
-          type: "synthesis",
-        }),
-      );
-      clearDocuments();
-    } else {
-      setIsLoading(false);
+  /**
+   * Synthesize the answers at these checkpoints. Each branch's full reply is
+   * read from the server: only the branch on screen is in `messages`, and the
+   * tree nodes carry 40-character labels.
+   */
+  const synthesizeBranches = async (
+    checkpointIds: string[],
+    parentId: string | null,
+    model?: string | null,
+  ) => {
+    if (!threadId || isLoading) return;
+    const label = modelLabelRef.current;
+    const answers = (
+      await Promise.all(
+        checkpointIds.map((id) =>
+          api
+            .fetchHistory(threadId, id)
+            .then((data) => lastReply(data.messages ?? [], label))
+            .catch(() => null),
+        ),
+      )
+    ).filter((a): a is SynthesisAnswer => !!a);
+    if (answers.length < 2) {
+      setErrorModals((prev) => [
+        ...prev,
+        {
+          id: Math.random().toString(36).substring(7),
+          title: "Couldn't synthesize",
+          details: "Fewer than two answers could be loaded from the server.",
+          suggestion: "Check the connection to the backend and try again.",
+        },
+      ]);
+      return;
     }
+    await synthesizeConsensus(answers, parentId, model);
   };
 
   const stopStreaming = useCallback(() => {
@@ -359,6 +400,7 @@ export function useChatWebSocket({
     isLoading,
     sendInteractiveMessage,
     synthesizeConsensus,
+    synthesizeBranches,
     stopStreaming,
   };
 }

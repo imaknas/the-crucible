@@ -276,7 +276,7 @@ function TreeViewInner({
             x: isFinite(n.position.x) ? n.position.x : 0,
             y: isFinite(n.position.y) ? n.position.y : 0,
           },
-          data: { ...n.data, metadata: n.metadata },
+          data: { ...n.data, metadata: n.metadata, onDelete: onDeleteNode },
           selected: isActive,
         };
       }
@@ -576,6 +576,7 @@ function TreeViewInner({
                 maskColor={isDark ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
                 nodeColor={(node) => {
                   const meta = (node as CustomNode).metadata;
+                  if (node.type === "synthesis") return "#8b5cf6";
                   if (meta?.model_color) return meta.model_color;
                   const model = meta?.active_peer || "";
                   if (model.includes("gpt")) return "#10b981";

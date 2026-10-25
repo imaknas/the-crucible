@@ -59,6 +59,7 @@ export default function Home() {
     selectedModels,
     setSelectedModels,
     allModelIds,
+    availableModelIds,
     modelLabel,
     defaultSummarizer,
   } = useModelCatalog();
@@ -121,7 +122,7 @@ export default function Home() {
     setMessages,
     isLoading,
     sendInteractiveMessage,
-    synthesizeConsensus,
+    synthesizeBranches,
     stopStreaming,
   } = useChatWebSocket({
     threadId,
@@ -369,7 +370,8 @@ export default function Home() {
                   setInput={setInput}
                   onSendMessage={handleSendMessage}
                   onSwitchCheckpoint={selectCheckpoint}
-                  onSynthesize={synthesizeConsensus}
+                  onSynthesize={synthesizeBranches}
+                  synthesizerOptions={availableModelIds}
                   onDeliberate={handleDeliberate}
                   stopStreaming={stopStreaming}
                   setShowTree={setShowTree}

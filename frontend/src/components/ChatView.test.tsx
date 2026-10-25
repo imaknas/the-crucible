@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import ChatView from "./ChatView";
 import { replyAuthor } from "./MessageBubble";
 
@@ -119,6 +119,61 @@ describe("ChatView", () => {
     const label = screen.getByText("Claude Sonnet 5.5");
     expect(label).toHaveAttribute("title", "claude-sonnet-5-5");
     expect(screen.queryByText(/CLAUDE SONNET 5 5/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("ChatView synthesis", () => {
+  const base = {
+    nodes: [],
+    edges: [],
+    isLoading: false,
+    input: "",
+    setInput: jest.fn(),
+    onSendMessage: jest.fn(),
+    onSwitchCheckpoint: jest.fn(),
+    onSynthesize: jest.fn(),
+    onDeliberate: jest.fn(),
+    setShowTree: jest.fn(),
+    documents: {},
+    setDocuments: jest.fn(),
+    activeCheckpoint: "a1",
+    onDeleteNode: jest.fn(),
+    onEditAndRebranch: jest.fn(),
+    onFileUpload: jest.fn(),
+    stopStreaming: jest.fn(),
+    showEditButton: false,
+    threadId: "t1",
+    selectedModels: ["gpt-6.1-sol"],
+    modelLabel: (id: string) => id,
+  };
+
+  it("shows a tagged synthesis reply as a synthesis, not as another answer", () => {
+    render(
+      <ChatView
+        {...base}
+        messages={[
+          { id: "u", role: "user", content: "Q", type: "human" },
+          { id: "s", role: "assistant", content: "Merged answer", model: "m", model_name: "Claude", kind: "synthesis" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("Synthesis · Claude")).toBeInTheDocument();
+  });
+
+  it("leaves a synthesis out of the answers it compares, and synthesizes the real siblings", () => {
+    const onSynthesize = jest.fn();
+    const node = (id: string, extra: object = {}) => ({ id, data: { label: id }, position: { x: 0, y: 0 }, metadata: { role: "ai", active_peer: id }, ...extra });
+    render(
+      <ChatView
+        {...base}
+        onSynthesize={onSynthesize}
+        messages={[{ id: "u", role: "user", content: "Q", type: "human" }]}
+        nodes={[node("u"), node("a1"), node("a2"), node("syn", { type: "synthesis" })]}
+        edges={["a1", "a2", "syn"].map((t) => ({ id: `e-${t}`, source: "u", target: t }))}
+      />,
+    );
+    fireEvent.click(screen.getByText("Synthesize answers"));
+    expect(onSynthesize).toHaveBeenCalledWith(["a1", "a2"], "u", null);
   });
 });
 

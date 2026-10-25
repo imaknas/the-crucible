@@ -11,7 +11,7 @@ from typing import Any, AsyncIterator, Dict, Mapping, Optional, Sequence
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.documents import attach_documents
 from app.services.recall import INTERNAL_TAG
-from app.services.runs import final_state_of_run, tag_run, thread_config
+from app.services.runs import final_state_of_run, tag_run, tag_turn_kind, thread_config
 from app.utils.helpers import clean_string, extract_text
 
 MAX_PROMPT_CHARS = 100_000
@@ -103,11 +103,16 @@ async def stream_turn(
     documents: Optional[Mapping[str, str]] = None,
     is_deliberation: bool = False,
     context: ContextSettings = DEFAULT_CONTEXT,
+    turn_kind: Optional[str] = None,
 ) -> AsyncIterator[Dict[str, Any]]:
     """Run one model's turn. Yields ``token`` events, then one ``end`` event
-    carrying the new checkpoint id and the path's messages. Raises on failure."""
+    carrying the new checkpoint id and the path's messages. Raises on failure.
+
+    ``turn_kind="synthesis"`` tags the turn's checkpoints, so the tree and the
+    transcript can show the reply as a synthesis rather than another answer."""
     config = context.apply(thread_config(thread_id, parent_checkpoint_id))
     run_id = tag_run(config)
+    tag_turn_kind(config, turn_kind)
     document_names = await attach_documents(config, documents)
     state = await graph_app.aget_state(config)
 

@@ -15,6 +15,11 @@ RUN_ID_KEY = "crucible_run_id"
 # Marks a checkpoint holding context copied in from elsewhere (a debate's
 # parent conversation), which is not a turn of the thread it sits on.
 SEED_KEY = "crucible_seed"
+# What a run is for, when it is not an ordinary turn. Also copied into the
+# checkpoint metadata, so the tree can tell a synthesis reply from an answer.
+TURN_KIND_KEY = "crucible_turn"
+SYNTHESIS_TURN = "synthesis"
+TURN_KINDS = frozenset({SYNTHESIS_TURN})
 
 
 def thread_config(thread_id: str, checkpoint_id: Optional[str] = None) -> Dict[str, Any]:
@@ -29,6 +34,12 @@ def tag_run(config: Dict[str, Any]) -> str:
     run_id = uuid.uuid4().hex
     config["metadata"] = {**config.get("metadata", {}), RUN_ID_KEY: run_id}
     return run_id
+
+
+def tag_turn_kind(config: Dict[str, Any], kind: Optional[str]) -> None:
+    """Mark the run as a special kind of turn (e.g. a synthesis); unknown kinds are ignored."""
+    if kind in TURN_KINDS:
+        config["metadata"] = {**config.get("metadata", {}), TURN_KIND_KEY: kind}
 
 
 async def resolve_fork_point(graph_app, thread_id: str) -> str:

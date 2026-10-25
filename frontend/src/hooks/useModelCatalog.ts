@@ -46,6 +46,8 @@ export function useModelCatalog() {
   // names re-render with them. Socket handlers read it through a ref.
   const modelLabel = useCallback((id: string) => modelDisplayName(id, families), [families]);
   const allModelIds = families.flatMap((f) => f.models.map((m) => m.id));
+  // Models whose family has a key: the ones a synthesizer can be picked from.
+  const availableModelIds = families.filter((f) => f.available).flatMap((f) => f.models.map((m) => m.id));
 
   return {
     families,
@@ -54,6 +56,7 @@ export function useModelCatalog() {
     selectedModels,
     setSelectedModels,
     allModelIds,
+    availableModelIds,
     modelLabel,
     defaultSummarizer,
   };

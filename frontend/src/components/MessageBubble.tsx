@@ -8,7 +8,7 @@ import {
   AccordionSummary,
   AccordionDetails,
 } from "@mui/material";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -111,13 +111,16 @@ interface MessageBubbleProps {
   index: number;
   /** Resolves a model ID to its display name (useModelCatalog's modelLabel). */
   modelLabel?: (id: string) => string;
+  /** A synthesis reply gets its own look, so it never reads as one more answer. */
+  variant?: "synthesis";
 }
 
 const identity = (id: string) => id;
 
 export const MessageBubble = React.memo(
-  ({ msg, isUser, isDark, onMount, index, modelLabel = identity }: MessageBubbleProps) => {
-    const modelColor = getModelColor(isUser ? undefined : msg.model);
+  ({ msg, isUser, isDark, onMount, index, modelLabel = identity, variant }: MessageBubbleProps) => {
+    const isSynthesis = variant === "synthesis";
+    const modelColor = getModelColor(isUser ? undefined : isSynthesis ? "synthesis" : msg.model);
     const author = replyAuthor(msg, modelLabel);
 
     // Standardize content string extraction for the whole component
@@ -164,7 +167,14 @@ export const MessageBubble = React.memo(
                 ? "rgba(255,255,255,0.05)"
                 : "divider",
             boxShadow: isUser ? "none" : "0 1px 2px 0 rgba(0,0,0,0.05)",
+            ...(isSynthesis && {
+              borderColor: isDark ? "rgba(139,92,246,0.45)" : "rgba(109,40,217,0.35)",
+              background: isDark
+                ? "linear-gradient(135deg, rgba(109,40,217,0.16), rgba(37,99,235,0.1))"
+                : "linear-gradient(135deg, rgba(109,40,217,0.06), rgba(37,99,235,0.04))",
+            }),
           }}
+          data-variant={variant}
         >
           <Box
             sx={{
@@ -175,15 +185,19 @@ export const MessageBubble = React.memo(
               color: isUser ? "primary.main" : modelColor.text,
             }}
           >
-            {!isUser && (
-              <Box
-                sx={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  bgcolor: modelColor.dot,
-                }}
-              />
+            {isSynthesis ? (
+              <Sparkles width={13} height={13} color={modelColor.dot} />
+            ) : (
+              !isUser && (
+                <Box
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    bgcolor: modelColor.dot,
+                  }}
+                />
+              )
             )}
             <Typography
               variant="overline"
@@ -195,7 +209,7 @@ export const MessageBubble = React.memo(
                 lineHeight: 1,
               }}
             >
-              {isUser ? "You" : author}
+              {isUser ? "You" : isSynthesis ? `Synthesis · ${author}` : author}
             </Typography>
           </Box>
           <Box

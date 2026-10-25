@@ -6,6 +6,7 @@ jest.mock("@/lib/api", () => ({
   createWebSocketUrl: jest
     .fn()
     .mockImplementation((tid) => `ws://localhost/test-ws/${tid}`),
+  fetchHistory: jest.fn(),
 }));
 
 class MockWebSocket {
@@ -86,11 +87,42 @@ describe("useChatWebSocket", () => {
     const { result } = renderHook(() => useChatWebSocket(mockProps));
 
     await act(async () => {
-      await result.current.synthesizeConsensus(["View 1", "View 2"], "cp_1");
+      await result.current.synthesizeConsensus(
+        [
+          { author: "A", content: "View 1" },
+          { author: "B", content: "View 2" },
+        ],
+        "cp_1",
+      );
     });
 
     expect(result.current.isLoading).toBe(true);
     expect(mockProps.clearDocuments).toHaveBeenCalled();
+    const frame = JSON.parse(MockWebSocket.instances[0].send.mock.calls[0][0]);
+    expect(frame).toMatchObject({ type: "synthesis", model: "gpt-4o", parent_checkpoint_id: "cp_1" });
+  });
+
+  it("synthesizes full branch replies with the chosen synthesizer, streaming as a synthesis", async () => {
+    (api.fetchHistory as jest.Mock).mockImplementation((_t: string, id: string) =>
+      Promise.resolve({
+        messages: [
+          { role: "user", content: "Q" },
+          { role: "assistant", content: `full answer ${id}`, model: id, model_name: `Name ${id}` },
+        ],
+      }),
+    );
+    const { result } = renderHook(() => useChatWebSocket(mockProps));
+    await act(async () => {
+      await result.current.synthesizeBranches(["a1", "a2"], "cp_1", "claude-x");
+    });
+    const ws = MockWebSocket.instances[0];
+    const frame = JSON.parse(ws.send.mock.calls[0][0]);
+    expect(frame.model).toBe("claude-x");
+    expect(frame.message).toContain("[Name a1]:\nfull answer a1");
+    expect(frame.message).toContain("[Name a2]:\nfull answer a2");
+
+    act(() => ws.onmessage?.({ data: JSON.stringify({ type: "stream_start", model: "claude-x" }) }));
+    expect(result.current.messages.at(-1)).toMatchObject({ type: "synthesis", model: "claude-x" });
   });
 
   it("clears loading when the thread changes mid-stream", async () => {

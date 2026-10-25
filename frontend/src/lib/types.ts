@@ -9,6 +9,8 @@ export interface Message {
   model?: string;
   /** Display name for `model`, from the backend; the raw ID stays in `model`. */
   model_name?: string;
+  /** "synthesis" for a reply that merged sibling answers (set by the backend). */
+  kind?: string | null;
   streaming?: boolean;
   sources?: { text: string; filename: string }[];
 }
@@ -38,8 +40,12 @@ export interface TreeNode {
     round_num?: number;
     model_color?: string;
     pending?: boolean;
+    /** "synthesis" for a chat synthesis reply. */
+    kind?: string;
     [key: string]: unknown;
   };
+  /** "synthesis" renders the node as a SynthesisTreeNode. */
+  type?: string;
   [key: string]: unknown;
 }
 

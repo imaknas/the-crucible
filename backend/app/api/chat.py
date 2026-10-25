@@ -77,7 +77,8 @@ class ChatConnection:
     """One browser tab's chat socket for one thread.
 
     Client frames:  {message, model, toggles, documents, parent_checkpoint_id,
-                     is_deliberation}  — one per model; or {type: "stop"}.
+                     is_deliberation, type?}  — one per model (type "synthesis"
+                     tags a synthesis turn); or {type: "stop"}.
     Server frames:  stream_start, stream_token, stream_end, title_update, error.
 
     Models sent together share one parent. The frontend sends a turn's frames
@@ -173,6 +174,7 @@ class ChatConnection:
                 documents=frame.get("documents", {}),
                 is_deliberation=frame.get("is_deliberation", False),
                 context=context,
+                turn_kind=frame.get("type"),
             ):
                 if event["type"] == "token":
                     if not await self.send({"type": "stream_token", "token": event["token"], "model": model}):

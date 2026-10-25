@@ -5,8 +5,11 @@ from app.core import database as db
 from app.core.database import load_node_positions
 from app.core.schema import is_summary_message
 from app.api.models import display_name
-from app.services.runs import is_seed
+from app.services.runs import SYNTHESIS_TURN, TURN_KIND_KEY, is_seed
 from app.utils.helpers import extract_text, get_preview_text
+
+# The frontend's chat synthesis prompt starts its instructions with this.
+SYNTHESIS_PROMPT_MARKER = "Please act as the Crucible Lead. Synthesize these viewpoints"
 
 
 def get_checkpoint_role(state_obj) -> str:
@@ -23,6 +26,31 @@ def get_checkpoint_role(state_obj) -> str:
             else "assistant"
         )
     return "assistant"
+
+
+def _content_of(msg) -> str:
+    if hasattr(msg, "content"):
+        content = msg.content
+    elif isinstance(msg, dict):
+        content = msg.get("content", "")
+    else:
+        content = msg
+    return content if isinstance(content, str) else str(content)
+
+
+def is_synthesis_reply(state_obj) -> bool:
+    """Whether this checkpoint's last message is a chat synthesis reply.
+
+    Synthesis turns are tagged in checkpoint metadata. Threads from before the
+    tag are recognised by the prompt the reply answers.
+    """
+    if get_checkpoint_role(state_obj) != "assistant":
+        return False
+    meta = getattr(state_obj, "metadata", None)
+    if isinstance(meta, dict) and meta.get(TURN_KIND_KEY) == SYNTHESIS_TURN:
+        return True
+    m_list = state_obj.values.get("messages", [])
+    return len(m_list) >= 2 and SYNTHESIS_PROMPT_MARKER in _content_of(m_list[-2])
 
 
 def get_content_key(state_obj) -> str:
@@ -390,8 +418,7 @@ def build_graph_layout(
         else:
             display_label = get_preview_text(content, max_length=40)
 
-        nodes.append(
-            {
+        node = {
                 "id": v_id,
                 "data": {"label": display_label or "Start"},
                 "position": pos,
@@ -408,7 +435,12 @@ def build_graph_layout(
                     "preview": get_preview_text(content, max_length=400),
                 },
             }
-        )
+        # A synthesis reply hangs off the same prompt as the answers it merged;
+        # its own node type keeps it from reading as one more answer.
+        if visual_role == "ai" and is_synthesis_reply(state):
+            node["type"] = "synthesis"
+            node["metadata"]["kind"] = "synthesis"
+        nodes.append(node)
 
         parent = parents.get(v_id)
         if parent:
@@ -522,6 +554,9 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
                             # What a person reads; the raw id stays in `model`.
                             "model_name": display_name(msg_model)
                             if role == "assistant"
+                            else None,
+                            "kind": "synthesis"
+                            if role == "assistant" and is_synthesis_reply(state)
                             else None,
                             "sources": sources,
                         }
