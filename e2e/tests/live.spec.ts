@@ -140,6 +140,21 @@ test.describe("live flows (scripted models)", () => {
     const res = await request.get(`${BACKEND_URL}/debate/sessions/${sessionId}`);
     expect(res.status()).toBe(404);
   });
+
+  test("a document upload passes the backend's preflight guard", async ({ page }) => {
+    // The upload is a multipart POST, which the backend refuses without the
+    // client header; sending that header makes the browser preflight it.
+    const upload = page.waitForResponse(
+      (res) => res.url().endsWith("/upload") && res.request().method() === "POST",
+    );
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "e2e-notes.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("Notes for the arena."),
+    });
+    expect((await upload).status()).toBe(200);
+    await expect(page.getByRole("button", { name: "e2e-notes.txt" })).toBeVisible();
+  });
 });
 
 test.describe("entry points", () => {

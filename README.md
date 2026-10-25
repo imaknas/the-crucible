@@ -89,14 +89,17 @@ Frontend on http://localhost:3000, API on http://localhost:8000. Both are publis
 | `GOOGLE_API_KEY` | At least one* | Google AI API key |
 | `NEXT_PUBLIC_API_URL` | No | Backend URL for the frontend (default `http://localhost:8000`) |
 | `HOST` | No | Backend bind address (default `127.0.0.1`) |
-| `CORS_ORIGINS` | No | Extra browser origins, comma-separated. `localhost` / `127.0.0.1` on any port are always allowed |
+| `CORS_ORIGINS` | No | Extra browser origins, comma-separated. `localhost` / `127.0.0.1` on any port are always allowed. Also governs which pages may open the WebSockets |
+| `ALLOWED_HOSTS` | No | Extra hostnames the API may be reached as, comma-separated (`*` allows any). `localhost`, `127.0.0.1` and `::1` are always allowed; other `Host` headers get a 400, which blocks DNS rebinding |
 | `DATABASE_PATH` | No | SQLite file for threads and checkpoints (default `backend/checkpoints.sqlite`) |
 | `CHROMA_DIR` | No | Vector store directory (default `backend/chroma_db`) |
 | `CRUCIBLE_ALLOW_REMOTE_CONFIG` | No | Let non-loopback clients use the API-key endpoint. Docker Compose sets it, since it publishes on `127.0.0.1` only |
 
 \* Keys can also be set at runtime in **Control Panel → API Keys**, which writes them to `backend/.env`. That endpoint only accepts requests from the local machine.
 
-> **⚠️ The API has no authentication.** It listens on loopback by default. If you set `HOST=0.0.0.0` to reach it from another machine, anyone on that network can use your API keys.
+> **⚠️ The API has no authentication.** It listens on loopback by default. If you set `HOST=0.0.0.0` to reach it from another machine, anyone on that network can use your API keys. Reaching it under another name or IP also needs that name in `ALLOWED_HOSTS` (and the frontend's origin in `CORS_ORIGINS`).
+>
+> Browser pages from other sites are kept out: WebSockets and CORS accept only allowed origins, unknown `Host` headers are refused, and form, text or untyped `POST`s need an `X-Crucible-Client` header (which forces a CORS preflight). Scripts calling the REST API send JSON, or add that header to a multipart upload.
 
 ---
 
