@@ -314,6 +314,12 @@ SUMMARIZER_MODELS = ["gpt-6-luna", "gemini-3.8-flash", "claude-haiku-5-5"]
 # gemini-3.5-flash-lite only 25), experiments/NOTES.md pilot 18.
 RECALL_MODELS = ["gpt-6-luna", "claude-haiku-4-5-20251001", "gemini-3.8-flash"]
 
+# Which model grades retrieved RAG chunks for relevance (one yes/no call per
+# chunk, no tools); the first offered one with an API key wins, otherwise the
+# answering model grades without tools. A short classification like recall's
+# rewrite step, so the same small models, cheapest first.
+GRADER_MODELS = RECALL_MODELS
+
 
 FAMILY_META: Dict[str, Dict[str, str]] = {
     "openai": {"label": "OpenAI", "color": "#10b981", "env_key": "OPENAI_API_KEY"},

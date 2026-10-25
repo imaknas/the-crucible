@@ -56,10 +56,10 @@ class ModelRewriter:
 
 def default_recall_model(env: Mapping[str, str] = os.environ) -> Optional[str]:
     """The first of RECALL_MODELS that is offered and has an API key."""
-    from app.api.models import MODEL_REGISTRY, RECALL_MODELS
-    from app.llm.factory import has_credentials
+    from app.api.models import RECALL_MODELS
+    from app.llm.factory import first_offered_with_key
 
-    return next((m for m in RECALL_MODELS if m in MODEL_REGISTRY and has_credentials(m, env)), None)
+    return first_offered_with_key(RECALL_MODELS, env)
 
 
 def default_history_recall(factory, env: Mapping[str, str] = os.environ) -> Optional[HistoryRecall]:

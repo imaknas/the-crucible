@@ -17,6 +17,7 @@ from app.utils.helpers import extract_text
 from app.services import rag as rag_service
 from app.llm import model_factory_from
 from app.llm.providers import REQUEST_NOTES_HEADER
+from app.services.recall import INTERNAL_TAG
 from app.compaction import ContextSnapshot, DetailedBrief, EarlierMessage, KeepRecent, ModelBudget, ThresholdPolicy
 
 # Messages kept verbatim after a summary: left out of the summary when it is
@@ -33,6 +34,8 @@ RETENTION_CONFIG_KEY = "history_retention"
 # Which hidden messages to bring back for a request. None unless the run
 # names one: the app's entry points attach services/recall's default.
 RECALL_CONFIG_KEY = "history_recall"
+# The model that grades retrieved RAG chunks; default_grader() unless named.
+GRADER_CONFIG_KEY = "grader_model"
 _DEFAULT_RETENTION = KeepRecent(KEEP_VERBATIM)
 _ROLE = {"human": "user", "ai": "assistant"}
 
@@ -422,8 +425,16 @@ async def grade_retrieval_node(state: CrucibleState, config: RunnableConfig):
         else last_msg.get("content", "")
     )
 
-    # Use the active peer for grading, with the same toggles so model config is consistent
-    model = model_factory_from(config).chat(state["active_peer"], state.get("toggles", {}))
+    # A yes/no per chunk needs neither the answering model nor its tools (with
+    # the turn's toggles, web search was bound to every grading call). The
+    # run may name the grader; otherwise the first small model with a key,
+    # and failing that the answering model, still without tools.
+    grader_id = (
+        ((config or {}).get("configurable") or {}).get(GRADER_CONFIG_KEY)
+        or default_grader()
+        or state["active_peer"]
+    )
+    model = model_factory_from(config).chat(grader_id, {})
 
     sem = asyncio.Semaphore(3)  # Prevent API rate limits
 
@@ -437,7 +448,8 @@ async def grade_retrieval_node(state: CrucibleState, config: RunnableConfig):
         )
         async with sem:
             try:
-                res = await model.ainvoke([HumanMessage(content=prompt)])
+                # Internal: its "yes"/"no" must never stream into a reply.
+                res = await model.ainvoke([HumanMessage(content=prompt)], config={"tags": [INTERNAL_TAG]})
                 return chunk if "yes" in extract_text(res.content).lower() else None
             except Exception as e:
                 print(f"[Grader] Error grading chunk: {e}")
@@ -648,10 +660,19 @@ def default_summarizer(env: Mapping[str, str] = os.environ) -> str:
     of SUMMARIZER_MODELS that is offered and has an API key. Without any key
     (tests, the fake LLM) the first offered one."""
     from app.api.models import SUMMARIZER_MODELS
-    from app.llm.factory import has_credentials
+    from app.llm.factory import first_offered_with_key
 
     offered = [m for m in SUMMARIZER_MODELS if m in MODEL_REGISTRY] or SUMMARIZER_MODELS[-1:]
-    return next((m for m in offered if has_credentials(m, env)), offered[0])
+    return first_offered_with_key(offered, env) or offered[0]
+
+
+def default_grader(env: Mapping[str, str] = os.environ) -> Optional[str]:
+    """The model that grades RAG chunks unless a run names another: the first
+    of GRADER_MODELS that is offered and has an API key, or None."""
+    from app.api.models import GRADER_MODELS
+    from app.llm.factory import first_offered_with_key
+
+    return first_offered_with_key(GRADER_MODELS, env)
 
 
 def summarize_history(state: CrucibleState, config: RunnableConfig):

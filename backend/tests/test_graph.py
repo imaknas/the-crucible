@@ -337,3 +337,69 @@ class TestNodes:
 
         assert len(res["messages"]) == 1
         assert "PREVIOUS CONTEXT SUMMARY:" in res["messages"][0].content
+
+
+class _GraderSpy:
+    """Records which model grades, with which toggles and call tags."""
+
+    def __init__(self):
+        self.built = []
+        self.tags = []
+
+    def __call__(self, model_id, toggles):
+        self.built.append((model_id, dict(toggles or {})))
+        spy = self
+
+        class _Model:
+            async def ainvoke(self, messages, config=None):
+                from langchain_core.messages import AIMessage
+
+                spy.tags.append(list((config or {}).get("tags") or []))
+                return AIMessage(content="yes")
+
+        return _Model()
+
+
+def _grading_state(peer="claude-sonnet-5"):
+    from langchain_core.messages import HumanMessage
+
+    return {
+        "retrieved_chunks": [{"text": "Fact 1", "filename": "a"}, {"text": "Fact 2", "filename": "b"}],
+        "messages": [HumanMessage(content="Query")],
+        "active_peer": peer,
+        "toggles": {"use_rag": True, "use_web_search": True},
+    }
+
+
+@pytest.mark.asyncio
+async def test_grading_uses_the_default_small_model_without_tools(monkeypatch):
+    from app.api.models import GRADER_MODELS
+    from app.services.graph import grade_retrieval_node
+    from app.services.recall import INTERNAL_TAG
+
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    spy = _GraderSpy()
+    await grade_retrieval_node(_grading_state(), _cfg(spy))
+    expected = next(m for m in GRADER_MODELS if m.startswith("gpt"))
+    assert spy.built == [(expected, {})]
+    assert spy.tags == [[INTERNAL_TAG], [INTERNAL_TAG]]
+
+
+@pytest.mark.asyncio
+async def test_a_run_can_name_the_grader():
+    from app.services.graph import GRADER_CONFIG_KEY, grade_retrieval_node
+
+    spy = _GraderSpy()
+    await grade_retrieval_node(_grading_state(), _cfg(spy, **{GRADER_CONFIG_KEY: "gemini-3.8-flash"}))
+    assert spy.built == [("gemini-3.8-flash", {})]
+
+
+@pytest.mark.asyncio
+async def test_without_any_grader_key_the_answering_model_grades_without_tools(monkeypatch):
+    from app.services.graph import grade_retrieval_node
+
+    for key in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"):
+        monkeypatch.delenv(key, raising=False)
+    spy = _GraderSpy()
+    await grade_retrieval_node(_grading_state("claude-sonnet-5"), _cfg(spy))
+    assert spy.built == [("claude-sonnet-5", {})]

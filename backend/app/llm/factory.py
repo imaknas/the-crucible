@@ -12,7 +12,7 @@ choice of real provider, scripted fake or test stub is made in one place:
 
 import os
 from contextlib import contextmanager
-from typing import Any, Callable, Iterator, Mapping, Optional, Protocol
+from typing import Any, Callable, Iterator, Mapping, Optional, Protocol, Sequence
 
 from langchain_core.runnables import Runnable
 
@@ -41,6 +41,15 @@ def has_credentials(model_id: str, env: Mapping[str, str] = os.environ) -> bool:
     family = MODEL_REGISTRY.get(model_id.strip().lower(), {}).get("family")
     meta = FAMILY_META.get(family) if isinstance(family, str) else None
     return bool(env.get(meta["env_key"])) if meta else True
+
+
+def first_offered_with_key(
+    candidates: Sequence[str], env: Mapping[str, str] = os.environ
+) -> Optional[str]:
+    """The first of `candidates` that the registry offers and whose API key is
+    set, or None. How the app picks its helper models (summarizer, recall,
+    RAG grader) from a preference list."""
+    return next((m for m in candidates if m in MODEL_REGISTRY and has_credentials(m, env)), None)
 
 
 class ProviderModelFactory:
