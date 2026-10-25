@@ -42,17 +42,11 @@ jest.mock("react-syntax-highlighter/dist/esm/styles/prism", () => ({
   vscDarkPlus: {},
   vs: {},
 }));
-jest.mock("lucide-react", () => ({
-  Send: () => <div />,
-  FileText: () => <div />,
-  Edit3: () => <div />,
-  CheckCircle2: () => <div />,
-  Sparkles: () => <div />,
-  Network: () => <div />,
-  Scale: () => <div />,
-  X: () => <div />,
-  StopCircle: () => <div />,
-}));
+// Every icon renders as an empty element, whichever ones a component uses.
+jest.mock("lucide-react", () => {
+  const Icon = () => <div />;
+  return new Proxy({}, { get: (_, name) => (name === "__esModule" ? false : Icon) });
+});
 
 // Mock ResizeObserver for JSDOM
 global.ResizeObserver = jest.fn().mockImplementation(() => ({

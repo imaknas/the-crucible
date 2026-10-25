@@ -124,6 +124,32 @@ test.describe("live flows (scripted models)", () => {
     await expect(composer).toHaveValue("Should we rewrite it in Rust?");
   });
 
+  test("composer actions say why they are disabled, and Deliberate works with an empty box", async ({
+    page,
+    request,
+  }) => {
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    const deliberate = page.getByRole("button", { name: "Deliberate" });
+    await expect(deliberate).toBeDisabled();
+    await deliberate.locator("..").hover();
+    await expect(page.getByRole("tooltip")).toContainText("send a message first");
+
+    await send(page, "Explain monads briefly");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+    await expect(page.getByText(answerFrom(GPT)).first()).toBeVisible();
+
+    // An empty box asks for a plain review instead of doing nothing.
+    await expect(deliberate).toBeEnabled();
+    await deliberate.click();
+    const threadId = await currentThreadId(page);
+    await expect
+      .poll(async () => {
+        const tree = await (await request.get(`${BACKEND_URL}/history/${threadId}`)).json();
+        return tree.nodes.filter((n: { data?: { label?: string } }) => answerFrom(GPT).test(n.data?.label ?? "")).length;
+      })
+      .toBe(2);
+  });
+
   test("switching threads mid-stream does not leave the new thread loading", async ({ page }) => {
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     await send(page, "[[slow]] take your time");
