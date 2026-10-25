@@ -20,6 +20,7 @@ from app.core import database as db
 from app.core.schema import is_summary_message, summary_text
 from app.services import arena as arena_svc
 from app.services import debate as debate_svc
+from app.utils.helpers import extract_text
 
 load_dotenv()
 
@@ -237,29 +238,40 @@ async def get_branch_answers(thread_id: str) -> Dict[str, Any]:
 @mcp.tool()
 @_quiet
 async def get_thread_summary(thread_id: str) -> Dict[str, Any]:
-    """The thread's rolling thesis plus its latest context summary, if one has been written.
+    """The thread's latest context summary, if one has been written, and the
+    latest answer on its most recent path.
 
+    Returns: {thread_id, context_summary, latest_answer: {model, content} | null, thesis}.
     Summaries only exist once a thread outgrows a model's context budget.
+    `thesis` is always null: the rolling thesis is no longer maintained, and
+    the value older threads still carry stopped tracking the conversation.
     """
     async with arena_svc.open_graph() as graph_app:
         state = await graph_app.aget_state({"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}})
     if not state.values:
         raise ToolError(f"Thread {thread_id} not found.")
-    summary = next(
-        (summary_text(m) for m in reversed(state.values.get("messages", [])) if is_summary_message(m)),
-        None,
-    )
+    messages = state.values.get("messages", [])
+    summary = next((summary_text(m) for m in reversed(messages) if is_summary_message(m)), None)
+    last_ai = next((m for m in reversed(messages) if getattr(m, "type", "") == "ai"), None)
     return {
         "thread_id": thread_id,
-        "thesis": state.values.get("current_thesis") or None,
         "context_summary": summary,
+        "latest_answer": (
+            {"model": getattr(last_ai, "name", None), "content": extract_text(last_ai.content)}
+            if last_ai is not None else None
+        ),
+        "thesis": None,
     }
 
 
 @mcp.tool()
 @_quiet
 async def get_thread_status(thread_id: str) -> Dict[str, Any]:
-    """Latest model, thesis and message count on the thread's most recent path."""
+    """Latest model and message count on the thread's most recent path.
+
+    `thesis` is always null (kept so existing callers still find the key):
+    the rolling thesis is no longer maintained.
+    """
     async with arena_svc.open_graph() as graph_app:
         state = await graph_app.aget_state({"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}})
     if not state.values:
@@ -268,7 +280,7 @@ async def get_thread_status(thread_id: str) -> Dict[str, Any]:
         "thread_id": thread_id,
         "title": db.get_thread_title(thread_id),
         "active_model": state.values.get("active_peer"),
-        "thesis": state.values.get("current_thesis") or None,
+        "thesis": None,
         "message_count": len(state.values.get("messages", [])),
         "checkpoint_id": state.config["configurable"].get("checkpoint_id"),
     }

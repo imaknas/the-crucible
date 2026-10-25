@@ -403,7 +403,6 @@ def build_graph_layout(
                     "model_name": display_name(state.values.get("active_peer"))
                     if visual_role == "ai"
                     else None,
-                    "thesis_preview": state.values.get("current_thesis", "")[:50],
                     "has_thoughts": has_thoughts,
                     # Longer excerpt, revealed when the node is selected
                     "preview": get_preview_text(content, max_length=400),

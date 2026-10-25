@@ -9,7 +9,8 @@ class CrucibleState(TypedDict):
     # Core data: messages is managed by add_messages for history
     messages: Annotated[List[BaseMessage], add_messages]
 
-    # Thesis/Briefing Note for context management
+    # Legacy: the rolling thesis synthesis_node used to rewrite every turn.
+    # Old checkpoints carry it; nothing writes or reads it any more.
     current_thesis: str
 
     # Control flow / Multi-model alignment

@@ -630,46 +630,17 @@ def branching_node(state: CrucibleState):
 
 
 def synthesis_node(state: CrucibleState, config: RunnableConfig):
-    """Analyzes recent messages to update the 'current_thesis' efficiently."""
-    try:
-        from app.utils.helpers import extract_text
+    """Pass-through, kept so existing checkpoints that point at it still replay
+    (and so runs.resolve_fork_point can seed a root `as_node="synthesis"`).
 
-        messages = state["messages"]
-        if not messages:
-            return state
-
-        last_msg = messages[-1]
-        last_content = extract_text(last_msg.content)
-
-        # Short-circuit: Skip synthesis for trivial turns (e.g. "thanks", "continue")
-        if len(last_content) < 20:
-            return {"current_thesis": state.get("current_thesis", "")}
-
-        model = model_factory_from(config).chat(state["active_peer"], state.get("toggles", {}))
-
-        # Optimization: Only use the last 5 messages + the current thesis
-        # instead of the entire (potentially large) history.
-        recent_context = messages[-5:]
-        history_text = "\n".join(
-            [f"{m.type}: {extract_text(m.content)}" for m in recent_context]
-        )
-
-        current_thesis = state.get("current_thesis", "No thesis identified yet.")
-
-        prompt = (
-            "Current Research Thesis:\n"
-            f"{current_thesis}\n\n"
-            "Recent Conversation Development:\n"
-            f"{history_text}\n\n"
-            "Task: Refine and update the 'Current Research Thesis' based only on the latest developments. "
-            "Keep it concise, rigorous, and academic. Output ONLY the updated thesis text."
-        )
-
-        response = model.invoke(sanitize_messages([HumanMessage(content=prompt)]))
-        return {"current_thesis": response.content}
-    except Exception as e:
-        print(f"[Synthesis] failed (non-fatal): {e}")
-        return {"current_thesis": state.get("current_thesis", "")}
+    It used to ask the turn's own model, with the turn's tools bound, to
+    rewrite a rolling `current_thesis` after every reply: one more paid call
+    per model per turn, holding back the end of the stream, for a value no
+    client displayed. Old checkpoints still carry a `current_thesis`; nothing
+    reads it. A cross-model synthesis is an explicit run (services/arena.py,
+    services/debate.py), not this node.
+    """
+    return {}
 
 
 def default_summarizer(env: Mapping[str, str] = os.environ) -> str:
@@ -802,6 +773,7 @@ workflow.add_node("retrieve", retrieve_node)
 workflow.add_node("grade_retrieval", grade_retrieval_node)
 
 # FLOW: Entry -> (Cond) Summarize? -> Retrieve? -> Grade? -> Draft -> Metadata -> Synthesis -> END
+# (metadata and synthesis are pass-throughs kept for checkpoint replay)
 workflow.set_entry_point("summarize")
 
 

@@ -49,7 +49,7 @@ async def resolve_fork_point_ex(graph_app, thread_id: str) -> Tuple[str, bool]:
         return head, False
     seeded = await graph_app.aupdate_state(
         thread_config(thread_id),
-        {"current_thesis": "", "branch_name": "main"},
+        {"branch_name": "main"},
         as_node="synthesis",
     )
     return seeded["configurable"]["checkpoint_id"], True

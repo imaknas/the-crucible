@@ -173,7 +173,7 @@ All tools return structured JSON and raise an MCP error on failure:
 | `list_models` | Model IDs and whether each has an API key configured |
 | `invoke_arena` | Ask several models the same question in parallel; returns each answer (with its checkpoint id) and an optional synthesis |
 | `run_debate` | Multi-round debate between two or more models, with optional early stopping (stability or a judge's agreement) and a final synthesis |
-| `list_threads`, `get_thread_status`, `get_thread_summary` | Find threads and read their latest model, thesis and context summary |
+| `list_threads`, `get_thread_status`, `get_thread_summary` | Find threads and read their latest model, latest answer and context summary |
 | `get_thread_messages` | Read one path of a thread; pass a `checkpoint_id` from `invoke_arena` to read one model's branch |
 | `get_branch_answers` | The latest answer on every branch of a thread |
 
@@ -207,7 +207,7 @@ the-crucible/
 └── scripts/                 Demo data and the README recording
 ```
 
-- **One LangGraph workflow** handles every turn: summarize if needed → optional retrieval and grading → draft (with recalled originals when history was pruned) → update the thread's running thesis. State lives in SQLite checkpoints, which is what makes branching from any node possible.
+- **One LangGraph workflow** handles every turn: summarize if needed → optional retrieval and grading → draft (with recalled originals when history was pruned). State lives in SQLite checkpoints, which is what makes branching from any node possible.
 - **Parallel models fork from one checkpoint.** Every model in a turn is pinned to the same parent, so answers land on sibling branches instead of reading each other's half-finished turn.
 - **Models come from a factory.** Each provider is a small strategy class in `backend/app/llm/providers.py`; nothing else in the code branches on the provider, and tests inject scripted models instead of patching globals.
 - **Debates run per model.** Each participant gets its own sub-thread, all stream concurrently each round, and early-stop checks (stability, agreement) are interchangeable strategies.

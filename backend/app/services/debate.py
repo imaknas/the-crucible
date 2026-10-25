@@ -404,7 +404,6 @@ async def _stream_round(
                 "messages": [("user", model_prompt)],
                 "toggles": {**toggles, "use_rag": toggles.get("use_rag", False)},
                 "is_deliberation": round_num > 0,
-                "current_thesis": "",
                 "documents": documents,
             }
             # Each model has its own sub-thread, so every round continues from
@@ -610,7 +609,6 @@ async def _stream_synthesis(
         "messages": [("user", synthesis_prompt)],
         "toggles": {**toggles, "use_rag": False},
         "is_deliberation": False,
-        "current_thesis": "",
         "documents": {},
     }
     config = context.apply(thread_config(synthesis_thread_id))

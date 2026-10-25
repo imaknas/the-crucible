@@ -242,44 +242,22 @@ class TestNodes:
         assert out_msg.additional_kwargs["conflict"] is True
         assert res["is_deliberation"] is False
 
-    def test_synthesis_node(self):
+    def test_synthesis_node_is_a_pass_through(self):
+        """It used to call the turn's model on every turn to rewrite a thesis
+        nothing displayed; it is kept only so old checkpoints replay."""
         mock_get_model = MagicMock()
-        from app.services.graph import synthesis_node
-        from langchain_core.messages import AIMessage, HumanMessage
-
-        mock_llm = MagicMock()
-        mock_response = AIMessage(
-            content="Updated thesis based on recent conversation."
-        )
-        mock_llm.invoke.return_value = mock_response
-        mock_get_model.return_value = mock_llm
+        from app.services.graph import synthesis_node, workflow
+        from langchain_core.messages import HumanMessage
 
         state = {
             "active_peer": "gpt-5.2",
-            "toggles": {},
-            "messages": [
-                HumanMessage(
-                    content="This is a long enough message to trigger synthesis."
-                )
-            ],
+            "toggles": {"use_web_search": True},
+            "messages": [HumanMessage(content="This is a long enough message to have triggered synthesis.")],
             "current_thesis": "Old thesis.",
         }
-
-        res = synthesis_node(state, _cfg(mock_get_model))
-        assert res["current_thesis"] == "Updated thesis based on recent conversation."
-
-        # Test short-circuit
-        short_state = {
-            "active_peer": "gpt-5.2",
-            "messages": [HumanMessage(content="Short")],
-            "current_thesis": "Old thesis.",
-        }
-        res_short = synthesis_node(short_state, _cfg(mock_get_model))
-        assert (
-            res_short["current_thesis"] == "Old thesis."
-        )  # Should not update because of short-circuit
-        # LLM invoke count should remain 1 from previous call
-        assert mock_llm.invoke.call_count == 1
+        assert synthesis_node(state, _cfg(mock_get_model)) == {}
+        mock_get_model.assert_not_called()
+        assert "synthesis" in workflow.nodes
 
     @patch("app.services.graph.rag_service.retrieve_context")
     def test_retrieve_node(self, mock_retrieve):

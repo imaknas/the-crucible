@@ -124,7 +124,7 @@ class ProbeResult:
     summarized: bool
     answer: str
     # Token usage of every model call this probe triggered (answer, summary,
-    # thesis update), keyed by the provider's model name. Raw counts, so cost
+    # recall), keyed by the provider's model name. Raw counts, so cost
     # can be computed later with whatever prices apply.
     usage: dict = field(default_factory=dict)
     # Which scenario (e.g. its seed) the probe came from.
@@ -1016,8 +1016,8 @@ class _SizedFactory:
 @dataclass(frozen=True)
 class CallProfile:
     """What one real call showed: provider input tokens per token we count
-    (tokenizers differ), output tokens per call (answer + thesis update for
-    an answering model; reasoning + text for a summarizer), and for a
+    (tokenizers differ), output tokens per call (the answer for an
+    answering model; reasoning + text for a summarizer), and for a
     summarizer the size of what it wrote."""
 
     model: str

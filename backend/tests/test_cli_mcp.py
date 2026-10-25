@@ -174,6 +174,12 @@ async def test_mcp_arena_returns_answers_and_branches_are_readable(mcp_server):
 
         status = (await client.call_tool("get_thread_status", {"thread_id": "m1"})).data
         assert status["message_count"] >= 2
+        assert status["thesis"] is None  # key kept for callers; no longer maintained
+
+        summary = (await client.call_tool("get_thread_summary", {"thread_id": "m1"})).data
+        assert summary["thesis"] is None
+        assert summary["context_summary"] is None  # nothing was compacted
+        assert summary["latest_answer"]["content"].startswith("reply from ")
 
 
 @pytest.mark.asyncio

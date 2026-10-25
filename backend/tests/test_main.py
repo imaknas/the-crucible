@@ -110,27 +110,6 @@ class TestGraphNodes:
         assert result["messages"][0].content == "Model response"
         mock_model.invoke.assert_called_once()
 
-    def test_synthesis_node_updates_thesis(self):
-        from app.services.graph import synthesis_node
-        from langchain_core.messages import HumanMessage, AIMessage
-
-        mock_model = MagicMock()
-        mock_model.invoke.return_value = AIMessage(content="Updated thesis")
-
-        state = {
-            "messages": [
-                HumanMessage(
-                    content="This is a long enough input to trigger synthesis node processing."
-                )
-            ],
-            "active_peer": "gpt-5.2",
-        }
-        result = synthesis_node(
-            state, {"configurable": {"model_factory": CallableModelFactory(lambda *_: mock_model)}}
-        )
-
-        assert result["current_thesis"] == "Updated thesis"
-
     def test_summarize_history_short(self):
         from app.services.graph import summarize_history
         from langchain_core.messages import HumanMessage
