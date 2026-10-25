@@ -124,6 +124,9 @@ export default function Home() {
     sendInteractiveMessage,
     synthesizeBranches,
     stopStreaming,
+    modelErrors,
+    retryModel,
+    dismissModelError,
   } = useChatWebSocket({
     threadId,
     activeCheckpoint,
@@ -390,6 +393,9 @@ export default function Home() {
                   debateBanner={inDebate && debateHasTranscript ? debateBanner : null}
                   modelLabel={modelLabel}
                   composerClearSignal={debate.startCount}
+                  modelErrors={inDebate ? [] : modelErrors}
+                  onRetryModel={retryModel}
+                  onDismissModelError={dismissModelError}
                 />
               </motion.div>
             )}

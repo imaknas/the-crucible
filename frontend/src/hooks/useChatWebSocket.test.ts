@@ -193,4 +193,38 @@ describe("useChatWebSocket", () => {
     act(() => frame({ type: "title_update", thread_id: "thread_1", title: "Hello" }));
     expect(onThreadsChanged).toHaveBeenCalledTimes(2);
   });
+
+  it("shows a failed model inline and retries it from the parent it forked from", async () => {
+    const { result } = renderHook(() => useChatWebSocket({ ...mockProps, selectedModels: ["gpt-4o", "claude-x"] }));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const ws = MockWebSocket.instances[0];
+    const frame = (data: object) => ws.onmessage?.({ data: JSON.stringify(data) });
+    act(() => {
+      frame({ type: "stream_start", model: "gpt-4o", parent_checkpoint_id: "cp_root" });
+      frame({ type: "stream_end", model: "gpt-4o", checkpoint_id: "cp_a" });
+      frame({ type: "error", model: "claude-x", message: "boom", parent_checkpoint_id: "cp_root" });
+    });
+
+    // No modal for one model: the sibling's reply stays visible.
+    expect(mockProps.setErrorModals).not.toHaveBeenCalled();
+    expect(result.current.modelErrors).toEqual([
+      expect.objectContaining({ model: "claude-x", message: "boom" }),
+    ]);
+
+    ws.send.mockClear();
+    act(() => result.current.retryModel(result.current.modelErrors[0].id));
+    const retried = JSON.parse(ws.send.mock.calls[0][0]);
+    expect(retried).toMatchObject({ model: "claude-x", message: "Hello", parent_checkpoint_id: "cp_root" });
+    expect(result.current.modelErrors).toEqual([]);
+    expect(result.current.isLoading).toBe(true);
+  });
+
+  it("keeps a modal for an error that belongs to no model", async () => {
+    renderHook(() => useChatWebSocket(mockProps));
+    const ws = MockWebSocket.instances[0];
+    act(() => ws.onmessage?.({ data: JSON.stringify({ type: "error", message: "bad key" }) }));
+    expect(mockProps.setErrorModals).toHaveBeenCalled();
+  });
 });

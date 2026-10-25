@@ -109,12 +109,18 @@ def test_ws_first_turn_arena_gives_each_model_its_own_branch(tmp_path, monkeypat
         for model in ("gpt-5.4", "claude-sonnet-5"):
             ws.send_json({"message": "Q", "model": model, "parent_checkpoint_id": None, "toggles": {}})
 
-        ends = {}
+        ends, starts = {}, {}
         while len(ends) < 2:
             msg = ws.receive_json()
             assert msg["type"] != "error", msg
+            if msg["type"] == "stream_start":
+                starts[msg["model"]] = msg
             if msg["type"] == "stream_end":
                 ends[msg["model"]] = msg
+
+    # Both models report the one parent they forked from (what a retry reuses).
+    parents = {m["parent_checkpoint_id"] for m in starts.values()}
+    assert len(parents) == 1 and None not in parents
 
     for model, end in ends.items():
         contents = [m["content"] for m in end["messages"]]

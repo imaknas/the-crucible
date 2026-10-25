@@ -168,6 +168,35 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.locator(".react-flow__node-synthesis")).toContainText(/Synthesis · Claude Sonnet 5\.5/i);
   });
 
+  test("a model that fails is shown inline with a Retry, not a modal over the other replies", async ({ page }) => {
+    const sent: { model?: string; parent_checkpoint_id?: string | null }[] = [];
+    page.on("websocket", (ws) => {
+      if (!ws.url().includes("/ws/")) return;
+      ws.on("framesent", (f) => {
+        try {
+          sent.push(JSON.parse(String(f.payload)));
+        } catch {}
+      });
+    });
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, `Which is faster? [[fail:${CLAUDE}]]`);
+
+    const error = page.getByTestId("model-error");
+    await expect(error).toContainText(/Claude Sonnet 5\.5 didn.t answer/i);
+    await expect(page.getByText(answerFrom(GPT)).first()).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    const before = sent.filter((f) => f.model === CLAUDE).length;
+    await error.getByRole("button", { name: /Retry/ }).click();
+    await expect.poll(() => sent.filter((f) => f.model === CLAUDE).length).toBe(before + 1);
+    // The retry is pinned to the parent the first attempt forked from.
+    const retry = sent.filter((f) => f.model === CLAUDE).at(-1)!;
+    expect(retry.parent_checkpoint_id).toBeTruthy();
+    // The scripted failure repeats, so the inline error comes back.
+    await expect(page.getByTestId("model-error")).toBeVisible();
+  });
+
   test("switching threads mid-stream does not leave the new thread loading", async ({ page }) => {
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     await send(page, "[[slow]] take your time");

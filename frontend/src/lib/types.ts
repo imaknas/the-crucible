@@ -15,6 +15,15 @@ export interface Message {
   sources?: { text: string; filename: string }[];
 }
 
+/** One model's failed turn, shown inline with a Retry instead of a modal. */
+export interface ModelError {
+  id: string;
+  model: string;
+  message: string;
+  /** The exact frame that failed, its parent pinned, so Retry asks again from the same point. */
+  frame: Record<string, unknown>;
+}
+
 export interface Toggles {
   use_rag: boolean;
   use_web_search: boolean;

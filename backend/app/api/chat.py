@@ -80,6 +80,7 @@ class ChatConnection:
                      is_deliberation, type?}  — one per model (type "synthesis"
                      tags a synthesis turn); or {type: "stop"}.
     Server frames:  stream_start, stream_token, stream_end, title_update, error.
+                    stream_start and a model's error carry parent_checkpoint_id.
 
     Models sent together share one parent. The frontend sends a turn's frames
     back to back and waits for every model before the next turn, so a frame
@@ -159,11 +160,13 @@ class ChatConnection:
     async def _run_model(self, frame: dict, parent: Optional[str], is_new_thread: bool) -> None:
         model = frame.get("model", DEFAULT_MODEL)
         context = ContextSettings.from_frame(frame)
+        # Every frame about this model's turn names the parent it forked from,
+        # so a client can retry a failed model from exactly the same point.
         if problem := context.problem():
-            await self.send({"type": "error", "message": problem, "model": model})
+            await self.send({"type": "error", "message": problem, "model": model, "parent_checkpoint_id": parent})
             return
         try:
-            await self.send({"type": "stream_start", "model": model})
+            await self.send({"type": "stream_start", "model": model, "parent_checkpoint_id": parent})
             async for event in stream_turn(
                 self.graph_app,
                 self.thread_id,
@@ -197,7 +200,7 @@ class ChatConnection:
             import traceback
 
             traceback.print_exc()
-            await self.send({"type": "error", "message": str(e), "model": model})
+            await self.send({"type": "error", "message": str(e), "model": model, "parent_checkpoint_id": parent})
 
     async def _auto_rename(self, messages: list) -> None:
         first_user = next((m.get("content", "") for m in messages if m.get("role") == "user"), "")

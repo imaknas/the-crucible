@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import * as api from "@/lib/api";
-import { Message, Toggles } from "@/lib/types";
+import { Message, ModelError, Toggles } from "@/lib/types";
 import { isOpen, useSocketFactory } from "@/lib/transport";
 import { buildSynthesisPrompt, lastReply, type SynthesisAnswer } from "@/lib/synthesis";
 
@@ -45,6 +45,11 @@ export function useChatWebSocket({
 }) {
   const openSocket = useSocketFactory();
   const [messages, setMessages] = useState<Message[]>([]);
+  // Per-model failures of the latest turn. Kept apart from `messages`, which
+  // the post-turn history refresh replaces with the server's copy.
+  const [modelErrors, setModelErrors] = useState<ModelError[]>([]);
+  // The frame each model was last sent, for Retry.
+  const sentFramesRef = useRef<Record<string, Record<string, unknown>>>({});
   const [isLoading, setIsLoading] = useState(false);
   // Bumped after an unexpected close so the effect below opens a new socket.
   const [reconnectKey, setReconnectKey] = useState(0);
@@ -131,6 +136,10 @@ export function useChatWebSocket({
       }
 
       if (data.type === "stream_start") {
+        // Pin the parent the backend actually forked from (a first turn is
+        // sent without one), so a retry lands on the same branch point.
+        const sent = sentFramesRef.current[data.model];
+        if (sent && data.parent_checkpoint_id) sent.parent_checkpoint_id = data.parent_checkpoint_id;
         streamBufferRef.current[data.model] = "";
         pendingModelsRef.current.add(data.model);
 
@@ -190,21 +199,38 @@ export function useChatWebSocket({
           streamCheckpointsRef.current.push(data.checkpoint_id);
         } else if (data.type === "error") {
           if (data.model) {
+            // One model failing is shown inline, next to its siblings'
+            // replies, with a Retry; a modal per model covered the answers
+            // that did arrive.
             pendingModelsRef.current.delete(data.model);
             delete streamBufferRef.current[data.model];
             setMessages((prev) =>
               prev.filter((m) => !(m.streaming && m.model === data.model)),
             );
+            const frame = {
+              ...(sentFramesRef.current[data.model] ?? { model: data.model }),
+              ...(data.parent_checkpoint_id ? { parent_checkpoint_id: data.parent_checkpoint_id } : {}),
+            };
+            setModelErrors((prev) => [
+              ...prev.filter((e) => e.model !== data.model),
+              {
+                id: `error-${data.model}-${Date.now()}`,
+                model: data.model,
+                message: String(data.message ?? "The model call failed."),
+                frame,
+              },
+            ]);
+          } else {
+            setErrorModals((prev) => [
+              ...prev,
+              {
+                id: Math.random().toString(36).substring(7),
+                title: "The backend reported an error",
+                details: data.message,
+                suggestion: "Check your API keys in the Control Panel and that the backend is running.",
+              },
+            ]);
           }
-          setErrorModals((prev) => [
-            ...prev,
-            {
-              id: Math.random().toString(36).substring(7),
-              title: data.model ? `${modelLabelRef.current(data.model)} failed` : "API Error",
-              details: data.message,
-              suggestion: "Check your API keys and model parameters.",
-            },
-          ]);
         }
 
         finishedModelsCountRef.current += 1;
@@ -251,6 +277,8 @@ export function useChatWebSocket({
       }
       streamBufferRef.current = {};
       pendingModels.clear();
+      sentFramesRef.current = {};
+      setModelErrors([]);
       streamCheckpointsRef.current = [];
       expectedModelsCountRef.current = 0;
       finishedModelsCountRef.current = 0;
@@ -294,21 +322,48 @@ export function useChatWebSocket({
     expectedModelsCountRef.current = selectedModels.length;
     finishedModelsCountRef.current = 0;
 
+    setModelErrors([]);
+    sentFramesRef.current = {};
     selectedModels.forEach((model) => {
-      wsRef.current?.send(
-        JSON.stringify({
-          message: userMessage,
-          model: model,
-          toggles: toggles,
-          summarizer: summarizer ?? undefined,
-          documents: documents,
-          parent_checkpoint_id: activeCheckpointRef.current,
-          is_deliberation: isDeliberation,
-        }),
-      );
+      sendFrame({
+        message: userMessage,
+        model: model,
+        toggles: toggles,
+        summarizer: summarizer ?? undefined,
+        documents: documents,
+        parent_checkpoint_id: activeCheckpointRef.current,
+        is_deliberation: isDeliberation,
+      });
     });
     clearDocuments();
   };
+
+  function sendFrame(frame: Record<string, unknown>) {
+    sentFramesRef.current[String(frame.model)] = { ...frame };
+    wsRef.current?.send(JSON.stringify(frame));
+  }
+
+  /** Ask a failed model again, with the same request from the same parent. */
+  const retryModel = (errorId: string) => {
+    const error = modelErrors.find((e) => e.id === errorId);
+    if (!error || isLoading) return;
+    if (!isOpen(wsRef.current)) {
+      showConfirm(
+        "Connection Lost",
+        "Not connected to the backend. It will reconnect automatically; try again in a moment.",
+      );
+      return;
+    }
+    setModelErrors((prev) => prev.filter((e) => e.id !== errorId));
+    setIsLoading(true);
+    expectedModelsCountRef.current = 1;
+    finishedModelsCountRef.current = 0;
+    if (error.frame.type === "synthesis") synthesisModelRef.current = error.model;
+    sendFrame(error.frame);
+  };
+
+  const dismissModelError = (errorId: string) =>
+    setModelErrors((prev) => prev.filter((e) => e.id !== errorId));
 
   /**
    * Merge sibling answers into one, written by `model` (default: the first
@@ -327,18 +382,17 @@ export function useChatWebSocket({
     expectedModelsCountRef.current = 1; // Synthesis is a single model call
     finishedModelsCountRef.current = 0;
     synthesisModelRef.current = synthesizer;
+    setModelErrors([]);
 
-    wsRef.current?.send(
-      JSON.stringify({
-        message: buildSynthesisPrompt(answers),
-        model: synthesizer,
-        toggles: toggles,
-        summarizer: summarizer ?? undefined,
-        documents: documents,
-        parent_checkpoint_id: parentId,
-        type: "synthesis",
-      }),
-    );
+    sendFrame({
+      message: buildSynthesisPrompt(answers),
+      model: synthesizer,
+      toggles: toggles,
+      summarizer: summarizer ?? undefined,
+      documents: documents,
+      parent_checkpoint_id: parentId,
+      type: "synthesis",
+    });
     clearDocuments();
   };
 
@@ -402,5 +456,8 @@ export function useChatWebSocket({
     synthesizeConsensus,
     synthesizeBranches,
     stopStreaming,
+    modelErrors,
+    retryModel,
+    dismissModelError,
   };
 }

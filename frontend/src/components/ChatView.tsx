@@ -16,7 +16,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChatInput } from "./ChatInput";
 import DebateBanner, { type DebateBannerProps } from "./DebateBanner";
 import { MessageBubble, getModelColor } from "./MessageBubble";
-import { Message } from "@/lib/types";
+import { Message, ModelError } from "@/lib/types";
+import ModelErrorBubble from "./ModelErrorBubble";
 
 interface ChatViewProps {
   messages: Message[];
@@ -52,6 +53,10 @@ interface ChatViewProps {
   modelLabel: (id: string) => string;
   /** Changes when the composer should empty itself (a debate started). */
   composerClearSignal?: number;
+  /** Models that failed in the latest turn, shown inline with a Retry. */
+  modelErrors?: ModelError[];
+  onRetryModel?: (errorId: string) => void;
+  onDismissModelError?: (errorId: string) => void;
 }
 
 
@@ -84,6 +89,9 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   debateBanner,
   modelLabel,
   composerClearSignal,
+  modelErrors = [],
+  onRetryModel,
+  onDismissModelError,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerContentRef = useRef<HTMLDivElement>(null);
@@ -612,6 +620,17 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                 />
               );
             })}
+
+            {modelErrors.map((err) => (
+              <ModelErrorBubble
+                key={err.id}
+                error={err}
+                label={modelLabel(err.model)}
+                onRetry={(id) => onRetryModel?.(id)}
+                onDismiss={(id) => onDismissModelError?.(id)}
+                retryDisabled={isLoading}
+              />
+            ))}
 
             {/* Compare footer: sibling answers to the same prompt */}
             {isArenaActive && (
