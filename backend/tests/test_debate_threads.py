@@ -262,7 +262,9 @@ async def test_the_argument_map_reads_every_round_under_participant_labels():
     assert any(e["type"] == "debate_synthesis_end" for e in events), events
 
     peers = debate_svc.session_peers(session)
-    (synthesis,) = [m for m in SEEN[A] if len(m) > 1 and "argument map" in str(m[-1])]
+    # The synthesizer's draft is the first call whose request is the map
+    # (the graph's thesis update afterwards may quote it).
+    synthesis = next(m for m in SEEN[A] if "Write an argument map" in str(m[-1]))
     prompt = extract_text(synthesis[-1])
     assert A not in prompt and B not in prompt
     for model in (A, B):

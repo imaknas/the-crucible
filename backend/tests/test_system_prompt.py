@@ -192,9 +192,10 @@ async def test_mcp_invoke_arena_system_prompt():
 
 
 @pytest.mark.asyncio
-async def test_every_debate_participant_gets_the_prompt_in_every_round():
+@pytest.mark.parametrize("peer_labels", ["anonymous", "named"])
+async def test_every_debate_participant_gets_the_prompt_in_every_round(peer_labels):
     policy = {"max_rounds": 2, "convergence_threshold": None, "llm_judge": None, "mode": "all"}
-    session = debate_svc.create_session("t-deb", [A, B], policy)
+    session = debate_svc.create_session("t-deb", [A, B], policy, peer_labels=peer_labels)
     async with arena_svc.open_graph() as graph_app:
         events = [e async for e in debate_svc.run_debate(
             graph_app, session["session_id"], "Debate it.", {}, {}, context=ContextSettings(system_prompt=PROMPT),
@@ -203,6 +204,12 @@ async def test_every_debate_participant_gets_the_prompt_in_every_round():
     for model in (A, B):
         round0, round1 = _systems(model)
         assert round0 == PROMPT
-        # Later rounds are cross-examination: the person's prompt, then the critic role.
-        assert round1.startswith(PROMPT) and "critical reviewer" in round1
+        if peer_labels == "named":
+            # Later rounds are cross-examination: the person's prompt, then the critic role.
+            assert round1.startswith(PROMPT) and "critical reviewer" in round1
+        else:
+            # Anonymous peers skip the graph's deliberation mode, whose critic
+            # role names the model; the cross-examination prompt carries the
+            # critique instructions instead.
+            assert round1 == PROMPT
 
