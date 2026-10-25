@@ -1342,9 +1342,16 @@ luna still summarized and chose what to recall.
   base prices are equal, but Haiku 5.5 bills 5× once a prompt passes 100K
   tokens, and summarizer prompts for models with large soft limits pass it
   (Sonnet 5.5 summarizes at 700K). Pilot 22 chose luna on two scenarios,
-  goal-switch included; this audit has one. A pilot comparing luna and
-  Haiku 5.5 on both scenarios, with per-reader results and the cost at
-  real thread lengths, should decide it.
+  goal-switch included; this audit has one.
+- **Decision: luna stays the default, no pilot.** The readers that matter
+  are the chat models people pick, mostly strong ones, and for the strong
+  reader (luna) and the strict oracle the two summarizers are equal; Haiku
+  5.5's edge is for a weak reader. Where summaries are written — at
+  100K–800K-token soft limits — Haiku 5.5 costs 5× luna. The one case where
+  it is better at the same price is Haiku 5.5 summarizing for itself (its
+  70K soft limit keeps prompts under 100K), but choosing the summarizer by
+  chat model is a new mechanism with an audit entry of its own, not worth
+  it while Haiku 5.5 is rarely the chat model.
 - Keyword recall is not a safe replacement for flash-lite (0.92 → 0.83,
   inconclusive): keep the model rewriter.
 
