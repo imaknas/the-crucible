@@ -217,7 +217,7 @@ async def run_debate(
     # shows it and the debate can't be found again in the sidebar.
     parent_thread_id = session["parent_thread_id"]
     if not db.get_thread_title(parent_thread_id):
-        db.rename_thread(parent_thread_id, f"Debate: {prompt.strip().splitlines()[0][:40] if prompt.strip() else ', '.join(participants)}")
+        await asyncio.to_thread(db.rename_thread, parent_thread_id, f"Debate: {prompt.strip().splitlines()[0][:40] if prompt.strip() else ', '.join(participants)}")
 
     yield {
         "type": "debate_session_created",
@@ -245,12 +245,12 @@ async def run_debate(
 
     for round_num in range(max_rounds):
         if control.paused:
-            db.update_debate_session(session_id, status="paused")
+            await asyncio.to_thread(db.update_debate_session, session_id, status="paused")
             yield {"type": "debate_session_status", "session_id": session_id, "status": "paused"}
             await control.resumed.wait()
             yield {"type": "debate_session_status", "session_id": session_id, "status": "running"}
 
-        db.update_debate_session(session_id, current_round=round_num, status="running")
+        await asyncio.to_thread(db.update_debate_session, session_id, current_round=round_num, status="running")
         yield {"type": "debate_round_start", "session_id": session_id, "round": round_num}
 
         curr_round_responses = {}
@@ -297,7 +297,7 @@ async def run_debate(
         }
         if score is not None:
             round_end["convergence_score"] = score
-            db.record_round_score(session_id, round_num, score)
+            await asyncio.to_thread(db.record_round_score, session_id, round_num, score)
         yield round_end
 
         # Promote before the convergence break, otherwise synthesis would run
@@ -337,7 +337,7 @@ async def run_debate(
         ):
             yield event
 
-    db.update_debate_session(session_id, status="completed")
+    await asyncio.to_thread(db.update_debate_session, session_id, status="completed")
     yield {"type": "debate_session_status", "session_id": session_id, "status": "completed"}
 
 
@@ -658,7 +658,7 @@ async def synthesize_session(
         context=context,
     ):
         yield event
-    db.update_debate_session(session_id, status="completed")
+    await asyncio.to_thread(db.update_debate_session, session_id, status="completed")
 
 
 async def _stream_synthesis(

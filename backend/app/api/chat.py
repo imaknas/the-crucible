@@ -210,7 +210,10 @@ class ChatConnection:
         if not title:
             return
         try:
-            db.rename_thread(self.thread_id, title)
+            # Off the loop: the checkpointer commits its writes on this loop,
+            # so a blocking write here can wait on a lock that is only
+            # released once this call returns ("database is locked").
+            await asyncio.to_thread(db.rename_thread, self.thread_id, title)
             await self.send({"type": "title_update", "thread_id": self.thread_id, "title": title})
         except Exception as e:
             print(f"[Auto-title] failed: {e}")

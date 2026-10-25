@@ -1,3 +1,4 @@
+import asyncio
 from collections import deque
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -47,7 +48,7 @@ async def get_history(
 @router.post("/{thread_id}/positions")
 async def save_positions(thread_id: str, updates: List[PositionUpdate]):
     try:
-        db.save_node_positions(thread_id, updates)
+        await asyncio.to_thread(db.save_node_positions, thread_id, updates)
         return {"status": "ok"}
     except Exception as e:
         return {"error": str(e)}
@@ -115,7 +116,7 @@ async def delete_checkpoint(thread_id: str, checkpoint_id: str, graph_app=Depend
                     to_delete.add(child)
                     queue.append(child)
 
-        db.delete_checkpoint_data(thread_id, to_delete)
+        await asyncio.to_thread(db.delete_checkpoint_data, thread_id, to_delete)
         return {"status": "ok", "deleted_count": len(to_delete)}
     except Exception as e:
         import traceback

@@ -230,7 +230,7 @@ class DebateConnection:
         action = data.get("action")
         if action == "stop":
             await self._cancel()
-            db.update_debate_session(self.session_id, status="completed")
+            await asyncio.to_thread(db.update_debate_session, self.session_id, status="completed")
             await self.status("completed")
         elif action == "pause" and self.running:
             # Takes effect when the current round finishes; run_debate reports
@@ -240,7 +240,7 @@ class DebateConnection:
         elif action == "resume":
             self.control.resume()
             if self.running:
-                db.update_debate_session(self.session_id, status="running")
+                await asyncio.to_thread(db.update_debate_session, self.session_id, status="running")
                 await self.status("running")
 
     async def on_synthesize(self, data: dict) -> None:
@@ -290,4 +290,4 @@ class DebateConnection:
             # short so a reload doesn't restore it as "running".
             if self.running:
                 self._task.cancel()
-                db.update_debate_session(self.session_id, status="interrupted")
+                await asyncio.to_thread(db.update_debate_session, self.session_id, status="interrupted")

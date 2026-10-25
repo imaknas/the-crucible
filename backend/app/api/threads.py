@@ -24,7 +24,7 @@ async def rename_thread(thread_id: str, payload: Dict[str, str]):
     if not title:
         return {"error": "Title is required"}
     try:
-        db.rename_thread(thread_id, title)
+        await asyncio.to_thread(db.rename_thread, thread_id, title)
         return {"status": "ok"}
     except Exception as e:
         return {"error": str(e)}
