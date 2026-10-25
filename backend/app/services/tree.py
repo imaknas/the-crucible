@@ -642,6 +642,17 @@ def build_single_thread_for_debate(
     return nodes, edges, root_prompt
 
 
+def _synthesis_coming(session: Dict[str, Any]) -> bool:
+    """Whether a synthesis will follow: the session synthesizes automatically
+    and is still running (auto-synthesis runs before the status changes).
+    A debate with nothing configured, or one that has ended, gets no
+    placeholder; a manual synthesis draws its node once it is written."""
+    return (
+        bool(session.get("auto_synthesize") and session.get("synthesizer_model"))
+        and session.get("status") in ("running", "paused")
+    )
+
+
 def build_debate_tree(
     session: Dict[str, Any],
     all_thread_states: Dict[str, List[Any]],
@@ -740,7 +751,7 @@ def build_debate_tree(
                         "type": "synthesis_edge",
                     }
                 )
-    elif last_node_per_model:
+    elif last_node_per_model and _synthesis_coming(session):
         all_nodes.append(
             {
                 "id": "synthesis::pending",

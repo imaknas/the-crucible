@@ -6,6 +6,8 @@ interleaved siblings from different parents and made edges cross.
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from app.services.tree import (
     LANE_WIDTH,
     NODE_SPACING_X,
@@ -191,13 +193,14 @@ class TestDebateTree:
             prev = f"a{r}"
         return c.states
 
-    def _build(self, participants=("m1", "m2"), rounds=3):
+    def _build(self, participants=("m1", "m2"), rounds=3, **session_fields):
         session = {
             "session_id": "s1",
             "parent_thread_id": "t",
             "participants": list(participants),
             "status": "completed",
             "current_round": rounds - 1,
+            **session_fields,
         }
         return build_debate_tree(
             session=session,
@@ -242,7 +245,7 @@ class TestDebateTree:
         assert len(targets) == 2
 
     def test_pending_synthesis_node_sits_below_every_lane(self):
-        tree = self._build()
+        tree = self._build(status="running", auto_synthesize=True, synthesizer_model="m1")
         pending = next(n for n in tree["nodes"] if n["id"] == "synthesis::pending")
         lane_ys = [
             n["position"]["y"]
@@ -251,3 +254,22 @@ class TestDebateTree:
         ]
         assert pending["position"]["y"] > max(lane_ys)
         assert {e["source"] for e in tree["edges"] if e["target"] == "synthesis::pending"}
+
+    @pytest.mark.parametrize("fields", [
+        # Nothing configured: no synthesis is coming, whatever the status.
+        {"status": "running", "auto_synthesize": False, "synthesizer_model": None},
+        {"status": "completed", "auto_synthesize": False, "synthesizer_model": None},
+        {"status": "running", "auto_synthesize": True, "synthesizer_model": None},
+        # Configured, but the debate ended without one (stopped, cut off).
+        {"status": "completed", "auto_synthesize": True, "synthesizer_model": "m1"},
+        {"status": "interrupted", "auto_synthesize": True, "synthesizer_model": "m1"},
+    ])
+    def test_no_pending_synthesis_node_when_none_is_coming(self, fields):
+        tree = self._build(**fields)
+        assert not [n for n in tree["nodes"] if n["id"] == "synthesis::pending"]
+        assert not [e for e in tree["edges"] if e["target"] == "synthesis::pending"]
+
+    @pytest.mark.parametrize("status", ["running", "paused"])
+    def test_pending_synthesis_node_while_an_auto_synthesis_is_coming(self, status):
+        tree = self._build(status=status, auto_synthesize=True, synthesizer_model="m1")
+        assert [n for n in tree["nodes"] if n["id"] == "synthesis::pending"]
