@@ -177,7 +177,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
           sx={{
             py: 1.5,
             borderRadius: 2,
-            fontSize: "0.625rem",
+            fontSize: "0.6875rem",
             fontWeight: 900,
             textTransform: "uppercase",
             letterSpacing: "0.1em",
@@ -199,7 +199,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
           sx={{
             py: 1.5,
             borderRadius: 2,
-            fontSize: "0.625rem",
+            fontSize: "0.6875rem",
             fontWeight: 900,
             textTransform: "uppercase",
             letterSpacing: "0.1em",

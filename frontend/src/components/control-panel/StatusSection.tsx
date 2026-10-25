@@ -44,7 +44,7 @@ export default function StatusSection({
                       px: 1,
                       py: 0.25,
                       borderRadius: 1.5,
-                      fontSize: "0.65rem",
+                      fontSize: "0.6875rem",
                       fontWeight: 700,
                       letterSpacing: "0.05em",
                       textTransform: "uppercase",

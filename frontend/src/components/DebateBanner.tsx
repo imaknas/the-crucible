@@ -63,7 +63,7 @@ export default function DebateBanner({
       <Swords width={13} height={13} color="#8b5cf6" />
       <Typography
         variant="overline"
-        sx={{ fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.12em", color: "#8b5cf6" }}
+        sx={{ fontSize: "0.6875rem", fontWeight: 800, letterSpacing: "0.12em", color: "#8b5cf6" }}
       >
         DEBATE · ROUND {state.round + 1}/{state.maxRounds}
       </Typography>
@@ -83,7 +83,7 @@ export default function DebateBanner({
           borderRadius: 1,
           bgcolor: DEBATE_STATUS_STYLE[state.status].bg,
           color: DEBATE_STATUS_STYLE[state.status].fg,
-          fontSize: "0.6rem",
+          fontSize: "0.6875rem",
           fontWeight: 700,
           letterSpacing: "0.08em",
           textTransform: "uppercase",
@@ -104,7 +104,7 @@ export default function DebateBanner({
             px: 1.25,
             py: 0.5,
             borderRadius: 1.5,
-            fontSize: "0.65rem",
+            fontSize: "0.6875rem",
             fontWeight: 700,
             color: "#f59e0b",
             border: "1px solid rgba(245,158,11,0.35)",
@@ -125,7 +125,7 @@ export default function DebateBanner({
             px: 1.5,
             py: 0.5,
             borderRadius: 1.5,
-            fontSize: "0.65rem",
+            fontSize: "0.6875rem",
             fontWeight: 700,
             color: "#a78bfa",
             border: "1px solid rgba(139,92,246,0.35)",

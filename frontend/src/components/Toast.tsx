@@ -50,7 +50,7 @@ const Toast: React.FC<ToastProps> = ({
         action={
           <IconButton
             size="small"
-            aria-label="close"
+            aria-label="Dismiss notification"
             color="inherit"
             onClick={() => onDismiss(id)}
           >

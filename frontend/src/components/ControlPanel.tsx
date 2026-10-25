@@ -153,7 +153,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
           <Typography
             variant="overline"
             sx={{
-              fontSize: "0.625rem",
+              fontSize: "0.6875rem",
               fontWeight: 900,
               letterSpacing: "0.15em",
               flex: 1,

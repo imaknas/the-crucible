@@ -249,7 +249,7 @@ export default function ModelPickerSection({
                             <Typography
                               variant="caption"
                               sx={{
-                                fontSize: "0.65rem",
+                                fontSize: "0.6875rem",
                                 color: "text.disabled",
                                 fontWeight: 600,
                                 textTransform: "uppercase",

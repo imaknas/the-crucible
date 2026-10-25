@@ -206,3 +206,21 @@ body::after {
   background-color: var(--gemini-glow);
   border-color: var(--gemini-color);
 }
+
+/*
+ * One visible keyboard-focus ring for every control. MUI resets outlines on
+ * its buttons, which left every tab stop without visible focus; !important
+ * wins over those per-component resets. Mouse clicks don't match
+ * :focus-visible, so pointer users never see it.
+ */
+:focus-visible,
+.Mui-focusVisible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+}
+
+/* Text fields mark focus with their own border; a second ring would double it. */
+textarea:focus-visible,
+input:focus-visible {
+  outline: none !important;
+}

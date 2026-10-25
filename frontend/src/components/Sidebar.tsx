@@ -2,11 +2,11 @@
 import React from "react";
 import {
   Box,
+  ButtonBase,
   Drawer,
   Typography,
   Button,
   List,
-  ListItem,
   ListItemButton,
   ListItemText,
   IconButton,
@@ -14,7 +14,22 @@ import {
   InputAdornment,
   useTheme,
 } from "@mui/material";
-import { Terminal, Zap, Check, X, Edit3, Trash2, Search, Swords, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Terminal,
+  Zap,
+  Check,
+  X,
+  Edit3,
+  Trash2,
+  Search,
+  Swords,
+  ChevronDown,
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+} from "lucide-react";
+import type { PanelMode } from "@/hooks/useLayoutPanels";
 import { searchHistory } from "@/lib/api";
 import type { DebateSession, DebateUiStatus } from "@/lib/types";
 import { sessionRowStatus } from "@/lib/debateTranscript";
@@ -45,7 +60,17 @@ interface SidebarProps {
   onDeleteDebateSession?: (sessionId: string) => void;
   /** Human-facing model name; raw IDs belong in tooltips only. */
   modelLabel?: (modelId: string) => string;
+  /** Docked beside the main pane, or an overlay drawer on narrow screens. */
+  mode?: PanelMode;
+  /** Overlay mode: whether the drawer is open. */
+  open?: boolean;
+  onClose?: () => void;
+  /** Docked mode: shrunk to a rail. */
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
+
+const RAIL_WIDTH = 64;
 
 const Sidebar: React.FC<SidebarProps> = React.memo(
   ({
@@ -66,7 +91,16 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
     onSwitchDebateSession,
     onDeleteDebateSession,
     modelLabel = (id: string) => id,
+    mode = "docked",
+    open = false,
+    onClose,
+    collapsed = false,
+    onCollapsedChange,
   }) => {
+    // In the overlay, picking something closes the drawer so you see it.
+    const closeOverlay = () => {
+      if (mode === "overlay") onClose?.();
+    };
     const isDark = useTheme().palette.mode === "dark";
     const [expandedDebateThreads, setExpandedDebateThreads] = React.useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -122,30 +156,49 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
       });
     };
 
-    return (
-      <Drawer
-        variant="permanent"
-        PaperProps={{
-          sx: {
-            position: "relative",
-            width: 288,
+    // Docked and collapsed: a rail with the two things worth one click.
+    if (mode === "docked" && collapsed) {
+      return (
+        <Box
+          component="nav"
+          aria-label="Sessions"
+          sx={{
+            width: RAIL_WIDTH,
             flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 1.5,
+            py: 2.5,
             borderRadius: "40px",
             border: "1px solid",
             borderColor: "divider",
-            backgroundColor: "background.paper",
-            backdropFilter: "blur(16px)",
-            overflow: "hidden",
-            zIndex: 20,
-          },
-        }}
-      >
+            bgcolor: "background.paper",
+          }}
+        >
+          <IconButton aria-label="Expand sessions" title="Expand sessions" onClick={() => onCollapsedChange?.(false)}>
+            <PanelLeftOpen width={18} height={18} />
+          </IconButton>
+          <IconButton
+            aria-label="New Session"
+            title="New session"
+            onClick={onStartNewExperiment}
+            sx={{ bgcolor: "primary.main", color: "white", "&:hover": { bgcolor: "primary.dark" } }}
+          >
+            <Plus width={18} height={18} />
+          </IconButton>
+        </Box>
+      );
+    }
+
+    const body = (
+      <>
         {/* Header */}
         <Box
           sx={{
-            px: 4,
-            pt: 5,
-            pb: 3,
+            px: mode === "overlay" ? 2.5 : 4,
+            pt: mode === "overlay" ? 2.5 : 5,
+            pb: mode === "overlay" ? 2 : 3,
             display: "flex",
             alignItems: "center",
             gap: 1.5,
@@ -181,6 +234,20 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
               Research Log
             </Typography>
           </Box>
+          {mode === "overlay" ? (
+            <IconButton aria-label="Close sessions" onClick={onClose} sx={{ ml: "auto", color: "text.secondary" }}>
+              <X width={18} height={18} />
+            </IconButton>
+          ) : (
+            <IconButton
+              aria-label="Collapse sessions"
+              title="Collapse sessions"
+              onClick={() => onCollapsedChange?.(true)}
+              sx={{ ml: "auto", color: "text.secondary" }}
+            >
+              <PanelLeftClose width={18} height={18} />
+            </IconButton>
+          )}
         </Box>
 
         {/* Search Bar */}
@@ -190,6 +257,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
             size="small"
             disabled={!threadId}
             placeholder={threadId ? "Search history..." : "Open a session to search"}
+            inputProps={{ "aria-label": "Search this session's history" }}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             InputProps={{
@@ -204,7 +272,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
               ),
               endAdornment: searchQuery && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchQuery("")}>
+                  <IconButton size="small" aria-label="Clear search" onClick={() => setSearchQuery("")}>
                     <X width={12} height={12} />
                   </IconButton>
                 </InputAdornment>
@@ -227,7 +295,10 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
           <Button
             fullWidth
             variant="contained"
-            onClick={onStartNewExperiment}
+            onClick={() => {
+              onStartNewExperiment();
+              closeOverlay();
+            }}
             startIcon={<Zap width={14} height={14} fill="currentColor" />}
             sx={{
               py: 1.2,
@@ -238,7 +309,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
               boxShadow: "0 10px 15px -3px rgba(37, 99, 235, 0.2)",
             }}
           >
-            NEW SESSION
+            New Session
           </Button>
         </Box>
 
@@ -247,7 +318,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
           {searchQuery.length >= 2 ? (
             <Box sx={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
               <Box sx={{ px: 3, pt: 2, pb: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <Typography variant="overline" sx={{ fontWeight: 800, color: "primary.main", fontSize: "0.6rem", letterSpacing: "0.1em" }}>
+                <Typography variant="overline" sx={{ fontWeight: 800, color: "primary.main", fontSize: "0.6875rem", letterSpacing: "0.1em" }}>
                   Search Results
                 </Typography>
                 {isSearching && (
@@ -262,17 +333,18 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                 ) : (
                   searchResults.map((result) => (
                     <ListItemButton
+                      component="button"
                       key={result.checkpoint_id}
-                      onClick={() => { onSwitchCheckpoint(result.checkpoint_id); setSearchQuery(""); }}
+                      onClick={() => { onSwitchCheckpoint(result.checkpoint_id); setSearchQuery(""); closeOverlay(); }}
                       sx={{
-                        borderRadius: 3, mb: 0.5, flexDirection: "column", alignItems: "flex-start", py: 1.5,
+                        borderRadius: 3, mb: 0.5, flexDirection: "column", alignItems: "flex-start", py: 1.5, width: "100%", textAlign: "left",
                         border: "1px solid transparent",
                         "&:hover": { borderColor: "primary.main", bgcolor: isDark ? "rgba(37, 99, 235, 0.05)" : "primary.50" },
                       }}
                     >
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5, width: "100%" }}>
                         <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: result.role === "user" ? "primary.main" : "success.main" }} />
-                        <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", fontSize: "0.6rem", color: "text.secondary" }}>
+                        <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", fontSize: "0.6875rem", color: "text.secondary" }}>
                           {result.role === "user" ? "You" : result.model ? modelLabel(result.model) : "Assistant"}
                         </Typography>
                       </Box>
@@ -323,64 +395,82 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                               }}
                               InputProps={{ disableUnderline: true, sx: { fontSize: "0.875rem", fontWeight: 600, px: 1 } }}
                             />
-                            <IconButton size="small" onClick={() => onRenameThread(t.id, editingTitle)} sx={{ color: "success.main" }}>
+                            <IconButton size="small" aria-label="Save name" onClick={() => onRenameThread(t.id, editingTitle)} sx={{ color: "success.main" }}>
                               <Check width={14} height={14} />
                             </IconButton>
-                            <IconButton size="small" onClick={() => setEditingThreadId(null)} sx={{ color: "error.main" }}>
+                            <IconButton size="small" aria-label="Cancel rename" onClick={() => setEditingThreadId(null)} sx={{ color: "error.main" }}>
                               <X width={14} height={14} />
                             </IconButton>
                           </Box>
                         ) : (
                           <>
-                            <ListItem
-                              disablePadding
-                              secondaryAction={
-                                <Box className="thread-actions" sx={{ opacity: 0, transition: "opacity 0.2s", display: "flex", mr: -1 }}>
-                                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); setEditingThreadId(t.id); setEditingTitle(t.title); }}>
-                                    <Edit3 width={14} height={14} />
-                                  </IconButton>
-                                  <IconButton size="small" onClick={(e) => onDeleteThread(e, t.id)} sx={{ "&:hover": { color: "error.main" } }}>
-                                    <Trash2 width={14} height={14} />
-                                  </IconButton>
-                                </Box>
-                              }
+                            <Box
                               sx={{
-                                borderRadius: 3, overflow: "hidden", border: "1px solid",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.5,
+                                pr: 1,
+                                borderRadius: 3,
+                                border: "1px solid",
                                 borderColor: isActive ? "primary.main" : "transparent",
                                 bgcolor: isActive ? (isDark ? "rgba(37, 99, 235, 0.1)" : "primary.50") : "transparent",
-                                "&:hover": { borderColor: isActive ? "primary.main" : "divider", "& .thread-actions": { opacity: 1 } },
+                                // Rename/delete appear on hover, whenever keyboard focus is in
+                                // the row, and always on touch screens (no hover there).
+                                "& .thread-edit": { display: "none" },
+                                "&:hover, &:focus-within": {
+                                  borderColor: isActive ? "primary.main" : "divider",
+                                  "& .thread-edit": { display: "flex" },
+                                },
+                                "@media (hover: none)": { "& .thread-edit": { display: "flex" } },
                               }}
                             >
-                              <ListItemButton onClick={() => onSwitchThread(t.id)} sx={{ py: 1.5, px: 2 }}>
+                              <ListItemButton
+                                component="button"
+                                onClick={() => {
+                                  onSwitchThread(t.id);
+                                  closeOverlay();
+                                }}
+                                aria-current={isActive ? "page" : undefined}
+                                title={t.title}
+                                sx={{ py: 1.5, pl: 2, pr: 1, flex: 1, minWidth: 0, borderRadius: 3, textAlign: "left" }}
+                              >
                                 <ListItemText
                                   primary={t.title}
-                                  primaryTypographyProps={{ variant: "body2", fontWeight: 600, noWrap: true, sx: { color: isActive ? "primary.main" : "text.primary", pr: hasDebates ? 2 : 5 } }}
+                                  primaryTypographyProps={{ variant: "body2", fontWeight: 600, noWrap: true, sx: { color: isActive ? "primary.main" : "text.primary" } }}
                                 />
-                                {hasDebates && (
-                                  <Box
-                                    component="span"
-                                    onClick={(e) => toggleDebateExpand(e, t.id)}
-                                    sx={{
-                                      display: "flex", alignItems: "center", gap: 0.5, px: 0.75, py: 0.25,
-                                      borderRadius: 1.5, flexShrink: 0, mr: 4,
-                                      bgcolor: "rgba(139,92,246,0.12)",
-                                      color: "#8b5cf6",
-                                      "&:hover": { bgcolor: "rgba(139,92,246,0.22)" },
-                                      transition: "background 0.15s",
-                                    }}
-                                  >
-                                    <Swords width={10} height={10} />
-                                    <Typography sx={{ fontSize: "0.6rem", fontWeight: 700, lineHeight: 1 }}>
-                                      {threadDebates.length}
-                                    </Typography>
-                                    {isDebateExpanded
-                                      ? <ChevronDown width={10} height={10} />
-                                      : <ChevronRight width={10} height={10} />
-                                    }
-                                  </Box>
-                                )}
                               </ListItemButton>
-                            </ListItem>
+                              {hasDebates && (
+                                <ButtonBase
+                                  onClick={(e) => toggleDebateExpand(e, t.id)}
+                                  aria-expanded={isDebateExpanded}
+                                  aria-label={`${isDebateExpanded ? "Hide" : "Show"} ${threadDebates.length} debate${threadDebates.length === 1 ? "" : "s"}`}
+                                  sx={{
+                                    display: "flex", alignItems: "center", gap: 0.5, px: 0.75, py: 0.5, flexShrink: 0,
+                                    borderRadius: 1.5,
+                                    bgcolor: "rgba(139,92,246,0.12)",
+                                    color: "#8b5cf6",
+                                    "&:hover": { bgcolor: "rgba(139,92,246,0.22)" },
+                                  }}
+                                >
+                                  <Swords width={11} height={11} />
+                                  <Typography component="span" sx={{ fontSize: "0.6875rem", fontWeight: 700, lineHeight: 1 }}>
+                                    {threadDebates.length}
+                                  </Typography>
+                                  {isDebateExpanded
+                                    ? <ChevronDown width={11} height={11} />
+                                    : <ChevronRight width={11} height={11} />
+                                  }
+                                </ButtonBase>
+                              )}
+                              <Box className="thread-edit" sx={{ alignItems: "center", flexShrink: 0 }}>
+                                <IconButton size="small" aria-label="Rename session" onClick={(e) => { e.stopPropagation(); setEditingThreadId(t.id); setEditingTitle(t.title); }}>
+                                  <Edit3 width={14} height={14} />
+                                </IconButton>
+                                <IconButton size="small" aria-label="Delete session" onClick={(e) => onDeleteThread(e, t.id)} sx={{ "&:hover": { color: "error.main" } }}>
+                                  <Trash2 width={14} height={14} />
+                                </IconButton>
+                              </Box>
+                            </Box>
 
                             {/* Debate sub-items */}
                             <AnimatePresence>
@@ -398,43 +488,51 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                                       const statusColor =
                                         rowStatus === "running" ? "#10b981" : rowStatus === "paused" || rowStatus === "pausing" ? "#f59e0b" : undefined;
                                       return (
-                                        <ListItemButton
+                                        <Box
                                           key={s.session_id}
                                           aria-current={isActiveDebate ? "true" : undefined}
-                                          onClick={() => onSwitchDebateSession?.(s.session_id)}
                                           sx={{
-                                            borderRadius: 2, mb: 0.5, py: 0.75, px: 1.25,
+                                            position: "relative", borderRadius: 2, mb: 0.5,
                                             border: "1px solid",
                                             borderColor: isActiveDebate ? "rgba(139,92,246,0.5)" : "transparent",
                                             bgcolor: isActiveDebate ? "rgba(139,92,246,0.08)" : "transparent",
                                             "&:hover": { borderColor: "rgba(139,92,246,0.3)", bgcolor: "rgba(139,92,246,0.05)" },
                                           }}
                                         >
-                                          <Box sx={{ width: "100%" }}>
-                                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.2 }}>
-                                              <Swords width={10} height={10} color="#8b5cf6" />
-                                              <Typography variant="caption" title={s.participants.join(" vs ")} sx={{ fontWeight: 700, color: isActiveDebate ? "#a78bfa" : "text.primary", fontSize: "0.68rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                                {s.participants.map(modelLabel).join(" vs ")}
-                                              </Typography>
-                                              <Box sx={{ px: 0.75, py: 0.1, borderRadius: 1, fontSize: "0.6875rem", fontWeight: 700, bgcolor: statusColor ? `${statusColor}26` : "rgba(100,116,139,0.15)", color: statusColor ?? "text.secondary" }}>
-                                                {rowStatus}
+                                          <ListItemButton
+                                            component="button"
+                                            onClick={() => {
+                                              onSwitchDebateSession?.(s.session_id);
+                                              closeOverlay();
+                                            }}
+                                            sx={{ width: "100%", textAlign: "left", borderRadius: 2, py: 0.75, pl: 1.25, pr: 4.5 }}
+                                          >
+                                            <Box sx={{ width: "100%", minWidth: 0 }}>
+                                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.2 }}>
+                                                <Swords width={11} height={11} color="#8b5cf6" style={{ flexShrink: 0 }} />
+                                                <Typography variant="caption" title={s.participants.join(" vs ")} sx={{ fontWeight: 700, color: isActiveDebate ? "#a78bfa" : "text.primary", fontSize: "0.75rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                  {s.participants.map(modelLabel).join(" vs ")}
+                                                </Typography>
+                                                <Box sx={{ px: 0.75, py: 0.1, borderRadius: 1, fontSize: "0.6875rem", fontWeight: 700, flexShrink: 0, bgcolor: statusColor ? `${statusColor}26` : "rgba(100,116,139,0.15)", color: statusColor ?? "text.secondary" }}>
+                                                  {rowStatus}
+                                                </Box>
                                               </Box>
-                                              {onDeleteDebateSession && (
-                                                <IconButton
-                                                  size="small"
-                                                  aria-label="Delete debate"
-                                                  onClick={(e) => { e.stopPropagation(); onDeleteDebateSession(s.session_id); }}
-                                                  sx={{ p: 0.25, color: "text.disabled", "&:hover": { color: "error.main" } }}
-                                                >
-                                                  <Trash2 width={11} height={11} />
-                                                </IconButton>
-                                              )}
+                                              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.6875rem" }}>
+                                                {s.termination_policy.max_rounds} rounds
+                                              </Typography>
                                             </Box>
-                                            <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.62rem" }}>
-                                              {s.termination_policy.max_rounds} rounds
-                                            </Typography>
-                                          </Box>
-                                        </ListItemButton>
+                                          </ListItemButton>
+                                          {onDeleteDebateSession && (
+                                            <IconButton
+                                              size="small"
+                                              aria-label="Delete debate"
+                                              onClick={() => onDeleteDebateSession(s.session_id)}
+                                              sx={{ position: "absolute", top: 4, right: 4, p: 0.5, color: "text.secondary", "&:hover": { color: "error.main" } }}
+                                            >
+                                              <Trash2 width={12} height={12} />
+                                            </IconButton>
+                                          )}
+                                        </Box>
                                       );
                                     })}
                                   </Box>
@@ -451,6 +549,55 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
             </List>
           )}
         </Box>
+      </>
+    );
+
+    if (mode === "overlay") {
+      return (
+        <Drawer
+          variant="temporary"
+          anchor="left"
+          open={open}
+          onClose={onClose}
+          ModalProps={{ keepMounted: true }}
+          PaperProps={{
+            component: "nav",
+            "aria-label": "Sessions",
+            sx: {
+              width: "min(320px, 88vw)",
+              backgroundColor: "background.paper",
+              backgroundImage: "none",
+              display: "flex",
+              flexDirection: "column",
+            },
+          } as object}
+        >
+          {body}
+        </Drawer>
+      );
+    }
+
+    return (
+      <Drawer
+        variant="permanent"
+        PaperProps={{
+          component: "nav",
+          "aria-label": "Sessions",
+          sx: {
+            position: "relative",
+            width: 288,
+            flexShrink: 0,
+            borderRadius: "40px",
+            border: "1px solid",
+            borderColor: "divider",
+            backgroundColor: "background.paper",
+            backdropFilter: "blur(16px)",
+            overflow: "hidden",
+            zIndex: 20,
+          },
+        } as object}
+      >
+        {body}
       </Drawer>
     );
   },

@@ -24,7 +24,7 @@ export type CustomNodeData = {
  * a chip carrying only what survives at distance: who spoke, and roughly how
  * much. Without it, a fit-all view of a large thread is just coloured boxes.
  */
-const LOD_THRESHOLD = 0.6;
+export const LOD_THRESHOLD = 0.6;
 /**
  * The chip is counter-scaled to stay legible as the canvas shrinks, but it
  * still occupies canvas space: the tightest layout pitch is 260px (history
@@ -211,7 +211,7 @@ const CustomTreeNode = React.memo(
               border: "1px solid",
               borderColor:
                 role === "user" ? (isDark ? "#3b82f6" : "#bfdbfe") : "divider",
-              fontSize: "0.6rem",
+              fontSize: "0.6875rem",
               fontWeight: 700,
               color:
                 role === "user"
@@ -290,7 +290,8 @@ const CustomTreeNode = React.memo(
                 boxShadow: "0 2px 8px rgba(239, 68, 68, 0.4)",
                 transition: "all 0.2s",
               }}
-              title="Delete Node and its Children"
+              title="Delete this node and everything below it"
+              aria-label="Delete node"
             >
               <Trash2 size={12} />
             </button>

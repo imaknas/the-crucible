@@ -16,8 +16,10 @@ import ReactFlow, {
   useStore,
   ControlButton,
   Position,
+  getRectOfNodes,
 } from "reactflow";
-import CustomTreeNode from "./CustomTreeNode";
+import CustomTreeNode, { LOD_THRESHOLD } from "./CustomTreeNode";
+import { shouldFitWholeTree } from "@/lib/treeFit";
 import SynthesisTreeNode from "./SynthesisTreeNode";
 import { DebateLaneHeaders, DebateRoundBands } from "./tree/DebateOverlays";
 import { Target, Wand2, GitBranch } from "lucide-react";
@@ -74,6 +76,9 @@ const nodeTypes = {
   synthesis: SynthesisTreeNode,
 };
 const edgeTypes = {};
+
+// Room around a fitted tree: node badges overhang the top edge by ~10px.
+const FIT_PADDING = 0.2;
 
 const nodeWidth = 240;
 const nodeHeight = 120;
@@ -237,7 +242,7 @@ function TreeViewInner({
   const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  const { fitView, setViewport } = useReactFlow();
+  const { fitView, setViewport, getNodes } = useReactFlow();
   const { width, height, transform, storeNodeCount, storeNodesMeasured } =
     useStore(selector);
 
@@ -427,11 +432,17 @@ function TreeViewInner({
     if (fittedKey.current === key) return;
 
     try {
-      const target =
-        activeNodeId && externalNodes.some((n) => n.id === activeNodeId)
-          ? { nodes: [{ id: activeNodeId }], maxZoom: 0.85, minZoom: 0.2 }
-          : {};
-      fitView({ duration: 500, padding: 0.35, ...target });
+      // The whole tree when it fits readably (its top must not end up off the
+      // canvas, under the header); otherwise the active node.
+      const hasActive = !!activeNodeId && externalNodes.some((n) => n.id === activeNodeId);
+      const whole =
+        !hasActive ||
+        shouldFitWholeTree(getRectOfNodes(getNodes()), { width, height }, FIT_PADDING, LOD_THRESHOLD);
+      fitView(
+        whole
+          ? { duration: 500, padding: FIT_PADDING, maxZoom: 0.85 }
+          : { duration: 500, padding: 0.35, nodes: [{ id: activeNodeId! }], maxZoom: 0.85, minZoom: 0.2 },
+      );
       fittedKey.current = key;
     } catch (e) {
       console.error("[TREE] fitView failure:", e);
@@ -442,6 +453,9 @@ function TreeViewInner({
     storeNodeCount,
     storeNodesMeasured,
     fitView,
+    getNodes,
+    width,
+    height,
     activeNodeId,
   ]);
 
@@ -537,14 +551,16 @@ function TreeViewInner({
               {!debateMode && (
                 <ControlButton
                   onClick={onLayout}
-                  title="Tidy Layout (Auto-arrange)"
+                  title="Tidy layout (auto-arrange)"
+                  aria-label="Tidy layout"
                 >
                   <Wand2 size={14} />
                 </ControlButton>
               )}
               <ControlButton
                 onClick={handleRecenter}
-                title="Recenter on Active Node"
+                title="Recenter on the active node"
+                aria-label="Recenter on the active node"
               >
                 <Target size={14} />
               </ControlButton>

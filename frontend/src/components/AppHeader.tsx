@@ -123,7 +123,7 @@ export default function AppHeader({
             <Typography
               variant="overline"
               sx={{
-                fontSize: "0.6rem",
+                fontSize: "0.6875rem",
                 fontWeight: 800,
                 letterSpacing: "0.2em",
                 color: "text.secondary",
@@ -220,7 +220,7 @@ export default function AppHeader({
                   alignItems: "center",
                   gap: 0.75,
                   fontWeight: 800,
-                  fontSize: "0.625rem",
+                  fontSize: "0.6875rem",
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
                   transition: "background-color .18s ease, color .18s ease",

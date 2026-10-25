@@ -105,6 +105,61 @@ test.describe("application shell", () => {
     await expect(page.getByPlaceholder(/Ask the arena/i)).toBeVisible();
   });
 
+  test("keyboard focus is visible on every tab stop", async ({ page }) => {
+    await openThread(page, MAIN_THREAD_TITLE);
+    await page.locator("body").click({ position: { x: 5, y: 5 } });
+    const unmarked: string[] = [];
+    for (let i = 0; i < 25; i++) {
+      await page.keyboard.press("Tab");
+      const info = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el || el === document.body) return null;
+        const s = getComputedStyle(el);
+        const ring = s.outlineStyle !== "none" && parseFloat(s.outlineWidth) >= 2;
+        // Text fields mark focus with their own border instead.
+        const field = el.tagName === "INPUT" || el.tagName === "TEXTAREA";
+        return ring || field ? null : `${el.tagName} ${el.getAttribute("aria-label") ?? el.innerText.slice(0, 30)}`;
+      });
+      if (info) unmarked.push(info);
+    }
+    expect(unmarked).toEqual([]);
+  });
+
+  test("controls are named and real buttons; labels are at least 11px", async ({ page }) => {
+    await openThread(page, MAIN_THREAD_TITLE);
+    // Sidebar rows are <button>s, not focusable divs.
+    const row = page.getByRole("button", { name: MAIN_THREAD_TITLE }).first();
+    expect(await row.evaluate((el) => el.tagName)).toBe("BUTTON");
+
+    const report = await page.evaluate(() => {
+      const visible = (el: Element) => {
+        const r = (el as HTMLElement).getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden";
+      };
+      const unnamed = [...document.querySelectorAll("button, [role=button]")]
+        .filter(visible)
+        .filter((el) => !el.closest(".react-flow__minimap"))
+        .filter(
+          (el) =>
+            !(el.getAttribute("aria-label") || el.getAttribute("title") || (el as HTMLElement).innerText.trim()),
+        )
+        .map((el) => el.outerHTML.slice(0, 80));
+      // Text outside the zoomable canvas, whose size scales with the zoom.
+      const tiny: string[] = [];
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const parent = walker.currentNode.parentElement;
+        if (!parent || !walker.currentNode.textContent?.trim() || !visible(parent)) continue;
+        if (parent.closest(".react-flow__viewport, .react-flow__minimap, .react-flow__attribution")) continue;
+        const size = parseFloat(getComputedStyle(parent).fontSize);
+        if (size < 11) tiny.push(`${size}px "${walker.currentNode.textContent.trim().slice(0, 30)}"`);
+      }
+      return { unnamed, tiny };
+    });
+    expect(report.unnamed).toEqual([]);
+    expect(report.tiny).toEqual([]);
+  });
+
   test("explains an empty canvas instead of rendering a void", async ({ page }) => {
     await page.getByRole("button", { name: "New Session" }).click();
     await showTree(page);

@@ -67,8 +67,9 @@ test.describe("debate tree", () => {
   test("labels each round and shows the recorded stability score", async ({
     page,
   }) => {
-    await expect(page.getByText("Round 1", { exact: false })).toBeVisible();
-    await expect(page.getByText("Round 2", { exact: false })).toBeVisible();
+    // Exact: the debate banner above the tree reads "DEBATE · ROUND 2/2".
+    await expect(page.getByText("Round 1", { exact: true })).toBeVisible();
+    await expect(page.getByText("Round 2", { exact: true })).toBeVisible();
     // seed_db.py records 0.91 for round index 1, which renders on Round 2.
     await expect(page.getByText("91% stable")).toBeVisible();
   });

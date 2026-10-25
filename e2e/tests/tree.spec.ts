@@ -44,6 +44,19 @@ test.describe("conversation tree", () => {
     expect(onScreen.length).toBeGreaterThan(0);
   });
 
+  test("auto-fit keeps the top of the tree on the canvas, clear of the header", async ({ page }) => {
+    // Regression: fitting only the newest node parked the root above the
+    // canvas, where the header took its clicks.
+    const pane = (await page.locator(".react-flow__pane").boundingBox())!;
+    const top = (await nodeBoxes(page)).sort((a, b) => a.top - b.top)[0];
+    expect(top.top).toBeGreaterThanOrEqual(pane.y);
+    const hit = await page.evaluate(
+      ({ x, y }) => !!document.elementFromPoint(x, y)?.closest(".react-flow__node"),
+      { x: (top.left + top.right) / 2, y: top.top + 12 },
+    );
+    expect(hit).toBe(true);
+  });
+
   test("parents sit centred over their children", async ({ page }) => {
     // The tidy-tree invariant, observed through the DOM rather than the layout
     // function: the fork's parent must be midway between its two subtrees.

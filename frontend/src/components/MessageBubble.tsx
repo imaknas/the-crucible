@@ -351,7 +351,7 @@ export const MessageBubble = React.memo(
                           letterSpacing: "0.1em",
                           color: "text.secondary",
                           textTransform: "uppercase",
-                          fontSize: "0.625rem",
+                          fontSize: "0.6875rem",
                         }}
                       >
                         {msg.streaming &&

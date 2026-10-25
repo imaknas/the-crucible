@@ -392,7 +392,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                     color: "text.disabled",
                     letterSpacing: "0.1em",
                     textTransform: "uppercase",
-                    fontSize: "0.65rem",
+                    fontSize: "0.6875rem",
                   }}
                 >
                   Loading conversation…
@@ -481,7 +481,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                     <Box sx={{ flex: 1, height: "1px", bgcolor: "rgba(139,92,246,0.2)" }} />
                     <Typography
                       variant="overline"
-                      sx={{ fontSize: "0.6rem", fontWeight: 800, letterSpacing: "0.15em", color: "rgba(139,92,246,0.7)", flexShrink: 0 }}
+                      sx={{ fontSize: "0.6875rem", fontWeight: 800, letterSpacing: "0.15em", color: "rgba(139,92,246,0.7)", flexShrink: 0 }}
                     >
                       {msg.content}
                     </Typography>
@@ -648,7 +648,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       <Typography
                         variant="overline"
                         sx={{
-                          fontSize: "0.5625rem",
+                          fontSize: "0.6875rem",
                           fontWeight: 800,
                           letterSpacing: "0.2em",
                           color: "text.secondary",
@@ -677,7 +677,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                         border: "1px solid rgba(139, 92, 246, 0.3)",
                         bgcolor: "rgba(139, 92, 246, 0.1)",
                         color: "#a78bfa",
-                        fontSize: "0.5625rem",
+                        fontSize: "0.6875rem",
                         fontWeight: 800,
                         textTransform: "uppercase",
                         letterSpacing: "0.1em",
@@ -871,7 +871,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                 <Typography
                   variant="overline"
                   sx={{
-                    fontSize: "0.5625rem",
+                    fontSize: "0.6875rem",
                     fontWeight: 600,
                     letterSpacing: "0.1em",
                     color: "text.secondary",

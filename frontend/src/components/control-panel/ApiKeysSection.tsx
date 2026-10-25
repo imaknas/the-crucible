@@ -141,7 +141,7 @@ export default function ApiKeysSection({
                       px: 0.75,
                       py: 0.125,
                       borderRadius: 1,
-                      fontSize: "0.6rem",
+                      fontSize: "0.6875rem",
                       fontWeight: 800,
                       letterSpacing: "0.05em",
                       bgcolor: family.available
@@ -210,6 +210,7 @@ export default function ApiKeysSection({
                           <InputAdornment position="end">
                             <IconButton
                               size="small"
+                              aria-label={showVal ? `Hide ${family.label} key` : `Show ${family.label} key`}
                               onClick={() =>
                                 setKeyShowMap((prev) => ({
                                   ...prev,

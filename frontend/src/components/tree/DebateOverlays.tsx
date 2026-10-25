@@ -131,7 +131,7 @@ export function DebateRoundBands({
       >
         <span
           style={{
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: 800,
             letterSpacing: "0.14em",
             textTransform: "uppercase",
@@ -145,7 +145,7 @@ export function DebateRoundBands({
           <span
             title="Stability: each model's answer compared with its own previous round (embedding cosine). Not agreement between models."
             style={{
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: 700,
               padding: "1px 6px",
               borderRadius: 10,
