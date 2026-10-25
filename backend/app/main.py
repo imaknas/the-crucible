@@ -2,7 +2,8 @@
 
 Routes live in app/api/*, behaviour in app/services/*. This module only:
 applies third-party patches, compiles the graph once at startup (routers get
-it via api.deps.get_graph_app), sets CORS and mounts the routers.
+it via api.deps.get_graph_app), wires the browser guards (api/security.py)
+and mounts the routers.
 """
 
 import os
@@ -13,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from app.api import chat, config, debate, graph, history, models, threads, upload
+from app.api.security import OriginPolicy, WebSocketOriginGuard
 from app.core import database as db
 from app.patches import apply_langchain_patches
 from app.services.graph import workflow
@@ -57,22 +59,17 @@ async def lifespan(app: FastAPI):
             app.state.graph_app = None
 
 
-def _cors_settings() -> dict:
-    """Local frontends on any port by default; CORS_ORIGINS adds explicit origins.
+def create_app(origin_policy: OriginPolicy | None = None) -> FastAPI:
+    """Build the app. The policy defaults to the environment's (CORS_ORIGINS).
 
-    A wildcard let any web page the user visited drive the API, including
-    /config/keys, from their browser.
+    No wildcard origin: it let any web page the user visited drive the API,
+    including /config/keys, from their browser.
     """
-    extra = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
-    return {
-        "allow_origins": extra,
-        "allow_origin_regex": r"https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?",
-    }
-
-
-def create_app() -> FastAPI:
+    origin_policy = origin_policy or OriginPolicy.from_env(os.environ)
     app = FastAPI(title="The Crucible API", lifespan=lifespan)
-    app.add_middleware(CORSMiddleware, **_cors_settings(), allow_methods=["*"], allow_headers=["*"])
+    # add_middleware wraps: the last one added runs first.
+    app.add_middleware(WebSocketOriginGuard, policy=origin_policy)
+    app.add_middleware(CORSMiddleware, **origin_policy.cors_options(), allow_methods=["*"], allow_headers=["*"])
     for module in ROUTERS:
         app.include_router(module.router)
     return app
