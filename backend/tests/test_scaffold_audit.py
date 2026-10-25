@@ -20,6 +20,41 @@ def test_verdicts_follow_the_claim():
     assert sa.verdict(sa.NON_INFERIOR, "a_better") == "harmful"
 
 
+def test_verdicts_at_the_ceiling_say_there_is_no_headroom():
+    # Both arms at the ceiling: the probes cannot tell them apart.
+    assert sa.verdict(sa.IMPROVES, "equivalent", 1.0, 1.0) == "no_headroom"  # not "retire"
+    assert sa.verdict(sa.NON_INFERIOR, "equivalent", 0.98, 0.96) == "no_headroom"  # not "keep"
+    # A scaffold that has to improve on a baseline already at the ceiling cannot.
+    assert sa.verdict(sa.IMPROVES, "no_detectable_diff", 1.0, 0.85) == "no_headroom"
+    # A detectable loss is harmful however high the baseline.
+    assert sa.verdict(sa.IMPROVES, "a_better", 1.0, 0.79) == "harmful"
+    assert sa.verdict(sa.NON_INFERIOR, "a_better", 1.0, 0.85) == "harmful"
+    # Below the ceiling the claim decides, as before.
+    assert sa.verdict(sa.IMPROVES, "b_better", 0.40, 0.98) == "keep"
+    assert sa.verdict(sa.NON_INFERIOR, "no_detectable_diff", 1.0, 0.85) == "inconclusive"
+    assert sa.verdict(sa.IMPROVES, "equivalent", 0.90, 0.92) == "retire"
+
+
+def test_audit_records_report_no_headroom():
+    from app.services.compaction_eval import ProbeResult
+
+    scaffolds = [s for s in sa.app_scaffolds(8000) if s.name == "verbatim-window"]
+    rows = [ProbeResult(condition=c.name, model="m", fact=f"f{i}", kind="port", planted_turn=0, correct=True,
+                        pruned=True, summarized=True, answer="x")
+            for c in (scaffolds[0].baseline, scaffolds[0].treatment) for i in range(30)]
+    [record] = sa.audit(rows, scaffolds, ["m"])
+    assert record["verdict"] == "no_headroom" and (record["baseline_recall"], record["scaffold_recall"]) == (1.0, 1.0)
+
+
+def test_a_recorded_audit_rebuilds_its_scaffolds_from_the_records():
+    records = [{"scaffold": n} for n in ("compaction", "recall", "summarizer-claude-haiku-5-5", "recall-keyword")]
+    rebuilt = {s.name: s for s in sa.scaffolds_for_records(records, 8000)}
+    assert set(rebuilt) == {r["scaffold"] for r in records}
+    assert rebuilt["summarizer-claude-haiku-5-5"].treatment.name == "t8000-app-claude-haiku-5-5"
+    assert rebuilt["recall"].baseline.name == "t8000-norecall" and rebuilt["compaction"].treatment.name == "t8000-app"
+    assert rebuilt["recall-keyword"].claim == sa.NON_INFERIOR  # recall was on in that audit
+
+
 def test_every_scaffold_names_its_baseline():
     from app.compaction import GuidedRecall
 

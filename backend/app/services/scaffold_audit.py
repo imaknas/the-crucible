@@ -13,7 +13,8 @@ and an audit re-measures the pair on the current models:
 
 Verdicts: keep, retire (no longer does what it claims), harmful (does worse
 than going without), inconclusive (not enough evidence either way; keep it
-and look again). Every audit is appended to a history, so the verdicts form
+and look again), no_headroom (the probes are too easy to tell the arms
+apart; see verdict()). Every audit is appended to a history, so the verdicts form
 a curve across model generations rather than a snapshot.
 """
 
@@ -107,10 +108,25 @@ def conditions_for(scaffolds: Iterable[Scaffold]) -> list[Condition]:
     return list(seen.values())
 
 
-def verdict(claim: str, outcome: str) -> str:
-    """Map a paired comparison (a = baseline, b = scaffold) to a verdict."""
+# Recall at or above which a condition is at the scenario's ceiling.
+CEILING = 0.95
+
+
+def verdict(claim: str, outcome: str, baseline_recall: Optional[float] = None,
+            scaffold_recall: Optional[float] = None, *, ceiling: float = CEILING) -> str:
+    """Map a paired comparison (a = baseline, b = scaffold) to a verdict.
+
+    "no_headroom" when the scenario cannot tell the arms apart: both at the
+    ceiling, or, for a scaffold that has to improve, a baseline already at
+    it. Equal recall at 1.00 is not evidence that a scaffold no longer
+    helps (retire), nor that it still does (keep): the probes are too easy
+    for either. A detectable loss stays "harmful" at any level, since a
+    baseline at the ceiling does not hide a drop below it."""
     if outcome == "a_better":
         return "harmful"
+    if baseline_recall is not None and scaffold_recall is not None:
+        if min(baseline_recall, scaffold_recall) >= ceiling or (claim == IMPROVES and baseline_recall >= ceiling):
+            return "no_headroom"
     if claim == IMPROVES:
         return {"b_better": "keep", "equivalent": "retire"}.get(outcome, "inconclusive")
     return {"b_better": "keep", "equivalent": "keep"}.get(outcome, "inconclusive")
@@ -128,20 +144,35 @@ def audit(results: Sequence[ProbeResult], scaffolds: Iterable[Scaffold], model_i
             if not a or not b:
                 continue
             v = compare_recall(a, b, min_effect=min_effect, label=s.name)
+            base_rate, scaffold_rate = sum(a.values()) / len(a), sum(b.values()) / len(b)
             records.append({
                 "scaffold": s.name,
                 "claim": s.claim,
                 "active": s.active,
                 "model": model,
-                "baseline_recall": round(sum(a.values()) / len(a), 3),
-                "scaffold_recall": round(sum(b.values()) / len(b), 3),
+                "baseline_recall": round(base_rate, 3),
+                "scaffold_recall": round(scaffold_rate, 3),
                 "n": len(set(a) & set(b)),
                 "outcome": v.outcome.value,
                 "effect": None if v.effect is None else round(v.effect, 3),
                 "interval": None if v.interval is None else [round(x, 3) for x in v.interval],
-                "verdict": verdict(s.claim, v.outcome.value),
+                "verdict": verdict(s.claim, v.outcome.value, base_rate, scaffold_rate),
             })
     return records
+
+
+def scaffolds_for_records(records: Iterable[dict], threshold: int) -> list[Scaffold]:
+    """The scaffolds a recorded audit measured, rebuilt from its records, so
+    stored probes can be judged again without a model call. Condition names
+    depend only on the threshold, on whether recall was on and on the
+    candidate summarizers, all of which the records' scaffold names show."""
+    from app.compaction import GuidedRecall
+
+    names = {r["scaffold"] for r in records}
+    others = [n.removeprefix("summarizer-") for n in sorted(names) if n.startswith("summarizer-")]
+    # Only the condition names matter here; the rewriter is never called.
+    recall = GuidedRecall(lambda query, hint: query) if "recall" in names else None
+    return [s for s in app_scaffolds(threshold, recall=recall, other_summarizers=others) if s.name in names]
 
 
 def _git_sha() -> Optional[str]:

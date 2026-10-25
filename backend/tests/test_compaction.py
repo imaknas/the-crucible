@@ -5,6 +5,9 @@ import pathlib
 from dataclasses import replace
 
 import pytest
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
 from langgraph.checkpoint.memory import MemorySaver
 
 from app.api.models import SUMMARIZER_MODELS
@@ -21,6 +24,7 @@ from app.compaction import (
 )
 from app.llm import CallableModelFactory
 from app.services import graph as graph_mod
+from app.utils.helpers import extract_text
 from app.services.compaction_eval import (
     AvailabilityOracle,
     Condition,
@@ -641,7 +645,7 @@ def test_a_cached_replay_is_not_summarized_again(eval_setup, tmp_path):
     second = asyncio.run(run_live_grid(app, {"3": scenario}, [ORACLE], cond, model_factory=CountingFactory(scenario.facts),
                                        replay_cache=cache, thread_prefix="second"))
     assert replayed > 0
-    assert len(calls) - replayed < replayed  # only summaries written while probing, none for the replay
+    assert len(calls) == replayed  # no summary at all: the replay is cached and probing never summarizes
     assert [r.correct for r in first] == [r.correct for r in second]
 
 
@@ -693,3 +697,177 @@ def test_the_default_summarizer_is_the_first_one_with_a_key():
     assert default_summarizer({"GOOGLE_API_KEY": "k", "ANTHROPIC_API_KEY": "k"}) == "gemini-3.8-flash"
     assert default_summarizer({"ANTHROPIC_API_KEY": "k"}) == "claude-haiku-5-5"
     assert default_summarizer({}) == "gpt-6-luna"  # no key anywhere: the first offered
+
+
+# ─── The probing harness: forked probes, the oracle's fact, rescoring ──
+
+
+class _Verbose(BaseChatModel):
+    """An answering stand-in that writes long replies (as verbose readers do)
+    and records what each drafting call was shown."""
+
+    seen: list = []
+
+    @property
+    def _llm_type(self) -> str:
+        return "verbose-reader"
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        if (getattr(run_manager, "metadata", None) or {}).get("langgraph_node") == "draft":
+            self.seen.append([extract_text(m.content) for m in messages])
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content="Let me think. " * 600))])
+
+
+def test_every_probe_reads_the_same_settled_branch(eval_setup):
+    """Probes used to be chained: each one's question and answer became the
+    next one's history, and a verbose reader's answers triggered fresh
+    summaries mid-probing. Now every probe forks from one settled checkpoint."""
+    import asyncio
+
+    from app.compaction import build_dense_scenario
+    from app.services.compaction_eval import run_live_grid
+
+    app, _ = eval_setup
+    scenario = build_dense_scenario(n_facts=4, exchanges=30, seed=4)
+    reader, summaries = _Verbose(seen=[]), []
+
+    def models(model_id, _toggles):
+        if model_id not in SUMMARIZER_MODELS:
+            return reader
+        summaries.append(len(reader.seen))  # how many probes had been answered when it was written
+        return FirstSentenceSummarizer()
+
+    results = asyncio.run(run_live_grid(app, {"4": scenario}, ["gpt-5.4"],
+                                        [Condition("t1500", ThresholdPolicy(fixed_tokens(1_500)))],
+                                        model_factory=CallableModelFactory(models)))
+    assert len(results) == len(reader.seen) == 4
+    assert summaries and set(summaries) == {0}  # every summary was written before the first probe
+    histories = [shown[:-1] for shown in reader.seen]
+    assert all(h == histories[0] for h in histories)  # the same history for every probe
+    questions = [scenario.question_for(f) for f in scenario.facts]
+    for i, shown in enumerate(reader.seen):
+        assert questions[i] in shown[-1]
+        assert not any(q in text for j, q in enumerate(questions) if j != i for text in shown)
+    assert len({r.summary_tokens for r in results}) == 1
+
+
+def test_a_seeded_branch_is_summarized_once_not_once_per_probe(eval_setup):
+    import asyncio
+
+    from app.services.compaction_eval import run_condition, seed_scenario
+
+    app, _ = eval_setup
+    scenario = build_scenario(exchanges=30, fact_exchanges=[0, 4, 8, 12, 16, 20, 24, 29])
+    calls = []
+
+    def models(model_id, _toggles):
+        if model_id in SUMMARIZER_MODELS:
+            calls.append(model_id)
+            return FirstSentenceSummarizer()
+        return AvailabilityOracle(facts=DEFAULT_FACTS)
+
+    async def go():
+        base = await seed_scenario(app, "seeded", scenario, "gpt-5.4")
+        return await run_condition(app, "seeded", base, scenario, "gpt-5.4",
+                                   Condition("t2000", ThresholdPolicy(fixed_tokens(2_000))), CallableModelFactory(models))
+
+    results = asyncio.run(go())
+    assert len(calls) == 1 and len(results) == len(DEFAULT_FACTS)
+    assert all(r.summarized and r.pruned for r in results)
+
+
+def test_the_probe_turn_placeholder_is_longer_than_any_probe():
+    from app.compaction import build_dense_scenario, build_task_scenario
+    from app.services.compaction_eval import PROBE_TURN
+
+    scenarios = [build_dense_scenario(seed=s, questions=q) for s in range(3) for q in ("direct", "indirect")]
+    scenarios += [build_task_scenario(seed=s, questions=q) for s in range(3) for q in ("direct", "indirect")]
+    longest = max(graph_mod.count_tokens([HumanMessage(content=sc.probe_prompt(f))]) for sc in scenarios for f in sc.facts)
+    assert graph_mod.count_tokens([HumanMessage(content=PROBE_TURN)]) > longest
+
+
+def test_the_oracle_answers_the_fact_it_is_asked_not_one_quoted_in_the_notes():
+    """Recall attaches excerpts to the request. When one quotes an earlier
+    probe of the same kind, matching question text made that fact a
+    candidate too, and the first one won."""
+    from app.compaction import build_dense_scenario
+    from app.services.compaction_eval import PROBE_FACT_KEY, PROBE_SCENARIO_KEY, STRICT_ORACLE, EvalModelFactory
+
+    scenario = build_dense_scenario(n_facts=16, exchanges=60, seed=0)
+    earlier, asked = [f for f in scenario.facts if f.kind == "port"][:2]
+    history = [HumanMessage(content=f"{earlier.statement} {asked.statement}"), AIMessage(content="Noted.")]
+    notes = ("Earlier messages retrieved from the full conversation (oldest first):\n"
+             f"[User]: {scenario.probe_prompt(earlier)}\n[assistant]: {earlier.answers[0]}")
+    messages = graph_mod._with_request_notes(history + [HumanMessage(content=scenario.probe_prompt(asked))], [notes])
+    oracle = EvalModelFactory(scenario.facts, scenarios={"0": scenario}).chat(STRICT_ORACLE)
+
+    guessed = oracle.invoke(messages).content
+    told = oracle.invoke(messages, config={"metadata": {PROBE_SCENARIO_KEY: "0", PROBE_FACT_KEY: asked.key}}).content
+    assert guessed == earlier.answers[0]  # the old matching, kept for calls that name no fact
+    assert told == asked.answers[0]
+
+
+def test_the_oracle_resolves_a_key_shared_across_seeds_by_scenario():
+    from app.compaction import build_task_scenario
+    from app.services.compaction_eval import PROBE_FACT_KEY, PROBE_SCENARIO_KEY, STRICT_ORACLE, EvalModelFactory
+
+    a, b = build_task_scenario(seed=0), build_task_scenario(seed=1)
+    fa, fb = a.facts[0], b.facts[0]
+    assert fa.key == fb.key and fa.answers != fb.answers
+    context = [HumanMessage(content=f"{fa.statement}\n{fb.statement}\n{a.probe_prompt(fb)}")]
+    oracle = EvalModelFactory(a.facts + b.facts, scenarios={"0": a, "1": b}).chat(STRICT_ORACLE)
+    reply = oracle.invoke(context, config={"metadata": {PROBE_SCENARIO_KEY: "1", PROBE_FACT_KEY: fb.key}}).content
+    assert reply == fb.answers[0]
+
+
+def test_replays_are_keyed_by_the_summarizers_catalog_identity(tmp_path):
+    from types import SimpleNamespace
+
+    from app.compaction import build_dense_scenario
+    from app.services.compaction_eval import ReplayCache, catalog_identity, replay_key
+
+    scenario = build_dense_scenario(n_facts=4, exchanges=20, seed=1)
+    cond = Condition("t", ThresholdPolicy(fixed_tokens(1_500)), "gpt-6-luna")
+    catalog = {"gpt-6-luna": SimpleNamespace(released="2026-09-14")}
+
+    def key(entries, synced):
+        return ReplayCache(tmp_path, identity=catalog_identity(entries, synced)).key(scenario, cond, "m")
+
+    first = key(catalog, "2026-10-01")
+    assert first == key(catalog, "2026-10-01")
+    assert first != key(catalog, "2026-10-25")  # a later sync replays anew
+    assert first != key({"gpt-6-luna": SimpleNamespace(released="2026-12-01")}, "2026-10-01")  # a new version
+    assert first != replay_key(scenario, cond, "m")
+    assert catalog_identity({}, "d")("gemini-3.8-flash@minimal").startswith("uncatalogued")
+
+
+def _probe(fact, answer, *, summary_tokens=100):
+    from app.services.compaction_eval import ProbeResult
+
+    return ProbeResult(condition="c", model="m", fact=fact.key, kind=fact.kind, planted_turn=0,
+                       correct=is_correct(answer, fact), pruned=True, summarized=True, answer=answer,
+                       scenario="0", summary_tokens=summary_tokens)
+
+
+def test_rescoring_bounds_answers_that_give_another_facts_value():
+    from app.compaction import build_dense_scenario
+    from app.services.compaction_eval import sibling_bounds, sibling_report, sibling_values, summaries_during_probing
+
+    scenario = build_dense_scenario(n_facts=8, exchanges=40, seed=2)
+    f = scenario.facts
+    results = [
+        _probe(f[0], f[0].answers[0]),                      # right
+        _probe(f[1], "I don't know."),                      # wrong, no sibling
+        _probe(f[2], f[0].answers[0], summary_tokens=250),  # an earlier probe's value, after a new summary
+        _probe(f[3], f[6].answers[0]),                      # a later fact's value
+    ]
+    flags = sibling_values(results, {"0": scenario})
+    assert [(x.result.fact, x.sibling, x.earlier) for x in flags] == [(f[2].key, f[0].key, True), (f[3].key, f[6].key, False)]
+    lower, upper = sibling_bounds(results, flags)
+    assert [r.fact for r in lower] == [f[0].key, f[1].key]
+    assert [r.correct for r in upper] == [True, False, True, True]
+    assert summaries_during_probing(results) == {"c / m": 2}  # 100 -> 250 -> 100
+    cell = sibling_report(results, {"0": scenario})["cells"]["c / m"]
+    assert (cell["recorded"], cell["lower"], cell["upper"]) == ([1, 4], [1, 2], [3, 4])
+    assert (cell["earlier_sibling"], cell["later_sibling"]) == (1, 1)
+    assert cell["unaffected"] == [1, 2]  # only the probes before the summary written while probing

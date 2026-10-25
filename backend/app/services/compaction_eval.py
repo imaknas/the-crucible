@@ -15,11 +15,18 @@ Two stand-in models make the pipeline testable and give an upper bound:
 
 Two ways to put a scenario on a branch:
 
-- seeded (run_grid): the whole conversation is written at once and the first
-  probe triggers a single summary of all of it.
+- seeded (run_grid): the whole conversation is written at once and settling
+  the branch writes a single summary of all of it.
 - live (run_live_grid): the conversation is replayed turn by turn through the
   graph's own summarize step, so a long one is summarized several times as it
   grows, the way the app does it — the setting for cumulative loss.
+
+Every probe forks from the same settled checkpoint. Settling runs the
+summarize step once more, as the app would when the first probe arrives;
+after that, probing never summarizes. Probes used to be chained on one
+branch: earlier questions and answers became history, verbose answers
+triggered fresh summaries mid-probing, and recall then brought earlier
+probes back into the request (NOTES.md, 2026-10-25).
 """
 
 import asyncio
@@ -27,16 +34,19 @@ import copy
 import json
 import threading
 from dataclasses import asdict, dataclass, field, replace
-from typing import Any, Iterable, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Iterable, List, Mapping, Optional, Sequence
 
 from langchain_core.callbacks import BaseCallbackHandler, UsageMetadataCallbackHandler
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.messages.ai import add_usage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import RunnableLambda
+from pydantic import Field
 
 from app.compaction import (
     CompactionPolicy,
+    Decision,
     GuidedRecall,
     HistoryRecall,
     PlantedFact,
@@ -46,7 +56,7 @@ from app.compaction import (
     compare_recall,
     is_correct,
 )
-from app.compaction.probe import is_stale, value_attached
+from app.compaction.probe import committed_answer, gives_value, is_stale, value_attached
 from app.services.graph import (
     INSTRUCTION_CONFIG_KEY,
     POLICY_CONFIG_KEY,
@@ -90,6 +100,14 @@ class Condition:
         if self.recall:
             config["configurable"][RECALL_CONFIG_KEY] = self.recall
         return config
+
+
+# Run metadata naming the fact a probe asks about (and its scenario, since
+# keys repeat across seeds). LangGraph passes run metadata down to every
+# model call, so the availability oracle reads it there instead of guessing
+# the fact from the request text.
+PROBE_SCENARIO_KEY = "probe_scenario"
+PROBE_FACT_KEY = "probe_fact"
 
 
 @dataclass(frozen=True)
@@ -264,19 +282,66 @@ async def replay_with_compaction(
     the messages and the summarizer's token usage.
     """
     usage = UsageMetadataCallbackHandler()
-    config = condition.configure({"configurable": {}, "callbacks": _callbacks(usage, spend)})
-    if model_factory is not None:
-        config["configurable"]["model_factory"] = model_factory
-    summarize = RunnableLambda(summarize_history)
+    config = _summarize_config(condition, model_factory, _callbacks(usage, spend))
     messages: List[BaseMessage] = []
     for message in scenario_messages(scenario, assistant_name):
         messages.append(message)
         if message.type == "human":
             if spend:
                 spend.check()
-            out = await summarize.ainvoke({"messages": list(messages), "active_peer": active_peer}, config)
-            messages += out["messages"]
+            messages += await _summarize_step(messages, active_peer, config)
+    # Settled here, not per answering model, so every model probes the very
+    # same summaries.
+    if spend:
+        spend.check()
+    messages += await _summarize_step(messages + [HumanMessage(content=PROBE_TURN)], active_peer, config)
     return messages, {name: dict(u) for name, u in usage.usage_metadata.items()}
+
+
+# Stands in for "a probe has arrived" when a branch is settled before
+# probing. Only its length matters: it is among the newest messages, which a
+# summary leaves out, so it decides whether a summary is due, never what the
+# summary says. It is longer than any probe prompt (a test checks), so when
+# no summary is due with it, none is due with a real probe either; and it is
+# a constant, so direct and indirect runs still share one replay.
+PROBE_TURN = (
+    "Quick check on something from earlier in this conversation: "
+    + "which value did we settle on for that subject, and what was it about? " * 6
+    + "Answer with just the value."
+)
+
+
+def _summarize_config(condition: Condition, model_factory, callbacks: list) -> dict:
+    config = condition.configure({"configurable": {}, "callbacks": callbacks})
+    if model_factory is not None:
+        config["configurable"]["model_factory"] = model_factory
+    return config
+
+
+async def _summarize_step(messages: Sequence[BaseMessage], active_peer: str, config: dict) -> List[BaseMessage]:
+    """The graph's summarize step on `messages`: the summary it appends, if due."""
+    out = await RunnableLambda(summarize_history).ainvoke({"messages": list(messages), "active_peer": active_peer}, config)
+    return list(out["messages"])
+
+
+class _Settled:
+    """A condition's policy for the probes of a settled branch: prunes as the
+    policy says, never summarizes. Every probe forks from the same checkpoint
+    and must read the same context; a summary written by one probe's turn
+    would only be seen by that probe (and paid once per probe)."""
+
+    def __init__(self, policy: CompactionPolicy):
+        self.policy = policy
+        self.name = policy.name
+
+    def describe(self) -> str:
+        return getattr(self.policy, "describe", lambda: self.policy.name)()
+
+    def should_summarize(self, ctx, budget) -> Decision:
+        return Decision(False, "probing a settled branch")
+
+    def should_prune(self, ctx, budget) -> Decision:
+        return self.policy.should_prune(ctx, budget)
 
 
 def _latest_summary_tokens(messages: Sequence[BaseMessage]) -> int:
@@ -287,35 +352,62 @@ def _latest_summary_tokens(messages: Sequence[BaseMessage]) -> int:
 
 
 # Bump when summarize_history or the replay itself changes what it produces.
-REPLAY_VERSION = 1
+# 2: replays end with the settling summary step (see PROBE_TURN).
+REPLAY_VERSION = 2
 
 
-def replay_key(scenario: Scenario, condition: Condition, active_peer: str) -> str:
+def replay_key(scenario: Scenario, condition: Condition, active_peer: str, identity: str = "") -> str:
     """What a replay's summaries depend on: the conversation, when the policy
-    summarizes, which model summarizes and exactly what it is asked. Not the
-    question wording, recall or retention, which only act at answer time — so
-    direct and indirect runs, and runs that vary recall, share one replay."""
+    summarizes, which model summarizes (`identity`: which version of it, as
+    the caller knows it) and exactly what it is asked. Not the question
+    wording, recall or retention, which only act at answer time — so direct
+    and indirect runs, and runs that vary recall, share one replay."""
     import hashlib
 
     from app.services.graph import summary_instruction_from
 
     instruction = summary_instruction_from(condition.configure({"configurable": {}}))
     policy = getattr(condition.policy, "describe", lambda: condition.policy.name)()
-    parts = [str(REPLAY_VERSION), policy, summarizer_of(condition), instruction.prompt("{transcript}"), active_peer]
+    parts = [str(REPLAY_VERSION), policy, summarizer_of(condition), identity, instruction.prompt("{transcript}"), active_peer]
     parts += [f"{t.role}:{t.text}" for t in scenario.turns]
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:32]
+
+
+def catalog_identity(catalog: Mapping[str, Any], synced: Optional[str]) -> Callable[[str], str]:
+    """A summarizer's identity for replay keys: its catalog entry (id and
+    release date) and the date the catalog was last synced.
+
+    The model id alone would let a replay cached before a provider updated
+    the model answer for it afterwards, silently skipping the drift an audit
+    exists to detect. Release dates are missing for some models and an alias
+    can be repointed without one, so the sync date is part of it too: every
+    sync starts fresh replays, which is when the audit is due anyway. Within
+    one catalog snapshot, a silent change behind an alias stays invisible."""
+
+    def identity(model_id: str) -> str:
+        entry = catalog.get(split_thinking(model_id)[0])
+        released = getattr(entry, "released", None) if entry is not None else None
+        return f"{'catalogued' if entry is not None else 'uncatalogued'}:{released}:synced:{synced}"
+
+    return identity
 
 
 class ReplayCache:
     """Replayed conversations (with their summaries) on disk, one file per
     key, so experiments that differ only at answer time reuse the same
     summaries instead of paying for (and re-rolling) them. Only real replays
-    belong here: stand-in dry runs never get a cache."""
+    belong here: stand-in dry runs never get a cache. `identity` maps a
+    summarizer id to its version (catalog_identity), so a replay is never
+    reused across model versions."""
 
-    def __init__(self, directory):
+    def __init__(self, directory, identity: Callable[[str], str] = lambda model_id: ""):
         from pathlib import Path
 
         self.directory = Path(directory)
+        self.identity = identity
+
+    def key(self, scenario: Scenario, condition: Condition, active_peer: str) -> str:
+        return replay_key(scenario, condition, active_peer, self.identity(summarizer_of(condition)))
 
     def _path(self, key: str):
         return self.directory / f"{key}.json"
@@ -360,15 +452,37 @@ async def run_condition(
     setup_usage: Optional[dict] = None,
     spend: Optional[Spend] = None,
 ) -> list[ProbeResult]:
-    """Ask every probe, in order, on one branch forked from the seeded
-    checkpoint. Stops early (keeping what it has) once `spend` is exhausted."""
+    """Ask every probe, each on its own branch forked from the same settled
+    checkpoint, so no probe sees another's question or answer and probing
+    writes no summaries. Settling writes the summary the app would write when
+    the first probe arrives, if one is due (a seeded branch gets its only
+    summary here; a live replay is already settled). Stops early (keeping
+    what it has) once `spend` is exhausted."""
     results: list[ProbeResult] = []
-    parent = base_checkpoint_id
+    if spend and spend.exhausted:
+        return results
+    settle_usage = UsageMetadataCallbackHandler()
+    state = await graph_app.aget_state(thread_config(thread_id, base_checkpoint_id))
+    base_messages = list(state.values.get("messages", []))
+    summary = await _summarize_step(base_messages + [HumanMessage(content=PROBE_TURN)], model_id,
+                                    _summarize_config(condition, model_factory, _callbacks(settle_usage, spend)))
+    if summary:
+        written = await graph_app.aupdate_state(thread_config(thread_id, base_checkpoint_id), {"messages": summary},
+                                                as_node="synthesis")
+        base_checkpoint_id = written["configurable"]["checkpoint_id"]
+        base_messages += summary
+    setup = dict(setup_usage or {})
+    for name, u in settle_usage.usage_metadata.items():
+        setup[name] = dict(add_usage(setup[name], u)) if name in setup else dict(u)
     for fact in scenario.facts:
         if spend and spend.exhausted:
             break
-        config = condition.configure(thread_config(thread_id, parent))
+        config = condition.configure(thread_config(thread_id, base_checkpoint_id))
+        config["configurable"][POLICY_CONFIG_KEY] = _Settled(condition.policy)
         run_id = tag_run(config)
+        # Which fact this probe asks, for the availability oracle; a real
+        # model never sees run metadata.
+        config["metadata"].update({PROBE_SCENARIO_KEY: scenario_label, PROBE_FACT_KEY: fact.key})
         if model_factory is not None:
             config["configurable"]["model_factory"] = model_factory
         usage = UsageMetadataCallbackHandler()
@@ -386,6 +500,8 @@ async def run_condition(
         if final is None:
             raise RuntimeError(f"probe {fact.key} wrote no checkpoint")
         messages = final.values.get("messages", [])
+        if any(SUMMARY_MARKER in extract_text(m.content) for m in messages[len(base_messages):]):
+            raise RuntimeError(f"probe {fact.key} wrote a summary; probes must read the settled branch")
         answer = next((extract_text(m.content) for m in reversed(messages) if m.type == "ai"), "")
         # Reconstruct what the drafting call saw: history up to and including
         # the probe (and any summary this turn appended).
@@ -411,9 +527,8 @@ async def run_condition(
             compactions=_compactions_since(before_answer, fact.statement),
             summary_tokens=_latest_summary_tokens(before_answer),
             stated_by=scenario.stated_by.get(fact.key, "user"),
-            setup_usage=(setup_usage or {}) if not results else {},
+            setup_usage=setup if not results else {},
         ))
-        parent = final.config["configurable"]["checkpoint_id"]
     return results
 
 
@@ -498,7 +613,7 @@ async def run_live_grid(
     replays: dict[tuple[str, str], asyncio.Task] = {}
 
     async def replay(label: str, scenario: Scenario, condition: Condition):
-        key = replay_key(scenario, condition, model_ids[0]) if replay_cache else None
+        key = replay_cache.key(scenario, condition, model_ids[0]) if replay_cache else None
         if key and replay_cache.has(key):
             return replay_cache.get(key)  # cached: no summarizer calls, no setup cost
         async with sem:
@@ -605,6 +720,128 @@ def rescore(results: Iterable[ProbeResult], scenarios: Mapping[str, Scenario]) -
     return out
 
 
+# ─── Sibling-value artifacts in stored results ───────────────────
+#
+# Results recorded before probes were forked from one settled checkpoint
+# chained every probe of a branch: a wrong answer giving the value of a fact
+# probed *earlier* on the same branch is the signature of that bias (the
+# oracle picked the earlier question out of recalled excerpts; a real reader
+# could read an earlier probe's answer). A later sibling's value cannot come
+# from chaining; it is reported separately, as a real reader's confusion
+# looks the same. Neither can be told apart from the answer alone, so a
+# rescore gives bounds: flagged probes left out (lower), and counted
+# correct (upper). No model is called.
+
+
+@dataclass(frozen=True)
+class SiblingValue:
+    """A wrong answer that gives another fact's value from the same scenario."""
+
+    result: ProbeResult
+    sibling: str
+    # The sibling was probed before this probe on its (chained) branch.
+    earlier: bool
+
+
+def sibling_values(results: Iterable[ProbeResult], scenarios: Mapping[str, Scenario]) -> list[SiblingValue]:
+    """Every wrong answer that commits to another fact's accepted value."""
+    out = []
+    for r in results:
+        if r.correct:
+            continue
+        facts = scenarios[r.scenario].facts
+        order = {f.key: i for i, f in enumerate(facts)}
+        own = facts[order[r.fact]]
+        if gives_value(r.answer, own):
+            continue  # wrong for a stale value next to its own; not a sibling's
+        hits = sorted((order[f.key], f.key) for f in facts if f.key != r.fact and gives_value(r.answer, f))
+        if hits:
+            out.append(SiblingValue(r, hits[0][1], hits[0][0] < order[r.fact]))
+    return out
+
+
+def sibling_bounds(results: Sequence[ProbeResult], flags: Iterable[SiblingValue]) -> tuple[list[ProbeResult], list[ProbeResult]]:
+    """(lower, upper): the flagged probes left out, and counted correct.
+    Leaving a probe out of one arm drops its pair from paired comparisons."""
+    flagged = {id(f.result) for f in flags}
+    lower = [r for r in results if id(r) not in flagged]
+    upper = [replace(r, correct=True, stale=False) if id(r) in flagged else r for r in results]
+    return lower, upper
+
+
+def summaries_during_probing(results: Iterable[ProbeResult]) -> dict[str, int]:
+    """Per "condition / model": summaries written while a chained branch was
+    being probed, seen as the size of the latest summary changing from one
+    probe to the next (a lower bound: an equal-sized new summary is missed).
+    Results are in probe order within a branch, as run_condition returns them."""
+    return {cell: sum(changes) for cell, changes in _probing_summary_marks(results).items()}
+
+
+def _probing_summary_marks(results: Iterable[ProbeResult]) -> dict[str, list[bool]]:
+    """Per cell, for each probe in order: whether a new summary appeared on
+    its branch since the previous probe."""
+    last: dict[tuple, int] = {}
+    marks: dict[str, list[bool]] = {}
+    for r in results:
+        branch = (r.condition, r.model, r.scenario)
+        marks.setdefault(f"{r.condition} / {r.model}", []).append(branch in last and last[branch] != r.summary_tokens)
+        last[branch] = r.summary_tokens
+    return marks
+
+
+def unaffected_probes(results: Iterable[ProbeResult], flags: Iterable[SiblingValue]) -> list[ProbeResult]:
+    """Probes answered before any summary was written while their branch was
+    being probed, sibling-value answers left out: the only stored probes
+    that read the context the harness meant them to read."""
+    flagged = {id(f.result) for f in flags}
+    disturbed: set[tuple] = set()
+    last: dict[tuple, int] = {}
+    out = []
+    for r in results:
+        branch = (r.condition, r.model, r.scenario)
+        if branch in last and last[branch] != r.summary_tokens:
+            disturbed.add(branch)
+        last[branch] = r.summary_tokens
+        if branch not in disturbed and id(r) not in flagged:
+            out.append(r)
+    return out
+
+
+def sibling_report(results: Sequence[ProbeResult], scenarios: Mapping[str, Scenario]) -> dict[str, Any]:
+    """Recall per condition / model as recorded and within the sibling-value
+    bounds, with the flagged answers counted (earlier / later sibling) and
+    the summaries written during probing."""
+    flags = sibling_values(results, scenarios)
+    lower, upper = sibling_bounds(results, flags)
+    unaffected = unaffected_probes(results, flags)
+    recorded, low, high = summarize_results(results), summarize_results(lower), summarize_results(upper)
+    clean = summarize_results(unaffected)
+    during = summaries_during_probing(results)
+    cells = {}
+    for cell, row in recorded.items():
+        mine = [f for f in flags if f"{f.result.condition} / {f.result.model}" == cell]
+        cells[cell] = {
+            "n": row["n"],
+            "recorded": [row["correct"], row["n"]],
+            "lower": [low.get(cell, {}).get("correct", 0), low.get(cell, {}).get("n", 0)],
+            "upper": [high[cell]["correct"], high[cell]["n"]],
+            "earlier_sibling": sum(f.earlier for f in mine),
+            "later_sibling": sum(not f.earlier for f in mine),
+            "summaries_during_probing": during.get(cell, 0),
+            "unaffected": [clean.get(cell, {}).get("correct", 0), clean.get(cell, {}).get("n", 0)],
+        }
+    return {
+        "cells": cells,
+        "unaffected": unaffected,
+        "flagged": [{"condition": f.result.condition, "model": f.result.model, "scenario": f.result.scenario,
+                     "fact": f.result.fact, "answer": committed_answer(f.result.answer)[:80], "sibling": f.sibling,
+                     "earlier": f.earlier} for f in flags],
+        "lower": lower,
+        "upper": upper,
+    }
+
+
+
 # ─── Stand-in models ─────────────────────────────────────────────
 
 
@@ -621,21 +858,42 @@ class AvailabilityOracle(BaseChatModel):
     With `strict`, the value must also still be attached to the fact's
     subject (probe.value_attached): a summary can keep "5592" while losing
     that it was the CDN purge job's port.
+
+    Which fact is asked comes from the run's metadata (PROBE_FACT_KEY, set
+    by run_condition), resolved through `by_probe` when the scenario is
+    known. Reading it from the request text instead goes wrong once recall
+    attaches excerpts to the request: an excerpt quoting another probe's
+    question made that fact a candidate too, and the first match won. The
+    text is matched only for calls that name no fact.
     """
 
     facts: tuple[PlantedFact, ...]
     strict: bool = False
+    # (scenario label, fact key) -> fact
+    by_probe: dict = Field(default_factory=dict)
 
     @property
     def _llm_type(self) -> str:
         return "availability-oracle"
 
-    def _generate(self, messages: List[BaseMessage], stop: Optional[List[str]] = None, run_manager: Any = None, **kwargs: Any) -> ChatResult:
+    def _candidates(self, messages: List[BaseMessage], metadata: Mapping[str, Any]) -> list[PlantedFact]:
+        key = metadata.get(PROBE_FACT_KEY)
+        if key:
+            exact = self.by_probe.get((metadata.get(PROBE_SCENARIO_KEY), key))
+            if exact is not None:
+                return [exact]
+            # Keys repeat across seeds; only the one in this context can be found.
+            named = [f for f in self.facts if f.key == key]
+            if named:
+                return named
         question = extract_text(messages[-1].content) if messages else ""
         # Scenarios with different seeds can ask the same question with
         # different answers; only the one in this context can be found.
-        candidates = [f for f in self.facts
-                      if f.question in question or (f.indirect_question and f.indirect_question in question)]
+        return [f for f in self.facts
+                if f.question in question or (f.indirect_question and f.indirect_question in question)]
+
+    def _generate(self, messages: List[BaseMessage], stop: Optional[List[str]] = None, run_manager: Any = None, **kwargs: Any) -> ChatResult:
+        candidates = self._candidates(messages, getattr(run_manager, "metadata", None) or {})
         if not candidates:
             reply = "Noted."
         else:
@@ -668,15 +926,17 @@ class EvalModelFactory:
     id to `inner` — the real factory, or, when None (dry runs), the lossy
     stand-in summarizer. With a real inner factory, the oracle answers from
     real summaries: recall then measures what the summarizer kept (H1),
-    independent of whether a model would use it (H2)."""
+    independent of whether a model would use it (H2). `scenarios` (label ->
+    scenario) lets the oracle resolve a probe's fact exactly."""
 
-    def __init__(self, facts: Iterable[PlantedFact], inner=None):
+    def __init__(self, facts: Iterable[PlantedFact], inner=None, *, scenarios: Optional[Mapping[str, Scenario]] = None):
         self.facts = tuple(facts)
         self.inner = inner
+        self.by_probe = {(label, f.key): f for label, sc in (scenarios or {}).items() for f in sc.facts}
 
     def chat(self, model_id: str, toggles: Optional[Mapping[str, Any]] = None):
         if model_id in ORACLES:
-            return AvailabilityOracle(facts=self.facts, strict=ORACLES[model_id])
+            return AvailabilityOracle(facts=self.facts, strict=ORACLES[model_id], by_probe=self.by_probe)
         if self.inner is None:
             return FirstSentenceSummarizer()
         base, level = split_thinking(model_id)
@@ -913,6 +1173,7 @@ async def estimate_cost(
     grid=None,
     known_replays: frozenset = frozenset(),
     rewriters: Mapping[str, CallProfile] = {},
+    key_of: Callable[[Scenario, Condition, str], str] = replay_key,
 ) -> CostEstimate:
     """Dry-run every condition with the oracle answering and a stand-in
     summary of the calibrated size: that gives exactly what each probe reads
@@ -921,7 +1182,8 @@ async def estimate_cost(
 
     `summarizers` is keyed by condition name; `answerers` and `rewriters`
     by model id. A recall step that calls a model is metered with a stand-in:
-    the dry run never calls a real model.
+    the dry run never calls a real model. `key_of` names replays the way
+    the replay cache does (ReplayCache.key), so `known_replays` match.
     """
     facts = [f for sc in scenarios.values() for f in sc.facts]
     branches = len(model_ids)  # every answering model, oracles included, probes each condition
@@ -935,7 +1197,7 @@ async def estimate_cost(
     for condition in conditions:
         free_labels = set()
         for label, sc in scenarios.items():
-            key = replay_key(sc, condition, model_ids[0]) if model_ids else None
+            key = key_of(sc, condition, model_ids[0]) if model_ids else None
             if key in paid:
                 free_labels.add(label)
             elif key:
@@ -944,7 +1206,8 @@ async def estimate_cost(
         dry = await (grid or run_live_grid)(
             graph_app, scenarios, [ORACLE], [_metered(condition, meter) if rewriter else condition],
             thread_prefix=f"{thread_prefix}::estimate", model_factory=EvalModelFactory(
-                facts, inner=_SizedFactory(summarizers[condition.name].summary_tokens if condition.name in summarizers else 0)),
+                facts, inner=_SizedFactory(summarizers[condition.name].summary_tokens if condition.name in summarizers else 0),
+                scenarios=scenarios),
         )
         read = sum(u.get("input_tokens", 0) for r in dry for n, u in r.usage.items() if n == "availability-oracle")
         probes = len(dry)
@@ -1147,7 +1410,7 @@ async def run_budgeted(
         estimate = await estimate_cost(graph_app, scenarios, model_ids, conditions, prices, answer, summ,
                                        thread_prefix=prefix, calibration_cost=spend.total, grid=grid,
                                        known_replays=_cached_replays(scenarios, conditions, model_ids, replay_cache),
-                                       rewriters=rewrite)
+                                       rewriters=rewrite, key_of=replay_cache.key if replay_cache else replay_key)
         estimate.factor = factor
         if on_estimate:
             on_estimate(estimate)
@@ -1182,7 +1445,7 @@ def _cached_replays(scenarios, conditions, model_ids, replay_cache) -> frozenset
     """Replay keys this run needs that are already on disk."""
     if not replay_cache or not model_ids:
         return frozenset()
-    keys = {replay_key(sc, c, model_ids[0]) for sc in scenarios.values() for c in conditions}
+    keys = {replay_cache.key(sc, c, model_ids[0]) for sc in scenarios.values() for c in conditions}
     return frozenset(k for k in keys if replay_cache.has(k))
 
 

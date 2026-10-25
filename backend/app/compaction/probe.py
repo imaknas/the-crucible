@@ -694,10 +694,15 @@ def committed_answer(answer: str) -> str:
     return ""
 
 
+def gives_value(answer: str, fact: PlantedFact) -> bool:
+    """Whether the committed answer contains one of the fact's accepted values."""
+    got = _normalize(committed_answer(answer))
+    return any(_normalize(a) in got for a in fact.answers)
+
+
 def is_correct(answer: str, fact: PlantedFact) -> bool:
     """Whether the committed answer has an accepted value and no stale one."""
-    got = _normalize(committed_answer(answer))
-    return any(_normalize(a) in got for a in fact.answers) and not is_stale(answer, fact)
+    return gives_value(answer, fact) and not is_stale(answer, fact)
 
 
 def _loose(text: str) -> str:

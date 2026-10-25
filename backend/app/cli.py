@@ -697,6 +697,7 @@ def compaction_eval(
     dry_run: bool = typer.Option(False, "--dry-run", help="Only the oracle answers, with a lossy stand-in summarizer; no API calls."),
     budget: Optional[float] = typer.Option(None, "--budget", help="Hard spending cap in USD for a real run (required). The run is refused if the estimate exceeds it, and stops starting new calls once reached."),
     estimate_only: bool = typer.Option(False, "--estimate", help="Only estimate the cost (a few cents of calibration calls) and exit."),
+    rescore: Optional[str] = typer.Option(None, "--rescore", help="Rescore a results file for sibling-value answers (left by chained probes): recall and comparisons within bounds. No API calls; the file is not changed."),
     format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
@@ -709,6 +710,9 @@ def compaction_eval(
     from app.services.compaction_eval import ORACLE, ORACLES
 
     as_json = _check_format(format_output)
+    if rescore:
+        _rescore_eval(rescore, min_effect, as_json)
+        return
     _load_env()
     if scenario not in ("dense", "task", "basic") or compaction not in ("live", "once"):
         _fail("--scenario is dense|task|basic and --compaction is live|once", as_json)
@@ -804,13 +808,23 @@ def _failures_path(prefix: str):
     return Path(__file__).resolve().parents[1] / "experiments" / ".failures" / f"{prefix}.json"
 
 
+def _catalog_synced():
+    """When the committed model catalog was last synced (None: no catalog)."""
+    from app.catalog.store import DEFAULT_CATALOG
+
+    return json.loads(DEFAULT_CATALOG.read_text()).get("synced") if DEFAULT_CATALOG.exists() else None
+
+
 def _replay_cache():
-    """Replayed conversations with their summaries, reused across runs."""
+    """Replayed conversations with their summaries, reused across runs, keyed
+    by the summarizer's catalog identity so a new model version replays anew."""
     from pathlib import Path
 
+    from app.catalog import load_catalog
     from app.services import compaction_eval as ce
 
-    return ce.ReplayCache(Path(__file__).resolve().parents[1] / "experiments" / ".replay-cache")
+    return ce.ReplayCache(Path(__file__).resolve().parents[1] / "experiments" / ".replay-cache",
+                          identity=ce.catalog_identity(load_catalog(), _catalog_synced()))
 
 
 def _calibration_cache():
@@ -856,6 +870,34 @@ def _print_estimate(est, budget) -> None:
     typer.echo("\n".join(lines), err=True)
 
 
+def _eval_scenarios(options) -> dict:
+    """The conversations a compaction-eval run probes, from its options (as
+    a results file records them)."""
+    from app.compaction import build_dense_scenario, build_scenario, build_task_scenario
+
+    seeds = range(options["seeds"])
+    if options["scenario"] == "dense":
+        return {str(s): build_dense_scenario(n_facts=options["facts"], exchanges=options["exchanges"], seed=s,
+                                             assistant_facts=options["assistant_facts"],
+                                             variants=options["fact_variants"], repeat_facts=options["repeat_facts"],
+                                             questions=options["questions"], asides=options["asides"])
+                for s in seeds}
+    if options["scenario"] == "task":
+        return {str(s): build_task_scenario(exchanges=options["exchanges"], seed=s,
+                                            assistant_facts=options["assistant_facts"], questions=options["questions"],
+                                            later_subject=options["later_subject"])
+                for s in seeds}
+    return {str(s): build_scenario(exchanges=options["exchanges"], seed=s) for s in seeds}
+
+
+def _audit_scenarios(seeds: int, questions: str) -> dict:
+    """The conversations a scaffold audit probes."""
+    from app.compaction import build_dense_scenario
+
+    return {str(s): build_dense_scenario(n_facts=24, exchanges=140, seed=s, assistant_facts=0.5, questions=questions)
+            for s in range(seeds)}
+
+
 async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry_run, budget=None, estimate_only=False):
     from datetime import datetime, timezone
     from itertools import combinations
@@ -875,9 +917,6 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
         LengthTarget,
         NeverCompact,
         ThresholdPolicy,
-        build_dense_scenario,
-        build_scenario,
-        build_task_scenario,
         fixed_tokens,
     )
     from app.core import database as db
@@ -887,22 +926,10 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
 
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     db.DB_PATH = db_path  # experiment threads never touch the app's database
-    if options["scenario"] == "dense":
-        scenarios = {str(s): build_dense_scenario(n_facts=options["facts"], exchanges=options["exchanges"], seed=s,
-                                                  assistant_facts=options["assistant_facts"],
-                                                  variants=options["fact_variants"], repeat_facts=options["repeat_facts"],
-                                                  questions=options["questions"], asides=options["asides"])
-                     for s in range(options["seeds"])}
-    elif options["scenario"] == "task":
-        scenarios = {str(s): build_task_scenario(exchanges=options["exchanges"], seed=s,
-                                                 assistant_facts=options["assistant_facts"], questions=options["questions"],
-                                                 later_subject=options["later_subject"])
-                     for s in range(options["seeds"])}
-    else:
-        scenarios = {str(s): build_scenario(exchanges=options["exchanges"], seed=s) for s in range(options["seeds"])}
+    scenarios = _eval_scenarios(options)
     conditions = [ce.Condition("never", NeverCompact())] if options["baseline"] else []
     all_facts = [f for sc in scenarios.values() for f in sc.facts]
-    factory = ce.EvalModelFactory(all_facts, inner=None if dry_run else default_model_factory())
+    factory = ce.EvalModelFactory(all_facts, inner=None if dry_run else default_model_factory(), scenarios=scenarios)
     retentions = {"recent": None, "user": KeepUserMessages(options["user_budget"])}
     bases = {"brief": None, "handoff": HandoffBrief(), "state": StateAndIndex(), "index": IndexOnly(), "allsubjects": AllSubjects()}
     recallers = {"none": None, "keyword": KeywordRecall()}
@@ -1014,6 +1041,7 @@ def scaffold_audit_cmd(
     questions: str = typer.Option("direct", "--questions", help="direct or indirect probes."),
     min_effect: float = typer.Option(0.1, "--min-effect", help="Smallest recall difference that matters."),
     db: str = typer.Option("experiments/audit.sqlite", "--db", help="Database for audit threads."),
+    rescore: Optional[str] = typer.Option(None, "--rescore", help="Judge a recorded audit run (experiments/audit/runs/*.json) again within sibling-value bounds. No API calls; nothing is appended to the history."),
     format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
@@ -1022,11 +1050,14 @@ def scaffold_audit_cmd(
     Every mechanism between the conversation and the model (compaction, the
     verbatim window, candidate instructions and recall) is compared, paired,
     against going without it on the current models. Verdicts (keep, retire,
-    harmful, inconclusive) are appended to experiments/audit/history.jsonl.
+    harmful, inconclusive, no_headroom) are appended to experiments/audit/history.jsonl.
     """
     from app.services import scaffold_audit as sa
 
     as_json = _check_format(format_output)
+    if rescore:
+        _rescore_audit(rescore, min_effect, as_json)
+        return
     _load_env()  # the report compares against the recall model the keys select
     if report:
         _scaffold_report(as_json)
@@ -1056,16 +1087,12 @@ def scaffold_audit_cmd(
 
 
 def _scaffold_report(as_json: bool) -> None:
-    import json as _json
-
-    from app.catalog.store import DEFAULT_CATALOG
     from app.services import scaffold_audit as sa
     from app.services.graph import default_summarizer
     from app.services.recall import default_recall_model
 
     history = sa.load_history()
-    synced = _json.loads(DEFAULT_CATALOG.read_text()).get("synced") if DEFAULT_CATALOG.exists() else None
-    stale = sa.staleness(history, summarizer=default_summarizer(), catalog_synced=synced,
+    stale = sa.staleness(history, summarizer=default_summarizer(), catalog_synced=_catalog_synced(),
                          recall_model=default_recall_model())
     rows = list(sa.latest(history).values())
     if as_json:
@@ -1077,12 +1104,130 @@ def _scaffold_report(as_json: bool) -> None:
     console.print(f"[yellow]Stale:[/yellow] {stale}" if stale else "Verdicts are current.")
 
 
+# recorded: as stored; lower / upper: sibling-value answers left out / counted
+# correct; unaffected: only probes answered before any summary was written
+# while their branch was being probed (sibling-value answers left out).
+BOUNDS = ("recorded", "lower", "upper", "unaffected")
+
+
+def _bounded(results, scenarios):
+    """Stored results as recorded and within the sibling-value bounds."""
+    from app.services import compaction_eval as ce
+
+    report = ce.sibling_report(results, scenarios)
+    return report, {"recorded": results, "lower": report["lower"], "upper": report["upper"],
+                    "unaffected": report["unaffected"]}
+
+
+def _fraction(cell) -> str:
+    return f"{cell[0]}/{cell[1]}"
+
+
+def _rescore_eval(path: str, min_effect: float, as_json: bool) -> None:
+    """Sibling-value bounds for a compaction-eval results file."""
+    from itertools import combinations
+    from pathlib import Path
+
+    from app.services import compaction_eval as ce
+
+    data = json.loads(Path(path).read_text())
+    options = {"facts": 24, "assistant_facts": 0.0, "fact_variants": ["plain", "distractor", "update"],
+               "repeat_facts": False, "questions": "direct", "asides": False, "later_subject": "unknown", **data}
+    results = ce.results_from_dicts(data["probes"])
+    report, arms = _bounded(results, _eval_scenarios(options))
+    conditions = list(dict.fromkeys(r.condition for r in results))
+    comparisons = []
+    for model in dict.fromkeys(r.model for r in results):
+        for a, b in combinations(conditions, 2):
+            row = {"model": model, "a": a, "b": b}
+            for bound in BOUNDS:
+                v = ce.compare_conditions([r for r in arms[bound] if r.model == model], a, b, min_effect=min_effect)
+                row[bound] = {"outcome": v.outcome.value, "effect": None if v.effect is None else round(v.effect, 3),
+                              "interval": None if v.interval is None else [round(x, 3) for x in v.interval]}
+            comparisons.append(row)
+    out = {"run": data.get("run"), "cells": report["cells"], "flagged": report["flagged"], "comparisons": comparisons}
+    if as_json:
+        _emit_json(out)
+        return
+    from rich.table import Table
+
+    table = Table(title=f"Sibling-value rescore of {data.get('run')}", box=None)
+    for col in ("condition / model", "recorded", "lower", "upper", "unaffected", "earlier / later sibling",
+                "summaries while probing"):
+        table.add_column(col)
+    for cell, c in report["cells"].items():
+        table.add_row(cell, _fraction(c["recorded"]), _fraction(c["lower"]), _fraction(c["upper"]),
+                      _fraction(c["unaffected"]),
+                      f"{c['earlier_sibling']} / {c['later_sibling']}", str(c["summaries_during_probing"]))
+    console.print(table)
+    flips = [c for c in comparisons if len({c[b]["outcome"] for b in BOUNDS}) > 1]
+    console.print(f"\nComparisons whose outcome depends on the bound ({len(flips)} of {len(comparisons)}):")
+    for c in flips:
+        console.print(f"  {c['model']}: {c['a']} vs {c['b']}: " + ", ".join(
+            f"{b} {c[b]['outcome']} {c[b]['effect']} {c[b]['interval']}" for b in BOUNDS))
+
+
+def _rescore_audit(path: str, min_effect: float, as_json: bool) -> None:
+    """A recorded audit run judged again (current verdict rules) as recorded
+    and within the sibling-value bounds. Reads the history; never writes it."""
+    from pathlib import Path
+
+    from app.services import compaction_eval as ce
+    from app.services import scaffold_audit as sa
+
+    run = json.loads(Path(path).read_text())
+    setup = run.get("setup") or next(
+        ({k: r[k] for k in ("threshold", "seeds", "questions")} for r in sa.load_history() if r.get("run") == run["run"]),
+        None)
+    if setup is None:
+        _fail(f"{run['run']} is not in {sa.DEFAULT_HISTORY} and its file records no setup", as_json)
+    results = ce.results_from_dicts(run["probes"])
+    report, arms = _bounded(results, _audit_scenarios(setup["seeds"], setup["questions"]))
+    scaffolds = sa.scaffolds_for_records(run["records"], setup["threshold"])
+    models = list(dict.fromkeys(r["model"] for r in run["records"]))
+    judged = {b: {(r["scaffold"], r["model"]): r for r in sa.audit(arms[b], scaffolds, models, min_effect=min_effect)}
+              for b in BOUNDS}
+    rows = []
+    for rec in run["records"]:
+        key = (rec["scaffold"], rec["model"])
+        rows.append({"scaffold": rec["scaffold"], "model": rec["model"],
+                     "as_recorded": {k: rec[k] for k in ("baseline_recall", "scaffold_recall", "verdict")},
+                     **{b: {k: judged[b][key][k] for k in ("baseline_recall", "scaffold_recall", "n", "outcome", "effect",
+                                                            "interval", "verdict")}
+                        for b in BOUNDS if key in judged[b]}})
+    out = {"run": run["run"], "setup": setup, "rows": rows, "cells": report["cells"], "flagged": report["flagged"]}
+    if as_json:
+        _emit_json(out)
+        return
+    from rich.table import Table
+
+    table = Table(title=f"Rescored audit {run['run']} (verdicts under today's rules)", box=None)
+    for col in ("scaffold", "model", "as recorded", "rejudged", "lower", "upper", "unaffected (n)"):
+        table.add_column(col)
+
+    def show(x, n=False):
+        if not x:
+            return "-"
+        return f"{x['baseline_recall']:.2f} → {x['scaffold_recall']:.2f} {x['verdict']}" + (f" ({x['n']})" if n else "")
+
+    for r in rows:
+        table.add_row(r["scaffold"], r["model"], show(r["as_recorded"]), show(r.get("recorded")),
+                      show(r.get("lower")), show(r.get("upper")), show(r.get("unaffected"), n=True))
+    console.print(table)
+    console.print("\nSibling-value answers (earlier / later sibling) and summaries written while probing:")
+    disturbed = [(cell, c) for cell, c in report["cells"].items()
+                 if c["earlier_sibling"] or c["later_sibling"] or c["summaries_during_probing"]]
+    for cell, c in disturbed:
+        console.print(f"  {cell}: {c['earlier_sibling']} / {c['later_sibling']}, {c['summaries_during_probing']} summaries")
+    if not disturbed:
+        console.print("  none")
+
+
 async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_effect, db_path, budget, estimate_only):
     from datetime import datetime, timezone
     from pathlib import Path
 
     from app.catalog import PriceBook, load_prices
-    from app.compaction import build_dense_scenario
     from app.core import database as db
     from app.llm import default_model_factory
     from app.services import compaction_eval as ce
@@ -1093,9 +1238,9 @@ async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_
 
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     db.DB_PATH = db_path
-    scenarios = {str(s): build_dense_scenario(n_facts=24, exchanges=140, seed=s, assistant_facts=0.5, questions=questions)
-                 for s in range(seeds)}
-    factory = ce.EvalModelFactory([f for sc in scenarios.values() for f in sc.facts], inner=default_model_factory())
+    scenarios = _audit_scenarios(seeds, questions)
+    factory = ce.EvalModelFactory([f for sc in scenarios.values() for f in sc.facts], inner=default_model_factory(),
+                                  scenarios=scenarios)
     # The recall the app itself attaches, built through the same function.
     recall = default_history_recall(factory)
     from app.api.models import SUMMARIZER_MODELS
@@ -1129,7 +1274,8 @@ async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_
     # Every probe, so a verdict can be traced to the answers behind it.
     runs_dir = sa.DEFAULT_HISTORY.parent / "runs"
     runs_dir.mkdir(parents=True, exist_ok=True)
-    (runs_dir / f"{prefix}.json").write_text(json.dumps({"run": prefix, "records": records, "spend": spend,
+    setup = {"threshold": threshold, "seeds": seeds, "questions": questions}
+    (runs_dir / f"{prefix}.json").write_text(json.dumps({"run": prefix, "setup": setup, "records": records, "spend": spend,
                                                          "probes": ce.results_as_dicts(run.results)},
                                                         ensure_ascii=False, indent=1))
     sa.append_history(records, {"run": prefix, "summarizer": default_summarizer(), "recall_model": default_recall_model(),
