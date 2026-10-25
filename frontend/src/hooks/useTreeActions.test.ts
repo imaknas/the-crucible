@@ -71,3 +71,34 @@ describe("useTreeActions branching", () => {
   });
 });
 
+describe("useTreeActions.resetToLatest", () => {
+  it("returns to the newest message without collapsing the model selection", () => {
+    // Checkpoint ids are time-ordered: "2-a" is newer than "1-u".
+    const ordered = [
+      { ...nodes[0], id: "1-u" },
+      { ...nodes[1], id: "2-a" },
+    ];
+    const props = {
+      threadId: "thread_1",
+      nodes: ordered,
+      edges: [{ id: "e", source: "1-u", target: "2-a" }],
+      setNodes: jest.fn(),
+      activeCheckpoint: "1-u",
+      setActiveCheckpoint: jest.fn(),
+      fetchHistory: jest.fn(),
+      fetchThreads: jest.fn(),
+      clearChatMessages: jest.fn(),
+      setInput: jest.fn(),
+      setShowTree: jest.fn(),
+      confirm: jest.fn().mockResolvedValue(true),
+      pushToast: jest.fn(),
+      setSelectedModels: jest.fn(),
+    };
+    const { result } = renderHook(() => useTreeActions(props));
+    expect(result.current.branch?.isLatest).toBe(false);
+    act(() => result.current.resetToLatest());
+    expect(props.setActiveCheckpoint).toHaveBeenCalledWith("2-a");
+    expect(props.setSelectedModels).not.toHaveBeenCalled();
+  });
+});
+

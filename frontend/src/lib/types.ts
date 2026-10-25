@@ -40,7 +40,6 @@ export interface TreeNode {
     active_peer?: string;
     /** Human-facing model label, e.g. "Claude Haiku 4.5". Prefer this over active_peer. */
     model_name?: string;
-    thesis_preview?: string;
     has_thoughts?: boolean;
     /** Longer excerpt, revealed when the node is selected. */
     preview?: string;

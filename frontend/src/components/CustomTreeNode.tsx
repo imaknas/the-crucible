@@ -14,7 +14,6 @@ export type CustomNodeData = {
     active_peer?: string;
     model_name?: string;
     model_color?: string;
-    thesis_preview?: string;
     has_thoughts?: boolean;
     preview?: string;
     round_num?: number;

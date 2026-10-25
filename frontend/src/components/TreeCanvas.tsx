@@ -32,7 +32,6 @@ export interface CustomNode extends Node {
     role?: string;
     active_peer?: string;
     model_name?: string;
-    thesis_preview?: string;
     has_thoughts?: boolean;
     pending?: boolean;
     lane_index?: number;

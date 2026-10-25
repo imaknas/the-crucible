@@ -54,23 +54,34 @@ export function useTreeActions({
    * this — the refresh after every turn and opening a thread used to collapse
    * a multi-model selection to whichever model wrote the newest node.
    */
-  const selectCheckpoint = useCallback(
+  /** Make a checkpoint the branch point without touching the model selection. */
+  const openCheckpoint = useCallback(
     (id: string) => {
       setActiveCheckpoint(id);
-      const model = nodes.find((n) => n.id === id)?.metadata?.active_peer;
-      if (model) setSelectedModels([model]);
       if (threadId) fetchHistory(threadId, id);
     },
-    [threadId, nodes, fetchHistory, setActiveCheckpoint, setSelectedModels],
+    [threadId, fetchHistory, setActiveCheckpoint],
+  );
+
+  const selectCheckpoint = useCallback(
+    (id: string) => {
+      const model = nodes.find((n) => n.id === id)?.metadata?.active_peer;
+      if (model) setSelectedModels([model]);
+      openCheckpoint(id);
+    },
+    [nodes, openCheckpoint, setSelectedModels],
   );
 
   /** What the composer's "Replying from" chip shows. */
   const branch = useMemo(() => branchPoint(nodes, activeCheckpoint), [nodes, activeCheckpoint]);
 
-  /** Back to replying to the newest message. */
+  /**
+   * Back to replying to the newest message. Not a node click: a multi-model
+   * selection stays as it is.
+   */
   const resetToLatest = useCallback(() => {
-    if (branch && !branch.isLatest) selectCheckpoint(branch.latestId);
-  }, [branch, selectCheckpoint]);
+    if (branch && !branch.isLatest) openCheckpoint(branch.latestId);
+  }, [branch, openCheckpoint]);
 
   /**
    * "Branch from here" on a tree node: it becomes the parent of the next

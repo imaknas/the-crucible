@@ -92,7 +92,7 @@ test.describe("application shell", () => {
     await expect(page.getByRole("heading", { name: "Debate" })).toBeVisible();
     await expect(page.getByText(/unbreakable academic/)).toHaveCount(0);
     await expect(page.getByText("Initialize New Experiment")).toHaveCount(0);
-    // 1440x900: the button must be reachable without scrolling.
+    // At the suite's 1280x720 viewport the button must be reachable without scrolling.
     await expect(page.getByRole("button", { name: "Start a session" })).toBeInViewport();
 
     // Feature tiles are real 40px squares, not stretched to the card width.
@@ -111,6 +111,8 @@ test.describe("application shell", () => {
     const unmarked: string[] = [];
     for (let i = 0; i < 25; i++) {
       await page.keyboard.press("Tab");
+      // Some controls transition "all" properties, the outline included.
+      await page.waitForTimeout(300);
       const info = await page.evaluate(() => {
         const el = document.activeElement as HTMLElement | null;
         if (!el || el === document.body) return null;
