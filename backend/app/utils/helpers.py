@@ -48,7 +48,8 @@ def extract_text(content: Any, wrap_thinking: bool = False, strip: bool = True) 
     else:
         raw_text = clean_string(str(content or ""))
 
-    # Strip <metadata>, <confidence>, <...>, and other tag-like blocks entirely before returning to UI
+    # Strip <metadata>/<confidence> blocks: replies written while the app asked
+    # models for a self-assessed confidence still carry them.
     text = re.sub(
         r"<(?:metadata|confidence|\.\.\.)>[\s\S]*?</(?:metadata|confidence|\.\.\.)>",
         "",
