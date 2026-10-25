@@ -697,11 +697,17 @@ def build_debate_tree(
     all_thread_states: Dict[str, List[Any]],
     synthesis_states: List[Any],
     family_colors: Dict[str, str],
+    peer_labels: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Merge all model lanes + the shared prompt + synthesis into one React Flow
     graph. Returns { nodes, edges, lanes, session_metadata }.
+
+    `peer_labels` (model id → "Participant A") is what the models called each
+    other; each lane carries its label as `peer_label` so a reader can decode
+    replies and syntheses that refer to participants by label.
     """
+    peer_labels = peer_labels or {}
     participants = session["participants"]
     all_nodes: List[Dict] = []
     all_edges: List[Dict] = []
@@ -723,6 +729,7 @@ def build_debate_tree(
             {
                 "model_id": model_id,
                 "label": display_name(model_id),
+                "peer_label": peer_labels.get(model_id),
                 "lane_index": lane_idx,
                 "color": color,
             }

@@ -46,6 +46,8 @@ class CreateSessionRequest(BaseModel):
     termination_policy: TerminationPolicy
     auto_synthesize: bool = False
     synthesizer_model: Optional[str] = None
+    # How participants see each other: "anonymous" (default) or "named".
+    peer_labels: str = debate_svc.DEFAULT_PEER_LABELS
 
 
 @router.post("/sessions")
@@ -57,6 +59,7 @@ def create_session(req: CreateSessionRequest) -> dict[str, Any]:
             termination_policy=req.termination_policy.model_dump(),
             auto_synthesize=req.auto_synthesize,
             synthesizer_model=req.synthesizer_model,
+            peer_labels=req.peer_labels,
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -115,6 +118,7 @@ async def get_debate_tree(session_id: str, graph_app=Depends(get_graph_app)):
         all_thread_states=all_thread_states,
         synthesis_states=synthesis_states,
         family_colors=_family_colors(),
+        peer_labels=debate_svc.peer_legend(session),
     )
 
 

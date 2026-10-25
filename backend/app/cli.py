@@ -223,9 +223,12 @@ def deliberate(
     ),
     rounds: int = typer.Option(2, "--rounds", "-r", min=1, help="Maximum number of rounds."),
     judge: Optional[str] = typer.Option(
-        None, "--judge", "-j", help="Model that writes the final synthesis (default: the first model)."
+        None, "--judge", "-j", help="Model that writes the final synthesis, an argument map (default: the first model)."
     ),
     no_synthesize: bool = typer.Option(False, "--no-synthesize", help="Skip the final synthesis."),
+    peer_labels: str = typer.Option(
+        "anonymous", "--peers", help="How models see each other: anonymous (Participant A, B…) or named (model ids)."
+    ),
     threshold: Optional[float] = typer.Option(
         None, "--threshold", help="Stop early once every model's answer stops changing: similarity to its own previous round (0-1). Measures stability, not agreement."
     ),
@@ -253,6 +256,8 @@ def deliberate(
     _load_env()
     if mode not in ("all", "any"):
         raise typer.BadParameter("must be 'all' or 'any'", param_hint="--mode")
+    if peer_labels not in ("anonymous", "named"):
+        raise typer.BadParameter("must be 'anonymous' or 'named'", param_hint="--peers")
     resolved = _validate_models(models, as_json)
     if len(resolved) < 2:
         _fail("A debate needs at least two models with API keys.", as_json)
@@ -269,7 +274,7 @@ def deliberate(
     result = _run(
         _run_deliberate(
             prompt, resolved, thread or _gen_thread_id("debate"), policy, synthesizer,
-            {"use_web_search": web_search}, as_json,
+            {"use_web_search": web_search}, as_json, peer_labels,
         ),
         as_json,
     )
@@ -277,7 +282,7 @@ def deliberate(
         _emit_json(result)
 
 
-async def _run_deliberate(prompt, models, thread_id, policy, synthesizer, toggles, as_json):
+async def _run_deliberate(prompt, models, thread_id, policy, synthesizer, toggles, as_json, peer_labels="anonymous"):
     from app.core import database as db
     from app.services import debate as debate_svc
     from app.services.arena import open_graph
@@ -290,6 +295,7 @@ async def _run_deliberate(prompt, models, thread_id, policy, synthesizer, toggle
             termination_policy=policy,
             auto_synthesize=bool(synthesizer),
             synthesizer_model=synthesizer,
+            peer_labels=peer_labels,
         )
         session_id = session["session_id"]
         if not db.get_thread_title(thread_id):
@@ -321,7 +327,7 @@ async def _run_deliberate(prompt, models, thread_id, policy, synthesizer, toggle
                     result["rounds"].append(current)
                     if not as_json:
                         console.print()
-                        console.rule(f"Round {event['round'] + 1}")
+                        console.rule(f"Round {event['round'] + 1}" + (" · independent answers" if event["round"] == 0 else ""))
                         display = ArenaDisplay(models)
                         display.start()
                 elif kind == "stream_token" and display and current is not None:

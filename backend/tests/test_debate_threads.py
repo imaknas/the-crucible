@@ -17,6 +17,7 @@ from app.services import debate as debate_svc
 from app.api.history import get_history
 from app.services.arena import open_graph
 from app.services.runs import final_state_of_run, tag_run, thread_config
+from app.utils.helpers import extract_text
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
 A, B = "gpt-5.4", "claude-sonnet-5"
@@ -217,5 +218,55 @@ async def test_a_participant_that_never_replied_has_no_latest_response():
         fork = await _chat_turn(graph_app, "t-conv4", "Context message")
         session = debate_svc.create_session("t-conv4", [A, B], dict(POLICY))
         await debate_svc.seed_from_parent(graph_app, "t-conv4", fork, list(session["thread_ids"].values()))
-        assert await debate_svc.latest_responses(graph_app, session) == {}
+        assert await debate_svc.debate_rounds(graph_app, session) == {}
         assert await debate_svc._original_question(graph_app, session) == ""
+
+
+# ─── Anonymous peers, against the real graph ─────────────────────
+
+
+def _neutral(model_id, _toggles):
+    # A reply that doesn't name its author, so any model id a draft sees
+    # came from the debate's own prompts.
+    return _Recorder(responses=["My position is yes."], model_id=model_id)
+
+
+@pytest.mark.asyncio
+async def test_an_anonymous_debate_never_shows_a_model_id_to_a_debater():
+    question = "Is it yes?"
+    with use_model_factory(CallableModelFactory(_neutral)):
+        async with open_graph() as graph_app:
+            session = debate_svc.create_session("t-anon", [A, B], {**POLICY, "max_rounds": 2})
+            events = [e async for e in debate_svc.run_debate(graph_app, session["session_id"], question, {}, {})]
+    assert events[-1]["status"] == "completed", events
+
+    peers = debate_svc.session_peers(session)
+    for model in (A, B):
+        round0, round1 = _draft_inputs(model, question)
+        seen = " ".join(str(c) for c in round0 + round1)
+        assert A not in seen and B not in seen
+        other = B if model == A else A
+        assert f"You are {peers.label(model)}." in str(round1[-1])
+        assert f"[{peers.label(other)}]:" in str(round1[-1])
+
+
+@pytest.mark.asyncio
+async def test_the_argument_map_reads_every_round_under_participant_labels():
+    question = "Is it yes?"
+    with use_model_factory(CallableModelFactory(_neutral)):
+        async with open_graph() as graph_app:
+            session = debate_svc.create_session(
+                "t-map", [A, B], {**POLICY, "max_rounds": 2}, auto_synthesize=True, synthesizer_model=A
+            )
+            events = [e async for e in debate_svc.run_debate(graph_app, session["session_id"], question, {}, {})]
+    assert any(e["type"] == "debate_synthesis_end" for e in events), events
+
+    peers = debate_svc.session_peers(session)
+    (synthesis,) = [m for m in SEEN[A] if len(m) > 1 and "argument map" in str(m[-1])]
+    prompt = extract_text(synthesis[-1])
+    assert A not in prompt and B not in prompt
+    for model in (A, B):
+        assert (
+            f"[{peers.label(model)}]:\nRound 1 (independent answer):\nMy position is yes."
+            "\n\nRound 2:\nMy position is yes."
+        ) in prompt

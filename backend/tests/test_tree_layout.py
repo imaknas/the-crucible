@@ -209,6 +209,24 @@ class TestDebateTree:
             family_colors={m: "#123456" for m in participants},
         )
 
+    def test_lanes_carry_the_label_the_models_used(self):
+        """Replies and the argument map say "Participant A"; the lane header
+        is where the reader learns which model that was."""
+        session = {"session_id": "s1", "parent_thread_id": "t", "participants": ["m1", "m2"], "status": "completed"}
+        tree = build_debate_tree(
+            session=session,
+            all_thread_states={m: self._debate_states(1) for m in ("m1", "m2")},
+            synthesis_states=[],
+            family_colors={},
+            peer_labels={"m1": "Participant B", "m2": "Participant A"},
+        )
+        assert {lane["model_id"]: lane["peer_label"] for lane in tree["lanes"]} == {
+            "m1": "Participant B",
+            "m2": "Participant A",
+        }
+        # Named peers: nothing to decode.
+        assert all(lane["peer_label"] is None for lane in self._build()["lanes"])
+
     def test_only_ai_responses_become_lane_nodes(self):
         tree = self._build()
         lane_nodes = [n for n in tree["nodes"] if n["metadata"].get("lane_index") is not None]

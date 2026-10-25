@@ -8,6 +8,7 @@ import pytest
 from app.services import debate as debate_svc
 from app.services.convergence import _compute_sync
 from app.services.debate import DebateControl, _build_round_prompts, run_debate
+from app.services.peers import NamedPeers
 
 PARTICIPANTS = ["gpt-5.4", "claude-sonnet-5"]
 
@@ -88,9 +89,10 @@ def _patched_db(max_rounds=2):
 
 
 def test_injected_message_reaches_every_prompt():
-    prompts = _build_round_prompts(1, "Q", PARTICIPANTS, {m: "prev" for m in PARTICIPANTS}, injected=["consider cost"])
+    peers = NamedPeers()
+    prompts = _build_round_prompts(1, "Q", PARTICIPANTS, {m: "prev" for m in PARTICIPANTS}, peers, injected=["consider cost"])
     assert all("consider cost" in p for p in prompts.values())
-    assert "consider cost" not in _build_round_prompts(1, "Q", PARTICIPANTS, {m: "prev" for m in PARTICIPANTS})["gpt-5.4"]
+    assert "consider cost" not in _build_round_prompts(1, "Q", PARTICIPANTS, {m: "prev" for m in PARTICIPANTS}, peers)["gpt-5.4"]
 
 
 @pytest.mark.asyncio

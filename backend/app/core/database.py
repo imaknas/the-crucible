@@ -47,6 +47,7 @@ def init_db():
             auto_synthesize INTEGER DEFAULT 0,
             synthesizer_model TEXT,
             round_scores TEXT DEFAULT '{}',
+            peer_labels TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -56,6 +57,10 @@ def init_db():
         conn.execute(
             "ALTER TABLE debate_sessions ADD COLUMN round_scores TEXT DEFAULT '{}'"
         )
+    # Migration: how participants see each other. No default on purpose:
+    # older rows stay NULL, and the debate service decides what NULL means.
+    if "peer_labels" not in existing:
+        conn.execute("ALTER TABLE debate_sessions ADD COLUMN peer_labels TEXT")
 
     # Added later: documents attached to a thread, once per (thread, filename),
     # instead of in the graph state of every checkpoint.
@@ -123,8 +128,9 @@ def create_debate_session(session: dict[str, Any]) -> None:
             """
             INSERT INTO debate_sessions
                 (session_id, parent_thread_id, participants, thread_ids,
-                 current_round, status, termination_policy, auto_synthesize, synthesizer_model)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 current_round, status, termination_policy, auto_synthesize, synthesizer_model,
+                 peer_labels)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session["session_id"],
@@ -136,6 +142,7 @@ def create_debate_session(session: dict[str, Any]) -> None:
                 json.dumps(session["termination_policy"]),
                 int(session.get("auto_synthesize", False)),
                 session.get("synthesizer_model"),
+                session.get("peer_labels"),
             ),
         )
         # Ensure the parent thread is listed even with no chat checkpoints. No

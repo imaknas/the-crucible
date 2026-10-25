@@ -31,6 +31,8 @@ from typing import Callable, Mapping, Optional, Protocol, Sequence
 
 import numpy as np
 
+from app.services.peers import PeerPresentation, labelled
+
 Embed = Callable[[str], list[float]]
 Responses = Mapping[str, str]
 
@@ -123,15 +125,20 @@ class StabilityCheck:
 
 
 class JudgeCheck:
-    """Converged when a judge model says the positions agree."""
+    """Converged when a judge model says the positions agree.
 
-    def __init__(self, judge_model: str, factory=None, timeout: float = 30.0):
+    The judge reads the answers labelled as the debate's `peers` label them,
+    so with anonymous peers it judges positions, not which models hold them.
+    """
+
+    def __init__(self, judge_model: str, peers: PeerPresentation, factory=None, timeout: float = 30.0):
         self.judge_model = judge_model
+        self.peers = peers
         self._factory = factory
         self.timeout = timeout
 
     def _prompt(self, current: Responses) -> str:
-        summaries = "\n\n".join(f"[{model}]:\n{content}" for model, content in current.items())
+        summaries = "\n\n".join(f"[{label}]:\n{content}" for label, content in labelled(self.peers, current))
         return (
             "You are evaluating whether multiple AI models have reached a substantive consensus.\n\n"
             f"Their responses:\n{summaries}\n\n"
@@ -200,14 +207,20 @@ class CombinedCheck:
         )
 
 
-def build_convergence_check(policy: Mapping, factory=None, embed: Optional[Embed] = None) -> Optional[ConvergenceCheck]:
-    """The check a debate's termination policy asks for, or None."""
+def build_convergence_check(
+    policy: Mapping,
+    peers: PeerPresentation,
+    factory=None,
+    embed: Optional[Embed] = None,
+) -> Optional[ConvergenceCheck]:
+    """The check a debate's termination policy asks for, or None. `peers` is
+    how the judge, if any, sees the participants."""
     mode = policy.get("mode", "all")
     checks: list[ConvergenceCheck] = []
     if policy.get("convergence_threshold") is not None:
         checks.append(StabilityCheck(policy["convergence_threshold"], embed))
     if policy.get("llm_judge"):
-        checks.append(JudgeCheck(policy["llm_judge"], factory))
+        checks.append(JudgeCheck(policy["llm_judge"], peers, factory))
     if not checks:
         return None
     return checks[0] if len(checks) == 1 else CombinedCheck(checks, mode)

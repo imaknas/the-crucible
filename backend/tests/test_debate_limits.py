@@ -89,7 +89,12 @@ def _create(client, **overrides):
 def test_rest_creates_a_valid_session(client):
     res = _create(client)
     assert res.status_code == 200
-    assert db.get_debate_session(res.json()["session_id"]) is not None
+    stored = db.get_debate_session(res.json()["session_id"])
+    assert stored is not None
+    # Peers are anonymous unless the request asks for names.
+    assert stored["peer_labels"] == "anonymous"
+    named = _create(client, peer_labels="named")
+    assert db.get_debate_session(named.json()["session_id"])["peer_labels"] == "named"
 
 
 @pytest.mark.parametrize(
@@ -103,6 +108,7 @@ def test_rest_creates_a_valid_session(client):
         ({"participants": [A, "nope"]}, "nope"),
         ({"synthesizer_model": "nope-synth"}, "nope-synth"),
         ({"termination_policy": _policy(llm_judge="nope-judge")}, "nope-judge"),
+        ({"peer_labels": "pseudonymous"}, "peer_labels"),
     ],
 )
 def test_rest_refuses_what_the_service_refuses(client, overrides, message):

@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.services.debate import _build_round_prompts, create_session, make_synthesis_thread_id, make_thread_id
+from app.services.peers import NamedPeers
 from app.services.convergence import _compute_sync, _cosine_similarity
 
 
@@ -22,6 +23,7 @@ def test_build_round_prompts_round_0():
         prompt="Is Python better than JavaScript?",
         participants=["gpt-5.2", "claude-sonnet-4-6"],
         prev_round_responses={},
+        peers=NamedPeers(),
     )
     assert prompts["gpt-5.2"] == "Is Python better than JavaScript?"
     assert prompts["claude-sonnet-4-6"] == "Is Python better than JavaScript?"
@@ -36,6 +38,7 @@ def test_build_round_prompts_round_1_includes_peer_context():
             "gpt-5.2": "Python has better data science libraries.",
             "claude-sonnet-4-6": "JavaScript is essential for web development.",
         },
+        peers=NamedPeers(),
     )
     # gpt-5.2's prompt should contain claude's response, not its own
     assert "claude-sonnet-4-6" in prompts["gpt-5.2"]
@@ -56,6 +59,7 @@ def test_build_round_prompts_round_1_missing_peer_skipped():
         participants=["model-a", "model-b"],
         prev_round_responses={"model-a": "response from a"},
         # model-b has no prior response
+        peers=NamedPeers(),
     )
     # model-a's prompt: no peer context for model-b
     assert "model-b" not in prompts["model-a"]

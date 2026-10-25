@@ -3,7 +3,11 @@ Debate session coordinator.
 
 Orchestrates multi-round, multi-model debates. Each model gets its own
 LangGraph thread ("{parent_thread_id}::{session_id}::{model_id}"). Rounds
-progress through Independent → Cross-Examination → (optional) Synthesis.
+progress through independent answers (round 0) → cross-examination, where
+each model reads its peers as the session's PeerPresentation shows them
+(services/peers.py) → an optional synthesis, which maps the arguments for the
+user rather than declaring a consensus: debating models converge on
+majorities and confident peers, so their agreement is not evidence.
 
 Yields typed event dicts consumed by the WebSocket handler in api/debate.py.
 """
@@ -19,7 +23,14 @@ from app.services.convergence import build_convergence_check
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.documents import DOCUMENT_THREAD_CONFIG_KEY, attach_documents
 from app.services.recall import INTERNAL_TAG
-from app.services.synthesis import AFTER_DEBATE, build_synthesis_prompt
+from app.services.peers import (
+    DEFAULT_PEER_LABELS,
+    PEER_PRESENTATIONS,
+    PeerPresentation,
+    labelled,
+    peer_presentation,
+)
+from app.services.synthesis import ARGUMENT_MAP, build_synthesis_prompt
 from app.services.runs import (
     final_state_of_run,
     seed_thread,
@@ -93,6 +104,7 @@ def check_session_config(
     termination_policy: Mapping[str, Any],
     synthesizer_model: Optional[str] = None,
     known_models: Container[str] = MODEL_REGISTRY,
+    peer_labels: str = DEFAULT_PEER_LABELS,
 ) -> None:
     """Raise ValueError (with a caller-facing message) if a debate can't run as asked.
 
@@ -113,6 +125,8 @@ def check_session_config(
         raise ValueError(f"max_rounds must be between 1 and {MAX_ROUNDS}")
     if termination_policy.get("mode", "all") not in ("all", "any"):
         raise ValueError("mode must be 'all' or 'any'")
+    if peer_labels not in PEER_PRESENTATIONS:
+        raise ValueError(f"peer_labels must be one of: {', '.join(PEER_PRESENTATIONS)}")
 
 
 def create_session(
@@ -122,8 +136,9 @@ def create_session(
     auto_synthesize: bool = False,
     synthesizer_model: Optional[str] = None,
     known_models: Container[str] = MODEL_REGISTRY,
+    peer_labels: str = DEFAULT_PEER_LABELS,
 ) -> dict[str, Any]:
-    check_session_config(participants, termination_policy, synthesizer_model, known_models)
+    check_session_config(participants, termination_policy, synthesizer_model, known_models, peer_labels)
     session_id = f"debate-{uuid4().hex[:12]}"
     # Stored, not derived, so the id scheme can change without losing the
     # threads of sessions created under an older one.
@@ -139,9 +154,26 @@ def create_session(
         "termination_policy": termination_policy,
         "auto_synthesize": auto_synthesize,
         "synthesizer_model": synthesizer_model,
+        # Stored so a restored session (a redirect, a later synthesis) keeps
+        # presenting peers the way its earlier rounds did.
+        "peer_labels": peer_labels,
     }
     db.create_debate_session(session)
     return session
+
+
+def session_peers(session: Mapping[str, Any]) -> PeerPresentation:
+    """How this session's participants are shown to each other, the judge and the synthesizer."""
+    participants = list(dict.fromkeys(session["participants"]))
+    return peer_presentation(session.get("peer_labels"), session["session_id"], participants)
+
+
+def peer_legend(session: Mapping[str, Any]) -> dict[str, str]:
+    """model id → the label the models used for it, for the reader of the
+    debate; empty when the models saw each other's ids."""
+    peers = session_peers(session)
+    labels = {m: peers.label(m) for m in session["participants"]}
+    return {m: label for m, label in labels.items() if label != m}
 
 
 # ─── Core coordinator ────────────────────────────────────────────────────────
@@ -177,7 +209,8 @@ async def run_debate(
     thread_ids = session["thread_ids"]
     policy = session["termination_policy"]
     max_rounds = min(policy.get("max_rounds", DEFAULT_ROUNDS), MAX_ROUNDS)
-    convergence = build_convergence_check(policy)
+    peers = session_peers(session)
+    convergence = build_convergence_check(policy, peers=peers)
 
     # A debate started from a fresh session writes only to its sub-threads, so
     # the parent has no checkpoints; without a title row list_threads never
@@ -228,6 +261,7 @@ async def run_debate(
             prompt=prompt,
             participants=participants,
             prev_round_responses=prev_round_responses,
+            peers=peers,
             injected=control.take_injected(),
         )
 
@@ -244,6 +278,7 @@ async def run_debate(
             document_thread_id=parent_thread_id,
             curr_round_responses=curr_round_responses,
             context=context,
+            deliberation=round_num > 0 and peers.names_in_history,
         ):
             yield event
 
@@ -296,7 +331,7 @@ async def run_debate(
             session_id=session_id,
             session=session,
             prompt=prompt,
-            all_responses=prev_round_responses,
+            rounds=await debate_rounds(graph_app, session),
             toggles=toggles,
             context=context,
         ):
@@ -341,13 +376,15 @@ def _build_round_prompts(
     prompt: str,
     participants: list[str],
     prev_round_responses: dict[str, str],
+    peers: PeerPresentation,
     injected: Optional[list[str]] = None,
 ) -> dict[str, str]:
-    """Round 0: original prompt. Round 1+: each model sees all peers' previous responses.
+    """Round 0: original prompt. Round 1+: each model sees all peers' previous
+    responses, labelled and ordered by `peers`.
 
     Messages the user injected since the last round are appended to every prompt.
     """
-    prompts = _base_round_prompts(round_num, prompt, participants, prev_round_responses)
+    prompts = _base_round_prompts(round_num, prompt, participants, prev_round_responses, peers)
     if injected:
         note = "\n\n".join(injected)
         prompts = {
@@ -362,21 +399,24 @@ def _base_round_prompts(
     prompt: str,
     participants: list[str],
     prev_round_responses: dict[str, str],
+    peers: PeerPresentation,
 ) -> dict[str, str]:
     if round_num == 0:
         return {m: prompt for m in participants}
 
+    # One order per round, shared by every participant's prompt.
+    listed = peers.order(list(prev_round_responses), round_num)
     prompts: dict[str, str] = {}
     for model_id in participants:
         peer_context = "\n\n".join(
-            f"[{peer}]:\n{content}"
-            for peer, content in prev_round_responses.items()
+            f"[{peers.label(peer)}]:\n{prev_round_responses[peer]}"
+            for peer in listed
             if peer != model_id
         )
         prompts[model_id] = (
             f"Original question: {prompt}\n\n"
             f"Other models' previous responses:\n{peer_context}\n\n"
-            f"You are {model_id}. Critically analyze the other models' arguments. "
+            f"{peers.introduce(model_id)} Critically analyze the other models' arguments. "
             "Where do you agree? Where do you disagree? What are they missing? "
             "State your position now. If it changed, name the argument or evidence that "
             "changed it; agreement alone, or how many models hold a view, is not a reason."
@@ -396,11 +436,13 @@ async def _stream_round(
     context: ContextSettings = DEFAULT_CONTEXT,
     document_names: Sequence[str] = (),
     document_thread_id: Optional[str] = None,
+    deliberation: bool = False,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """Stream all models for one round concurrently, interleaving their tokens.
 
     `document_names` are attached documents already stored for
-    `document_thread_id` (the parent thread)."""
+    `document_thread_id` (the parent thread). `deliberation` runs the graph's
+    deliberation mode, which shows each earlier turn tagged with its model id."""
     queue: asyncio.Queue = asyncio.Queue()
 
     async def _model_producer(model_id: str):
@@ -414,7 +456,7 @@ async def _stream_round(
                 "active_peer": model_id,
                 "messages": [("user", model_prompt)],
                 "toggles": {**toggles, "use_rag": toggles.get("use_rag", False)},
-                "is_deliberation": round_num > 0,
+                "is_deliberation": deliberation,
                 "attached_documents": list(document_names),
                 "documents": {},
             }
@@ -528,13 +570,16 @@ async def _debate_messages(graph_app, thread_id: str) -> list:
     return msgs[await seeded_message_count(graph_app, thread_id):]
 
 
-async def latest_responses(graph_app, session: dict[str, Any]) -> dict[str, str]:
-    """Each participant's most recent debate reply, read from its sub-thread head.
+async def debate_rounds(graph_app, session: Mapping[str, Any]) -> dict[str, list[str]]:
+    """Each participant's replies, round by round, read from its sub-thread.
 
-    A participant that never replied has no entry, even when its sub-thread
-    was seeded with a conversation that ends on someone's answer.
+    Every round begins with a prompt (a human message); the last reply after
+    it is that round's answer, "" when the model failed that round, so a
+    failure doesn't shift later rounds. A participant that never replied has
+    no entry, even when its sub-thread was seeded with a conversation that
+    ends on someone's answer.
     """
-    responses: dict[str, str] = {}
+    rounds: dict[str, list[str]] = {}
     for model_id in session["participants"]:
         thread_id = session["thread_ids"].get(model_id)
         if not thread_id:
@@ -543,10 +588,24 @@ async def latest_responses(graph_app, session: dict[str, Any]) -> dict[str, str]
             msgs = await _debate_messages(graph_app, thread_id)
         except Exception:
             continue
-        last_ai = next((m for m in reversed(msgs) if getattr(m, "type", "") == "ai"), None)
-        if last_ai is not None:
-            responses[model_id] = extract_text(last_ai.content)
-    return responses
+        replies: list[str] = []
+        for m in msgs:
+            kind = getattr(m, "type", "")
+            if kind == "human":
+                replies.append("")
+            elif kind == "ai" and replies:
+                replies[-1] = extract_text(m.content)
+        if any(replies):
+            rounds[model_id] = replies
+    return rounds
+
+
+def _participant_record(replies: Sequence[str]) -> str:
+    """One participant's debate as the synthesizer reads it."""
+    return "\n\n".join(
+        f"Round {i + 1}{' (independent answer)' if i == 0 else ''}:\n{text or '(no answer this round)'}"
+        for i, text in enumerate(replies)
+    )
 
 
 async def _original_question(graph_app, session: dict[str, Any]) -> str:
@@ -574,7 +633,7 @@ async def synthesize_session(
     context: ContextSettings = DEFAULT_CONTEXT,
     known_models: Container[str] = MODEL_REGISTRY,
 ) -> AsyncGenerator[dict[str, Any], None]:
-    """Synthesize a finished (or interrupted) debate from its latest responses."""
+    """Map the arguments of a finished (or interrupted) debate, from every round."""
     session = db.get_debate_session(session_id)
     if not session:
         yield {"type": "error", "session_id": session_id, "message": f"Session {session_id} not found"}
@@ -586,7 +645,7 @@ async def synthesize_session(
     if model not in known_models:
         yield {"type": "error", "session_id": session_id, "message": f"Unknown models: {model}"}
         return
-    responses = await latest_responses(graph_app, session)
+    rounds = await debate_rounds(graph_app, session)
     if not prompt:
         prompt = await _original_question(graph_app, session)
     async for event in _stream_synthesis(
@@ -594,7 +653,7 @@ async def synthesize_session(
         session_id=session_id,
         session={**session, "synthesizer_model": model},
         prompt=prompt,
-        all_responses=responses,
+        rounds=rounds,
         toggles=toggles or {},
         context=context,
     ):
@@ -607,16 +666,20 @@ async def _stream_synthesis(
     session_id: str,
     session: dict[str, Any],
     prompt: str,
-    all_responses: dict[str, str],
+    rounds: Mapping[str, Sequence[str]],
     toggles: dict[str, Any],
     context: ContextSettings = DEFAULT_CONTEXT,
 ) -> AsyncGenerator[dict[str, Any], None]:
+    """Stream the debate's argument map. `rounds` is each participant's
+    replies by round (debate_rounds): changes of position can only be traced
+    from every round, not from the final one."""
     synthesizer = session["synthesizer_model"]
     synthesis_thread_id = db.synthesis_thread_id(session)
 
     yield {"type": "debate_synthesis_start", "session_id": session_id, "model": synthesizer}
 
-    synthesis_prompt = build_synthesis_prompt(prompt, all_responses.items(), AFTER_DEBATE)
+    records = {m: _participant_record(replies) for m, replies in rounds.items()}
+    synthesis_prompt = build_synthesis_prompt(prompt, labelled(session_peers(session), records), ARGUMENT_MAP)
 
     initial_state = {
         "active_peer": synthesizer,

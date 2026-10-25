@@ -132,6 +132,7 @@ async def run_debate(
     convergence_judge: Optional[str] = None,
     synthesizer: Optional[str] = None,
     thread_id: Optional[str] = None,
+    peer_labels: Literal["anonymous", "named"] = "anonymous",
 ) -> Dict[str, Any]:
     """Run a multi-round structured debate between two or more models.
 
@@ -140,8 +141,13 @@ async def run_debate(
     reached by every model (cosine similarity between each model's answer
     and its own previous one, 0-1: stability, not agreement) or the
     convergence_judge model says the models agree. With both set, mode="all"
-    needs both, mode="any" either. If synthesizer is set, it writes a final
-    synthesis. This can take several minutes.
+    needs both, mode="any" either. Models see each other as "Participant A/B…"
+    unless peer_labels="named". If synthesizer is set, it writes an argument
+    map: the positions, their strongest arguments, who changed position and
+    why, and what is unresolved. Use it to see the arguments, not as a
+    trustworthy answer: debating models conform to each other, so for an
+    answer prefer invoke_arena's independent answers and synthesis. This can
+    take several minutes.
 
     Returns: {session_id, thread_id, rounds: [{round, responses, errors, convergence_score}], converged, synthesis}.
     convergence_score is that round's stability; converged.method says why the
@@ -168,6 +174,7 @@ async def run_debate(
                 },
                 auto_synthesize=bool(synthesizer),
                 synthesizer_model=synthesizer,
+                peer_labels=peer_labels,
             )
         except ValueError as e:
             raise _tool_error(e)
