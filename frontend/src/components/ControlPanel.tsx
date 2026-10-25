@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Drawer, IconButton, Stack, Tooltip, Typography, useTheme } from "@mui/material";
-import { PanelLeftClose, PanelLeftOpen, Settings2 } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Settings2, X } from "lucide-react";
+import type { PanelMode } from "@/hooks/useLayoutPanels";
 import type { ModelFamily } from "@/lib/api";
 import type { DebateDefaults, Toggles } from "@/lib/types";
 import type { CatalogStatus } from "@/hooks/useModelCatalog";
@@ -27,6 +28,11 @@ interface ControlPanelProps {
   setDebateDefaults: (next: DebateDefaults | ((prev: DebateDefaults) => DebateDefaults)) => void;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
+  /** Docked beside the main pane, or an overlay drawer on narrow screens. */
+  mode?: PanelMode;
+  /** Overlay mode: whether the drawer is open. */
+  open?: boolean;
+  onClose?: () => void;
   summarizerChoice: string;
   summarizer: string | null;
   defaultSummarizer: string | null;
@@ -55,6 +61,9 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
     setDebateDefaults,
     collapsed,
     onCollapsedChange,
+    mode = "docked",
+    open = false,
+    onClose,
     summarizerChoice,
     summarizer,
     defaultSummarizer,
@@ -65,7 +74,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
     // Collapsed, the panel is a 44px rail. On a 1280px viewport that returns
     // ~250px to the canvas — the panel is mostly static readouts and toggles
     // set once per session, so it does not need to hold a third of the window.
-    if (collapsed) {
+    if (mode === "docked" && collapsed) {
       return (
         <Drawer
           anchor="right"
@@ -119,24 +128,8 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
       );
     }
 
-    return (
-      <Drawer
-        anchor="right"
-        variant="permanent"
-        sx={{
-          width: 280,
-          flexShrink: 0,
-          "& .MuiDrawer-paper": {
-            width: 280,
-            borderLeft: "1px solid",
-            borderColor: "divider",
-            bgcolor: isDark ? "#0a0f1a" : "#fafbfc",
-            backgroundImage: "none",
-            display: "flex",
-            flexDirection: "column",
-          },
-        }}
-      >
+    const body = (
+      <>
         {/* Header */}
         <Box
           sx={{
@@ -161,16 +154,22 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
           >
             Control Panel
           </Typography>
-          <Tooltip title="Hide panel" placement="left" arrow>
-            <IconButton
-              onClick={() => onCollapsedChange(true)}
-              aria-label="Hide settings panel"
-              size="small"
-              sx={{ color: "text.secondary", mr: -1 }}
-            >
-              <PanelLeftClose width={16} height={16} />
+          {mode === "overlay" ? (
+            <IconButton onClick={onClose} aria-label="Close settings" size="small" sx={{ color: "text.secondary", mr: -1 }}>
+              <X width={18} height={18} />
             </IconButton>
-          </Tooltip>
+          ) : (
+            <Tooltip title="Hide panel" placement="left" arrow>
+              <IconButton
+                onClick={() => onCollapsedChange(true)}
+                aria-label="Hide settings panel"
+                size="small"
+                sx={{ color: "text.secondary", mr: -1 }}
+              >
+                <PanelLeftClose width={16} height={16} />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
 
         <Stack
@@ -213,6 +212,39 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
           />
           <ApiKeysSection families={families} isDark={isDark} onSaved={onReloadModels} />
         </Stack>
+      </>
+    );
+    const paperSx = {
+      borderLeft: "1px solid",
+      borderColor: "divider",
+      bgcolor: isDark ? "#0a0f1a" : "#fafbfc",
+      backgroundImage: "none",
+      display: "flex",
+      flexDirection: "column",
+    } as const;
+
+    if (mode === "overlay") {
+      return (
+        <Drawer
+          anchor="right"
+          variant="temporary"
+          open={open}
+          onClose={onClose}
+          ModalProps={{ keepMounted: true }}
+          PaperProps={{ "aria-label": "Settings", sx: { ...paperSx, width: "min(320px, 88vw)" } } as object}
+        >
+          {body}
+        </Drawer>
+      );
+    }
+
+    return (
+      <Drawer
+        anchor="right"
+        variant="permanent"
+        sx={{ width: 280, flexShrink: 0, "& .MuiDrawer-paper": { ...paperSx, width: 280 } }}
+      >
+        {body}
       </Drawer>
     );
   },

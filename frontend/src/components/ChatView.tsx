@@ -321,9 +321,9 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
               mx: "auto",
               display: "flex",
               flexDirection: "column",
-              gap: 4,
-              px: 3,
-              pt: 5,
+              gap: { xs: 3, sm: 4 },
+              px: { xs: 2, sm: 3 },
+              pt: { xs: 3, sm: 5 },
               pb: 4, // Reduced from 6 to minimize bottom whitespace
               position: "relative", // Crucial for offsetTop accuracy
             }}

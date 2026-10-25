@@ -565,23 +565,26 @@ function TreeViewInner({
                 <Target size={14} />
               </ControlButton>
             </Controls>
-            <MiniMap
-              style={{
-                background: isDark ? "#0f172a" : "#ffffff",
-                border: `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
-                borderRadius: "12px",
-              }}
-              maskColor={isDark ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
-              nodeColor={(node) => {
-                const meta = (node as CustomNode).metadata;
-                if (meta?.model_color) return meta.model_color;
-                const model = meta?.active_peer || "";
-                if (model.includes("gpt")) return "#10b981";
-                if (model.includes("claude")) return "#f59e0b";
-                if (model.includes("gemini")) return "#8b5cf6";
-                return isDark ? "#475569" : "#94a3b8";
-              }}
-            />
+            {/* On a phone-sized canvas the minimap would cover a third of it. */}
+            {width >= 600 && (
+              <MiniMap
+                style={{
+                  background: isDark ? "#0f172a" : "#ffffff",
+                  border: `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+                  borderRadius: "12px",
+                }}
+                maskColor={isDark ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
+                nodeColor={(node) => {
+                  const meta = (node as CustomNode).metadata;
+                  if (meta?.model_color) return meta.model_color;
+                  const model = meta?.active_peer || "";
+                  if (model.includes("gpt")) return "#10b981";
+                  if (model.includes("claude")) return "#f59e0b";
+                  if (model.includes("gemini")) return "#8b5cf6";
+                  return isDark ? "#475569" : "#94a3b8";
+                }}
+              />
+            )}
           </>
         )}
       </ReactFlow>

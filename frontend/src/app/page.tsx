@@ -16,7 +16,7 @@ import DebateBanner, { type DebateBannerProps } from "@/components/DebateBanner"
 import ConfirmDialog from "@/components/ConfirmDialog";
 import * as api from "@/lib/api";
 import type { Message } from "@/lib/types";
-import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
+import { useLayoutPanels } from "@/hooks/useLayoutPanels";
 import { useThreads } from "@/hooks/useThreads";
 import { useHistoryTree } from "@/hooks/useHistoryTree";
 import { useChatWebSocket } from "@/hooks/useChatWebSocket";
@@ -47,11 +47,7 @@ export default function Home() {
     { id: string; title: string; details: string; suggestion?: string }[]
   >([]);
 
-  const storedPanelCollapsed = useStoredValue("crucible_panel_collapsed");
-  const panelCollapsed = storedPanelCollapsed === "1";
-  const setPanelCollapsed = useCallback((next: boolean) => {
-    writeStoredValue("crucible_panel_collapsed", next ? "1" : "0");
-  }, []);
+  const layout = useLayoutPanels();
 
   const { toasts, pushToast, dismissToast } = useToasts();
   const { confirm: showConfirm, request: confirmRequest, answer: answerConfirm } = useConfirm();
@@ -240,12 +236,12 @@ export default function Home() {
     <Box
       sx={{
         display: "flex",
-        height: "100vh",
+        height: "100dvh",
         width: "100vw",
         overflow: "hidden",
         bgcolor: "background.default",
         transition: "background-color 0.7s",
-        py: 2,
+        py: { xs: 0, md: 2 },
       }}
     >
       <Sidebar
@@ -266,6 +262,11 @@ export default function Home() {
         modelLabel={modelLabel}
         onDeleteDebateSession={debate.remove}
         onSwitchDebateSession={debate.switchTo}
+        mode={layout.sidebar.mode}
+        open={layout.sidebar.open}
+        onClose={() => layout.sidebar.setOpen(false)}
+        collapsed={layout.sidebar.collapsed}
+        onCollapsedChange={layout.sidebar.setCollapsed}
       />
 
       <Box
@@ -277,10 +278,11 @@ export default function Home() {
           position: "relative",
           minWidth: 0,
           overflow: "hidden",
-          borderRadius: "40px",
-          mx: 2,
+          // Edge to edge on narrow screens, where the side panels are drawers.
+          borderRadius: { xs: 0, md: "40px" },
+          mx: { xs: 0, md: 2 },
           bgcolor: "background.paper",
-          border: "1px solid",
+          border: { xs: "none", md: "1px solid" },
           borderColor: "divider",
           backdropFilter: "blur(16px)",
           zIndex: 10,
@@ -293,6 +295,8 @@ export default function Home() {
           onShowTreeChange={setShowTree}
           onHome={() => switchThread("")}
           modelLabel={modelLabel}
+          onOpenSessions={layout.compact ? () => layout.sidebar.setOpen(true) : undefined}
+          onOpenSettings={layout.compact ? () => layout.panel.setOpen(true) : undefined}
         />
 
         <div className="flex-1 relative flex flex-col min-h-0 w-full h-full">
@@ -403,8 +407,11 @@ export default function Home() {
         activeCheckpointLabel={activeCheckpointNode?.data?.label || "START"}
         debateDefaults={debateDefaults}
         setDebateDefaults={setDebateDefaults}
-        collapsed={panelCollapsed}
-        onCollapsedChange={setPanelCollapsed}
+        collapsed={layout.panel.collapsed}
+        onCollapsedChange={layout.panel.setCollapsed}
+        mode={layout.panel.mode}
+        open={layout.panel.open}
+        onClose={() => layout.panel.setOpen(false)}
         summarizerChoice={summarizerChoice}
         summarizer={summarizer}
         defaultSummarizer={defaultSummarizer}

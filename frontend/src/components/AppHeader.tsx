@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Box, ButtonBase, IconButton, Typography } from "@mui/material";
-import { Layers, MessagesSquare, Moon, Sun, Zap } from "lucide-react";
+import { Layers, Menu, MessagesSquare, Moon, Settings2, Sun, Zap } from "lucide-react";
 import { useThemeMode } from "@/components/ThemeRegistry";
 import { modelFamilyColor } from "@/lib/colors";
 import type { ConnectionTone } from "@/hooks/useBackendStatus";
@@ -18,6 +18,8 @@ export default function AppHeader({
   onShowTreeChange,
   onHome,
   modelLabel,
+  onOpenSessions,
+  onOpenSettings,
 }: {
   connection: { tone: ConnectionTone; label: string };
   selectedModels: string[];
@@ -25,14 +27,18 @@ export default function AppHeader({
   onShowTreeChange: (tree: boolean) => void;
   onHome: () => void;
   modelLabel: (id: string) => string;
+  /** Narrow screens: the side panels are drawers opened from here. */
+  onOpenSessions?: () => void;
+  onOpenSettings?: () => void;
 }) {
   const { isDark, toggleMode } = useThemeMode();
   return (
     <Box
       component="header"
       sx={{
-        px: { xs: 3, md: 5 },
-        py: 3,
+        px: { xs: 1.5, sm: 3, md: 5 },
+        py: { xs: 1.5, md: 3 },
+        gap: 1,
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
@@ -48,8 +54,14 @@ export default function AppHeader({
           : "0 4px 30px rgba(0, 0, 0, 0.03)",
       }}
     >
+      {onOpenSessions && (
+        <IconButton onClick={onOpenSessions} aria-label="Open sessions" sx={{ color: "text.secondary" }}>
+          <Menu width={20} height={20} />
+        </IconButton>
+      )}
       <ButtonBase
         onClick={onHome}
+        aria-label="The Crucible: home"
         sx={{
           display: "flex",
           alignItems: "center",
@@ -83,7 +95,7 @@ export default function AppHeader({
           <Zap width={22} height={22} color="white" />
         </Box>
 
-        <Box>
+        <Box sx={{ display: { xs: "none", sm: "block" } }}>
           <Typography
             variant="h6"
             sx={{
@@ -136,7 +148,7 @@ export default function AppHeader({
         </Box>
       </ButtonBase>
 
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, sm: 2 }, ml: "auto" }}>
         <Box
           sx={{
             display: { xs: "none", sm: "flex" },
@@ -274,6 +286,11 @@ export default function AppHeader({
             <Moon width={18} height={18} />
           )}
         </IconButton>
+        {onOpenSettings && (
+          <IconButton onClick={onOpenSettings} aria-label="Open settings" sx={{ color: "text.secondary" }}>
+            <Settings2 width={20} height={20} />
+          </IconButton>
+        )}
       </Box>
     </Box>
   );

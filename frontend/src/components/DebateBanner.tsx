@@ -51,9 +51,10 @@ export default function DebateBanner({
     <Box
       sx={{
         flexShrink: 0,
-        px: 3,
+        px: { xs: 1.5, sm: 3 },
         py: 1,
         display: "flex",
+        flexWrap: "wrap",
         alignItems: "center",
         gap: 1.5,
         bgcolor: isDark ? "rgba(109,40,217,0.12)" : "rgba(109,40,217,0.07)",
