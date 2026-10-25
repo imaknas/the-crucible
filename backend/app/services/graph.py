@@ -560,13 +560,14 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     )
     effective_tokens = count_tokens(sanitized_messages)
 
-    # Diagnostic Logging
+    # Diagnostics are counts and ids only: conversation text never goes to
+    # the log (it used to print a preview of every message on every call).
+    roles = {}
+    for m in sanitized_messages:
+        roles[m.type] = roles.get(m.type, 0) + 1
     print(
-        f"\n[INVOKE] Model: {active_peer} | Delib: {is_delib} | Msgs: {len(sanitized_messages)} | Effective Tokens: {effective_tokens}"
+        f"\n[INVOKE] Model: {active_peer} | Delib: {is_delib} | Msgs: {len(sanitized_messages)} {roles} | Effective Tokens: {effective_tokens}"
     )
-    for i, m in enumerate(sanitized_messages):
-        c_p = extract_text(m.content)[:60].replace("\n", " ")
-        print(f"  {i}: [{m.type}] {c_p}...")
 
     try:
         response = model.invoke(sanitized_messages)

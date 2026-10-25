@@ -80,7 +80,7 @@ def index_document(text: str, filename: str, thread_id: str) -> int:
 
     vs = get_vector_store()
     vs.add_documents(chunks)
-    print(f"[RAG] Indexed {len(chunks)} chunks for {filename} (Thread: {thread_id})")
+    print(f"[RAG] Indexed {len(chunks)} chunks (thread {thread_id})")
 
     return len(chunks)
 
@@ -103,9 +103,7 @@ def retrieve_context(query: str, thread_id: str, k: int = 5) -> List[Document]:
         docs_and_scores = vs.similarity_search_with_score(
             query, k=k, filter=filter_dict
         )
-        print(
-            f"[RAG] Retrieved {len(docs_and_scores)} relevant chunks for query: '{query[:30]}...'"
-        )
+        print(f"[RAG] Retrieved {len(docs_and_scores)} chunks (thread {thread_id})")
 
         # Unpack just the Document objects
         return [doc for doc, score in docs_and_scores]
