@@ -17,7 +17,7 @@ The Crucible is a full-stack research interface for putting the same question to
 | Feature | What it does |
 |---|---|
 | **🌳 Conversation trees** | Every message is a checkpoint. Branch from any node, edit a question and re-ask it, and navigate the whole tree on a React Flow canvas. |
-| **⚔️ Arena** | Send one prompt to several models. Each answers in parallel on its own branch of the tree, for side-by-side comparison. |
+| **⚔️ Arena** | Send one prompt to several models. Each answers in parallel on its own branch of the tree, for side-by-side comparison. Models get no system prompt from the app, so you compare them as they ship; set your own in **Control Panel → System prompt** and every model (and debate participant) gets it. |
 | **🗣️ Debate** | Two or more models argue over several rounds, each seeing the others' previous answers. Stop early once answers stop changing (embedding similarity of each model to its own previous round) and/or when an LLM judge finds the models agree, pause between rounds, add a note mid-debate, change the topic, and synthesize at the end. |
 | **⚖️ Deliberation** | Ask a model to critically review the thread so far, with every earlier message attributed to the model that wrote it. |
 | **🤝 Synthesis** | Combine divergent answers into one, stating where the models agree and where they don't. |
@@ -117,7 +117,7 @@ uv run crucible tree --thread <thread_id> [--open]        # --open shows it in t
 uv run crucible threads
 ```
 
-`arena` also takes `--summarizer <model>` to choose who summarizes long history.
+`arena` also takes `--summarizer <model>` to choose who summarizes long history, and `--system "<prompt>"` to send every model a system prompt (none by default).
 
 `arena`, `deliberate`, `synthesize`, `chat`, `threads` and `models` accept `--format json`: stdout then carries only the JSON document, and failures exit non-zero with the message on stderr. Everything the CLI creates appears in the web UI.
 
@@ -171,13 +171,13 @@ All tools return structured JSON and raise an MCP error on failure:
 | Tool | Purpose |
 |---|---|
 | `list_models` | Model IDs and whether each has an API key configured |
-| `invoke_arena` | Ask several models the same question in parallel; returns each answer (with its checkpoint id) and an optional synthesis |
+| `invoke_arena` | Ask several models the same question in parallel (optionally under your own `system_prompt`); returns each answer (with its checkpoint id) and an optional synthesis |
 | `run_debate` | Multi-round debate between two or more models, with optional early stopping (stability or a judge's agreement) and a final synthesis |
 | `list_threads`, `get_thread_status`, `get_thread_summary` | Find threads and read their latest model, latest answer and context summary |
 | `get_thread_messages` | Read one path of a thread; pass a `checkpoint_id` from `invoke_arena` to read one model's branch |
 | `get_branch_answers` | The latest answer on every branch of a thread |
 
-The conversation tree with per-node metadata is also available over REST: `GET /graph/{thread_id}/topology`.
+The conversation tree's topology (checkpoints and their parent links) is also available over REST: `GET /graph/{thread_id}/topology`.
 
 ---
 

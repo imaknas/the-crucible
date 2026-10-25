@@ -1612,3 +1612,29 @@ code without that 2026-10-25 fix; a fixed run's replays are keyed with
 REPLAY_VERSION 2): its numbers for recall conditions and for verbose
 readers are biased in a direction that depends on the condition.
 
+## 2026-10-25 — Readers no longer get the persona or the confidence instruction
+
+Until this change every answering call carried the app's default system
+prompt: "You are an academic research assistant", plus an instruction to
+end each reply with a self-assessed confidence and an explanation inside
+`<metadata>` tags. The app now sends no system message unless the person
+sets one (or Deliberation, RAG or attached documents need one), and
+compaction-eval and scaffold-audit answer through the same graph, so their
+readers lose it too.
+
+- **Reader results after this change are not directly comparable to
+  earlier ones.** Every reply used to spend tokens on the confidence block
+  and was shaped by the persona; luna's answers varied in form because of
+  it (`<metadata>` one run, `<self-assessed-confidence>` the next). A
+  difference across this date can come from the prompt rather than the
+  scaffold being measured. Compare arms within one run, or re-run the
+  baseline.
+- Replays are unaffected: they store the conversation and its summaries,
+  which never included the drafting system message, and the summarizer's
+  own prompt did not change. REPLAY_VERSION stays 2.
+- The third audit's rejected request (above) is the motivating suspicion:
+  asking a reasoning model to *explain* its confidence may read as asking
+  for its reasoning. A rejection on this code would rule that out; no
+  paid run has been made on it yet, so absence of rejections says nothing
+  so far.
+
