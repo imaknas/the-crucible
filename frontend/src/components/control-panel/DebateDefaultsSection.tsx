@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { Swords } from "lucide-react";
 import type { DebateDefaults } from "@/lib/types";
+import { MAX_DEBATE_ROUNDS, clampRounds } from "@/hooks/useDebateDefaults";
 import { SectionHeader, ToggleRow } from "./primitives";
 
 /** Defaults the debate dialog starts from (persisted by useDebateDefaults). */
@@ -32,12 +33,12 @@ export default function DebateDefaultsSection({
             component="input"
             type="number"
             min={1}
-            max={20}
+            max={MAX_DEBATE_ROUNDS}
             value={debateDefaults.max_rounds}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               setDebateDefaults((prev) => ({
                 ...prev,
-                max_rounds: Math.max(1, Math.min(20, parseInt(e.target.value) || 3)),
+                max_rounds: clampRounds(parseInt(e.target.value)),
               }))
             }
             sx={{

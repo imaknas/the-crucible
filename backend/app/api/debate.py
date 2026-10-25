@@ -34,7 +34,7 @@ def _family_colors() -> dict[str, str]:
 
 
 class TerminationPolicy(BaseModel):
-    max_rounds: int = 3
+    max_rounds: int = debate_svc.DEFAULT_ROUNDS
     convergence_threshold: Optional[float] = None
     llm_judge: Optional[str] = None
     mode: str = "all"
@@ -50,20 +50,16 @@ class CreateSessionRequest(BaseModel):
 
 @router.post("/sessions")
 def create_session(req: CreateSessionRequest) -> dict[str, Any]:
-    unknown = [m for m in req.participants if m not in MODEL_REGISTRY]
-    if unknown:
-        raise HTTPException(400, f"Unknown models: {unknown}")
-    if len(req.participants) < 2:
-        raise HTTPException(400, "A debate requires at least 2 participants")
-
-    session = debate_svc.create_session(
-        parent_thread_id=req.parent_thread_id,
-        participants=req.participants,
-        termination_policy=req.termination_policy.model_dump(),
-        auto_synthesize=req.auto_synthesize,
-        synthesizer_model=req.synthesizer_model,
-    )
-    return session
+    try:
+        return debate_svc.create_session(
+            parent_thread_id=req.parent_thread_id,
+            participants=req.participants,
+            termination_policy=req.termination_policy.model_dump(),
+            auto_synthesize=req.auto_synthesize,
+            synthesizer_model=req.synthesizer_model,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @router.get("/sessions")

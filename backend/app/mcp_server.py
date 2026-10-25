@@ -147,18 +147,21 @@ async def run_debate(
 
     thread_id = thread_id or f"mcp-debate-{uuid4().hex[:8]}"
     async with arena_svc.open_graph() as graph_app:
-        session = debate_svc.create_session(
-            parent_thread_id=thread_id,
-            participants=models,
-            termination_policy={
-                "max_rounds": max_rounds,
-                "convergence_threshold": convergence_threshold,
-                "llm_judge": convergence_judge,
-                "mode": mode,
-            },
-            auto_synthesize=bool(synthesizer),
-            synthesizer_model=synthesizer,
-        )
+        try:
+            session = debate_svc.create_session(
+                parent_thread_id=thread_id,
+                participants=models,
+                termination_policy={
+                    "max_rounds": max_rounds,
+                    "convergence_threshold": convergence_threshold,
+                    "llm_judge": convergence_judge,
+                    "mode": mode,
+                },
+                auto_synthesize=bool(synthesizer),
+                synthesizer_model=synthesizer,
+            )
+        except ValueError as e:
+            raise _tool_error(e)
         if not db.get_thread_title(thread_id):
             db.rename_thread(thread_id, f"Debate: {prompt[:40]}")
 

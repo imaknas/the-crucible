@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { Swords } from "lucide-react";
 import type { DebateDefaults } from "@/lib/types";
+import { MAX_DEBATE_ROUNDS, clampRounds } from "@/hooks/useDebateDefaults";
 
 interface DebateConfigDialogProps {
   open: boolean;
@@ -86,12 +87,12 @@ export default function DebateConfigDialog({
               type="number"
               aria-label="Max rounds"
               min={1}
-              max={20}
+              max={MAX_DEBATE_ROUNDS}
               value={config.max_rounds}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setConfig((p) => ({
                   ...p,
-                  max_rounds: Math.max(1, Math.min(20, parseInt(e.target.value) || 3)),
+                  max_rounds: clampRounds(parseInt(e.target.value)),
                 }))
               }
               sx={{

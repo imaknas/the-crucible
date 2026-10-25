@@ -4,6 +4,13 @@ import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
 
 const STORAGE_KEY = "crucible_debate_defaults";
 
+/** The backend refuses more rounds than this (services/debate.py MAX_ROUNDS). */
+export const MAX_DEBATE_ROUNDS = 10;
+
+export function clampRounds(value: number): number {
+  return Math.max(1, Math.min(MAX_DEBATE_ROUNDS, Math.trunc(value) || 3));
+}
+
 export const DEFAULT_DEBATE_DEFAULTS: DebateDefaults = {
   max_rounds: 3,
   convergence_threshold: null,
@@ -23,7 +30,9 @@ export function useDebateDefaults() {
   const debateDefaults = useMemo<DebateDefaults>(() => {
     if (!stored) return DEFAULT_DEBATE_DEFAULTS;
     try {
-      return { ...DEFAULT_DEBATE_DEFAULTS, ...(JSON.parse(stored) as Partial<DebateDefaults>) };
+      const merged = { ...DEFAULT_DEBATE_DEFAULTS, ...(JSON.parse(stored) as Partial<DebateDefaults>) };
+      // A value saved while the limit was higher would be refused at start.
+      return { ...merged, max_rounds: clampRounds(merged.max_rounds) };
     } catch {
       return DEFAULT_DEBATE_DEFAULTS;
     }

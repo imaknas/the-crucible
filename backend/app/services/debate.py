@@ -10,9 +10,10 @@ Yields typed event dicts consumed by the WebSocket handler in main.py.
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Optional
+from typing import Any, AsyncGenerator, Container, Mapping, Optional
 from uuid import uuid4
 
+from app.api.models import MODEL_REGISTRY
 from app.core import database as db
 from app.services.convergence import build_convergence_check
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
@@ -29,6 +30,11 @@ SYNTHESIS_THREAD_SUFFIX = "::synthesis"
 # synthesis). A reply whose draft already finished is kept even if the later
 # bookkeeping nodes run past it.
 MODEL_TIMEOUT_SECONDS = 120
+
+# Rounds a session may ask for. The API has no authentication, so this bounds
+# what one request can spend: rounds × participants model calls.
+DEFAULT_ROUNDS = 3
+MAX_ROUNDS = 10
 
 
 @dataclass
@@ -75,13 +81,42 @@ def make_synthesis_thread_id(parent_thread_id: str) -> str:
 # ─── Session factory ─────────────────────────────────────────────────────────
 
 
+def check_session_config(
+    participants: list[str],
+    termination_policy: Mapping[str, Any],
+    synthesizer_model: Optional[str] = None,
+    known_models: Container[str] = MODEL_REGISTRY,
+) -> None:
+    """Raise ValueError (with a caller-facing message) if a debate can't run as asked.
+
+    Every round costs one call per participant, so the round count is bounded;
+    each model a debate will call must be one the app offers.
+    """
+    if len(participants) != len(set(participants)):
+        dupes = sorted({m for m in participants if participants.count(m) > 1})
+        raise ValueError(f"Each model can take part only once: {', '.join(dupes)}")
+    if len(participants) < 2:
+        raise ValueError("A debate requires at least 2 participants")
+    judge = termination_policy.get("llm_judge")
+    unknown = [m for m in [*participants, synthesizer_model, judge] if m and m not in known_models]
+    if unknown:
+        raise ValueError(f"Unknown models: {', '.join(unknown)}")
+    rounds = termination_policy.get("max_rounds", DEFAULT_ROUNDS)
+    if not isinstance(rounds, int) or isinstance(rounds, bool) or not 1 <= rounds <= MAX_ROUNDS:
+        raise ValueError(f"max_rounds must be between 1 and {MAX_ROUNDS}")
+    if termination_policy.get("mode", "all") not in ("all", "any"):
+        raise ValueError("mode must be 'all' or 'any'")
+
+
 def create_session(
     parent_thread_id: str,
     participants: list[str],
     termination_policy: dict[str, Any],
     auto_synthesize: bool = False,
     synthesizer_model: Optional[str] = None,
+    known_models: Container[str] = MODEL_REGISTRY,
 ) -> dict[str, Any]:
+    check_session_config(participants, termination_policy, synthesizer_model, known_models)
     session_id = f"debate-{uuid4().hex[:12]}"
     thread_ids = {m: make_thread_id(parent_thread_id, m) for m in participants}
     session = {
@@ -126,10 +161,12 @@ async def run_debate(
         yield {"type": "error", "message": f"Session {session_id} not found"}
         return
 
-    participants = session["participants"]
+    # Sessions stored before duplicates were rejected may list a model twice;
+    # it has one sub-thread, so it debates once.
+    participants = list(dict.fromkeys(session["participants"]))
     thread_ids = session["thread_ids"]
     policy = session["termination_policy"]
-    max_rounds = policy.get("max_rounds", 3)
+    max_rounds = min(policy.get("max_rounds", DEFAULT_ROUNDS), MAX_ROUNDS)
     convergence = build_convergence_check(policy)
 
     # A debate started from a fresh session writes only to its sub-threads, so
@@ -314,7 +351,6 @@ async def _stream_round(
 ) -> AsyncGenerator[dict[str, Any], None]:
     """Stream all models for one round concurrently, interleaving their tokens."""
     queue: asyncio.Queue = asyncio.Queue()
-    finished: set[str] = set()
 
     async def _model_producer(model_id: str):
         thread_id = thread_ids[model_id]
@@ -406,13 +442,17 @@ async def _stream_round(
         finally:
             await queue.put({"type": "__done__", "model": model_id})
 
-    tasks = [asyncio.create_task(_model_producer(m)) for m in participants]
+    # One producer per model, and the round ends when every producer has
+    # reported done. Counting done events per producer (not distinct model
+    # ids) keeps a repeated model from leaving the round waiting forever.
+    tasks = [asyncio.create_task(_model_producer(m)) for m in dict.fromkeys(participants)]
+    pending = len(tasks)
 
     try:
-        while len(finished) < len(participants):
+        while pending:
             event = await queue.get()
             if event["type"] == "__done__":
-                finished.add(event["model"])
+                pending -= 1
             else:
                 yield event
     finally:
@@ -469,6 +509,7 @@ async def synthesize_session(
     synthesizer: Optional[str] = None,
     toggles: Optional[dict[str, Any]] = None,
     context: ContextSettings = DEFAULT_CONTEXT,
+    known_models: Container[str] = MODEL_REGISTRY,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """Synthesize a finished (or interrupted) debate from its latest responses."""
     session = db.get_debate_session(session_id)
@@ -478,6 +519,9 @@ async def synthesize_session(
     model = synthesizer or session.get("synthesizer_model")
     if not model:
         yield {"type": "error", "session_id": session_id, "message": "No synthesizer model specified"}
+        return
+    if model not in known_models:
+        yield {"type": "error", "session_id": session_id, "message": f"Unknown models: {model}"}
         return
     responses = await latest_responses(graph_app, session)
     if not prompt:
