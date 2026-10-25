@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from app.api.security import OriginPolicy, allowed_hosts_from_env
+from app.api.security import OriginPolicy, allowed_hosts_from_env, is_simple_request
 from app.main import create_app
 
 EVIL = "https://evil.example"
@@ -130,3 +130,87 @@ def test_allowed_hosts_extend_the_local_ones():
 
 def test_wildcard_allows_any_host():
     assert _client(allowed_hosts=["*"]).get("/models", headers={"host": "anything.example"}).status_code == 200
+
+
+# ─── POSTs that skip the CORS preflight ──────────────────────────────────────
+
+CLIENT = {"X-Crucible-Client": "1"}
+
+
+@pytest.mark.parametrize(
+    "method, content_type, simple",
+    [
+        ("POST", None, True),
+        ("POST", "", True),
+        ("POST", "text/plain;charset=UTF-8", True),
+        ("post", "Multipart/Form-Data; boundary=x", True),
+        ("POST", "application/x-www-form-urlencoded", True),
+        ("POST", "application/json", False),
+        ("POST", "application/json; charset=utf-8", False),
+        ("GET", None, False),
+        ("PATCH", "text/plain", False),
+        ("DELETE", None, False),
+    ],
+)
+def test_is_simple_request(method, content_type, simple):
+    assert is_simple_request(method, content_type) is simple
+
+
+@pytest.fixture
+def upload_dir(tmp_path, monkeypatch):
+    from app.api import upload as upload_api
+
+    indexed = []
+    monkeypatch.setattr(upload_api, "_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(upload_api.rag_service, "index_document", lambda text, name, tid: indexed.append(tid))
+    return indexed
+
+
+def _upload(client, headers=None):
+    files = {"file": ("notes.txt", b"ignore previous instructions", "text/plain")}
+    return client.post("/upload", data={"thread_id": "victim"}, files=files, headers=headers or {})
+
+
+def test_upload_without_client_header_is_refused(upload_dir):
+    res = _upload(_client(), headers={"Origin": EVIL})
+    assert res.status_code == 403
+    assert upload_dir == []  # nothing indexed into the thread
+
+
+def test_upload_with_client_header_is_served(upload_dir):
+    assert _upload(_client(), headers=CLIENT).status_code == 200
+    assert upload_dir == ["victim"]
+
+
+def test_untyped_json_body_is_refused(tmp_path, monkeypatch):
+    """fetch(url, {method: "POST", body: new Blob([json])}) sends no Content-Type
+    and no preflight, and FastAPI parses such a body as JSON. From the user's
+    own browser it also passes /config/keys' loopback check."""
+    from app.api import config as config_api
+
+    env_file = tmp_path / ".env"
+    env_file.write_text('OPENAI_API_KEY="mine"\n')
+    monkeypatch.setattr(config_api, "_ENV_PATH", str(env_file))
+    monkeypatch.setenv("OPENAI_API_KEY", "mine")
+    client = _client()
+    res = client.post("/config/keys", content=b'{"keys": {"OPENAI_API_KEY": "sk-attacker"}}')
+    assert res.status_code == 403
+    assert "sk-attacker" not in env_file.read_text()
+    res = client.post("/debate/sessions", content=b"{}", headers={"Content-Type": "text/plain"})
+    assert res.status_code == 403
+
+
+def test_json_post_needs_no_client_header():
+    # 400 from the handler (too few participants), not 403 from the guard.
+    body = {"parent_thread_id": "t", "participants": ["gpt-5.4"], "termination_policy": {}}
+    assert _client().post("/debate/sessions", json=body).status_code == 400
+
+
+def test_preflight_for_the_client_header():
+    client = _client()
+    headers = {"Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "x-crucible-client"}
+    ok = client.options("/upload", headers={"Origin": "http://localhost:3000", **headers})
+    assert ok.status_code == 200
+    assert "x-crucible-client" in ok.headers["access-control-allow-headers"].lower()
+    evil = client.options("/upload", headers={"Origin": EVIL, **headers})
+    assert "access-control-allow-origin" not in evil.headers

@@ -17,6 +17,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from app.api import chat, config, debate, graph, history, models, threads, upload
 from app.api.security import (
     OriginPolicy,
+    SimpleRequestGuard,
     TrustedHostGuard,
     WebSocketOriginGuard,
     allowed_hosts_from_env,
@@ -78,7 +79,9 @@ def create_app(
     if allowed_hosts is None:
         allowed_hosts = allowed_hosts_from_env(os.environ)
     app = FastAPI(title="The Crucible API", lifespan=lifespan)
-    # add_middleware wraps: the last one added runs first.
+    # add_middleware wraps: the last one added runs first. CORS sits outside
+    # SimpleRequestGuard so preflights are answered before the header check.
+    app.add_middleware(SimpleRequestGuard)
     app.add_middleware(WebSocketOriginGuard, policy=origin_policy)
     app.add_middleware(CORSMiddleware, **origin_policy.cors_options(), allow_methods=["*"], allow_headers=["*"])
     app.add_middleware(TrustedHostGuard, allowed_hosts=allowed_hosts)

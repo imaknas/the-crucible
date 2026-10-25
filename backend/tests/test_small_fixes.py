@@ -42,6 +42,10 @@ def test_summarizer_starts_from_previous_summary():
     assert "old 3" not in captured["prompt"]
 
 
+# Form POSTs need it (app/api/security.py: SimpleRequestGuard).
+CLIENT = {"X-Crucible-Client": "1"}
+
+
 def test_concurrent_same_name_uploads_do_not_cross(tmp_path, monkeypatch):
     from app.api import upload as upload_api
     from app.main import server
@@ -50,7 +54,7 @@ def test_concurrent_same_name_uploads_do_not_cross(tmp_path, monkeypatch):
     indexed = []
     monkeypatch.setattr(upload_api.rag_service, "index_document", lambda text, name, tid: indexed.append((tid, text)))
 
-    with TestClient(server) as client:
+    with TestClient(server, headers=CLIENT) as client:
         a = client.post("/upload", data={"thread_id": "A"}, files={"file": ("notes.txt", b"alpha", "text/plain")})
         b = client.post("/upload", data={"thread_id": "B"}, files={"file": ("notes.txt", b"beta", "text/plain")})
     assert a.json()["full_content"] == "alpha"
@@ -65,7 +69,7 @@ def test_upload_over_limit_rejected(tmp_path, monkeypatch):
 
     monkeypatch.setattr(upload_api, "_UPLOAD_DIR", str(tmp_path))
     monkeypatch.setattr(upload_api, "_MAX_FILE_BYTES", 10)
-    with TestClient(server) as client:
+    with TestClient(server, headers=CLIENT) as client:
         res = client.post("/upload", data={"thread_id": "A"}, files={"file": ("big.txt", b"x" * 50, "text/plain")})
     assert res.status_code == 400
     assert not list(tmp_path.iterdir())

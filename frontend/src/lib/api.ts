@@ -92,6 +92,12 @@ export async function deleteCheckpoint(
 
 // ─── File Upload ────────────────────────────────────────────────
 
+// The backend refuses form, text and untyped POSTs without this header: such
+// requests skip the CORS preflight, so another site could send them from the
+// user's browser. A custom header forces the preflight, which CORS answers
+// only for allowed origins.
+export const CLIENT_HEADERS = { "X-Crucible-Client": "1" } as const;
+
 export async function uploadDocument(
   file: File,
   threadId: string,
@@ -101,6 +107,7 @@ export async function uploadDocument(
   formData.append("thread_id", threadId);
   const res = await fetch(`${API_BASE}/upload`, {
     method: "POST",
+    headers: CLIENT_HEADERS,
     body: formData,
   });
   if (!res.ok) throw new Error("Upload failed");

@@ -120,7 +120,9 @@ def test_upload_file(client):
 
         file_data = {"file": ("test.txt", BytesIO(b"Hello world"), "text/plain")}
 
-        response = client.post("/upload", data={"thread_id": "t1"}, files=file_data)
+        response = client.post(
+            "/upload", data={"thread_id": "t1"}, files=file_data, headers={"X-Crucible-Client": "1"}
+        )
         assert response.status_code == 200
         assert response.json()["filename"] == "test.txt"
         assert "Hello world" in response.json()["full_content"]

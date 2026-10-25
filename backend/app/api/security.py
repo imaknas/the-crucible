@@ -10,6 +10,13 @@ user's browser by other sites. Each gap is closed by a middleware that
 - ``TrustedHostGuard``: DNS rebinding points an attacker's hostname at
   127.0.0.1, which makes the attacker's page same-origin with the API. The
   Host header still carries the attacker's name, so only known hosts pass.
+- ``SimpleRequestGuard``: a POST whose body is form data, text or untyped
+  (``fetch`` with a Blob) is a CORS "simple request": the browser sends it
+  cross-origin without a preflight and the handler runs, even though the page
+  cannot read the response. FastAPI parses an untyped body as JSON, so this
+  reaches the JSON endpoints too (including /config/keys, whose loopback check
+  the user's own browser passes). A required custom header makes the browser
+  preflight, and CORS refuses the preflight for foreign origins.
 
 ``OriginPolicy`` is the one definition of which browser origins may use the
 API; CORS and the WebSocket guard both read it.
@@ -31,6 +38,12 @@ LOCAL_ORIGIN_PATTERN = r"https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?"
 
 # TestClient sends Host: testserver.
 LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1", "testserver")
+
+CLIENT_HEADER = "x-crucible-client"
+
+# Content types a browser may send cross-origin without a preflight; no
+# Content-Type at all is the same.
+_SIMPLE_CONTENT_TYPES = frozenset({"application/x-www-form-urlencoded", "multipart/form-data", "text/plain"})
 
 # RFC 6455 "policy violation".
 WS_POLICY_VIOLATION = 1008
@@ -113,4 +126,33 @@ class TrustedHostGuard:
         if scope["type"] in ("http", "websocket") and not self.allows(Headers(scope=scope).get("host", "")):
             await PlainTextResponse("Invalid host header", status_code=400)(scope, receive, send)
             return
+        await self.app(scope, receive, send)
+
+
+def is_simple_request(method: str, content_type: str | None) -> bool:
+    """True for a POST a browser would send cross-origin without a preflight."""
+    if method.upper() != "POST":
+        return False
+    media_type = (content_type or "").split(";", 1)[0].strip().lower()
+    return not media_type or media_type in _SIMPLE_CONTENT_TYPES
+
+
+class SimpleRequestGuard:
+    """Require ``X-Crucible-Client`` on POSTs that would skip the CORS preflight.
+
+    GET/HEAD must not change state and PUT/PATCH/DELETE always preflight.
+    JSON POSTs preflight too, so REST callers sending
+    ``Content-Type: application/json`` need nothing extra.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            headers = Headers(scope=scope)
+            if is_simple_request(scope["method"], headers.get("content-type")) and CLIENT_HEADER not in headers:
+                message = f"Form, text and untyped POST requests need the {CLIENT_HEADER} header"
+                await PlainTextResponse(message, status_code=403)(scope, receive, send)
+                return
         await self.app(scope, receive, send)
