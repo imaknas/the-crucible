@@ -115,6 +115,18 @@ def test_only_system_messages_count_even_with_the_flag():
     assert not is_summary_message({"type": "system", "content": f"Docs: {SUMMARY_MARKER} x"})
 
 
+def test_the_flag_survives_a_checkpoint_round_trip():
+    """State is persisted with LangGraph's serializer; a summary read back
+    from a checkpoint (as the eval harness's settled branches are) must
+    still carry its flag."""
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+    serde = JsonPlusSerializer()
+    restored = serde.loads_typed(serde.dumps_typed(summary_message("gist")))
+    assert restored.additional_kwargs.get(SUMMARY_FLAG) is True
+    assert is_summary_message(restored)
+
+
 def test_the_chat_view_shows_a_user_message_quoting_the_marker():
     raw = _history() + [HumanMessage(content=QUOTE), summary_message("gist")]
     shown = [m["content"] for m in format_chat_messages(raw, "gpt-6-luna")]
