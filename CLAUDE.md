@@ -151,7 +151,9 @@ SQLite at `backend/checkpoints.sqlite` (path overridable via `DATABASE_PATH` env
 
 **RAG — `services/rag.py`**
 ChromaDB persistent vector store at `backend/chroma_db/`. Local HuggingFace embeddings (`all-MiniLM-L6-v2`). Documents are indexed per `thread_id`.
-- `get_vector_store()` / `get_embeddings()` are lazy singletons behind a lock. Graph nodes are sync and run on executor threads, so parallel models hit them together; two concurrent `PersistentClient` inits fail with "Could not connect to tenant default_tenant". The directory is overridable with `CHROMA_DIR`.
+- Uploads (`api/upload.py`) are stored under `uploads/<sha256(thread_id)[:32]>/` (`services/uploads.py`; the id comes from the client, so it is hashed, never used as a path) and indexed with `thread_id` metadata.
+- Deleting a thread goes through `services/threads.ThreadDeleter` (both `DELETE /threads/{id}`, via `Depends(get_thread_deleter)`, and `crucible threads --delete`): RAG chunks (`rag.delete_thread_chunks`, a metadata delete on the raw collection that never loads the embedding model), the thread's upload directory, then `delete_thread_data()`. External stores go first so a failure leaves the thread listed for a retry. Tests inject a fake collection / override the dependency; never the real store. Files uploaded before per-thread directories sit flat in `uploads/` and are not tied to any thread.
+- `get_vector_store()` / `get_embeddings()` are lazy singletons behind a lock (the Chroma client is its own singleton, shared with deletes). Graph nodes are sync and run on executor threads, so parallel models hit them together; two concurrent `PersistentClient` inits fail with "Could not connect to tenant default_tenant". The directory is overridable with `CHROMA_DIR`.
 
 **Tree reconstruction — `services/tree.py`**
 Walks LangGraph checkpoint parent-child links to build a deduplicated conversation tree for the React Flow canvas.

@@ -21,7 +21,9 @@ DB_DIR = os.getenv(
 
 # Use a fast, local, lightweight embedding model
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+COLLECTION_NAME = "crucible_documents"
 _embeddings = None
+_client = None
 _vector_store = None
 # Graph nodes are sync and run on executor threads, so parallel models reach
 # these lazy singletons at the same moment. Two concurrent PersistentClient
@@ -38,21 +40,50 @@ def get_embeddings():
     return _embeddings
 
 
+def _get_client():
+    """The persistent Chroma client, shared by the vector store and deletes."""
+    global _client
+    if _client is None:
+        with _init_lock:
+            if _client is None:
+                _client = chromadb.PersistentClient(
+                    path=DB_DIR, settings=Settings(anonymized_telemetry=False)
+                )
+    return _client
+
+
 def get_vector_store() -> Chroma:
     global _vector_store
 
     if _vector_store is None:
         with _init_lock:
             if _vector_store is None:
-                client = chromadb.PersistentClient(
-                    path=DB_DIR, settings=Settings(anonymized_telemetry=False)
-                )
                 _vector_store = Chroma(
-                    client=client,
-                    collection_name="crucible_documents",
+                    client=_get_client(),
+                    collection_name=COLLECTION_NAME,
                     embedding_function=get_embeddings(),
                 )
     return _vector_store
+
+
+def get_chunk_collection():
+    """The raw Chroma collection holding every thread's chunks. Deleting by
+    metadata needs no embeddings, so this does not load the embedding model
+    the way get_vector_store() does."""
+    # embedding_function=None as langchain_chroma creates it: it embeds itself.
+    return _get_client().get_or_create_collection(name=COLLECTION_NAME, embedding_function=None)
+
+
+def delete_thread_chunks(thread_id: str, collection=None) -> None:
+    """Remove every indexed chunk of one thread.
+
+    Chunks are tagged with the thread_id the upload named (the parent thread;
+    debate sub-threads index nothing of their own). `collection` is anything
+    with Chroma's delete(where=...); by default the app's collection.
+    """
+    if not thread_id:
+        raise ValueError("thread_id is required")
+    (collection if collection is not None else get_chunk_collection()).delete(where={"thread_id": thread_id})
 
 
 def index_document(text: str, filename: str, thread_id: str) -> int:

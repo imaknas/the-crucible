@@ -9,6 +9,14 @@ from fastapi import HTTPException
 from starlette.requests import HTTPConnection
 
 
+def get_thread_deleter():
+    """What DELETE /threads/{id} runs; tests override it with
+    app.dependency_overrides so they never touch the real vector store."""
+    from app.services.threads import default_thread_deleter
+
+    return default_thread_deleter()
+
+
 def get_graph_app(conn: HTTPConnection):
     """The compiled LangGraph app. Works for HTTP and WebSocket routes."""
     graph_app = getattr(conn.app.state, "graph_app", None)

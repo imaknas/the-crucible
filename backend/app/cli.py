@@ -538,7 +538,9 @@ def threads(
     if delete:
         if not yes and not typer.confirm(f"Delete thread {delete}? This cannot be undone."):
             return
-        db.delete_thread_data(delete)
+        from app.services.threads import default_thread_deleter
+
+        default_thread_deleter()(delete)
         print_success(f"Deleted {delete}")
         return
 

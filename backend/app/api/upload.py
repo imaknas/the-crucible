@@ -4,17 +4,15 @@ import uuid
 
 from app.utils.parser import extract_text_from_pdf
 from app.services import rag as rag_service
+from app.services.uploads import UPLOAD_DIR, thread_upload_dir
 
 router = APIRouter(tags=["upload"])
 
 _ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md", ".csv"}
 _MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
-# Absolute path anchored to the backend root (two levels up from app/api/)
-_UPLOAD_DIR = os.getenv(
-    "UPLOAD_DIR",
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "uploads")),
-)
+# backend/uploads unless UPLOAD_DIR is set; one directory per thread inside.
+_UPLOAD_DIR = UPLOAD_DIR
 
 
 @router.post("/upload")
@@ -36,11 +34,6 @@ async def upload_file(
             detail=f"File type '{ext}' is not supported. Allowed: {', '.join(sorted(_ALLOWED_EXTENSIONS))}",
         )
 
-    os.makedirs(_UPLOAD_DIR, exist_ok=True)
-    # Unique on disk: a shared name let two concurrent uploads of the same
-    # filename read back (and index into their thread) each other's content.
-    file_path = os.path.join(_UPLOAD_DIR, f"{uuid.uuid4().hex}_{safe_filename}")
-
     # Read in chunks and stop at the limit instead of buffering the whole body.
     contents = bytearray()
     while chunk := await file.read(1024 * 1024):
@@ -49,6 +42,13 @@ async def upload_file(
             raise HTTPException(
                 status_code=400, detail="File exceeds the 10 MB size limit."
             )
+
+    # Under the thread's own directory, so deleting the thread removes it.
+    # Unique on disk: a shared name let two concurrent uploads of the same
+    # filename read back (and index into their thread) each other's content.
+    thread_dir = thread_upload_dir(thread_id, _UPLOAD_DIR)
+    os.makedirs(thread_dir, exist_ok=True)
+    file_path = os.path.join(thread_dir, f"{uuid.uuid4().hex}_{safe_filename}")
 
     with open(file_path, "wb") as buffer:
         buffer.write(contents)

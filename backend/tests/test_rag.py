@@ -97,6 +97,7 @@ def test_vector_store_initialises_once_under_concurrency(monkeypatch):
     from app.services import rag
 
     monkeypatch.setattr(rag, "_vector_store", None)
+    monkeypatch.setattr(rag, "_client", None)
     monkeypatch.setattr(rag, "get_embeddings", lambda: MagicMock())
     created = []
 

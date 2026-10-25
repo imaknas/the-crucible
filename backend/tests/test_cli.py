@@ -25,10 +25,13 @@ def test_threads_rename_command():
 
 
 def test_threads_delete_command():
+    """The CLI deletes through the same ThreadDeleter as the API (rows,
+    vector chunks, uploads)."""
+    deleted = []
     with (
-        patch("app.core.database.delete_thread_data") as mock_delete,
+        patch("app.services.threads.default_thread_deleter", return_value=deleted.append),
         patch("typer.confirm", return_value=True),
     ):
         result = runner.invoke(app, ["threads", "--delete", "t1"])
         assert result.exit_code == 0
-        mock_delete.assert_called_once_with("t1")
+        assert deleted == ["t1"]

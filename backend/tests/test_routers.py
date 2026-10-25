@@ -58,10 +58,17 @@ def test_get_history_missing_thread(client, mock_db):
 
 
 def test_delete_thread(client, mock_db):
-    with patch("app.core.database.delete_thread_data") as mock_del:
+    from app.api.deps import get_thread_deleter
+
+    deleted = []
+    client.app.dependency_overrides[get_thread_deleter] = lambda: deleted.append
+    try:
         response = client.delete("/threads/t1")
-        assert response.status_code == 200
-        mock_del.assert_called_once_with("t1")
+    finally:
+        client.app.dependency_overrides.pop(get_thread_deleter, None)
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    assert deleted == ["t1"]
 
 
 def test_rename_thread(client):

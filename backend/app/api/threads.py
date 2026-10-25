@@ -1,6 +1,9 @@
-from fastapi import APIRouter
+import asyncio
 from typing import Dict
 
+from fastapi import APIRouter, Depends
+
+from app.api.deps import get_thread_deleter
 from app.core import database as db
 
 router = APIRouter(prefix="/threads", tags=["threads"])
@@ -28,9 +31,10 @@ async def rename_thread(thread_id: str, payload: Dict[str, str]):
 
 
 @router.delete("/{thread_id}")
-async def delete_thread(thread_id: str):
+async def delete_thread(thread_id: str, delete=Depends(get_thread_deleter)):
     try:
-        db.delete_thread_data(thread_id)
+        # Chroma and SQLite calls are blocking.
+        await asyncio.to_thread(delete, thread_id)
         return {"status": "ok"}
     except Exception as e:
         return {"error": str(e)}
