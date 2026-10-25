@@ -104,7 +104,7 @@ export default function Home() {
       clearTree();
       setMessagesRef.current?.([]);
       setDocuments({});
-      if (deleted) pushToast("Experiment deleted");
+      if (deleted) pushToast("Session deleted");
     },
     [clearTree, pushToast],
   );

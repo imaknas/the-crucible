@@ -19,7 +19,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "The Crucible — Multi-Model Consensus Engine",
   description:
-    "High-stakes collaborative research through parallel model deliberation and synthesis.",
+    "Ask several AI models at once, compare and branch their answers, and let them debate.",
 };
 
 export default function RootLayout({

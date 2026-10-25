@@ -39,8 +39,8 @@ export function useThreads(
     e.stopPropagation();
     if (
       !(await showConfirm(
-        "Delete Experiment",
-        "This will permanently remove this experiment and all its branches. This action cannot be undone.",
+        "Delete Session",
+        "This will permanently remove this session, all its branches and its debates. This action cannot be undone.",
       ))
     )
       return;

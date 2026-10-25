@@ -361,7 +361,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                   height={14}
                   style={{ marginRight: 8, display: "inline" }}
                 />
-                View Decision Tree
+                View conversation tree
               </ButtonBase>
             </Box>
 
@@ -459,8 +459,8 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       color: "text.disabled",
                     }}
                   >
-                    Submit a research question to begin parallel model
-                    deliberation
+                    Every selected model answers on its own branch, so you
+                    can compare them side by side
                   </Typography>
                 </Box>
               </Box>
@@ -609,7 +609,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
               );
             })}
 
-            {/* Deliberation / arena footer */}
+            {/* Compare footer: sibling answers to the same prompt */}
             {isArenaActive && (
               <Box
                 component={motion.div}
@@ -654,7 +654,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                           color: "text.secondary",
                         }}
                       >
-                        Deliberation
+                        Compare answers
                       </Typography>
                     </Box>
                     <ButtonBase
@@ -877,7 +877,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                     color: "text.secondary",
                   }}
                 >
-                  Models deliberating…
+                  Models answering…
                 </Typography>
               </Box>
             )}

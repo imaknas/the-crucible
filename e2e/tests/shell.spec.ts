@@ -85,6 +85,26 @@ test.describe("application shell", () => {
     await expect.poll(widthOf).toBe(280);
   });
 
+  test("the landing page says what the app does, with its call to action above the fold", async ({
+    page,
+  }) => {
+    await expect(page.getByText(/compare their answers side by side/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Debate" })).toBeVisible();
+    await expect(page.getByText(/unbreakable academic/)).toHaveCount(0);
+    await expect(page.getByText("Initialize New Experiment")).toHaveCount(0);
+    // 1440x900: the button must be reachable without scrolling.
+    await expect(page.getByRole("button", { name: "Start a session" })).toBeInViewport();
+
+    // Feature tiles are real 40px squares, not stretched to the card width.
+    const tile = page.getByRole("heading", { name: "Debate" }).locator("xpath=preceding-sibling::div[1]");
+    const box = (await tile.boundingBox())!;
+    expect(Math.round(box.width)).toBe(40);
+    expect(Math.round(box.height)).toBe(40);
+
+    await page.getByRole("button", { name: "Start a session" }).click();
+    await expect(page.getByPlaceholder(/Ask the arena/i)).toBeVisible();
+  });
+
   test("explains an empty canvas instead of rendering a void", async ({ page }) => {
     await page.getByRole("button", { name: "New Session" }).click();
     await showTree(page);
