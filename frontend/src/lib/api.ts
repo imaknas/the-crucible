@@ -154,7 +154,7 @@ import type {
   DebateTreeResponse,
   TerminationPolicy,
 } from "@/lib/types";
-import { questionMessage } from "@/lib/debateTranscript";
+import { questionMessage, roundLabel } from "@/lib/debateTranscript";
 
 export async function createDebateSession(params: {
   parent_thread_id: string;
@@ -233,7 +233,7 @@ export async function loadDebateMessages(session: DebateSession): Promise<import
       id: `round-header-${r}`,
       role: "system",
       type: "round_header",
-      content: `Round ${r + 1}`,
+      content: roundLabel(r),
     } as any);
     for (const modelId of session.participants) {
       const msg = perModel[modelId]?.[r];

@@ -147,7 +147,7 @@ describe("useDebateSession", () => {
       ws.emit({ type: "stream_end", model: "a", round: 0, content: "Hi there" });
     });
 
-    expect(result.current.messages.map((m) => m.content)).toEqual(["Question?", "Round 1", "Hi there"]);
+    expect(result.current.messages.map((m) => m.content)).toEqual(["Question?", "Round 1 · independent answers", "Hi there"]);
     expect(result.current.status).toBe("running");
     expect(result.current.controls.pause).toBe(true);
   });

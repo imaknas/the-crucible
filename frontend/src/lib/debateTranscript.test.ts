@@ -5,6 +5,7 @@ import {
   sessionRowStatus,
   earlyStopStatus,
   restoredDebateStatus,
+  roundLabel,
   transcriptReducer,
   type Transcript,
   type TranscriptAction,
@@ -27,8 +28,21 @@ describe("transcriptReducer", () => {
       tokens({ a: "Hel", b: "Wor" }),
       tokens({ a: "lo", b: "ld" }),
     ]);
-    expect(t.messages.map((m) => m.content)).toEqual(["Round 1", "Hello", "World"]);
+    expect(t.messages.map((m) => m.content)).toEqual(["Round 1 · independent answers", "Hello", "World"]);
     expect(t.messages.filter((m) => m.streaming)).toHaveLength(2);
+  });
+
+  it("marks round 1 as the independent answers and numbers later rounds plainly", () => {
+    const t = run([
+      ev({ type: "debate_round_start", round: 0 }),
+      ev({ type: "debate_round_start", round: 1 }),
+      ev({ type: "debate_round_start", round: 2 }),
+    ]);
+    expect(t.messages.map((m) => [m.type, m.content])).toEqual([
+      ["round_header", "Round 1 · independent answers"],
+      ["round_header", "Round 2"],
+      ["round_header", "Round 3"],
+    ]);
   });
 
   it("stream_end sets the final content and stops streaming", () => {
@@ -132,5 +146,14 @@ describe("sessionRowStatus", () => {
 describe("questionMessage", () => {
   it("is a user bubble with the question", () => {
     expect(questionMessage("Tabs or spaces?")).toMatchObject({ role: "user", content: "Tabs or spaces?" });
+  });
+});
+
+describe("roundLabel", () => {
+  it("names round 1 as the independent answers, in full and in the tree's short form", () => {
+    expect(roundLabel(0)).toBe("Round 1 · independent answers");
+    expect(roundLabel(0, "short")).toBe("Round 1 · independent");
+    expect(roundLabel(3)).toBe("Round 4");
+    expect(roundLabel(3, "short")).toBe("Round 4");
   });
 });

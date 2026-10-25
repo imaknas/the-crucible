@@ -2,6 +2,7 @@ import React from "react";
 import { useTheme } from "@mui/material";
 import type { DebateLane } from "@/lib/types";
 import { LANE_WIDTH, ROUND_HEIGHT } from "@/hooks/useDebateTree";
+import { roundLabel } from "@/lib/debateTranscript";
 
 /**
  * Overlays drawn above the React Flow canvas in debate mode, positioned from
@@ -78,6 +79,21 @@ export function DebateLaneHeaders({
             >
               {lane.label || lane.model_id}
             </span>
+            {lane.peer_label && (
+              // The models saw each other by label; replies and the argument
+              // map use it, so the header is where it is decoded.
+              <span
+                title={`The other models saw ${lane.label || lane.model_id} as ${lane.peer_label}`}
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: isDark ? "#94a3b8" : "#64748b",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {lane.peer_label}
+              </span>
+            )}
           </div>
         );
       })}
@@ -139,7 +155,7 @@ export function DebateRoundBands({
             whiteSpace: "nowrap",
           }}
         >
-          Round {r + 1}
+          {roundLabel(r, "short")}
         </span>
         {score != null && (
           <span

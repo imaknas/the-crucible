@@ -34,6 +34,16 @@ export type TranscriptAction =
   | { kind: "user"; entry: "inject" | "redirect"; content: string; now: number }
   | { kind: "reset"; messages?: Message[] };
 
+/**
+ * A round's heading. Round 1 holds each participant's independent answer,
+ * written before it saw the others; marking it lets a reader compare those
+ * answers with the ones written after debating. `short` is the tree's band.
+ */
+export function roundLabel(round: number, form: "full" | "short" = "full"): string {
+  if (round !== 0) return `Round ${round + 1}`;
+  return form === "full" ? "Round 1 · independent answers" : "Round 1 · independent";
+}
+
 /** The debated question, shown at the top of the transcript. */
 export function questionMessage(content: string): Message {
   return { id: "debate-question", role: "user", content, type: "human" };
@@ -88,7 +98,7 @@ function applyEvent(state: Transcript, event: TranscriptEvent, now: number): Tra
         ...state,
         messages: [
           ...state.messages,
-          { id: `round-header-${r}`, role: "system", type: "round_header", content: `Round ${r + 1}` },
+          { id: `round-header-${r}`, role: "system", type: "round_header", content: roundLabel(r) },
         ],
       };
     }

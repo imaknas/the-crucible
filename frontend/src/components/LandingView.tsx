@@ -21,7 +21,7 @@ const FEATURES = [
     icon: Swords,
     tint: "139, 92, 246",
     color: "#a78bfa",
-    body: "Models read each other's answers and reply over several rounds, stopping when they agree or stop changing. Pause, add a message, or synthesize at any point.",
+    body: "Models argue over several rounds so you can see the strongest arguments and where they disagree; Synthesis maps the positions and what would settle them. For an answer to rely on, use Arena's independent answers.",
   },
   {
     title: "Branching tree",
@@ -112,8 +112,8 @@ const LandingView: React.FC<LandingViewProps> = ({ onStartNewExperiment, hasAnyK
             }}
           >
             Ask several AI models the same question, compare their answers side by side, and
-            branch the conversation from any point. Or have the models debate each other until
-            they agree.
+            branch the conversation from any point. Or have the models debate each other to see
+            the strongest arguments on each side.
           </Typography>
         </Box>
 

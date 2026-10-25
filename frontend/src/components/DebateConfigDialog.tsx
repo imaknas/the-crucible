@@ -106,6 +106,14 @@ export default function DebateConfigDialog({
 
       <DialogContent sx={{ pt: 2 }}>
         <Stack spacing={2.5}>
+          <Typography
+            data-testid="debate-purpose"
+            sx={{ fontSize: "0.8rem", color: "text.secondary", lineHeight: 1.5 }}
+          >
+            Models argue over several rounds so you can see the strongest arguments and where they
+            disagree. Agreement after debating isn&apos;t evidence: for an answer you can rely on,
+            compare independent answers in Arena and synthesize.
+          </Typography>
           <Box>
             <Typography sx={{ ...labelSx, mb: 0.5 }}>Question</Typography>
             <Typography
@@ -191,7 +199,7 @@ export default function DebateConfigDialog({
 
           {/* LLM Judge */}
           <Box sx={rowSx}>
-            <Typography sx={labelSx} title="A model that reads every answer each round and stops the debate when the models agree.">
+            <Typography sx={labelSx} title="A model that reads every answer each round (by participant label, not model name) and stops the debate once the models now agree. That agreement came from debating, so it is not evidence by itself.">
               Agreement judge
             </Typography>
             <Select
@@ -242,7 +250,12 @@ export default function DebateConfigDialog({
 
           {/* Auto-synthesize */}
           <Box sx={rowSx}>
-            <Typography sx={labelSx}>Auto-synthesize</Typography>
+            <Typography
+              sx={labelSx}
+              title="When the debate ends, map its arguments: the positions, their strongest arguments, who changed position and why, and what is still unresolved. It doesn't pick a winner."
+            >
+              Auto-synthesize
+            </Typography>
             <Switch
               size="small"
               checked={config.auto_synthesize}

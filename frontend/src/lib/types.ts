@@ -87,6 +87,8 @@ export interface DebateSession {
   termination_policy: TerminationPolicy;
   auto_synthesize: boolean;
   synthesizer_model: string | null;
+  /** How participants saw each other; null for sessions stored before the choice existed (named). */
+  peer_labels?: "anonymous" | "named" | null;
 }
 
 /**
@@ -114,6 +116,12 @@ export interface DebateLane {
   model_id: string;
   /** Human-facing label; falls back to model_id for older payloads. */
   label?: string;
+  /**
+   * What the other models called this participant ("Participant A") when
+   * peers were anonymous; null when they saw model ids. Replies and the
+   * argument map refer to participants by it.
+   */
+  peer_label?: string | null;
   lane_index: number;
   color: string;
 }

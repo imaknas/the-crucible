@@ -43,6 +43,9 @@ test.describe("debate tree", () => {
     await expect(pills).toHaveCount(2);
     await expect(pills.filter({ hasText: "GPT-5.4" })).toHaveCount(1);
     await expect(pills.filter({ hasText: "Claude Sonnet 5" })).toHaveCount(1);
+    // Peers were anonymous: each header also shows the label the other
+    // models used, so replies that say "Participant A" can be decoded.
+    await expect(page.getByText(/^Participant [AB]$/)).toHaveCount(2);
   });
 
   test("states the question once instead of once per lane", async ({ page }) => {
@@ -68,7 +71,8 @@ test.describe("debate tree", () => {
     page,
   }) => {
     // Exact: the debate banner above the tree reads "DEBATE · ROUND 2/2".
-    await expect(page.getByText("Round 1", { exact: true })).toBeVisible();
+    // Round 1 holds the independent answers, written before any model saw another.
+    await expect(page.getByText("Round 1 · independent", { exact: true })).toBeVisible();
     await expect(page.getByText("Round 2", { exact: true })).toBeVisible();
     // seed_db.py records 0.91 for round index 1, which renders on Round 2.
     await expect(page.getByText("91% stable")).toBeVisible();

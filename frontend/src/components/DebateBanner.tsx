@@ -22,7 +22,8 @@ const DEBATE_STATUS_STYLE: Record<DebateUiStatus, { bg: string; fg: string }> = 
 
 const STATUS_LABEL: Partial<Record<DebateUiStatus, string>> = {
   pausing: "pausing after this round",
-  converged: "models agree",
+  // Agreement reached by reading each other, which is not evidence by itself.
+  converged: "models now agree (after debating)",
   stable: "answers stopped changing",
 };
 
