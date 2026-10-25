@@ -18,7 +18,7 @@ The Crucible is a full-stack research interface for putting the same question to
 |---|---|
 | **🌳 Conversation trees** | Every message is a checkpoint. Branch from any node, edit a question and re-ask it, and navigate the whole tree on a React Flow canvas. |
 | **⚔️ Arena** | Send one prompt to several models. Each answers in parallel on its own branch of the tree, for side-by-side comparison. Models get no system prompt from the app, so you compare them as they ship; set your own in **Control Panel → System prompt** and every model (and debate participant) gets it. |
-| **🗣️ Debate** | Two or more models argue over several rounds, each seeing the others' previous answers. Stop early once answers stop changing (embedding similarity of each model to its own previous round) and/or when an LLM judge finds the models agree, pause between rounds, add a note mid-debate, change the topic, and synthesize at the end. |
+| **🗣️ Debate** | An argument explorer: two or more models argue over several rounds so you can see the strongest arguments and where they disagree. Round 1 is each model's independent answer; from then on each reads the others' previous answers, labelled *Participant A, B…* rather than by model name (so no model defers to a brand). The synthesis is an argument map — positions, their best arguments and evidence, who changed position and why, what is unresolved — not a verdict. Agreement reached by debating isn't evidence: for an answer to rely on, use Arena's independent answers and Synthesis. Stop early once answers stop changing or a judge finds the models now agree, pause between rounds, add a note mid-debate, or change the topic. |
 | **⚖️ Deliberation** | Ask a model to critically review the thread so far, with every earlier message attributed to the model that wrote it. |
 | **🤝 Synthesis** | Combine divergent answers into one, stating where the models agree and where they don't. |
 | **📎 Documents & RAG** | Attach PDF, TXT, Markdown or CSV files (up to 10 MB). With *Search my documents* on, relevant passages are retrieved and graded before the model answers, with citations. |
@@ -110,7 +110,7 @@ The backend installs a `crucible` command. Run it from `backend/` with `uv run`,
 ```bash
 uv run crucible models                                    # model IDs and which have keys
 uv run crucible arena "Is P = NP?" -m gpt-5.4 -m claude-sonnet-5
-uv run crucible deliberate "Topic" -m gpt-5.4 -m claude-sonnet-5 --rounds 3 --threshold 0.92
+uv run crucible deliberate "Topic" -m gpt-5.4 -m claude-sonnet-5 --rounds 3 --threshold 0.92   # --peers named shows model ids
 uv run crucible synthesize --thread <thread_id>           # or --debate <session_id>
 uv run crucible chat "Follow-up" -m gpt-5.4 --thread <thread_id>
 uv run crucible tree --thread <thread_id> [--open]        # --open shows it in the web UI
@@ -172,7 +172,7 @@ All tools return structured JSON and raise an MCP error on failure:
 |---|---|
 | `list_models` | Model IDs and whether each has an API key configured |
 | `invoke_arena` | Ask several models the same question in parallel (optionally under your own `system_prompt`); returns each answer (with its checkpoint id) and an optional synthesis |
-| `run_debate` | Multi-round debate between two or more models, with optional early stopping (stability or a judge's agreement) and a final synthesis |
+| `run_debate` | Multi-round debate between two or more models (anonymous to each other unless `peer_labels="named"`), with optional early stopping (stability or a judge's agreement) and a final argument map |
 | `list_threads`, `get_thread_status`, `get_thread_summary` | Find threads and read their latest model, latest answer and context summary |
 | `get_thread_messages` | Read one path of a thread; pass a `checkpoint_id` from `invoke_arena` to read one model's branch |
 | `get_branch_answers` | The latest answer on every branch of a thread |
@@ -210,7 +210,7 @@ the-crucible/
 - **One LangGraph workflow** handles every turn: summarize if needed → optional retrieval and grading → draft (with recalled originals when history was pruned). State lives in SQLite checkpoints, which is what makes branching from any node possible.
 - **Parallel models fork from one checkpoint.** Every model in a turn is pinned to the same parent, so answers land on sibling branches instead of reading each other's half-finished turn.
 - **Models come from a factory.** Each provider is a small strategy class in `backend/app/llm/providers.py`; nothing else in the code branches on the provider, and tests inject scripted models instead of patching globals.
-- **Debates run per model.** Each participant gets its own sub-thread, all stream concurrently each round, and early-stop checks (stability, agreement) are interchangeable strategies.
+- **Debates run per model.** Each participant gets its own sub-thread, all stream concurrently each round, and early-stop checks (stability, agreement) and how peers are presented to each other (anonymous or named) are interchangeable strategies.
 
 [`CLAUDE.md`](CLAUDE.md) is the detailed maintainer guide: design invariants, where each kind of change belongs, and how to test it.
 
