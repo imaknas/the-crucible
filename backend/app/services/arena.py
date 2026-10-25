@@ -309,6 +309,7 @@ async def synthesize_thread(
     thread_id: str,
     synthesizer: str,
     toggles: Optional[Dict[str, Any]] = None,
+    context: ContextSettings = DEFAULT_CONTEXT,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Synthesize the latest answer on every branch of a thread.
 
@@ -326,7 +327,7 @@ async def synthesize_thread(
     yield {"type": "start", "models": [a["model"] for a in answers], "thread_id": thread_id, "parent_checkpoint_id": parent}
     for a in answers:
         yield {"type": "end", "model": a["model"], "content": a["content"], "checkpoint_id": a["checkpoint_id"], "error": None}
-    async for event in _synthesize(graph_app, thread_id, parent, synthesizer, _independent_synthesis_prompt(question, answers), toggles):
+    async for event in _synthesize(graph_app, thread_id, parent, synthesizer, _independent_synthesis_prompt(question, answers), toggles, context):
         yield event
 
 

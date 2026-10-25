@@ -117,7 +117,7 @@ uv run crucible tree --thread <thread_id> [--open]        # --open shows it in t
 uv run crucible threads
 ```
 
-`arena` also takes `--summarizer <model>` to choose who summarizes long history, and `--system "<prompt>"` to send every model a system prompt (none by default).
+`arena` also takes `--summarizer <model>` to choose who summarizes long history. `arena`, `chat`, `deliberate` and `synthesize` take `--system "<prompt>"` to send every model (and the synthesizer) a system prompt (none by default).
 
 `arena`, `deliberate`, `synthesize`, `chat`, `threads` and `models` accept `--format json`: stdout then carries only the JSON document, and failures exit non-zero with the message on stderr. Everything the CLI creates appears in the web UI.
 
@@ -172,7 +172,7 @@ All tools return structured JSON and raise an MCP error on failure:
 |---|---|
 | `list_models` | Model IDs and whether each has an API key configured |
 | `invoke_arena` | Ask several models the same question in parallel (optionally under your own `system_prompt`); returns each answer (with its checkpoint id) and an optional synthesis |
-| `run_debate` | Multi-round debate between two or more models (anonymous to each other unless `peer_labels="named"`), with optional early stopping (stability or a judge's agreement) and a final argument map |
+| `run_debate` | Multi-round debate between two or more models (anonymous to each other unless `peer_labels="named"`), with optional early stopping (stability or a judge's agreement) and a final argument map. Accepts a `system_prompt` for every participant. |
 | `list_threads`, `get_thread_status`, `get_thread_summary` | Find threads and read their latest model, latest answer and context summary |
 | `get_thread_messages` | Read one path of a thread; pass a `checkpoint_id` from `invoke_arena` to read one model's branch |
 | `get_branch_answers` | The latest answer on every branch of a thread |

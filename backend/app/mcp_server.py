@@ -133,6 +133,7 @@ async def run_debate(
     synthesizer: Optional[str] = None,
     thread_id: Optional[str] = None,
     peer_labels: Literal["anonymous", "named"] = "anonymous",
+    system_prompt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Run a multi-round structured debate between two or more models.
 
@@ -147,7 +148,8 @@ async def run_debate(
     why, and what is unresolved. Use it to see the arguments, not as a
     trustworthy answer: debating models conform to each other, so for an
     answer prefer invoke_arena's independent answers and synthesis. This can
-    take several minutes.
+    take several minutes. system_prompt is sent to every participant (and the
+    synthesizer) before the conversation; default none.
 
     Returns: {session_id, thread_id, rounds: [{round, responses, errors, convergence_score}], converged, synthesis}.
     convergence_score is that round's stability; converged.method says why the
@@ -155,6 +157,9 @@ async def run_debate(
     """
     if len(models) < 2:
         raise ToolError("A debate needs at least two models.")
+    context = ContextSettings.from_frame({"system_prompt": system_prompt})
+    if problem := context.problem():
+        raise ToolError(problem)
     try:
         arena_svc.resolve_models(models + [m for m in (synthesizer, convergence_judge) if m])
     except ValueError as e:
@@ -191,7 +196,8 @@ async def run_debate(
         current: Optional[Dict[str, Any]] = None
         finished = False
         try:
-            async for event in debate_svc.run_debate(graph_app, session["session_id"], prompt, {}, {}):
+            async for event in debate_svc.run_debate(graph_app, session["session_id"], prompt, {}, {},
+                                                     context=context):
                 kind = event["type"]
                 if kind == "debate_round_start":
                     current = {"round": event["round"], "responses": {}, "errors": {}, "convergence_score": None}

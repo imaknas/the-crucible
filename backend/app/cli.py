@@ -142,11 +142,7 @@ def arena(
     if synthesizer:
         _validate_models([synthesizer], as_json)
     thread_id = thread or _gen_thread_id("arena")
-    from app.services.context import ContextSettings
-
-    context = ContextSettings.from_frame({"summarizer": summarizer, "system_prompt": system})
-    if problem := context.problem():
-        _fail(problem, as_json)
+    context = _run_context(as_json, summarizer, system)
 
     result = _run(
         _run_arena(prompt, resolved, thread_id, synthesizer, {"use_web_search": web_search}, as_json, context),
@@ -156,6 +152,16 @@ def arena(
         _emit_json(result)
     if result["answers"] and all(a["error"] for a in result["answers"].values()):
         raise typer.Exit(1)
+
+
+def _run_context(as_json: bool, summarizer: Optional[str] = None, system: Optional[str] = None):
+    """The run settings a command's options name, checked like a frame's."""
+    from app.services.context import ContextSettings
+
+    context = ContextSettings.from_frame({"summarizer": summarizer, "system_prompt": system})
+    if problem := context.problem():
+        _fail(problem, as_json)
+    return context
 
 
 async def _run_arena(prompt, models, thread_id, synthesizer, toggles, as_json, context=None):
@@ -242,6 +248,9 @@ def deliberate(
     web_search: bool = typer.Option(
         False, "--web-search", "-w", help="Enable web search grounding."
     ),
+    system: Optional[str] = typer.Option(
+        None, "--system", help="System prompt sent to every model. Default: none (each model's own behaviour)."
+    ),
     format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
@@ -264,6 +273,7 @@ def deliberate(
     synthesizer = None if no_synthesize else (judge or resolved[0])
     for extra in filter(None, [synthesizer, convergence_judge]):
         _validate_models([extra], as_json)
+    context = _run_context(as_json, system=system)
 
     policy = {
         "max_rounds": rounds,
@@ -274,7 +284,7 @@ def deliberate(
     result = _run(
         _run_deliberate(
             prompt, resolved, thread or _gen_thread_id("debate"), policy, synthesizer,
-            {"use_web_search": web_search}, as_json, peer_labels,
+            {"use_web_search": web_search}, as_json, peer_labels, context,
         ),
         as_json,
     )
@@ -282,7 +292,8 @@ def deliberate(
         _emit_json(result)
 
 
-async def _run_deliberate(prompt, models, thread_id, policy, synthesizer, toggles, as_json, peer_labels="anonymous"):
+async def _run_deliberate(prompt, models, thread_id, policy, synthesizer, toggles, as_json, peer_labels="anonymous", context=None):
+    from app.services.context import DEFAULT_CONTEXT
     from app.core import database as db
     from app.services import debate as debate_svc
     from app.services.arena import open_graph
@@ -320,7 +331,8 @@ async def _run_deliberate(prompt, models, thread_id, policy, synthesizer, toggle
         current: Optional[Dict[str, Any]] = None
         finished = False
         try:
-            async for event in debate_svc.run_debate(graph_app, session_id, prompt, toggles, {}):
+            async for event in debate_svc.run_debate(graph_app, session_id, prompt, toggles, {},
+                                                     context=context or DEFAULT_CONTEXT):
                 kind = event["type"]
                 if kind == "debate_round_start":
                     current = {"round": event["round"], "responses": {}, "errors": {}, "convergence_score": None}
@@ -391,6 +403,9 @@ def synthesize(
     judge: Optional[str] = typer.Option(
         None, "--judge", "-j", help=f"Model that writes the synthesis (default: {DEFAULT_MODEL}, or the debate's own synthesizer)."
     ),
+    system: Optional[str] = typer.Option(
+        None, "--system", help="System prompt sent to every model. Default: none (each model's own behaviour)."
+    ),
     format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
@@ -406,18 +421,19 @@ def synthesize(
         raise typer.BadParameter("pass exactly one of --thread or --debate")
     if judge:
         _validate_models([judge], as_json)
+    context = _run_context(as_json, system=system)
 
     if debate:
-        result = _run(_run_synthesize_debate(debate, judge, as_json), as_json)
+        result = _run(_run_synthesize_debate(debate, judge, as_json, context), as_json)
     else:
-        result = _run(_run_synthesize_thread(thread, judge or DEFAULT_MODEL, as_json), as_json)
+        result = _run(_run_synthesize_thread(thread, judge or DEFAULT_MODEL, as_json, context), as_json)
     if as_json:
         _emit_json(result)
     if not result.get("synthesis") or result["synthesis"].get("error"):
         raise typer.Exit(1)
 
 
-async def _run_synthesize_thread(thread_id, judge, as_json):
+async def _run_synthesize_thread(thread_id, judge, as_json, context):
     from app.services.arena import open_graph, synthesize_thread
     from app.cli_display import print_header, print_info, print_error, render_synthesis
 
@@ -425,7 +441,7 @@ async def _run_synthesize_thread(thread_id, judge, as_json):
     if not as_json:
         print_header()
     async with open_graph() as graph_app:
-        async for event in synthesize_thread(graph_app, thread_id, judge):
+        async for event in synthesize_thread(graph_app, thread_id, judge, context=context):
             if event["type"] == "end":
                 result["answers"][event["checkpoint_id"]] = {"model": event["model"], "content": event["content"]}
             elif event["type"] == "synthesis_start" and not as_json:
@@ -440,7 +456,7 @@ async def _run_synthesize_thread(thread_id, judge, as_json):
     return result
 
 
-async def _run_synthesize_debate(session_id, judge, as_json):
+async def _run_synthesize_debate(session_id, judge, as_json, context):
     from app.core import database as db
     from app.services import debate as debate_svc
     from app.services.arena import open_graph
@@ -452,7 +468,8 @@ async def _run_synthesize_debate(session_id, judge, as_json):
             raise ValueError(f"Debate session {session_id} not found.")
         if not as_json:
             print_header()
-        async for event in debate_svc.synthesize_session(graph_app, session_id, prompt="", synthesizer=judge):
+        async for event in debate_svc.synthesize_session(graph_app, session_id, prompt="", synthesizer=judge,
+                                                         context=context):
             if event["type"] == "error":
                 raise ValueError(event["message"])
             if event["type"] == "debate_synthesis_start" and not as_json:
@@ -1310,6 +1327,9 @@ def chat(
     web_search: bool = typer.Option(
         False, "--web-search", "-w", help="Enable web search."
     ),
+    system: Optional[str] = typer.Option(
+        None, "--system", help="System prompt sent to every model. Default: none (each model's own behaviour)."
+    ),
     format_output: str = typer.Option("rich", "--format", "-f", help=FORMAT_HELP),
 ):
     """
@@ -1327,19 +1347,21 @@ def chat(
             _fail("No prompt provided. Pass a message or pipe via stdin.", as_json)
 
     _validate_models([model], as_json)
+    context = _run_context(as_json, system=system)
     thread_id = thread or _gen_thread_id("chat")
-    result = _run(_run_chat(prompt, model, thread_id, {"use_web_search": web_search}, as_json), as_json)
+    result = _run(_run_chat(prompt, model, thread_id, {"use_web_search": web_search}, as_json, context), as_json)
     if as_json:
         _emit_json(result)
 
 
-async def _run_chat(prompt: str, model: str, thread_id: str, toggles, as_json: bool):
+async def _run_chat(prompt: str, model: str, thread_id: str, toggles, as_json: bool, context=None):
     from rich.live import Live
     from rich.markdown import Markdown
     from rich.text import Text
 
     from app.core import database as db
     from app.services.arena import open_graph, stream_run
+    from app.services.context import DEFAULT_CONTEXT
     from app.services.runs import resolve_fork_point_ex
     from app.cli_display import print_info, print_success, get_model_color, get_model_icon
 
@@ -1356,7 +1378,8 @@ async def _run_chat(prompt: str, model: str, thread_id: str, toggles, as_json: b
     try:
         async with open_graph() as graph_app:
             parent, is_new = await resolve_fork_point_ex(graph_app, thread_id)
-            async for event in stream_run(graph_app, thread_id, parent, model, prompt, toggles):
+            async for event in stream_run(graph_app, thread_id, parent, model, prompt, toggles,
+                                          context or DEFAULT_CONTEXT):
                 if event["type"] == "token":
                     buffer += event["token"]
                     if live:

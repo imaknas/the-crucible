@@ -213,3 +213,60 @@ async def test_every_debate_participant_gets_the_prompt_in_every_round(peer_labe
             # critique instructions instead.
             assert round1 == PROMPT
 
+
+# ─── The other CLI commands and MCP run_debate ──────────────────
+
+
+def _cli(*args):
+    from app.cli import app as cli_app
+
+    return CliRunner().invoke(cli_app, [*args, "--format", "json"])
+
+
+def test_cli_chat_system_option():
+    result = _cli("chat", "Q?", "-m", A, "--system", PROMPT)
+    assert result.exit_code == 0, (result.stdout, result.stderr, result.exception)
+    assert _systems(A) == [PROMPT]
+
+
+def test_cli_deliberate_system_option_reaches_every_participant_and_the_synthesizer():
+    result = _cli("deliberate", "Debate it.", "-m", A, "-m", B, "-r", "1", "--system", PROMPT)
+    assert result.exit_code == 0, (result.stdout, result.stderr, result.exception)
+    assert json.loads(result.stdout)["synthesis"] is not None
+    assert _systems(B) == [PROMPT]
+    assert _systems(A) == [PROMPT, PROMPT]  # round 0, then the argument map
+
+
+def test_cli_synthesize_thread_system_option():
+    assert _cli("arena", "Q?", "-m", A, "-m", B, "--no-synthesize", "-t", "t-syn").exit_code == 0
+    SEEN.clear()
+    result = _cli("synthesize", "-t", "t-syn", "-j", A, "--system", PROMPT)
+    assert result.exit_code == 0, (result.stdout, result.stderr, result.exception)
+    assert _systems(A) == [PROMPT]
+
+
+def test_cli_synthesize_debate_system_option():
+    deliberated = _cli("deliberate", "Debate it.", "-m", A, "-m", B, "-r", "1", "--no-synthesize")
+    session_id = json.loads(deliberated.stdout)["session_id"]
+    SEEN.clear()
+    result = _cli("synthesize", "-d", session_id, "-j", A, "--system", PROMPT)
+    assert result.exit_code == 0, (result.stdout, result.stderr, result.exception)
+    assert _systems(A) == [PROMPT]
+
+
+def test_cli_refuses_an_oversize_system_prompt_before_any_call():
+    result = _cli("chat", "Q?", "-m", A, "--system", "x" * (MAX_SYSTEM_PROMPT_CHARS + 1))
+    assert result.exit_code == 1
+    assert SEEN == []
+
+
+@pytest.mark.asyncio
+async def test_mcp_run_debate_system_prompt():
+    from app.mcp_server import mcp
+
+    async with Client(mcp) as client:
+        await client.call_tool("run_debate", {"prompt": "Debate it.", "models": [A, B], "max_rounds": 1, "system_prompt": PROMPT})
+        assert _systems(A) == [PROMPT] and _systems(B) == [PROMPT]
+        with pytest.raises(ToolError, match="limit"):
+            await client.call_tool("run_debate", {"prompt": "Q", "models": [A, B], "system_prompt": "x" * (MAX_SYSTEM_PROMPT_CHARS + 1)})
+
