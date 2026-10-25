@@ -1311,3 +1311,40 @@ Run scaffold-audit-20261025T053017.
   explanation*, which a reasoning model's filter may read as asking for its
   reasoning; the next rejection will be saved and can be read locally.
 
+### The other two readers (gemini-3.1-flash-lite, claude-haiku-5-5)
+
+Same scenarios, with Haiku 5.5 already the Anthropic-only summarizer (so the
+candidates are gemini-3.8-flash and Haiku 5.5 against luna). Spent $2.44
+(estimate $2.17). Run scaffold-audit-20261025T063311. No request was rejected;
+luna still summarized and chose what to recall.
+
+| scaffold | gemini-3.1-flash-lite | claude-haiku-5-5 | oracle-strict |
+|---|---|---|---|
+| compaction (vs never) | 0.92 → 0.92, inconclusive | 0.94 → 0.75, **harmful** | 1.00 → 1.00, **keep** |
+| verbatim window | 0.94 → 0.92, inconclusive | 0.62 → 0.75, **keep** | 1.00 → 1.00, retire |
+| recall (vs none) | 0.38 → 0.92, **keep** | 0.31 → 0.75, **keep** | 0.44 → 1.00, **keep** |
+| summarizer gemini-3.8-flash (vs luna) | 0.92 → 0.98, inconclusive | 0.75 → 0.85, inconclusive | 1.00 → 1.00, retire |
+| summarizer claude-haiku-5-5 (vs luna) | 0.92 → 0.98, inconclusive | 0.75 → 0.90, **keep** | 1.00 → 0.98, inconclusive |
+
+- **Haiku 5.5 is the weak reader of compacted context.** With the full
+  history it answers 0.94; on the app path (luna summary + recall) 0.75, a
+  harmful verdict for compaction. Recall and the verbatim window both help
+  it (0.31 → 0.75, 0.62 → 0.75), so what it misses is in luna's summary.
+  At 8K tokens the audit compacts far earlier than the app would for Haiku
+  5.5 (soft limit 70K), but long threads will reach it.
+- **Luna's summaries are the worst of the three for Haiku 5.5**: its own
+  summaries lift it to 0.90 (significant), gemini-3.8-flash's to 0.85.
+  For flash-lite both alternatives point the same way (0.92 → 0.98) without
+  reaching significance; for luna as reader (above) and on the strict
+  oracle they are equal. Across readers, Haiku 5.5 summaries are never
+  detectably worse than luna's and once better.
+- **Not acted on yet**: switching the default summarizer to Haiku 5.5. The
+  base prices are equal, but Haiku 5.5 bills 5× once a prompt passes 100K
+  tokens, and summarizer prompts for models with large soft limits pass it
+  (Sonnet 5.5 summarizes at 700K). Pilot 22 chose luna on two scenarios,
+  goal-switch included; this audit has one. A pilot comparing luna and
+  Haiku 5.5 on both scenarios, with per-reader results and the cost at
+  real thread lengths, should decide it.
+- Keyword recall is not a safe replacement for flash-lite (0.92 → 0.83,
+  inconclusive): keep the model rewriter.
+
