@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from app.api.security import OriginPolicy
+from app.api.security import OriginPolicy, allowed_hosts_from_env
 from app.main import create_app
 
 EVIL = "https://evil.example"
@@ -94,3 +94,39 @@ def test_one_policy_drives_cors_and_sockets():
     with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect("/ws/t1", headers={"origin": EVIL}):
             pass
+
+
+# ─── Host header (DNS rebinding) ─────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "host", ["localhost:8000", "127.0.0.1:8141", "[::1]:8000", "LOCALHOST", "testserver", "localhost"]
+)
+def test_local_hosts_pass(host):
+    assert _client().get("/models", headers={"host": host}).status_code == 200
+
+
+@pytest.mark.parametrize("host", ["evil.example", "evil.example:8000", "localhost.evil.example", "[::1", ""])
+def test_unknown_hosts_are_rejected(host):
+    res = _client().get("/models", headers={"host": host})
+    assert res.status_code == 400
+    assert res.text == "Invalid host header"
+
+
+def test_rebound_socket_is_rejected():
+    with pytest.raises(WebSocketDisconnect):
+        with _client().websocket_connect("/ws/t1", headers={"host": "evil.example:8000"}):
+            pass
+
+
+def test_allowed_hosts_extend_the_local_ones():
+    hosts = allowed_hosts_from_env({"ALLOWED_HOSTS": "crucible.lan, 192.168.1.20"})
+    client = _client(allowed_hosts=hosts)
+    assert client.get("/models", headers={"host": "crucible.lan:8000"}).status_code == 200
+    assert client.get("/models", headers={"host": "192.168.1.20"}).status_code == 200
+    assert client.get("/models", headers={"host": "localhost:8000"}).status_code == 200
+    assert client.get("/models", headers={"host": "evil.example"}).status_code == 400
+
+
+def test_wildcard_allows_any_host():
+    assert _client(allowed_hosts=["*"]).get("/models", headers={"host": "anything.example"}).status_code == 200

@@ -7,6 +7,9 @@ user's browser by other sites. Each gap is closed by a middleware that
 - ``WebSocketOriginGuard``: CORS only governs HTTP. Browsers let any page open
   a WebSocket to localhost and send its Origin; without a check, any site the
   user visits could run turns on the user's API keys.
+- ``TrustedHostGuard``: DNS rebinding points an attacker's hostname at
+  127.0.0.1, which makes the attacker's page same-origin with the API. The
+  Host header still carries the attacker's name, so only known hosts pass.
 
 ``OriginPolicy`` is the one definition of which browser origins may use the
 API; CORS and the WebSocket guard both read it.
@@ -15,14 +18,19 @@ API; CORS and the WebSocket guard both read it.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from starlette.datastructures import Headers
+from starlette.responses import PlainTextResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 # Local frontends on any port: the dev server and start_dev.sh pick free ports.
 LOCAL_ORIGIN_PATTERN = r"https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?"
+
+# TestClient sends Host: testserver.
+LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1", "testserver")
 
 # RFC 6455 "policy violation".
 WS_POLICY_VIOLATION = 1008
@@ -70,4 +78,39 @@ class WebSocketOriginGuard:
                 await receive()  # websocket.connect
                 await send({"type": "websocket.close", "code": WS_POLICY_VIOLATION})
                 return
+        await self.app(scope, receive, send)
+
+
+def allowed_hosts_from_env(env: Mapping[str, str]) -> tuple[str, ...]:
+    """Local hosts plus ``ALLOWED_HOSTS`` (comma separated; ``*`` allows any)."""
+    return LOCAL_HOSTS + _env_list(env.get("ALLOWED_HOSTS"))
+
+
+def host_name(host_header: str) -> str:
+    """The host part of a Host header, lower-cased, without port or IPv6 brackets."""
+    try:
+        return urlsplit(f"//{host_header}").hostname or ""
+    except ValueError:  # e.g. an unterminated "[" bracket
+        return ""
+
+
+class TrustedHostGuard:
+    """Reject requests whose Host header names a host the API isn't served as.
+
+    Starlette's TrustedHostMiddleware cuts the Host header at its first ':',
+    so an IPv6 literal such as ``[::1]:8000`` could never match; this parses it.
+    """
+
+    def __init__(self, app: ASGIApp, allowed_hosts: Iterable[str]) -> None:
+        self.app = app
+        self.allowed = frozenset(host.lower().strip("[]") for host in allowed_hosts)
+        self.allow_any = "*" in self.allowed
+
+    def allows(self, host_header: str) -> bool:
+        return self.allow_any or host_name(host_header) in self.allowed
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] in ("http", "websocket") and not self.allows(Headers(scope=scope).get("host", "")):
+            await PlainTextResponse("Invalid host header", status_code=400)(scope, receive, send)
+            return
         await self.app(scope, receive, send)
