@@ -356,3 +356,39 @@ class TestDebateCascadeDelete:
         assert db.synthesis_thread_id(legacy) == "p::synthesis"
         assert db.synthesis_thread_id(scoped) == "p::s::synthesis"
         assert db.session_thread_ids(legacy) == {"p::m", "p::synthesis"}
+
+
+class TestDebateParentTitle:
+    """A debate's parent thread is listed but stays untitled until the debate names it."""
+
+    def _session(self, parent):
+        return {
+            "session_id": "s1",
+            "parent_thread_id": parent,
+            "participants": ["a", "b"],
+            "thread_ids": {"a": f"{parent}::a", "b": f"{parent}::b"},
+            "termination_policy": {"max_rounds": 1},
+        }
+
+    def test_creating_a_session_lists_the_parent_without_a_placeholder_title(self, tmp_path):
+        from app.core import database as db
+
+        with patch.object(db, "DB_PATH", str(tmp_path / "fresh.sqlite")):
+            db.init_db()
+            # LangGraph owns this table; list_threads reads it.
+            with sqlite3.connect(db.DB_PATH) as conn:
+                conn.execute("CREATE TABLE checkpoints (thread_id TEXT, checkpoint_id TEXT)")
+            db.create_debate_session(self._session("thread_new"))
+            assert db.get_thread_title("thread_new") is None
+            assert {"id": "thread_new", "title": "thread_new"} in db.list_threads()
+
+    def test_init_clears_placeholder_titles(self, tmp_path):
+        from app.core import database as db
+
+        with patch.object(db, "DB_PATH", str(tmp_path / "old.sqlite")):
+            db.init_db()
+            db.rename_thread("thread_old", "thread_old")
+            db.rename_thread("thread_named", "A real title")
+            db.init_db()
+            assert db.get_thread_title("thread_old") is None
+            assert db.get_thread_title("thread_named") == "A real title"

@@ -76,12 +76,16 @@ def init_db():
         )
     """)
 
-    # Backfill: ensure all debate parent threads appear in thread_metadata
+    # Backfill: ensure all debate parent threads appear in thread_metadata.
+    # The row only lists the thread; its title stays NULL ("untitled") so the
+    # debate can still name it. A placeholder title equal to the thread id read
+    # as "already titled" and kept such threads named thread_xxxxxxx.
     conn.execute("""
         INSERT OR IGNORE INTO thread_metadata (thread_id, title)
-        SELECT DISTINCT parent_thread_id, parent_thread_id
+        SELECT DISTINCT parent_thread_id, NULL
         FROM debate_sessions
     """)
+    conn.execute("UPDATE thread_metadata SET title = NULL WHERE title = thread_id")
     conn.commit()
     conn.close()
 
@@ -141,10 +145,11 @@ def create_debate_session(session: dict[str, Any]) -> None:
                 session.get("synthesizer_model"),
             ),
         )
-        # Ensure parent thread appears in thread list even if it has no chat checkpoints
+        # Ensure the parent thread is listed even with no chat checkpoints. No
+        # title yet: the debate titles an untitled parent when it starts.
         conn.execute(
-            "INSERT OR IGNORE INTO thread_metadata (thread_id, title) VALUES (?, ?)",
-            (session["parent_thread_id"], session["parent_thread_id"]),
+            "INSERT OR IGNORE INTO thread_metadata (thread_id, title) VALUES (?, NULL)",
+            (session["parent_thread_id"],),
         )
         conn.commit()
     finally:
