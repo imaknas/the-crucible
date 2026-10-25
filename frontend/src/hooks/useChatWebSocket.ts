@@ -16,6 +16,7 @@ export function useChatWebSocket({
   setErrorModals,
   showConfirm,
   modelLabel = (id: string) => id,
+  onThreadsChanged,
 }: {
   threadId: string | null;
   activeCheckpoint: string | null;
@@ -35,6 +36,11 @@ export function useChatWebSocket({
   showConfirm: (title: string, message: string) => Promise<boolean>;
   /** Display name for a model ID. */
   modelLabel?: (id: string) => string;
+  /**
+   * The sidebar's thread list may be stale: a turn finished (a new thread now
+   * exists) or the backend titled the thread.
+   */
+  onThreadsChanged?: () => void;
 }) {
   const openSocket = useSocketFactory();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -60,6 +66,11 @@ export function useChatWebSocket({
   useEffect(() => {
     onHistoryRefreshRef.current = onHistoryRefreshNeeded;
   }, [onHistoryRefreshNeeded]);
+
+  const onThreadsChangedRef = useRef(onThreadsChanged);
+  useEffect(() => {
+    onThreadsChangedRef.current = onThreadsChanged;
+  }, [onThreadsChanged]);
 
   const modelLabelRef = useRef(modelLabel);
   useEffect(() => {
@@ -213,10 +224,14 @@ export function useChatWebSocket({
           expectedModelsCountRef.current = 0;
           finishedModelsCountRef.current = 0;
           setIsLoading(false);
+          // A first turn is what makes a new thread exist on the server.
+          onThreadsChangedRef.current?.();
         }
       } else if (data.type === "title_update") {
-        // Title updates should NEVER overwrite messages — only refresh tree/sidebar
+        // Title updates never overwrite messages: refresh the tree and the
+        // sidebar, which otherwise kept the old name until a reload.
         onHistoryRefreshRef.current(threadId, undefined, true);
+        onThreadsChangedRef.current?.();
       }
     };
 

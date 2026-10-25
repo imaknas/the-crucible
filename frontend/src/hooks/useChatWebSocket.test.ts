@@ -142,4 +142,23 @@ describe("useChatWebSocket", () => {
 
     expect(MockWebSocket.instances).toHaveLength(2);
   });
+
+  it("refreshes the thread list when a turn finishes and when the thread is titled", async () => {
+    const onThreadsChanged = jest.fn();
+    const { result } = renderHook(() => useChatWebSocket({ ...mockProps, onThreadsChanged }));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const ws = MockWebSocket.instances[0];
+    const frame = (data: object) => ws.onmessage?.({ data: JSON.stringify(data) });
+
+    act(() => {
+      frame({ type: "stream_start", model: "gpt-4o" });
+      frame({ type: "stream_end", model: "gpt-4o", checkpoint_id: "cp_2" });
+    });
+    expect(onThreadsChanged).toHaveBeenCalledTimes(1);
+
+    act(() => frame({ type: "title_update", thread_id: "thread_1", title: "Hello" }));
+    expect(onThreadsChanged).toHaveBeenCalledTimes(2);
+  });
 });

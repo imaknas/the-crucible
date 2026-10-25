@@ -139,6 +139,7 @@ export default function Home() {
     setErrorModals,
     showConfirm,
     modelLabel,
+    onThreadsChanged: fetchThreads,
   });
 
   useEffect(() => {

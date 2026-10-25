@@ -87,6 +87,22 @@ test.describe("live flows (scripted models)", () => {
       .toEqual([2, 2]);
   });
 
+  test("a new session appears in the sidebar under its title without a reload", async ({ page }) => {
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    const title = `Sidebar title check ${Date.now() % 100000}`;
+    await send(page, title);
+    await expect(page.getByRole("button", { name: title, exact: false }).first()).toBeVisible();
+  });
+
+  test("a debate started from a new session is listed under a readable title", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    const prompt = `Listed debate ${Date.now() % 100000}`;
+    await startDebate(page, prompt, 1);
+    await expect(
+      page.getByRole("button", { name: `Debate: ${prompt}`, exact: false }).first(),
+    ).toBeVisible();
+  });
+
   test("switching threads mid-stream does not leave the new thread loading", async ({ page }) => {
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     await send(page, "[[slow]] take your time");
