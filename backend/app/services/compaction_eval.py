@@ -471,9 +471,6 @@ async def run_condition(
                                                 as_node="synthesis")
         base_checkpoint_id = written["configurable"]["checkpoint_id"]
         base_messages += summary
-    setup = dict(setup_usage or {})
-    for name, u in settle_usage.usage_metadata.items():
-        setup[name] = dict(add_usage(setup[name], u)) if name in setup else dict(u)
     for fact in scenario.facts:
         if spend and spend.exhausted:
             break
@@ -510,6 +507,13 @@ async def run_condition(
             context_snapshot(before_answer), model_budget(model_id)
         ).act
         summarized = any(SUMMARY_MARKER in extract_text(m.content) for m in before_answer)
+        used = {name: dict(u) for name, u in usage.usage_metadata.items()}
+        if not results:
+            # Settling is this branch's own cost (each answering model's
+            # seeded branch settles separately), so it goes with the first
+            # probe's usage, not with the shared setup.
+            for name, u in settle_usage.usage_metadata.items():
+                used[name] = dict(add_usage(used[name], u)) if name in used else dict(u)
         results.append(ProbeResult(
             condition=condition.name,
             model=model_id,
@@ -520,14 +524,14 @@ async def run_condition(
             pruned=pruned,
             summarized=summarized,
             answer=answer[:200],
-            usage={name: dict(u) for name, u in usage.usage_metadata.items()},
+            usage=used,
             scenario=scenario_label,
             variant=fact.variant,
             stale=is_stale(answer, fact),
             compactions=_compactions_since(before_answer, fact.statement),
             summary_tokens=_latest_summary_tokens(before_answer),
             stated_by=scenario.stated_by.get(fact.key, "user"),
-            setup_usage=setup if not results else {},
+            setup_usage=(setup_usage or {}) if not results else {},
         ))
     return results
 

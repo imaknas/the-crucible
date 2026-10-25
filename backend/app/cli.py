@@ -1131,7 +1131,7 @@ def _rescore_eval(path: str, min_effect: float, as_json: bool) -> None:
     from app.services import compaction_eval as ce
 
     data = json.loads(Path(path).read_text())
-    options = {"facts": 24, "assistant_facts": 0.0, "fact_variants": ["plain", "distractor", "update"],
+    options = {"facts": 24, "exchanges": 140, "assistant_facts": 0.0, "fact_variants": ["plain", "distractor", "update"],
                "repeat_facts": False, "questions": "direct", "asides": False, "later_subject": "unknown", **data}
     results = ce.results_from_dicts(data["probes"])
     report, arms = _bounded(results, _eval_scenarios(options))

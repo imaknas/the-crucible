@@ -752,19 +752,23 @@ def test_every_probe_reads_the_same_settled_branch(eval_setup):
 
 
 def test_a_seeded_branch_is_summarized_once_not_once_per_probe(eval_setup):
+    """A seeded branch gets its one summary when it is settled, whatever the
+    reader writes; that summary is the branch's own cost (every answering
+    model's seeded branch settles separately), so it is billed with the
+    first probe, not as shared setup."""
     import asyncio
 
-    from app.services.compaction_eval import run_condition, seed_scenario
+    from app.services.compaction_eval import SizedSummarizer, run_condition, seed_scenario
 
     app, _ = eval_setup
     scenario = build_scenario(exchanges=30, fact_exchanges=[0, 4, 8, 12, 16, 20, 24, 29])
-    calls = []
+    reader, calls = _Verbose(seen=[]), []
 
     def models(model_id, _toggles):
         if model_id in SUMMARIZER_MODELS:
-            calls.append(model_id)
-            return FirstSentenceSummarizer()
-        return AvailabilityOracle(facts=DEFAULT_FACTS)
+            calls.append(len(reader.seen))
+            return SizedSummarizer(tokens=50)
+        return reader
 
     async def go():
         base = await seed_scenario(app, "seeded", scenario, "gpt-5.4")
@@ -772,8 +776,10 @@ def test_a_seeded_branch_is_summarized_once_not_once_per_probe(eval_setup):
                                    Condition("t2000", ThresholdPolicy(fixed_tokens(2_000))), CallableModelFactory(models))
 
     results = asyncio.run(go())
-    assert len(calls) == 1 and len(results) == len(DEFAULT_FACTS)
+    assert calls == [0] and len(results) == len(DEFAULT_FACTS)  # one summary, before the first probe
     assert all(r.summarized and r.pruned for r in results)
+    assert "sized-summarizer" in results[0].usage and not results[0].setup_usage
+    assert not any("sized-summarizer" in r.usage for r in results[1:])
 
 
 def test_the_probe_turn_placeholder_is_longer_than_any_probe():
