@@ -145,6 +145,16 @@ class JudgeCheck:
         from app.llm import default_model_factory
         from app.utils.helpers import extract_text
 
+        # A participant that errored or timed out has no position this round;
+        # the judge would see only the others and could call that agreement.
+        failed = [m for m in dict.fromkeys([*previous, *current]) if not (current.get(m) or "").strip()]
+        if failed:
+            return Verdict(
+                converged=False,
+                method="judge",
+                reason=f"Not judged: no answer this round from {', '.join(failed)}",
+            )
+
         try:
             llm = (self._factory or default_model_factory()).chat(self.judge_model, {})
             loop = asyncio.get_running_loop()

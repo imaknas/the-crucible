@@ -176,3 +176,36 @@ def test_not_stable_when_a_model_failed():
             {"a": "x", "b": "y"}, {"a": "x", "b": ""}, threshold=0.9
         )
     assert not converged
+
+
+class _FailsAfterRoundZero(FakeGraph):
+    """claude-sonnet-5 errors from round 1 on; gpt-5.4 always answers."""
+
+    async def astream_events(self, state, config, version="v2", **kwargs):
+        if state["is_deliberation"] and state["active_peer"] == "claude-sonnet-5":
+            raise RuntimeError("provider down")
+        async for event in super().astream_events(state, config, version, **kwargs):
+            yield event
+
+
+@pytest.mark.asyncio
+async def test_a_judge_only_debate_does_not_converge_on_a_round_a_model_failed():
+    from langchain_core.messages import AIMessage
+
+    from app.llm import CallableModelFactory, use_model_factory
+
+    judge_calls = []
+
+    def judge(model_id, _toggles):
+        judge_calls.append(model_id)
+        return type("M", (), {"invoke": lambda self, _m: AIMessage(content="CONVERGED: yes, same")})()
+
+    session = _session(max_rounds=2)
+    session["termination_policy"]["llm_judge"] = "gpt-5.4"
+    with _patched_db(), patch.object(debate_svc.db, "get_debate_session", return_value=session), \
+            use_model_factory(CallableModelFactory(judge)):
+        events = await _collect(run_debate(_FailsAfterRoundZero(), "debate-x", "Q", {}, {}))
+
+    assert not [e for e in events if e["type"] == "debate_converged"]
+    assert [e["model"] for e in events if e["type"] == "error"] == ["claude-sonnet-5"]
+    assert judge_calls == []

@@ -98,5 +98,37 @@ def test_build_from_policy():
     assert build_convergence_check({"convergence_threshold": None, "llm_judge": None}) is None
     assert isinstance(build_convergence_check({"convergence_threshold": 0.9}), StabilityCheck)
     assert isinstance(build_convergence_check({"llm_judge": "gpt-5.4"}), JudgeCheck)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("current", [
+    {"a": "a2", "b": ""},  # b errored: its answer is recorded empty
+    {"a": "a2", "b": "   "},
+    {"a": "a2"},  # b left no entry at all
+])
+async def test_judge_never_sees_a_round_where_a_model_failed(current):
+    """A failed model has no position; the judge, shown only the others, could
+    call that agreement. The rule matches stability: no convergence that round."""
+    calls = []
+
+    def judge(*args):
+        calls.append(args)
+        return type("M", (), {"invoke": lambda self, _m: AIMessage(content="CONVERGED: yes, same view")})()
+
+    v = await JudgeCheck("gpt-5.4", CallableModelFactory(judge)).evaluate(PREV, current)
+    assert (v.converged, v.method) == (False, "judge")
+    assert calls == []
+    assert v.reason.endswith("from b")
+
+
+@pytest.mark.asyncio
+async def test_an_incomplete_round_does_not_converge_even_with_mode_any():
+    check = build_convergence_check(
+        {"convergence_threshold": 0.5, "llm_judge": "gpt-5.4", "mode": "any"},
+        factory=_judge_factory("CONVERGED: yes, same view"),
+        embed=embed,
+    )
+    v = await check.evaluate({"a": "a1", "b": "b1"}, {"a": "a2", "b": ""})
+    assert not v.converged
     both = build_convergence_check({"convergence_threshold": 0.9, "llm_judge": "gpt-5.4", "mode": "any"})
     assert isinstance(both, CombinedCheck) and both.mode == "any"
