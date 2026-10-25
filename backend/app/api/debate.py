@@ -94,7 +94,7 @@ async def get_debate_tree(session_id: str, graph_app=Depends(get_graph_app)):
 
     participants = session["participants"]
     thread_ids = session["thread_ids"]
-    synthesis_thread_id = debate_svc.make_synthesis_thread_id(session["parent_thread_id"])
+    synthesis_thread_id = db.synthesis_thread_id(session)
 
     all_thread_states: dict[str, list] = {}
 

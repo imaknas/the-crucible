@@ -205,7 +205,23 @@ def list_debate_sessions(parent_thread_id: str | None = None) -> list[dict[str, 
         conn.close()
 
 
-SYNTHESIS_THREAD_SUFFIX = "::synthesis"
+# The synthesis thread is stored in a session's thread_ids under this key,
+# beside one entry per participant (model ids never take this name).
+SYNTHESIS_KEY = "synthesis"
+
+
+def synthesis_thread_id(session: dict[str, Any]) -> str:
+    """The thread a session's synthesis is written to.
+
+    Sessions created before thread ids were scoped to their session don't
+    store it; theirs is the parent's shared "{parent}::synthesis".
+    """
+    return session["thread_ids"].get(SYNTHESIS_KEY) or f"{session['parent_thread_id']}::{SYNTHESIS_KEY}"
+
+
+def session_thread_ids(session: dict[str, Any]) -> set[str]:
+    """Every thread a debate session writes to: its participants' and its synthesis."""
+    return {*session["thread_ids"].values(), synthesis_thread_id(session)}
 
 
 def _purge_thread_rows(conn, thread_id: str) -> None:
@@ -218,21 +234,29 @@ def _purge_thread_rows(conn, thread_id: str) -> None:
 
 def delete_debate_session(session_id: str) -> None:
     """
-    Delete a debate session and every checkpoint it created.
+    Delete a debate session and every checkpoint only it wrote.
 
-    Each participant debates in its own `{parent}::{model}` sub-thread and
-    synthesis writes to `{parent}::synthesis`. Dropping only the session row
-    left all of that behind, so the checkpoint DB grew without bound.
+    Dropping only the session row left its sub-threads behind, so the
+    checkpoint DB grew without bound. A session's threads are the ids it
+    stores (`{parent}::{session_id}::{model}` and `::synthesis`). Sessions
+    created before ids were scoped share `{parent}::{model}` and
+    `{parent}::synthesis` with every other such debate on that parent, so a
+    thread another session still names is kept.
     """
     session = get_debate_session(session_id)
+    if session:
+        others = [
+            s for s in list_debate_sessions(session["parent_thread_id"])
+            if s["session_id"] != session_id
+        ]
+        still_used = set().union(*(session_thread_ids(s) for s in others))
+        doomed = session_thread_ids(session) - still_used
+    else:
+        doomed = set()
     conn = get_db_connection()
     try:
-        if session:
-            for sub_thread_id in session.get("thread_ids", {}).values():
-                _purge_thread_rows(conn, sub_thread_id)
-            _purge_thread_rows(
-                conn, f"{session['parent_thread_id']}{SYNTHESIS_THREAD_SUFFIX}"
-            )
+        for thread_id in doomed:
+            _purge_thread_rows(conn, thread_id)
         conn.execute("DELETE FROM debate_sessions WHERE session_id = ?", (session_id,))
         conn.commit()
     finally:
@@ -354,14 +378,14 @@ def delete_thread_data(thread_id):
     """
     Delete a thread and everything derived from it.
 
-    That includes every debate sub-thread (`{thread_id}::{model}`) and the
-    synthesis thread, plus the `debate_sessions` rows themselves — deleting only
-    the parent used to orphan all of them.
+    That includes every debate sub-thread and synthesis thread (all named
+    `{thread_id}::…`), plus the `debate_sessions` rows themselves — deleting
+    only the parent used to orphan all of them.
     """
     conn = get_db_connection()
     try:
         _purge_thread_rows(conn, thread_id)
-        # Sub-threads are namespaced "{thread_id}::{model}". Compared by prefix
+        # Sub-threads are namespaced "{thread_id}::…". Compared by prefix
         # rather than LIKE because thread ids contain "_", a LIKE wildcard.
         prefix = f"{thread_id}::"
         for table in ("checkpoints", "writes", "node_positions", "thread_metadata"):

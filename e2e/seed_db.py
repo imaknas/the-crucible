@@ -142,7 +142,7 @@ async def main():
         # Synthesis lane
         await _invoke(
             app,
-            debate_svc.make_synthesis_thread_id(DEBATE_THREAD_ID),
+            db.synthesis_thread_id(session),
             "gpt-5.4",
             "Synthesize the debate.",
         )

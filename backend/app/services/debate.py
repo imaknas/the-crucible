@@ -2,10 +2,10 @@
 Debate session coordinator.
 
 Orchestrates multi-round, multi-model debates. Each model gets its own
-LangGraph thread (thread_id = "{parent_thread_id}::{model_id}"). Rounds
+LangGraph thread ("{parent_thread_id}::{session_id}::{model_id}"). Rounds
 progress through Independent → Cross-Examination → (optional) Synthesis.
 
-Yields typed event dicts consumed by the WebSocket handler in main.py.
+Yields typed event dicts consumed by the WebSocket handler in api/debate.py.
 """
 
 import asyncio
@@ -23,8 +23,6 @@ from app.services.runs import final_state_of_run, tag_run, thread_config
 from app.utils.helpers import extract_text
 
 # ─── Constants ───────────────────────────────────────────────────────────────
-
-SYNTHESIS_THREAD_SUFFIX = "::synthesis"
 
 # Per-model budget for one round's graph run (summarise → draft → metadata →
 # synthesis). A reply whose draft already finished is kept even if the later
@@ -70,12 +68,14 @@ class DebateControl:
         return taken
 
 
-def make_thread_id(parent_thread_id: str, model_id: str) -> str:
-    return f"{parent_thread_id}::{model_id}"
+def make_thread_id(parent_thread_id: str, session_id: str, model_id: str) -> str:
+    """A participant's sub-thread. Scoped to the session: two debates on one
+    parent thread must not read, draw or delete each other's rounds."""
+    return f"{parent_thread_id}::{session_id}::{model_id}"
 
 
-def make_synthesis_thread_id(parent_thread_id: str) -> str:
-    return f"{parent_thread_id}{SYNTHESIS_THREAD_SUFFIX}"
+def make_synthesis_thread_id(parent_thread_id: str, session_id: str) -> str:
+    return f"{parent_thread_id}::{session_id}::{db.SYNTHESIS_KEY}"
 
 
 # ─── Session factory ─────────────────────────────────────────────────────────
@@ -118,7 +118,10 @@ def create_session(
 ) -> dict[str, Any]:
     check_session_config(participants, termination_policy, synthesizer_model, known_models)
     session_id = f"debate-{uuid4().hex[:12]}"
-    thread_ids = {m: make_thread_id(parent_thread_id, m) for m in participants}
+    # Stored, not derived, so the id scheme can change without losing the
+    # threads of sessions created under an older one.
+    thread_ids = {m: make_thread_id(parent_thread_id, session_id, m) for m in participants}
+    thread_ids[db.SYNTHESIS_KEY] = make_synthesis_thread_id(parent_thread_id, session_id)
     session = {
         "session_id": session_id,
         "parent_thread_id": parent_thread_id,
@@ -549,8 +552,7 @@ async def _stream_synthesis(
     context: ContextSettings = DEFAULT_CONTEXT,
 ) -> AsyncGenerator[dict[str, Any], None]:
     synthesizer = session["synthesizer_model"]
-    parent_thread_id = session["parent_thread_id"]
-    synthesis_thread_id = make_synthesis_thread_id(parent_thread_id)
+    synthesis_thread_id = db.synthesis_thread_id(session)
 
     yield {"type": "debate_synthesis_start", "session_id": session_id, "model": synthesizer}
 

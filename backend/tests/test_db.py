@@ -287,3 +287,69 @@ class TestDebateCascadeDelete:
         # The parent thread is untouched; only the debate's own threads go.
         assert self._threads_left(db) == {"t1", "t2"}
         assert db.get_debate_session("d1") is None
+
+    @staticmethod
+    def _scoped(db, session_id):
+        """A session as created now: every thread id scoped to the session."""
+        thread_ids = {m: f"t1::{session_id}::{m}" for m in ("m1", "m2")}
+        thread_ids["synthesis"] = f"t1::{session_id}::synthesis"
+        db.create_debate_session({
+            "session_id": session_id,
+            "parent_thread_id": "t1",
+            "participants": ["m1", "m2"],
+            "thread_ids": thread_ids,
+            "termination_policy": {"max_rounds": 3},
+        })
+        conn = sqlite3.connect(db.DB_PATH)
+        for tid in thread_ids.values():
+            conn.execute("INSERT INTO checkpoints VALUES (?, 'cp1')", (tid,))
+        conn.commit()
+        conn.close()
+        return set(thread_ids.values())
+
+    def test_deleting_one_session_leaves_another_on_the_same_thread(self):
+        from app.core import database as db
+
+        a = self._scoped(db, "dA")
+        b = self._scoped(db, "dB")
+        db.delete_debate_session("dA")
+
+        assert self._threads_left(db) == b
+        assert not a & self._threads_left(db)
+        assert db.get_debate_session("dB") is not None
+
+    def test_legacy_sessions_sharing_threads_keep_them_until_the_last_goes(self):
+        """Sessions created before ids were scoped share "{parent}::{model}" and
+        "{parent}::synthesis"; deleting one must not erase the other's debate."""
+        from app.core import database as db
+
+        self._seed(db)
+        db.create_debate_session({
+            "session_id": "d2",
+            "parent_thread_id": "t1",
+            "participants": ["m1", "m2"],
+            "thread_ids": {"m1": "t1::m1", "m2": "t1::m2"},
+            "termination_policy": {"max_rounds": 3},
+        })
+
+        db.delete_debate_session("d1")
+        assert self._threads_left(db) == {"t1", "t1::m1", "t1::m2", "t1::synthesis", "t2"}
+
+        db.delete_debate_session("d2")
+        assert self._threads_left(db) == {"t1", "t2"}
+
+    def test_delete_thread_removes_scoped_sub_threads(self):
+        from app.core import database as db
+
+        self._scoped(db, "dA")
+        db.delete_thread_data("t1")
+        assert self._threads_left(db) == set()
+
+    def test_synthesis_thread_of_a_legacy_session_is_derived(self):
+        from app.core import database as db
+
+        legacy = {"parent_thread_id": "p", "thread_ids": {"m": "p::m"}}
+        scoped = {"parent_thread_id": "p", "thread_ids": {"m": "p::s::m", "synthesis": "p::s::synthesis"}}
+        assert db.synthesis_thread_id(legacy) == "p::synthesis"
+        assert db.synthesis_thread_id(scoped) == "p::s::synthesis"
+        assert db.session_thread_ids(legacy) == {"p::m", "p::synthesis"}

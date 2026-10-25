@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.debate import _build_round_prompts, create_session, make_thread_id
+from app.services.debate import _build_round_prompts, create_session, make_synthesis_thread_id, make_thread_id
 from app.services.convergence import _compute_sync, _cosine_similarity
 
 
@@ -12,7 +12,8 @@ from app.services.convergence import _compute_sync, _cosine_similarity
 
 
 def test_make_thread_id():
-    assert make_thread_id("thread-abc", "claude-sonnet-4-6") == "thread-abc::claude-sonnet-4-6"
+    assert make_thread_id("thread-abc", "debate-1", "claude-sonnet-4-6") == "thread-abc::debate-1::claude-sonnet-4-6"
+    assert make_synthesis_thread_id("thread-abc", "debate-1") == "thread-abc::debate-1::synthesis"
 
 
 def test_build_round_prompts_round_0():
@@ -152,8 +153,13 @@ def test_create_session_structure():
 
     assert session["parent_thread_id"] == "thread-xyz"
     assert session["participants"] == ["gpt-5.2", "claude-sonnet-4-6"]
-    assert session["thread_ids"]["gpt-5.2"] == "thread-xyz::gpt-5.2"
-    assert session["thread_ids"]["claude-sonnet-4-6"] == "thread-xyz::claude-sonnet-4-6"
+    sid = session["session_id"]
+    # Scoped to the session, and the synthesis thread is stored, not derived.
+    assert session["thread_ids"] == {
+        "gpt-5.2": f"thread-xyz::{sid}::gpt-5.2",
+        "claude-sonnet-4-6": f"thread-xyz::{sid}::claude-sonnet-4-6",
+        "synthesis": f"thread-xyz::{sid}::synthesis",
+    }
     assert session["status"] == "running"
     assert session["current_round"] == 0
     assert session["session_id"].startswith("debate-")
