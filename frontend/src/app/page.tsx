@@ -29,6 +29,7 @@ import { useSummarizerChoice } from "@/hooks/useSummarizerChoice";
 import { useSystemPrompt } from "@/hooks/useSystemPrompt";
 import { useDebateDefaults } from "@/hooks/useDebateDefaults";
 import { useTreeActions } from "@/hooks/useTreeActions";
+import { peerLegend } from "@/lib/debateTranscript";
 
 /**
  * The app shell. State lives in hooks; this component wires them together and
@@ -174,6 +175,7 @@ export default function Home() {
           maxRounds: debate.maxRounds,
           status: debate.status,
           convergenceScore: debate.convergenceScore,
+          legend: peerLegend(debate.tree.lanes),
         },
         onClose: debate.close,
         onSynthesize: debate.controls.synthesize

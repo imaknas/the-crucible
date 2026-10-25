@@ -5,6 +5,7 @@ import {
   sessionRowStatus,
   earlyStopStatus,
   restoredDebateStatus,
+  peerLegend,
   roundLabel,
   transcriptReducer,
   type Transcript,
@@ -146,6 +147,24 @@ describe("sessionRowStatus", () => {
 describe("questionMessage", () => {
   it("is a user bubble with the question", () => {
     expect(questionMessage("Tabs or spaces?")).toMatchObject({ role: "user", content: "Tabs or spaces?" });
+  });
+});
+
+describe("peerLegend", () => {
+  it("maps each participant label to its model, in label order", () => {
+    const lanes = [
+      { model_id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", peer_label: "Participant B", lane_index: 0, color: "#f59e0b" },
+      { model_id: "gpt-6.1-sol", label: "GPT-6.1 Sol", peer_label: "Participant A", lane_index: 1, color: "#10b981" },
+    ];
+    expect(peerLegend(lanes).map((e) => `${e.label}=${e.name}`)).toEqual([
+      "Participant A=GPT-6.1 Sol",
+      "Participant B=Claude Sonnet 5.5",
+    ]);
+  });
+
+  it("is empty when the models saw each other's names", () => {
+    expect(peerLegend([{ model_id: "gpt-6.1-sol", peer_label: null, lane_index: 0, color: "#000" }])).toEqual([]);
+    expect(peerLegend(undefined)).toEqual([]);
   });
 });
 

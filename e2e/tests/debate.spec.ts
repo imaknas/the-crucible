@@ -37,9 +37,13 @@ test.describe("debate tree", () => {
   });
 
   test("draws one lane per model with display-name headers", async ({ page }) => {
-    // Both the lane pill and each node badge carry title={model_id}; scope to
-    // the <span> pills so this asserts the headers specifically.
-    const pills = page.locator('span[title="gpt-5.4"], span[title="claude-sonnet-5"]');
+    // The lane pill, each node badge and the banner's participant legend carry
+    // title={model_id}; scope to <span> pills outside the legend so this
+    // asserts the headers specifically.
+    const outsideLegend = ':not([aria-label="Who each participant is"] > span)';
+    const pills = page.locator(
+      `span[title="gpt-5.4"]${outsideLegend}, span[title="claude-sonnet-5"]${outsideLegend}`,
+    );
     await expect(pills).toHaveCount(2);
     await expect(pills.filter({ hasText: "GPT-5.4" })).toHaveCount(1);
     await expect(pills.filter({ hasText: "Claude Sonnet 5" })).toHaveCount(1);

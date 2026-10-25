@@ -245,6 +245,10 @@ test.describe("live flows (scripted models)", () => {
 
     // The debated question heads the transcript.
     await expect(page.getByText("Is a hot dog a sandwich?").first()).toBeVisible();
+    // Peers are anonymous to each other; the banner says who each label is.
+    const legend = page.getByLabel("Who each participant is").first();
+    await expect(legend).toContainText("GPT-6.1 Sol");
+    await expect(legend).toContainText("Claude Sonnet 5.5");
 
     await page.getByRole("button", { name: "Pause debate" }).click();
     await expect(debateStatus(page)).toHaveText("pausing after this round");

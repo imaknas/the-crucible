@@ -2,12 +2,15 @@ import React from "react";
 import { Box, ButtonBase, Typography, useTheme } from "@mui/material";
 import { Pause, Play, Sparkles, Swords, X as XIcon } from "lucide-react";
 import type { DebateUiStatus } from "@/lib/types";
+import type { PeerLegendEntry } from "@/lib/debateTranscript";
 
 export interface DebateBannerState {
   round: number;
   maxRounds: number;
   status: DebateUiStatus;
   convergenceScore?: number;
+  /** Which model each anonymous "Participant X" is; empty for named debates. */
+  legend?: PeerLegendEntry[];
 }
 
 const DEBATE_STATUS_STYLE: Record<DebateUiStatus, { bg: string; fg: string }> = {
@@ -93,6 +96,24 @@ export default function DebateBanner({
       >
         {STATUS_LABEL[state.status] ?? state.status}
       </Box>
+      {state.legend && state.legend.length > 0 && (
+        <Box
+          aria-label="Who each participant is"
+          sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1, minWidth: 0 }}
+        >
+          {state.legend.map((entry) => (
+            <Typography
+              key={entry.label}
+              variant="caption"
+              title={entry.modelId}
+              sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.7rem", color: "text.secondary" }}
+            >
+              <Box component="span" sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: entry.color }} />
+              {entry.label.replace("Participant ", "")} = {entry.name}
+            </Typography>
+          ))}
+        </Box>
+      )}
       <Box sx={{ flex: 1 }} />
       {(onPause || onResume) && (
         <ButtonBase

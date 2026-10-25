@@ -6,7 +6,7 @@
  * batching) and every side effect. Keeping the transformation pure is what
  * makes it testable without a socket or a page.
  */
-import type { DebateSession, DebateUiStatus, Message } from "@/lib/types";
+import type { DebateLane, DebateSession, DebateUiStatus, Message } from "@/lib/types";
 
 export interface Transcript {
   messages: Message[];
@@ -42,6 +42,30 @@ export type TranscriptAction =
 export function roundLabel(round: number, form: "full" | "short" = "full"): string {
   if (round !== 0) return `Round ${round + 1}`;
   return form === "full" ? "Round 1 · independent answers" : "Round 1 · independent";
+}
+
+export interface PeerLegendEntry {
+  label: string;
+  name: string;
+  modelId: string;
+  color: string;
+}
+
+/**
+ * Which model each "Participant X" is. With anonymous peers, replies and the
+ * argument map refer to each other by these labels, so a reader needs the key;
+ * empty when the models saw each other's names.
+ */
+export function peerLegend(lanes: DebateLane[] | undefined): PeerLegendEntry[] {
+  return (lanes ?? [])
+    .filter((lane) => !!lane.peer_label)
+    .map((lane) => ({
+      label: lane.peer_label as string,
+      name: lane.label || lane.model_id,
+      modelId: lane.model_id,
+      color: lane.color,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /** The debated question, shown at the top of the transcript. */
