@@ -87,6 +87,12 @@ to fetch?):
     (goal switch) — no worse than the best on either — at ~1/25 of
     gemini-3.8-flash per summary. Alone, its summaries keep 42/96: once the
     originals can be fetched, the summary's job shrinks to a pointer.
+    **Weakened 2026-10-25** (harness bias, last entry): the other
+    summarizers' misses with recall were mostly harness artifacts. Within
+    the rescored bounds gemini-3.8-flash is best on both scenarios and luna
+    misses equivalence on the goal switch by 0.01–0.02 of the ±0.1 margin;
+    luna is 2–3 facts behind, and stays the default on cost, not on the
+    pre-registered rule.
 
 **Changed in the app:** the re-summarize thrash fix; `SUMMARIZER_MODELS`
 now leads with gpt-6-luna (pilot 22; gemini-3.8-flash before that, pilot 4),
@@ -104,7 +110,10 @@ defaults.
 **Limitations:** synthetic conversations only; 3 conversations × 24 facts
 per cell; small and mid-size models; one threshold (8,000 tokens); no
 multiple-comparison correction; keyword recall is favoured by probes that
-name their subject. Total spend about $80: about $41 before the budget
+name their subject. **Every run up to 2026-10-25 chained its probes** and
+let the oracle guess the asked fact from the request text; conditions with
+recall whose branches were re-summarized while probing are biased against
+(see "Harness bias", the last entry, for the bounds and what still holds). Total spend about $80: about $41 before the budget
 guard existed, about $36 metered since ($34.0 in the result and audit
 files, plus calibration for runs that were then refused), and about $3 of
 unmetered rewriter calls made by cost estimates before that was fixed
@@ -1223,6 +1232,10 @@ What else the table says:
   every other summarizer by 16–29 facts. Its long summaries already carry
   most facts; why recall does not recover the remaining eight (strict
   oracle: values not attached to their subject) is not yet understood.
+  *Explained 2026-10-25:* all eight answers were the value of a fact
+  probed earlier on the same branch — a harness artifact, not a miss
+  (see "Harness bias"). Rescored, 3.8-flash with recall keeps 56/56 to
+  64/64 on this scenario.
 - luna's summaries are the shortest (0.9–2k tokens), so every later call
   also reads less.
 - Conditional on: synthetic conversations, threshold 8,000, the brief
@@ -1259,6 +1272,12 @@ Run scaffold-audit-20260928T113602; every probe in `experiments/audit/runs/`.
   scenario, now reproduced. A hypothesis to test: a thorough-looking
   summary leads the rewriter to ask for less, while its values are
   detached from their subjects (strict fails).
+  *Explained 2026-10-25:* four of the six misses were earlier-probed
+  facts' values (harness artifact); rescored 42/44 to 46/48, and both
+  "harmful" strict-oracle verdicts in this table (3.8-flash and
+  claude-haiku-4-5 summarizing) become no_headroom. Flash-lite's lower
+  scores with the alternative summarizers (0.81 vs 0.88) and with recall
+  (0.88) are artifacts too: rescored, it reads 0.98 on the app path.
 - **Verbatim window: "retire" on the oracle, not acted on.** With recall
   on, the newest messages add nothing to *fact* availability here; for the
   real readers the verdict is inconclusive. The probes only measure
@@ -1299,6 +1318,14 @@ Run scaffold-audit-20261025T053017.
   summaries keep what luna's keep (no detectable loss on the strict oracle),
   4.5's lose a fifth of the strict facts again, and 5.5 costs a tenth. Luna
   stays the default; Haiku 4.5 leaves SUMMARIZER_MODELS.
+  **Corrected 2026-10-25:** Haiku 4.5's "harmful" (1.00 → 0.79) is a
+  harness artifact. All ten strict misses are in conversation seed 1 and
+  each answer is the value of one of the first five facts probed on that
+  branch (61,700 / Oyelaran / saffron-2 / kubernetes / 15 june); rescored,
+  Haiku 4.5 is 1.00 → 1.00 (no_headroom), like Haiku 5.5 (1.00 → 0.98).
+  The decision stands on price alone: Haiku 5.5 costs a tenth of 4.5 and
+  is not detectably worse. "Again" referred to the second audit's 0.88,
+  also an artifact.
 - Recall remains essential (0.35–0.40 without, 0.98–1.00 with); compaction
   and the verbatim window read as before.
 - **Not measured**: flash-lite and Haiku 5.5 as readers. Rerunning them does
@@ -1326,18 +1353,33 @@ luna still summarized and chose what to recall.
 | summarizer gemini-3.8-flash (vs luna) | 0.92 → 0.98, inconclusive | 0.75 → 0.85, inconclusive | 1.00 → 1.00, retire |
 | summarizer claude-haiku-5-5 (vs luna) | 0.92 → 0.98, inconclusive | 0.75 → 0.90, **keep** | 1.00 → 0.98, inconclusive |
 
-- **Haiku 5.5 is the weak reader of compacted context.** With the full
+- ~~**Haiku 5.5 is the weak reader of compacted context.**~~ With the full
   history it answers 0.94; on the app path (luna summary + recall) 0.75, a
   harmful verdict for compaction. Recall and the verbatim window both help
   it (0.31 → 0.75, 0.62 → 0.75), so what it misses is in luna's summary.
   At 8K tokens the audit compacts far earlier than the app would for Haiku
   5.5 (soft limit 70K), but long threads will reach it.
-- **Luna's summaries are the worst of the three for Haiku 5.5**: its own
+- ~~**Luna's summaries are the worst of the three for Haiku 5.5**~~: its own
   summaries lift it to 0.90 (significant), gemini-3.8-flash's to 0.85.
   For flash-lite both alternatives point the same way (0.92 → 0.98) without
   reaching significance; for luna as reader (above) and on the strict
   oracle they are equal. Across readers, Haiku 5.5 summaries are never
   detectably worse than luna's and once better.
+- **Corrected 2026-10-25: both claims above are confounded, not measured.**
+  Haiku 5.5 writes long answers; on the chained branches of the old harness
+  they pushed every Haiku 5.5 branch past the threshold again, so 9–16
+  summaries were written *while probing* each of its cells (0–4 for the
+  other readers), and recall then brought earlier probes back into the
+  request. Most of its misses (7 of 12 on the app path, 13 of 18 without
+  the verbatim window) give an earlier-probed fact's value. Within the
+  rescored bounds compaction is inconclusive for it (0.94 → 0.88/0.90),
+  not harmful; Haiku 5.5's own summaries no longer beat luna's
+  (0.88/0.90 → 0.96, inconclusive), and gemini-3.8-flash's now would
+  (0.88/0.90 → 1.00, keep) — but only 2–7 of its 48 probes per cell were
+  answered before the first summary written while probing, so no Haiku 5.5
+  reader verdict, recorded or rescored, describes the app path. The
+  decision below still holds, for its other reasons (price above 100K
+  tokens, the strong reader and the strict oracle equal).
 - **Not acted on yet**: switching the default summarizer to Haiku 5.5. The
   base prices are equal, but Haiku 5.5 bills 5× once a prompt passes 100K
   tokens, and summarizer prompts for models with large soft limits pass it
@@ -1346,12 +1388,225 @@ luna still summarized and chose what to recall.
 - **Decision: luna stays the default, no pilot.** The readers that matter
   are the chat models people pick, mostly strong ones, and for the strong
   reader (luna) and the strict oracle the two summarizers are equal; Haiku
-  5.5's edge is for a weak reader. Where summaries are written — at
+  5.5's edge is for a weak reader (an edge the rescoring removes; see the
+  correction above). Where summaries are written — at
   100K–800K-token soft limits — Haiku 5.5 costs 5× luna. The one case where
   it is better at the same price is Haiku 5.5 summarizing for itself (its
   70K soft limit keeps prompts under 100K), but choosing the summarizer by
   chat model is a new mechanism with an audit entry of its own, not worth
   it while Haiku 5.5 is rarely the chat model.
 - Keyword recall is not a safe replacement for flash-lite (0.92 → 0.83,
-  inconclusive): keep the model rewriter.
+  inconclusive): keep the model rewriter. (Rescored 0.94 → 0.91–0.92,
+  still inconclusive: not shown to be a safe replacement, nor an unsafe one.)
+
+## 2026-10-25 — Harness bias: chained probes and the oracle's question matching
+
+A review of the third audit found that the harness itself produced some of
+the misses it reported. No model was called for this entry; everything
+below is a rescoring of stored probes.
+
+**The bug.** Two parts, which compound:
+
+1. *Chained probes.* `run_condition` asked a branch's 24 probes in order
+   on one branch: each probe forked from the previous probe's checkpoint
+   (`parent = final...checkpoint_id`). Earlier questions and answers became
+   history, and once that history grew past the 8K threshold the summarize
+   step ran again *during probing*. A verbose reader (Haiku 5.5) did that
+   9–16 times per cell; the oracles' one-word answers rarely did (0–2).
+   After such a summary, guided recall searched the hidden originals for
+   the new question — and an earlier probe of the same kind ("Which port
+   does X listen on?", "…Y listen on?") matches best.
+2. *The oracle guessed the fact from the request text.* Recalled excerpts
+   are attached to the latest user message (`_with_request_notes`), and
+   `AvailabilityOracle` chose its candidates by `f.question in
+   messages[-1]`, taking the first match in fact order. Once an earlier
+   same-kind probe was recalled into the request, the oracle answered the
+   earlier fact's value.
+
+Evidence: in scaffold-audit-20261025T053017 all ten strict-oracle misses
+for `summarizer-claude-haiku-4-5` are in conversation seed 1, and every
+answer is the value of one of the first five facts (61,700 / Oyelaran /
+saffron-2 / kubernetes / 15 june). Real readers are affected through the
+same history and the extra summaries, though not through the oracle's
+matching.
+
+**The fix** (commit b5d54d2):
+
+- Every probe forks from one *settled* checkpoint. Settling runs the
+  summarize step once more, as the app would when the first probe arrives
+  (a fixed-length placeholder stands in for the probe: only its length
+  decides whether a summary is due). In a live replay this happens inside
+  the shared replay, so all answering models still read identical
+  summaries; a seeded branch gets its single summary here. Probes then run
+  under a policy that prunes as the condition says but never summarizes,
+  and a probe that writes a summary is an error. Shared replays, spend
+  metering and the replay cache work as before.
+- `run_condition` names the probed fact (and its scenario, since keys like
+  `on-goal-number` repeat across seeds) in the run's metadata; the oracle
+  reads it from its run manager. Question matching remains only for calls
+  that name no fact.
+- `crucible compaction-eval --rescore <file>` and `crucible scaffold-audit
+  --rescore <run>` rescore stored probes without a model call; the audit
+  history is read, never written.
+- Scaffold verdicts report `no_headroom` when both arms are ≥ 0.95, or a
+  scaffold that has to improve has a baseline already there; a detectable
+  loss stays `harmful`. Most "retire" and several "keep" verdicts below
+  were two arms at 1.00: the probes were too easy to say either.
+- Replay keys include the summarizer's catalog identity (release date and
+  the catalog's sync date). REPLAY_VERSION is 2. Both orphan every cached
+  replay: the next real run pays for its summaries again.
+
+**How the rescoring bounds it.** A wrong answer that commits to another
+fact's accepted value from the same scenario is flagged; "earlier" when
+that fact was probed before it on the branch (the chaining signature),
+"later" otherwise (which chaining cannot produce: a real reader confusing
+subjects looks the same). Neither can be told apart from the answer alone,
+so each run is reported as recorded, with the flagged probes *left out*
+(lower; the pair drops from paired tests) and *counted correct* (upper).
+"Unaffected" keeps only probes answered before any summary was written
+while their branch was being probed. Summaries written during probing also
+changed what *non*-flagged probes read, which no bound captures; the
+unaffected count shows how much of a cell is clean.
+
+### Pilot 22, strict oracle
+
+| summarizer | dense, recall: recorded → lower / upper | goal switch, recall: recorded → lower / upper |
+|---|---|---|
+| gemini-3.8-flash | 96/96 → 96/96 / 96/96 | 56/64 → **56/56 / 64/64** (8 earlier-sibling) |
+| gemini-3.5-flash-lite | 88/96 → 88/88 / 96/96 (8) | 43/64 → 43/52 / 55/64 (12) |
+| gpt-6-luna | 93/96 → 93/96 / 93/96 (0) | **62/64** → 62/64 / 62/64 (0) |
+| claude-haiku-4-5 | 85/96 → 85/86 / 95/96 (10) | 60/64 → 60/63 / 61/64 (1) |
+
+Without recall nothing is flagged (the artifact needs recall), but one or
+two summaries were written while probing in most non-luna cells (e.g.
+gemini-3.8-flash alone on the goal switch: 48/56 unaffected vs 56/64
+recorded). luna's summaries are short enough that its branches were never
+re-summarized while probing, so luna's numbers are the only clean ones.
+
+The pre-registered rule, applied to either bound:
+1. Best with recall: **gemini-3.8-flash on both scenarios** (recorded: luna
+   was best on the goal switch).
+2. Equivalent to the best at ±0.1: on dense, all three others. On the goal
+   switch, luna is 2/64 behind and *not* shown equivalent: 3.8-flash −
+   luna = +0.036 [−0.033, +0.121] (lower) / +0.031 [−0.030, +0.107]
+   (upper), missing the margin by 0.02 / 0.01. Haiku 4.5 likewise
+   (+0.036 [−0.03, +0.12] / +0.047 [−0.02, +0.13]); flash-lite is worse.
+3. Eligible: gemini-3.8-flash only.
+
+**So pilot 22's rule no longer picks gpt-6-luna; read literally it picks
+gemini-3.8-flash.** It is knife-edge: a 2-fact gap and an interval edge
+0.01–0.02 past the margin, with intervals that are too narrow anyway (see
+the limits below). luna stays the default on cost, not on the rule: about
+$0.002 per summary against $0.034–0.060 for 3.8-flash at 2027 prices
+(17–30×), and summaries a third the length that every later call reads.
+That trade (≤ 3 facts in 96 or 64 for ~1/25 of the cost) is a judgment
+the pre-registered rule did not make, and should be re-tested on the
+fixed harness before it is either confirmed or reversed. The default was
+not changed. Without recall the ranking stands as recorded (luna 42/96,
+3.8-flash 90/96 on dense).
+
+### Second audit (scaffold-audit-20260928T113602, luna summarizing)
+
+| scaffold | model | recorded | lower / upper |
+|---|---|---|---|
+| compaction | gemini-3.1-flash-lite | 0.98 → 0.88 inconclusive | 0.98 → 0.98 no_headroom |
+| verbatim window | gemini-3.1-flash-lite | 0.92 → 0.88 inconclusive | 0.98 → 0.98 no_headroom |
+| recall | gemini-3.1-flash-lite | 0.40 → 0.88 keep | 0.40 → 0.98 keep |
+| summarizer gemini-3.8-flash | gemini-3.1-flash-lite | 0.88 → 0.81 inconclusive | 0.98 → 1.00 no_headroom |
+| | oracle-strict | 1.00 → 0.88 **harmful** | 1.00 → 0.95 / 0.96 no_headroom |
+| summarizer claude-haiku-4-5 | gemini-3.1-flash-lite | 0.88 → 0.81 inconclusive | 0.98 → 0.89 / 0.90 no_headroom |
+| | oracle-strict | 1.00 → 0.88 **harmful** | 1.00 → 1.00 no_headroom |
+
+All other rows keep their numbers; those with both arms at 0.98–1.00
+(oracle-strict compaction and verbatim window, luna reading the verbatim
+window and both summarizer candidates) become no_headroom under the new
+rule. Recall is keep in every view.
+
+### Third audit, part 1 (scaffold-audit-20261025T053017, luna reading)
+
+| scaffold | model | recorded | lower / upper |
+|---|---|---|---|
+| summarizer claude-haiku-4-5 | oracle-strict | 1.00 → 0.79 **harmful** | 1.00 → 1.00 no_headroom |
+| state instruction | oracle-strict | 1.00 → 0.98 inconclusive | 1.00 → 1.00 no_headroom |
+| keep-user-messages | gpt-6-luna | 0.98 → 0.96 inconclusive | 0.98 → 0.98 no_headroom |
+
+Every other row keeps its numbers. Recall stays keep (0.35 → 0.98, 0.40 →
+1.00); compaction for luna stays inconclusive (0.92 → 0.98); the eleven
+"retire"/"keep" rows at 0.98–1.00 on both arms become no_headroom.
+
+### Third audit, part 2 (scaffold-audit-20261025T063311, flash-lite and Haiku 5.5 reading)
+
+| scaffold | model | recorded | lower / upper |
+|---|---|---|---|
+| compaction | claude-haiku-5-5 | 0.94 → 0.75 **harmful** | 0.94 → 0.88 / 0.90 inconclusive |
+| verbatim window | gemini-3.1-flash-lite | 0.94 → 0.92 inconclusive | 1.00 → 0.94 no_headroom |
+| | claude-haiku-5-5 | 0.62 → 0.75 **keep** | 0.86 → 0.88 / 0.90 → 0.90 inconclusive |
+| recall | claude-haiku-5-5 | 0.31 → 0.75 keep | 0.33 → 0.88 / 0.38 → 0.90 keep |
+| summarizer gemini-3.8-flash | claude-haiku-5-5 | 0.75 → 0.85 inconclusive | 0.88 → 1.00 / 0.90 → 1.00 **keep** |
+| summarizer claude-haiku-5-5 | claude-haiku-5-5 | 0.75 → 0.90 **keep** | 0.88 → 0.96 / 0.90 → 0.96 inconclusive |
+
+Flash-lite's other rows move by 0.02–0.09 and stay inconclusive (recall:
+keep); the oracle rows become no_headroom. **Every Haiku 5.5 row is
+confounded**: 9–16 summaries were written while probing each of its
+compacted cells, and only 2–7 of 48 probes per cell came before the first
+one. Neither the recorded
+nor the rescored Haiku 5.5 verdicts describe the app path; the flip
+toward gemini-3.8-flash summaries for that reader is as unsupported as the
+recorded flip toward Haiku 5.5's own.
+
+### What changes, and what does not
+
+- **Retracted:** Haiku 4.5's summaries are "harmful" (both audits);
+  gemini-3.8-flash's path is "below luna's on the strict oracle" and the
+  "unexplained gap" behind it (pilot 22, second audit); recall or the
+  alternative summarizers lowering flash-lite; Haiku 5.5 "reads compacted
+  context poorly" and "luna's summaries are the worst for Haiku 5.5".
+- **Stands:** recall is essential (keep in every run and view); compaction
+  is never shown harmful outside the confounded reader; Haiku 5.5 as the
+  Anthropic-only summarizer, now on price alone (a tenth of Haiku 4.5, not
+  detectably worse).
+- **Weakened:** luna as the default summarizer (pilot 22 above).
+- **Other pilots, same check** (`--rescore` on every results file):
+  earlier-sibling answers appear only in pilot 15 (17, gemini-3.8-flash
+  with keyword recall), pilot 17 (12, claude-haiku-4-5 summaries with
+  recall) and pilot 8a (6, gemini-3.8-flash reading with embedding
+  recall); all in recall conditions, so those pilots understated recall,
+  and their conclusions only get stronger. The first audit
+  (scaffold-audit-20260928T095722) kept no per-probe file and cannot be
+  rescored; its observation that flash-lite "gave the same value to
+  different questions" with recall fits this artifact as well as the
+  explanation given there.
+- The verdicts recorded in `experiments/audit/history.jsonl` are left as
+  they were run; `--rescore` reproduces the tables above.
+
+### Limits this fix does not address
+
+- **Probes are clustered.** 24 facts share one conversation and one chain
+  of summaries, and an audit has two conversations (pilot 22: four). The
+  paired interval treats 48 probes as independent, so the intervals are
+  too narrow; the effective sample is closer to the number of
+  conversations. Pilot 22's knife-edge is inside that error.
+- **The same two seeds every audit** (dense seeds 0 and 1). Audits are not
+  independent replications: a quirk of one conversation — as seed 1 was
+  here — repeats in every audit and reads as a stable result.
+- **No multiple-comparison correction.** An audit judges 18–24 scaffold ×
+  reader pairs; at a 95% level roughly one verdict per audit is expected
+  by chance.
+- **An 8K threshold against real soft limits of 70K–800K.** At 8K a
+  summary covers a few dozen turns and passes happen every few turns; in
+  the app a summary covers hundreds. The regime the audit measures is not
+  the one users hit, and the ceiling problem (most arms at 0.98–1.00 on
+  the dense scenario) says the probes are too easy for the readers that
+  matter.
+
+**Next steps**, before any audit or pilot is acted on again: more
+conversations per cell (≥ 8) with seeds rotated between audits and
+recorded with the run; cluster-bootstrap intervals over conversations
+instead of per-probe Newcombe intervals; Holm correction across the
+records of one audit; at least one threshold near a real soft limit and a
+harder scenario (the goal switch with indirect questions) so arms leave
+the ceiling; then re-run pilot 22's comparison and the audit on the fixed
+harness. **No further paid run should be based on the old harness** (any
+commit before b5d54d2): its numbers for recall conditions and for verbose
+readers are biased in a direction that depends on the condition.
 
