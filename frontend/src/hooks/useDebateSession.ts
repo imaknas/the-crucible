@@ -109,6 +109,11 @@ export function useDebateSession({
   // Debate nodes are read-only, so selection just expands the node in place.
   const [activeNode, setActiveNode] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  // The question the open dialog is about to debate.
+  const [dialogPrompt, setDialogPrompt] = useState("");
+  // Bumped once a debate has started, so the composer clears only then:
+  // cancelling the dialog keeps what you typed.
+  const [startCount, setStartCount] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const tokenBufferRef = useRef<Record<string, string>>({});
@@ -401,6 +406,7 @@ export function useDebateSession({
 
   const openDialog = useCallback((prompt: string) => {
     promptRef.current = prompt;
+    setDialogPrompt(prompt);
     setDialogOpen(true);
   }, []);
 
@@ -439,6 +445,7 @@ export function useDebateSession({
         dispatch({ kind: "reset" });
         setConvergenceScore(undefined);
         participantsRef.current = session.participants;
+        setStartCount((n) => n + 1);
         setShowTree(true);
 
         connect(
@@ -583,6 +590,8 @@ export function useDebateSession({
     convergenceScore,
     controls,
     dialogOpen,
+    dialogPrompt,
+    startCount,
     openDialog,
     closeDialog,
     start,

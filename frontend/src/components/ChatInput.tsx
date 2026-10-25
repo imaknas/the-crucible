@@ -33,6 +33,8 @@ interface ChatInputProps {
   onDebateOpen?: (prompt: string) => void;
   onDebateInject?: (message: string) => void;
   onDebateRedirect?: (message: string) => void;
+  /** Clears the composer whenever it changes (e.g. once a debate has started). */
+  clearSignal?: number;
 }
 
 export const ChatInput = React.memo(
@@ -53,8 +55,14 @@ export const ChatInput = React.memo(
     onDebateOpen,
     onDebateInject,
     onDebateRedirect,
+    clearSignal = 0,
   }: ChatInputProps) => {
     const [localInput, setLocalInput] = React.useState(initialInput);
+    const [seenClearSignal, setSeenClearSignal] = React.useState(clearSignal);
+    if (clearSignal !== seenClearSignal) {
+      setSeenClearSignal(clearSignal);
+      setLocalInput("");
+    }
 
     React.useEffect(() => {
       setLocalInput(initialInput);
@@ -82,10 +90,11 @@ export const ChatInput = React.memo(
       setLocalInput("");
     };
 
+    // The text stays until the debate actually starts (clearSignal), so
+    // cancelling the dialog doesn't lose it.
     const handleDebateClick = () => {
       if (!localInput.trim() || isLoading || selectedModels.length < 2) return;
       onDebateOpen?.(localInput);
-      setLocalInput("");
     };
 
     return (

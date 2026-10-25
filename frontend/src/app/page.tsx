@@ -376,6 +376,7 @@ export default function Home() {
                   onDebatePause={inDebate && debate.controls.pause ? debate.pause : undefined}
                   onDebateResume={inDebate && debate.controls.resume ? debate.resume : undefined}
                   modelLabel={modelLabel}
+                  composerClearSignal={debate.startCount}
                 />
               </motion.div>
             )}
@@ -418,6 +419,8 @@ export default function Home() {
         defaults={debateDefaults}
         availableModels={allModelIds.length ? allModelIds : selectedModels}
         modelLabel={modelLabel}
+        question={debate.dialogPrompt}
+        participants={selectedModels}
       />
 
       <ConfirmDialog request={confirmRequest} onAnswer={answerConfirm} />

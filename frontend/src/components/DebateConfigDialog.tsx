@@ -13,6 +13,7 @@ import {
   Stack,
   Select,
   MenuItem,
+  Chip,
   useTheme,
 } from "@mui/material";
 import { Swords } from "lucide-react";
@@ -27,6 +28,9 @@ interface DebateConfigDialogProps {
   availableModels: string[];
   /** Display name for a model ID; the ID itself goes in a tooltip. */
   modelLabel: (id: string) => string;
+  /** The question the models will debate, shown so you know what you're starting. */
+  question: string;
+  participants: string[];
 }
 
 export default function DebateConfigDialog({
@@ -36,14 +40,32 @@ export default function DebateConfigDialog({
   defaults,
   availableModels,
   modelLabel,
+  question,
+  participants,
 }: DebateConfigDialogProps) {
   const isDark = useTheme().palette.mode === "dark";
   const [config, setConfig] = useState<DebateDefaults>(defaults);
+  // The field's raw text: clamped on blur and on start, not per keystroke.
+  const [roundsText, setRoundsText] = useState(String(defaults.max_rounds));
 
-  // Sync when defaults change (user updates ControlPanel)
-  React.useEffect(() => {
+  // Each opening starts from the current defaults (the Control Panel's).
+  const [syncedFor, setSyncedFor] = useState({ defaults, open });
+  if (syncedFor.defaults !== defaults || syncedFor.open !== open) {
+    setSyncedFor({ defaults, open });
     setConfig(defaults);
-  }, [defaults, open]);
+    setRoundsText(String(defaults.max_rounds));
+  }
+
+  const commitRounds = () => {
+    // Clamped here, on blur and on start, never per keystroke: clamping while
+    // typing turned a cleared field into "3" and made two-digit counts
+    // impossible to type. An empty or invalid field keeps the last value.
+    const typed = Number.parseInt(roundsText.trim(), 10);
+    const max_rounds = Number.isFinite(typed) ? clampRounds(typed) : config.max_rounds;
+    setRoundsText(String(max_rounds));
+    setConfig((p) => ({ ...p, max_rounds }));
+    return max_rounds;
+  };
 
   const labelSx = { fontSize: "0.8rem", color: "text.secondary", minWidth: 140 };
   const rowSx = { display: "flex", alignItems: "center", gap: 2 };
@@ -58,7 +80,9 @@ export default function DebateConfigDialog({
           bgcolor: isDark ? "#111827" : "#fff",
           border: "1px solid",
           borderColor: isDark ? "rgba(255,255,255,0.08)" : "divider",
-          minWidth: 380,
+          minWidth: { xs: "auto", sm: 380 },
+          width: { xs: "calc(100% - 32px)", sm: "auto" },
+          maxWidth: 520,
           backgroundImage: "none",
         },
       }}
@@ -82,6 +106,34 @@ export default function DebateConfigDialog({
 
       <DialogContent sx={{ pt: 2 }}>
         <Stack spacing={2.5}>
+          <Box>
+            <Typography sx={{ ...labelSx, mb: 0.5 }}>Question</Typography>
+            <Typography
+              data-testid="debate-question"
+              sx={{
+                fontSize: "0.9rem",
+                color: "text.primary",
+                whiteSpace: "pre-wrap",
+                maxHeight: 120,
+                overflow: "auto",
+                p: 1.25,
+                borderRadius: 1.5,
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              {question}
+            </Typography>
+          </Box>
+          <Box>
+            <Typography sx={{ ...labelSx, mb: 0.5 }}>Participants</Typography>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+              {participants.map((m) => (
+                <Chip key={m} size="small" label={modelLabel(m)} title={m} />
+              ))}
+            </Box>
+          </Box>
+
           {/* Max rounds */}
           <Box sx={rowSx}>
             <Typography sx={labelSx}>Max rounds</Typography>
@@ -91,13 +143,9 @@ export default function DebateConfigDialog({
               aria-label="Max rounds"
               min={1}
               max={MAX_DEBATE_ROUNDS}
-              value={config.max_rounds}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setConfig((p) => ({
-                  ...p,
-                  max_rounds: clampRounds(parseInt(e.target.value)),
-                }))
-              }
+              value={roundsText}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRoundsText(e.target.value)}
+              onBlur={commitRounds}
               sx={{
                 width: 64,
                 px: 1.5,
@@ -245,7 +293,7 @@ export default function DebateConfigDialog({
           Cancel
         </Button>
         <Button
-          onClick={() => onStart(config)}
+          onClick={() => onStart({ ...config, max_rounds: commitRounds() })}
           variant="contained"
           size="small"
           sx={{

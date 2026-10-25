@@ -48,6 +48,8 @@ interface ChatViewProps {
   onDebateResume?: () => void;
   /** Display name for a model ID; raw IDs only appear in tooltips. */
   modelLabel: (id: string) => string;
+  /** Changes when the composer should empty itself (a debate started). */
+  composerClearSignal?: number;
 }
 
 
@@ -82,6 +84,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onDebatePause,
   onDebateResume,
   modelLabel,
+  composerClearSignal,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerContentRef = useRef<HTMLDivElement>(null);
@@ -976,6 +979,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         onDebateOpen={onDebateOpen}
         onDebateInject={onDebateInject}
         onDebateRedirect={onDebateRedirect}
+        clearSignal={composerClearSignal}
       />
     </Box>
   );

@@ -103,6 +103,27 @@ test.describe("live flows (scripted models)", () => {
     ).toBeVisible();
   });
 
+  test("the debate dialog shows what it will start, and cancelling keeps the prompt", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    const composer = page.getByPlaceholder(/Ask the arena/i);
+    await composer.fill("Should we rewrite it in Rust?");
+    await page.getByRole("button", { name: "Start debate" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Should we rewrite it in Rust?")).toBeVisible();
+    await expect(dialog.getByText("Claude Sonnet 5.5")).toBeVisible();
+    // Typing a two-digit count over the default must not be clamped mid-way.
+    const rounds = dialog.getByLabel("Max rounds");
+    await rounds.fill("");
+    await rounds.pressSequentially("10");
+    await expect(rounds).toHaveValue("10");
+
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(composer).toHaveValue("Should we rewrite it in Rust?");
+  });
+
   test("switching threads mid-stream does not leave the new thread loading", async ({ page }) => {
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     await send(page, "[[slow]] take your time");
