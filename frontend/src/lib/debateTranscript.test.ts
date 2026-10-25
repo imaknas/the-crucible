@@ -1,6 +1,8 @@
 import {
   EMPTY_TRANSCRIPT,
   debateControls,
+  questionMessage,
+  sessionRowStatus,
   earlyStopStatus,
   restoredDebateStatus,
   transcriptReducer,
@@ -108,9 +110,27 @@ describe("debate status helpers", () => {
     expect(debateControls("running", true)).toEqual({
       inject: true, redirect: true, pause: true, resume: false, synthesize: false, stopOnClose: true,
     });
-    expect(debateControls("pausing", true)).toMatchObject({ pause: false, resume: false, synthesize: false, stopOnClose: true });
-    expect(debateControls("paused", true)).toMatchObject({ resume: true, synthesize: true, stopOnClose: true });
+    expect(debateControls("pausing", true)).toMatchObject({ inject: true, pause: false, resume: false, synthesize: false, stopOnClose: true });
+    // A paused debate still takes injected messages; they join the next round.
+    expect(debateControls("paused", true)).toMatchObject({ inject: true, resume: true, synthesize: true, stopOnClose: true });
     expect(debateControls("interrupted", true)).toMatchObject({ inject: false, synthesize: true, stopOnClose: false });
     expect(debateControls("completed", false).synthesize).toBe(false);
+  });
+});
+
+describe("sessionRowStatus", () => {
+  it("shows the live status of the debate this tab is driving", () => {
+    expect(sessionRowStatus("running", "paused")).toBe("paused");
+    expect(sessionRowStatus("running", "pausing")).toBe("pausing");
+    expect(sessionRowStatus("running", "stable")).toBe("completed");
+  });
+  it("falls back to the server's record for other sessions", () => {
+    expect(sessionRowStatus("interrupted", null)).toBe("interrupted");
+  });
+});
+
+describe("questionMessage", () => {
+  it("is a user bubble with the question", () => {
+    expect(questionMessage("Tabs or spaces?")).toMatchObject({ role: "user", content: "Tabs or spaces?" });
   });
 });

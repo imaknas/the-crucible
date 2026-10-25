@@ -135,9 +135,22 @@ describe("useDebateSession", () => {
       ws.emit({ type: "stream_end", model: "a", round: 0, content: "Hi there" });
     });
 
-    expect(result.current.messages.map((m) => m.content)).toEqual(["Round 1", "Hi there"]);
+    expect(result.current.messages.map((m) => m.content)).toEqual(["Question?", "Round 1", "Hi there"]);
     expect(result.current.status).toBe("running");
     expect(result.current.controls.pause).toBe(true);
+  });
+
+  it("takes injected messages while paused instead of letting the composer chat", async () => {
+    const { result, sockets } = setup();
+    await startDebate(result);
+    const ws = sockets[0];
+    act(() => ws.open());
+    act(() => ws.emit({ type: "debate_session_status", status: "paused" }));
+
+    expect(result.current.status).toBe("paused");
+    expect(result.current.controls.inject).toBe(true);
+    act(() => result.current.inject("consider cost"));
+    expect(ws.sent.at(-1)).toEqual({ type: "debate_inject", message: "consider cost" });
   });
 
   it("a failed model closes its bubble and notifies with its label", async () => {
@@ -148,7 +161,7 @@ describe("useDebateSession", () => {
       sockets[0].emit({ type: "stream_start", model: "b", round: 0 });
       sockets[0].emit({ type: "error", model: "b", round: 0, message: "timed out" });
     });
-    expect(result.current.messages[0]).toMatchObject({ streaming: false, content: "_(no response: timed out)_" });
+    expect(result.current.messages.at(-1)).toMatchObject({ streaming: false, content: "_(no response: timed out)_" });
     expect(opts.pushToast).toHaveBeenCalledWith("timed out", "B");
   });
 

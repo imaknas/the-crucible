@@ -16,7 +16,8 @@ import {
 } from "@mui/material";
 import { Terminal, Zap, Check, X, Edit3, Trash2, Search, Swords, ChevronDown, ChevronRight } from "lucide-react";
 import { searchHistory } from "@/lib/api";
-import type { DebateSession } from "@/lib/types";
+import type { DebateSession, DebateUiStatus } from "@/lib/types";
+import { sessionRowStatus } from "@/lib/debateTranscript";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Thread {
@@ -38,6 +39,8 @@ interface SidebarProps {
   onSwitchCheckpoint: (id: string) => void;
   debateSessions?: DebateSession[];
   activeDebateSessionId?: string | null;
+  /** Live status of the active debate; the server's record says "running" while paused. */
+  activeDebateStatus?: DebateUiStatus | null;
   onSwitchDebateSession?: (sessionId: string) => void;
   onDeleteDebateSession?: (sessionId: string) => void;
   /** Human-facing model name; raw IDs belong in tooltips only. */
@@ -59,6 +62,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
     onSwitchCheckpoint,
     debateSessions = [],
     activeDebateSessionId,
+    activeDebateStatus,
     onSwitchDebateSession,
     onDeleteDebateSession,
     modelLabel = (id: string) => id,
@@ -390,6 +394,9 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                                   <Box sx={{ ml: 2, mt: 0.5, borderLeft: "2px solid rgba(139,92,246,0.25)", pl: 1.5, pb: 0.5 }}>
                                     {threadDebates.map((s) => {
                                       const isActiveDebate = s.session_id === activeDebateSessionId;
+                                      const rowStatus = sessionRowStatus(s.status, isActiveDebate ? activeDebateStatus : null);
+                                      const statusColor =
+                                        rowStatus === "running" ? "#10b981" : rowStatus === "paused" || rowStatus === "pausing" ? "#f59e0b" : undefined;
                                       return (
                                         <ListItemButton
                                           key={s.session_id}
@@ -409,8 +416,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                                               <Typography variant="caption" title={s.participants.join(" vs ")} sx={{ fontWeight: 700, color: isActiveDebate ? "#a78bfa" : "text.primary", fontSize: "0.68rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                                 {s.participants.map(modelLabel).join(" vs ")}
                                               </Typography>
-                                              <Box sx={{ px: 0.75, py: 0.1, borderRadius: 1, fontSize: "0.55rem", fontWeight: 700, bgcolor: s.status === "running" ? "rgba(16,185,129,0.15)" : "rgba(100,116,139,0.15)", color: s.status === "running" ? "#10b981" : "text.secondary" }}>
-                                                {s.status}
+                                              <Box sx={{ px: 0.75, py: 0.1, borderRadius: 1, fontSize: "0.6875rem", fontWeight: 700, bgcolor: statusColor ? `${statusColor}26` : "rgba(100,116,139,0.15)", color: statusColor ?? "text.secondary" }}>
+                                                {rowStatus}
                                               </Box>
                                               {onDeleteDebateSession && (
                                                 <IconButton

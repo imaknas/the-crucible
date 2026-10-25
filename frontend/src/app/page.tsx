@@ -12,6 +12,7 @@ import ErrorModal from "@/components/ErrorModal";
 import Toast from "@/components/Toast";
 import DebateConfigDialog from "@/components/DebateConfigDialog";
 import AppHeader from "@/components/AppHeader";
+import DebateBanner, { type DebateBannerProps } from "@/components/DebateBanner";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import * as api from "@/lib/api";
 import type { Message } from "@/lib/types";
@@ -162,6 +163,23 @@ export default function Home() {
   });
   const inDebate = !!debate.activeSessionId;
   const debateHasTranscript = debate.messages.length > 0;
+  // One banner for both views: its controls must be reachable from the tree too.
+  const debateBanner: DebateBannerProps | null = inDebate
+    ? {
+        state: {
+          round: debate.round,
+          maxRounds: debate.maxRounds,
+          status: debate.status,
+          convergenceScore: debate.convergenceScore,
+        },
+        onClose: debate.close,
+        onSynthesize: debate.controls.synthesize
+          ? () => debate.synthesize(debateDefaults.synthesizer_model, toggles, summarizer)
+          : undefined,
+        onPause: debate.controls.pause ? debate.pause : undefined,
+        onResume: debate.controls.resume ? debate.resume : undefined,
+      }
+    : null;
 
   // ─── Tree node & composer actions ───────────────────────────────
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -244,6 +262,7 @@ export default function Home() {
         onSwitchCheckpoint={selectCheckpoint}
         debateSessions={debate.sessions}
         activeDebateSessionId={debate.activeSessionId}
+        activeDebateStatus={inDebate ? debate.status : null}
         modelLabel={modelLabel}
         onDeleteDebateSession={debate.remove}
         onSwitchDebateSession={debate.switchTo}
@@ -299,17 +318,22 @@ export default function Home() {
                 className="absolute inset-0 w-full h-full"
               >
                 {inDebate ? (
-                  <TreeCanvas
-                    key={`debate-${debate.activeSessionId}`}
-                    nodes={debate.tree.nodes}
-                    edges={debate.tree.edges}
-                    debateMode
-                    lanes={debate.tree.lanes}
-                    roundScores={debate.tree.sessionMeta?.round_scores}
-                    maxRound={debate.tree.sessionMeta?.max_round ?? debate.round}
-                    activeNodeId={debate.activeNode || undefined}
-                    onNodeClick={debate.setActiveNode}
-                  />
+                  <div className="w-full h-full flex flex-col">
+                    {debateBanner && <DebateBanner {...debateBanner} />}
+                    <div className="flex-1 min-h-0 relative">
+                      <TreeCanvas
+                        key={`debate-${debate.activeSessionId}`}
+                        nodes={debate.tree.nodes}
+                        edges={debate.tree.edges}
+                        debateMode
+                        lanes={debate.tree.lanes}
+                        roundScores={debate.tree.sessionMeta?.round_scores}
+                        maxRound={debate.tree.sessionMeta?.max_round ?? debate.round}
+                        activeNodeId={debate.activeNode || undefined}
+                        onNodeClick={debate.setActiveNode}
+                      />
+                    </div>
+                  </div>
                 ) : (
                   <TreeCanvas
                     key={threadId}
@@ -357,24 +381,7 @@ export default function Home() {
                   onDebateOpen={debate.openDialog}
                   onDebateInject={inDebate && debate.controls.inject ? debate.inject : undefined}
                   onDebateRedirect={inDebate && debate.controls.redirect ? debate.redirect : undefined}
-                  debateState={
-                    inDebate && debateHasTranscript
-                      ? {
-                          round: debate.round,
-                          maxRounds: debate.maxRounds,
-                          status: debate.status,
-                          convergenceScore: debate.convergenceScore,
-                        }
-                      : null
-                  }
-                  onDebateStop={inDebate ? debate.close : undefined}
-                  onDebateSynthesize={
-                    inDebate && debate.controls.synthesize
-                      ? () => debate.synthesize(debateDefaults.synthesizer_model, toggles, summarizer)
-                      : undefined
-                  }
-                  onDebatePause={inDebate && debate.controls.pause ? debate.pause : undefined}
-                  onDebateResume={inDebate && debate.controls.resume ? debate.resume : undefined}
+                  debateBanner={inDebate && debateHasTranscript ? debateBanner : null}
                   modelLabel={modelLabel}
                   composerClearSignal={debate.startCount}
                 />

@@ -139,12 +139,29 @@ test.describe("live flows (scripted models)", () => {
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await startDebate(page, "Is a hot dog a sandwich?", 3);
 
+    // The debated question heads the transcript.
+    await expect(page.getByText("Is a hot dog a sandwich?").first()).toBeVisible();
+
     await page.getByRole("button", { name: "Pause debate" }).click();
     await expect(debateStatus(page)).toHaveText("pausing after this round");
     await expect(debateStatus(page)).toHaveText("paused");
     // Held: the next round does not start while paused.
     await page.waitForTimeout(1500);
     await expect(page.getByText("DEBATE · ROUND 1/3")).toBeVisible();
+    // The sidebar row reports the live status, not the server's "running".
+    await expect(
+      page.locator('[aria-current="true"]').getByText("paused", { exact: true }),
+    ).toBeVisible();
+
+    // While paused, Send injects into the next round rather than chatting.
+    await page.getByPlaceholder(/Ask the arena/i).fill("Consider street food law");
+    await page.getByRole("button", { name: "Inject into debate" }).click();
+    await expect(page.getByText(/Inject:/)).toBeVisible();
+
+    // The controls are reachable from the tree view too.
+    await showTree(page);
+    await expect(page.getByRole("button", { name: "Resume debate" })).toBeVisible();
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
 
     await page.getByRole("button", { name: "Resume debate" }).click();
     await expect(page.getByText("DEBATE · ROUND 2/3")).toBeVisible();

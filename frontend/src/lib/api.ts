@@ -154,6 +154,7 @@ import type {
   DebateTreeResponse,
   TerminationPolicy,
 } from "@/lib/types";
+import { questionMessage } from "@/lib/debateTranscript";
 
 export async function createDebateSession(params: {
   parent_thread_id: string;
@@ -225,14 +226,7 @@ export async function loadDebateMessages(session: DebateSession): Promise<import
   const result: import("@/lib/types").Message[] = [];
 
   // Original prompt at the top
-  if (originalPrompt) {
-    result.push({
-      id: "restored-prompt",
-      role: "user",
-      content: originalPrompt,
-      type: "human",
-    } as any);
-  }
+  if (originalPrompt) result.push(questionMessage(originalPrompt));
 
   for (let r = 0; r < maxRounds; r++) {
     result.push({

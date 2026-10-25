@@ -34,6 +34,11 @@ export type TranscriptAction =
   | { kind: "user"; entry: "inject" | "redirect"; content: string; now: number }
   | { kind: "reset"; messages?: Message[] };
 
+/** The debated question, shown at the top of the transcript. */
+export function questionMessage(content: string): Message {
+  return { id: "debate-question", role: "user", content, type: "human" };
+}
+
 function update(messages: Message[], id: string, patch: (m: Message) => Message): Message[] {
   return messages.map((m) => (m.id === id ? patch(m) : m));
 }
@@ -152,6 +157,18 @@ function applyEvent(state: Transcript, event: TranscriptEvent, now: number): Tra
 // ─── Status & controls ───────────────────────────────────────────
 
 /**
+ * The status a sidebar row shows. The server's record only knows a debate is
+ * running; the tab driving it knows it is pausing or paused.
+ */
+export function sessionRowStatus(
+  serverStatus: DebateSession["status"],
+  liveStatus: DebateUiStatus | null | undefined,
+): string {
+  if (!liveStatus) return serverStatus;
+  return liveStatus === "converged" || liveStatus === "stable" ? "completed" : liveStatus;
+}
+
+/**
  * A session loaded from the server has no socket in this tab, so it cannot be
  * running here: the backend cancels a debate when its socket closes.
  */
@@ -178,15 +195,22 @@ export interface DebateControls {
   stopOnClose: boolean;
 }
 
-/** Which debate controls the UI offers for a given state. */
+/**
+ * Which debate controls the UI offers for a given state.
+ *
+ * Injecting stays available while a debate is pausing or paused: the message
+ * joins the next round's prompts, and without it the composer fell back to
+ * sending an ordinary chat turn in the middle of a paused debate.
+ */
 export function debateControls(status: DebateUiStatus, hasTranscript: boolean): DebateControls {
   const live = status === "running";
+  const held = status === "pausing" || status === "paused";
   return {
-    inject: live,
+    inject: live || held,
     redirect: live,
     pause: live,
     resume: status === "paused",
     synthesize: hasTranscript && status !== "running" && status !== "pausing",
-    stopOnClose: live || status === "pausing" || status === "paused",
+    stopOnClose: live || held,
   };
 }

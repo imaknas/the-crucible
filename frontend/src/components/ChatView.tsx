@@ -12,9 +12,9 @@ import {
 import { CheckCircle2, Sparkles, Network, Scale, Swords, X as XIcon, Pause, Play } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatInput } from "./ChatInput";
-import DebateBanner, { type DebateBannerState } from "./DebateBanner";
+import DebateBanner, { type DebateBannerProps } from "./DebateBanner";
 import { MessageBubble, getModelColor } from "./MessageBubble";
-import { DebateUiStatus, Message } from "@/lib/types";
+import { Message } from "@/lib/types";
 
 interface ChatViewProps {
   messages: Message[];
@@ -41,11 +41,8 @@ interface ChatViewProps {
   onDebateOpen?: (prompt: string) => void;
   onDebateInject?: (message: string) => void;
   onDebateRedirect?: (message: string) => void;
-  debateState?: DebateBannerState | null;
-  onDebateStop?: () => void;
-  onDebateSynthesize?: () => void;
-  onDebatePause?: () => void;
-  onDebateResume?: () => void;
+  /** The debate on screen (status and its controls), or null. */
+  debateBanner?: DebateBannerProps | null;
   /** Display name for a model ID; raw IDs only appear in tooltips. */
   modelLabel: (id: string) => string;
   /** Changes when the composer should empty itself (a debate started). */
@@ -78,11 +75,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onDebateOpen,
   onDebateInject,
   onDebateRedirect,
-  debateState,
-  onDebateStop,
-  onDebateSynthesize,
-  onDebatePause,
-  onDebateResume,
+  debateBanner,
   modelLabel,
   composerClearSignal,
 }) => {
@@ -283,15 +276,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         bgcolor: "transparent",
       }}
     >
-      {debateState && (
-        <DebateBanner
-          state={debateState}
-          onPause={onDebatePause}
-          onResume={onDebateResume}
-          onSynthesize={onDebateSynthesize}
-          onClose={onDebateStop}
-        />
-      )}
+      {debateBanner && <DebateBanner {...debateBanner} />}
 
       <Box
         sx={{
@@ -980,6 +965,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         onDebateInject={onDebateInject}
         onDebateRedirect={onDebateRedirect}
         clearSignal={composerClearSignal}
+        debateOnScreen={!!debateBanner}
       />
     </Box>
   );

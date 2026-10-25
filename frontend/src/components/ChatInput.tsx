@@ -35,6 +35,8 @@ interface ChatInputProps {
   onDebateRedirect?: (message: string) => void;
   /** Clears the composer whenever it changes (e.g. once a debate has started). */
   clearSignal?: number;
+  /** A finished debate is on screen: Send continues the regular chat instead. */
+  debateOnScreen?: boolean;
 }
 
 export const ChatInput = React.memo(
@@ -56,6 +58,7 @@ export const ChatInput = React.memo(
     onDebateInject,
     onDebateRedirect,
     clearSignal = 0,
+    debateOnScreen = false,
   }: ChatInputProps) => {
     const [localInput, setLocalInput] = React.useState(initialInput);
     const [seenClearSignal, setSeenClearSignal] = React.useState(clearSignal);
@@ -187,7 +190,7 @@ export const ChatInput = React.memo(
                     handleSend();
                   }
                 }}
-                placeholder="Ask the arena…"
+                placeholder={onDebateInject ? "Ask the arena… (goes to the debate's next round)" : "Ask the arena…"}
                 variant="standard"
                 InputProps={{
                   disableUnderline: true,
@@ -433,7 +436,7 @@ export const ChatInput = React.memo(
                   </ButtonBase>
                 ) : (
                   <Tooltip
-                    title={onDebateInject ? "Inject into debate" : ""}
+                    title={onDebateInject ? "Add to the debate's next round" : ""}
                     placement="top"
                     arrow
                     disableHoverListener={!onDebateInject}
@@ -517,7 +520,13 @@ export const ChatInput = React.memo(
                     color: "text.secondary",
                   }}
                 >
-                  {isLoading ? "Processing…" : onDebateInject ? "Debate Active · Inject" : "Ready"}
+                  {isLoading
+                    ? "Processing…"
+                    : onDebateInject
+                      ? "Debate · Send adds your message to the next round"
+                      : debateOnScreen
+                        ? "Debate over · Send starts a regular chat turn"
+                        : "Ready"}
                 </Typography>
               </Box>
               {showEditButton && (

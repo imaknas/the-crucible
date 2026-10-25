@@ -5,6 +5,7 @@ import {
   EMPTY_TRANSCRIPT,
   debateControls,
   earlyStopStatus,
+  questionMessage,
   restoredDebateStatus,
   transcriptReducer,
   type TranscriptEvent,
@@ -442,7 +443,7 @@ export function useDebateSession({
         setMaxRounds(config.max_rounds);
         setRound(0);
         setStatus("running");
-        dispatch({ kind: "reset" });
+        dispatch({ kind: "reset", messages: [questionMessage(promptRef.current)] });
         setConvergenceScore(undefined);
         participantsRef.current = session.participants;
         setStartCount((n) => n + 1);

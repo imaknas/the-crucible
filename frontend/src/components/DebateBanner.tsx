@@ -26,8 +26,16 @@ const STATUS_LABEL: Partial<Record<DebateUiStatus, string>> = {
   stable: "answers stopped changing",
 };
 
+export interface DebateBannerProps {
+  state: DebateBannerState;
+  onPause?: () => void;
+  onResume?: () => void;
+  onSynthesize?: () => void;
+  onClose?: () => void;
+}
+
 /**
- * The strip above a debate transcript: round, convergence, status and the
+ * The strip above a debate transcript or tree: round, convergence, status and the
  * controls that apply right now. Which controls exist is decided by the
  * caller (debateControls in lib/debateTranscript); absent handlers hide them.
  */
@@ -37,13 +45,7 @@ export default function DebateBanner({
   onResume,
   onSynthesize,
   onClose,
-}: {
-  state: DebateBannerState;
-  onPause?: () => void;
-  onResume?: () => void;
-  onSynthesize?: () => void;
-  onClose?: () => void;
-}) {
+}: DebateBannerProps) {
   const isDark = useTheme().palette.mode === "dark";
   return (
     <Box
