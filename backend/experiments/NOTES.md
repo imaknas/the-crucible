@@ -1430,7 +1430,8 @@ saffron-2 / kubernetes / 15 june). Real readers are affected through the
 same history and the extra summaries, though not through the oracle's
 matching.
 
-**The fix** (commit b5d54d2):
+**The fix** (2026-10-25, `fix(eval): fork every probe from one settled
+checkpoint; the oracle reads its fact`):
 
 - Every probe forks from one *settled* checkpoint. Settling runs the
   summarize step once more, as the app would when the first probe arrives
@@ -1607,6 +1608,7 @@ records of one audit; at least one threshold near a real soft limit and a
 harder scenario (the goal switch with indirect questions) so arms leave
 the ceiling; then re-run pilot 22's comparison and the audit on the fixed
 harness. **No further paid run should be based on the old harness** (any
-commit before b5d54d2): its numbers for recall conditions and for verbose
+code without that 2026-10-25 fix; a fixed run's replays are keyed with
+REPLAY_VERSION 2): its numbers for recall conditions and for verbose
 readers are biased in a direction that depends on the condition.
 
