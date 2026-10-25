@@ -178,6 +178,8 @@ test.describe("live flows (scripted models)", () => {
         } catch {}
       });
     });
+    // The chat socket opened in beforeEach; a fresh session opens one we observe.
+    await newSession(page);
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     await send(page, `Which is faster? [[fail:${CLAUDE}]]`);
