@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Handle, Position } from "reactflow";
-import { Sparkles, Trash2 } from "lucide-react";
+import { GitBranch, Sparkles, Trash2 } from "lucide-react";
 import { useTheme } from "@mui/material";
 
 interface SynthesisNodeData {
@@ -10,6 +10,7 @@ interface SynthesisNodeData {
   metadata?: { pending?: boolean; preview?: string; model_name?: string; active_peer?: string };
   /** Chat trees only: debate synthesis nodes are read-only. */
   onDelete?: (nodeId: string) => void;
+  onBranch?: (nodeId: string) => void;
 }
 
 /**
@@ -91,7 +92,39 @@ export default function SynthesisTreeNode({
           </div>
         </div>
       </div>
-      {hovered && data.onDelete && (
+      {hovered && (data.onDelete || data.onBranch) && (
+        <div style={{ position: "absolute", top: -8, right: -8, display: "flex", gap: 4, zIndex: 200 }}>
+            {data.onBranch && (
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onBranch?.(id);
+                }}
+                title="Branch from here: write the next message from this point"
+                aria-label="Branch from here"
+                style={{
+                  background: "#2563eb",
+                  border: "none",
+                  borderRadius: 12,
+                  height: 24,
+                  padding: "0 8px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  color: "white",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  boxShadow: "0 2px 8px rgba(37, 99, 235, 0.4)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <GitBranch size={12} />
+                Branch
+              </button>
+            )}
+        {data.onDelete && (
         <button
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -101,9 +134,6 @@ export default function SynthesisTreeNode({
           title="Delete this node and everything below it"
           aria-label="Delete node"
           style={{
-            position: "absolute",
-            top: -8,
-            right: -8,
             width: 24,
             height: 24,
             borderRadius: "50%",
@@ -118,6 +148,8 @@ export default function SynthesisTreeNode({
         >
           <Trash2 size={12} />
         </button>
+        )}
+        </div>
       )}
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
     </div>

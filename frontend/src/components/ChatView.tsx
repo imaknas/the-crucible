@@ -18,6 +18,8 @@ import DebateBanner, { type DebateBannerProps } from "./DebateBanner";
 import { MessageBubble, getModelColor } from "./MessageBubble";
 import { Message, ModelError } from "@/lib/types";
 import ModelErrorBubble from "./ModelErrorBubble";
+import BranchChip from "./BranchChip";
+import type { BranchPoint } from "@/lib/branching";
 
 interface ChatViewProps {
   messages: Message[];
@@ -57,6 +59,9 @@ interface ChatViewProps {
   modelErrors?: ModelError[];
   onRetryModel?: (errorId: string) => void;
   onDismissModelError?: (errorId: string) => void;
+  /** The checkpoint the next message branches from (chat only). */
+  branchPoint?: BranchPoint | null;
+  onResetBranch?: () => void;
 }
 
 
@@ -92,6 +97,8 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   modelErrors = [],
   onRetryModel,
   onDismissModelError,
+  branchPoint,
+  onResetBranch,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerContentRef = useRef<HTMLDivElement>(null);
@@ -1010,6 +1017,11 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         onDebateInject={onDebateInject}
         onDebateRedirect={onDebateRedirect}
         clearSignal={composerClearSignal}
+        header={
+          branchPoint && !debateBanner ? (
+            <BranchChip point={branchPoint} onReset={() => onResetBranch?.()} modelLabel={modelLabel} />
+          ) : undefined
+        }
         debateOnScreen={!!debateBanner}
       />
     </Box>

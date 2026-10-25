@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import * as api from "@/lib/api";
 import type { TreeEdge, TreeNode } from "@/lib/types";
+import { branchPoint } from "@/lib/branching";
 
 interface Options {
   threadId: string | null;
@@ -61,6 +62,27 @@ export function useTreeActions({
       if (threadId) fetchHistory(threadId, id);
     },
     [threadId, nodes, fetchHistory, setActiveCheckpoint, setSelectedModels],
+  );
+
+  /** What the composer's "Replying from" chip shows. */
+  const branch = useMemo(() => branchPoint(nodes, activeCheckpoint), [nodes, activeCheckpoint]);
+
+  /** Back to replying to the newest message. */
+  const resetToLatest = useCallback(() => {
+    if (branch && !branch.isLatest) selectCheckpoint(branch.latestId);
+  }, [branch, selectCheckpoint]);
+
+  /**
+   * "Branch from here" on a tree node: it becomes the parent of the next
+   * message, and the composer comes up. Like editAndRebranch, moving to the
+   * composer is the point of the action.
+   */
+  const branchFrom = useCallback(
+    (id: string) => {
+      selectCheckpoint(id);
+      setShowTree(false);
+    },
+    [selectCheckpoint, setShowTree],
   );
 
   const deleteNode = useCallback(
@@ -133,5 +155,15 @@ export function useTreeActions({
     [threadId, setNodes, pushToast],
   );
 
-  return { activeCheckpointNode, selectCheckpoint, deleteNode, editAndRebranch, moveNode, applyLayout };
+  return {
+    activeCheckpointNode,
+    selectCheckpoint,
+    deleteNode,
+    editAndRebranch,
+    moveNode,
+    applyLayout,
+    branch,
+    resetToLatest,
+    branchFrom,
+  };
 }

@@ -201,6 +201,9 @@ export default function Home() {
     editAndRebranch,
     moveNode,
     applyLayout,
+    branch,
+    resetToLatest,
+    branchFrom,
   } = useTreeActions({
     threadId,
     nodes,
@@ -352,6 +355,7 @@ export default function Home() {
                     onNodeDragStop={moveNode}
                     onLayoutPositions={applyLayout}
                     onDeleteNode={deleteNode}
+                    onBranchNode={branchFrom}
                   />
                 )}
               </motion.div>
@@ -396,6 +400,8 @@ export default function Home() {
                   modelErrors={inDebate ? [] : modelErrors}
                   onRetryModel={retryModel}
                   onDismissModelError={dismissModelError}
+                  branchPoint={inDebate ? null : branch}
+                  onResetBranch={resetToLatest}
                 />
               </motion.div>
             )}

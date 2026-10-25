@@ -55,3 +55,19 @@ describe("useTreeActions.selectCheckpoint", () => {
     expect(props.setSelectedModels).not.toHaveBeenCalled();
   });
 });
+
+describe("useTreeActions branching", () => {
+  it("branches from a node: selects it and brings up the composer", () => {
+    const { props, result } = setup();
+    act(() => result.current.branchFrom("u1"));
+    expect(props.setActiveCheckpoint).toHaveBeenCalledWith("u1");
+    expect(props.setShowTree).toHaveBeenCalledWith(false);
+  });
+
+  it("reports the branch point for the composer chip", () => {
+    const { result } = setup();
+    // No active checkpoint in this setup.
+    expect(result.current.branch).toBeNull();
+  });
+});
+

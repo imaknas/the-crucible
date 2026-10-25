@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { Handle, Position, NodeProps, useStore } from "reactflow";
-import { Trash2, Brain } from "lucide-react";
+import { Trash2, Brain, GitBranch } from "lucide-react";
 import { useTheme, Box, Typography } from "@mui/material";
 
 export type CustomNodeData = {
   label: string;
   onDelete?: (nodeId: string) => void;
+  /** Chat trees: start the next message from this node. */
+  onBranch?: (nodeId: string) => void;
   styling?: any;
   metadata?: {
     role?: string;
@@ -258,16 +260,49 @@ const CustomTreeNode = React.memo(
           </Box>
         )}
 
-        {/* Delete Button Container */}
-        {isHovered && data.onDelete && (
+        {/* Hover actions: branch from here, delete */}
+        {isHovered && (data.onDelete || data.onBranch) && (
           <div
             style={{
               position: "absolute",
               top: "-8px",
               right: "-8px",
               zIndex: 200,
+              display: "flex",
+              gap: 4,
             }}
           >
+            {data.onBranch && (
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onBranch?.(id);
+                }}
+                title="Branch from here: write the next message from this point"
+                aria-label="Branch from here"
+                style={{
+                  background: "#2563eb",
+                  border: "none",
+                  borderRadius: 12,
+                  height: 24,
+                  padding: "0 8px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  color: "white",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  boxShadow: "0 2px 8px rgba(37, 99, 235, 0.4)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <GitBranch size={12} />
+                Branch
+              </button>
+            )}
+            {data.onDelete && (
             <button
               onMouseDown={(e) => {
                 e.stopPropagation();
@@ -295,6 +330,7 @@ const CustomTreeNode = React.memo(
             >
               <Trash2 size={12} />
             </button>
+            )}
           </div>
         )}
 
@@ -334,6 +370,7 @@ const CustomTreeNode = React.memo(
       prevProps.selected === nextProps.selected &&
       a.label === b.label &&
       a.onDelete === b.onDelete &&
+      a.onBranch === b.onBranch &&
       a.styling === b.styling &&
       a.metadata === b.metadata
     );

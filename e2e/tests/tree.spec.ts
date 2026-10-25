@@ -11,6 +11,7 @@ import {
   nodeBoxes,
   nodeColors,
   clickableNode,
+  ensureDetailZoom,
 } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
@@ -148,6 +149,22 @@ test.describe("conversation tree", () => {
     await expect
       .poll(async () => (await target.boundingBox())!.height)
       .toBeGreaterThan(before);
+  });
+
+  test("a node offers Branch from here, and the composer says where it replies from", async ({ page }) => {
+    await ensureDetailZoom(page);
+    const target = nodes(page).filter({ hasText: "What does branching buy me?" }).first();
+    await target.hover();
+    await target.getByRole("button", { name: "Branch from here" }).click();
+
+    // Branching is the one tree action that moves you to the composer.
+    await expect(page.getByRole("button", { name: "Arena", exact: true })).toHaveAttribute("aria-pressed", "true");
+    const chip = page.getByTestId("branch-chip");
+    await expect(chip).toContainText("Branching from");
+    await expect(chip).toContainText("What does branching buy me?");
+
+    await chip.getByRole("button", { name: /latest message/ }).click();
+    await expect(chip).toContainText("Replying to");
   });
 
   test("repaints node colours when the theme is toggled", async ({ page }) => {

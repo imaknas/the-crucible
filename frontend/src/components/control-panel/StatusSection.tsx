@@ -76,11 +76,16 @@ export default function StatusSection({
           <StatusRow label="Checkpoint">
             <Typography
               variant="caption"
+              title={activeCheckpointLabel}
               sx={{
-                fontFamily: "monospace",
                 color: "text.secondary",
-                display: "block",
-                wordBreak: "break-all",
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                // Wrap between words; break-all in monospace split words mid-way.
+                overflowWrap: "anywhere",
+                wordBreak: "normal",
                 lineHeight: 1.4,
               }}
             >
