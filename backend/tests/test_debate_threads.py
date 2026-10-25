@@ -208,3 +208,15 @@ async def test_seeding_is_skipped_for_a_sub_thread_that_already_has_history():
         assert len(db.get_thread_checkpoint_graph(tid)) == before
         # A checkpoint that isn't on the parent thread seeds nothing.
         assert await debate_svc.seed_from_parent(graph_app, "t-conv3", "no-such-checkpoint", [session["thread_ids"][B]]) == 0
+
+
+@pytest.mark.asyncio
+async def test_a_participant_that_never_replied_has_no_latest_response():
+    """Its seeded sub-thread ends on the parent's answer; synthesis must not
+    attribute that answer to it."""
+    async with open_graph() as graph_app:
+        fork = await _chat_turn(graph_app, "t-conv4", "Context message")
+        session = debate_svc.create_session("t-conv4", [A, B], dict(POLICY))
+        await debate_svc.seed_from_parent(graph_app, "t-conv4", fork, list(session["thread_ids"].values()))
+        assert await debate_svc.latest_responses(graph_app, session) == {}
+        assert await debate_svc._original_question(graph_app, session) == ""

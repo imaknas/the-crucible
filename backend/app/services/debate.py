@@ -507,18 +507,29 @@ async def _stream_round(
 # ─── Synthesis ───────────────────────────────────────────────────────────────
 
 
+async def _debate_messages(graph_app, thread_id: str) -> list:
+    """What was said on a sub-thread: its head's messages after any seeded
+    parent conversation, which is context the debate started from."""
+    state = await graph_app.aget_state(thread_config(thread_id))
+    msgs = state.values.get("messages", []) if state and state.values else []
+    return msgs[await seeded_message_count(graph_app, thread_id):]
+
+
 async def latest_responses(graph_app, session: dict[str, Any]) -> dict[str, str]:
-    """Each participant's most recent reply, read from its sub-thread head."""
+    """Each participant's most recent debate reply, read from its sub-thread head.
+
+    A participant that never replied has no entry, even when its sub-thread
+    was seeded with a conversation that ends on someone's answer.
+    """
     responses: dict[str, str] = {}
     for model_id in session["participants"]:
         thread_id = session["thread_ids"].get(model_id)
         if not thread_id:
             continue
         try:
-            state = await graph_app.aget_state(thread_config(thread_id))
+            msgs = await _debate_messages(graph_app, thread_id)
         except Exception:
             continue
-        msgs = state.values.get("messages", []) if state and state.values else []
         last_ai = next((m for m in reversed(msgs) if getattr(m, "type", "") == "ai"), None)
         if last_ai is not None:
             responses[model_id] = extract_text(last_ai.content)
@@ -526,8 +537,7 @@ async def latest_responses(graph_app, session: dict[str, Any]) -> dict[str, str]
 
 
 async def _original_question(graph_app, session: dict[str, Any]) -> str:
-    """The round-0 prompt: the first message each participant's sub-thread
-    received after any seeded parent conversation.
+    """The round-0 prompt: the first message of each participant's debate.
 
     Sessions don't store it; the web UI passes it along, the CLI recovers it.
     """
@@ -535,9 +545,7 @@ async def _original_question(graph_app, session: dict[str, Any]) -> str:
         thread_id = session["thread_ids"].get(model_id)
         if not thread_id:
             continue
-        state = await graph_app.aget_state(thread_config(thread_id))
-        msgs = state.values.get("messages", []) if state and state.values else []
-        msgs = msgs[await seeded_message_count(graph_app, thread_id):]
+        msgs = await _debate_messages(graph_app, thread_id)
         first = next((m for m in msgs if getattr(m, "type", "") == "human"), None)
         if first is not None:
             return extract_text(first.content)
