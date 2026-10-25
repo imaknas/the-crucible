@@ -127,7 +127,7 @@ The catalog is *facts*, committed as `app/catalog/data/catalog.json` and refresh
 
 **Model construction — `llm/`**
 - `providers.py`: one `ChatProvider` strategy per family (`create(model_id)`, `with_web_search(llm)`), registered in `PROVIDERS`. Nothing else branches on the provider.
-- Gemini requests carry **no `temperature` / `top_p` / `top_k` and no `thinking_budget`**: the upcoming Gemini models reject them, and `langchain-google-genai` (still true in 4.4.0) injects `temperature=1.0` for every Gemini 3+ id, so `GoogleProvider` builds a subclass that drops the three sampling fields (`tests/test_google_provider.py`). Thinking depth is `thinking_level` only (`minimal|low|medium|high`; experiments bind it with `model@level`). Don't add sampling or budget parameters to a Google client.
+- Gemini requests carry **no `temperature` / `top_p` / `top_k` and no `thinking_budget`**: the upcoming Gemini models reject them, and `langchain-google-genai` (still true in 4.4.0) injects `temperature=1.0` for every Gemini 3+ id, so `GoogleProvider` builds a subclass that drops the three sampling fields (`tests/test_google_provider.py`, `tests/test_upstream_hooks.py`). Thinking depth is `thinking_level` only (`minimal|low|medium|high`; experiments bind it with `model@level`). Don't add sampling or budget parameters to a Google client.
 - `factory.py`: `ModelFactory` protocol. `ProviderModelFactory` (real; registry, providers and env are constructor-injectable), `CallableModelFactory(fn)` (tests/scripts), `has_credentials()` (the one key check). Graph nodes call `model_factory_from(config).chat(model_id, toggles)`: a run may inject `config["configurable"]["model_factory"]`, otherwise `default_model_factory()` — the real providers, or `llm/fake.ScriptedModelFactory` under `CRUCIBLE_FAKE_LLM`. `use_model_factory(f)` overrides the default for a block (tests, `e2e/seed_db.py`).
 
 - **Verify any ID before adding it.** Presence in a provider's `/models` listing is not sufficient — some listed IDs are not chat models. `gpt-5.4-pro`, `gpt-5.5-pro` and `gpt-5-pro` 404 on `v1/chat/completions`, and `gemini-3-flash-lite-preview` no longer exists; all shipped in the registry as broken entries. Confirm with a real one-token completion.
@@ -221,7 +221,7 @@ User selects ≥2 models → types prompt → clicks Swords button in ChatInput 
 ## Key Conventions
 
 - All model IDs must be registered in `MODEL_REGISTRY` in `backend/app/api/models.py` before use.
-- The `langchain_anthropic` monkeypatch in `app/patches.py` is intentional — it fixes a streaming bug in `langchain_anthropic 1.3.2` related to web-search beta events.
+- The `langchain_anthropic` monkeypatch in `app/patches.py` is intentional — it fixes a streaming bug in `langchain_anthropic 1.3.2` related to web-search beta events. It and `GoogleProvider`'s override hook *private* upstream symbols, so `tests/test_upstream_hooks.py` asserts they exist and are still on the request/streaming path, and `patches.py` raises if its target is gone (it used to swallow every exception). `pyproject.toml` caps both packages below their next major (`langchain-anthropic<2`, `langchain-google-genai<5`); lift a cap only with those tests green.
 - Backend uses `uv` for package management; never use `pip` directly.
 - Commits follow Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`.
 
