@@ -59,6 +59,19 @@ export default function DebateDefaultsSection({
         </Box>
         <ToggleRow
           isDark={isDark}
+          label="Anonymous Participants"
+          subtitle="Models see each other as Participant A, B… instead of by model name, so they weigh arguments rather than brands."
+          icon={<Swords width={16} height={16} />}
+          checked={debateDefaults.peer_labels === "anonymous"}
+          onChange={() =>
+            setDebateDefaults((prev) => ({
+              ...prev,
+              peer_labels: prev.peer_labels === "anonymous" ? "named" : "anonymous",
+            }))
+          }
+        />
+        <ToggleRow
+          isDark={isDark}
           label="Auto-Synthesize"
           subtitle="Automatically run a synthesis pass after all rounds complete."
           icon={<Swords width={16} height={16} />}

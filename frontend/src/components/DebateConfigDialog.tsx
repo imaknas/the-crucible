@@ -17,7 +17,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { Swords } from "lucide-react";
-import type { DebateDefaults } from "@/lib/types";
+import type { DebateDefaults, PeerLabels } from "@/lib/types";
 import { MAX_DEBATE_ROUNDS, clampRounds } from "@/hooks/useDebateDefaults";
 
 interface DebateConfigDialogProps {
@@ -247,6 +247,32 @@ export default function DebateConfigDialog({
               </Select>
             </Box>
           )}
+
+          {/* How debaters see each other */}
+          <Box sx={rowSx}>
+            <Typography
+              sx={labelSx}
+              title="Anonymous: models see each other as Participant A, B… so a reply is judged by its argument, not by which model wrote it. Named: models see each other's model names. The banner always shows you who is who."
+            >
+              Participants
+            </Typography>
+            <Select
+              size="small"
+              value={config.peer_labels}
+              inputProps={{ "aria-label": "How models see each other" }}
+              onChange={(e) =>
+                setConfig((p) => ({ ...p, peer_labels: e.target.value as PeerLabels }))
+              }
+              sx={{ fontSize: "0.8rem", minWidth: 160 }}
+            >
+              <MenuItem value="anonymous">
+                <Typography variant="caption">Anonymous to each other</Typography>
+              </MenuItem>
+              <MenuItem value="named">
+                <Typography variant="caption">See each other&apos;s names</Typography>
+              </MenuItem>
+            </Select>
+          </Box>
 
           {/* Auto-synthesize */}
           <Box sx={rowSx}>

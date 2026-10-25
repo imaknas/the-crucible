@@ -431,6 +431,7 @@ export function useDebateSession({
           },
           auto_synthesize: config.auto_synthesize,
           synthesizer_model: config.synthesizer_model,
+          peer_labels: config.peer_labels,
         });
 
         // A new debate replaces whatever was on screen, live or not.

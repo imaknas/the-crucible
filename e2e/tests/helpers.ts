@@ -192,11 +192,20 @@ export async function send(page: Page, text: string) {
 }
 
 /** Open the debate dialog for `prompt`, set the round count and start it. */
-export async function startDebate(page: Page, prompt: string, rounds: number) {
+export async function startDebate(
+  page: Page,
+  prompt: string,
+  rounds: number,
+  options: { named?: boolean } = {},
+) {
   await page.getByPlaceholder(/Ask the arena/i).fill(prompt);
   await page.getByRole("button", { name: "Start debate" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Max rounds").fill(String(rounds));
+  if (options.named) {
+    await dialog.getByRole("combobox", { name: "How models see each other" }).click();
+    await page.getByRole("option", { name: "See each other's names" }).click();
+  }
   await dialog.getByRole("button", { name: "Start Debate" }).click();
   // Starting a debate shows the tree; the status banner lives in the Arena view.
   await page.getByRole("button", { name: "Arena", exact: true }).click();

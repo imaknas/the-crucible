@@ -152,6 +152,7 @@ export async function fetchModels(): Promise<{
 import type {
   DebateSession,
   DebateTreeResponse,
+  PeerLabels,
   TerminationPolicy,
 } from "@/lib/types";
 import { questionMessage, roundLabel } from "@/lib/debateTranscript";
@@ -162,6 +163,7 @@ export async function createDebateSession(params: {
   termination_policy: TerminationPolicy;
   auto_synthesize: boolean;
   synthesizer_model: string | null;
+  peer_labels: PeerLabels;
 }): Promise<DebateSession> {
   const res = await fetch(`${API_BASE}/debate/sessions`, {
     method: "POST",

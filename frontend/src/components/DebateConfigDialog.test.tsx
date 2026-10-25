@@ -37,6 +37,14 @@ describe("DebateConfigDialog", () => {
     expect(rounds.value).toBe("10");
   });
 
+  it("starts anonymous by default and can switch to named participants", () => {
+    const { onStart } = setup();
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "How models see each other" }));
+    fireEvent.click(screen.getByRole("option", { name: "See each other's names" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start Debate" }));
+    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ peer_labels: "named" }));
+  });
+
   it("clamps on blur and on start", () => {
     const { rounds, onStart } = setup();
     fireEvent.change(rounds, { target: { value: "99" } });

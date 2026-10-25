@@ -71,9 +71,17 @@ export interface TerminationPolicy {
   mode: "any" | "all";
 }
 
+/**
+ * How debaters see each other: "anonymous" as Participant A/B…, "named" by
+ * model id. Anonymous is the default: seeing a peer's model name invites
+ * deference to the stronger-sounding brand.
+ */
+export type PeerLabels = "anonymous" | "named";
+
 export interface DebateDefaults extends TerminationPolicy {
   auto_synthesize: boolean;
   synthesizer_model: string | null;
+  peer_labels: PeerLabels;
 }
 
 export interface DebateSession {
@@ -88,7 +96,7 @@ export interface DebateSession {
   auto_synthesize: boolean;
   synthesizer_model: string | null;
   /** How participants saw each other; null for sessions stored before the choice existed (named). */
-  peer_labels?: "anonymous" | "named" | null;
+  peer_labels?: PeerLabels | null;
 }
 
 /**

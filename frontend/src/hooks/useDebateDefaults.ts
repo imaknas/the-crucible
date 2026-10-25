@@ -18,6 +18,7 @@ export const DEFAULT_DEBATE_DEFAULTS: DebateDefaults = {
   mode: "all",
   auto_synthesize: false,
   synthesizer_model: null,
+  peer_labels: "anonymous",
 };
 
 /**

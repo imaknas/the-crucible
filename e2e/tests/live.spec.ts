@@ -313,6 +313,16 @@ test.describe("live flows (scripted models)", () => {
     expect(after.nodes.some((n: { id: string }) => /synthesis/i.test(n.id))).toBe(true);
   });
 
+  test("a debate with named participants shows no participant key", async ({ page, request }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await startDebate(page, "Named or not?", 1, { named: true });
+    await expect(debateStatus(page)).toHaveText("completed", { timeout: 20_000 });
+    // The models saw each other's names, so there are no labels to decode.
+    await expect(page.getByLabel("Who each participant is")).toHaveCount(0);
+    const sessions = await (await request.get(`${BACKEND_URL}/debate/sessions?parent_thread_id=${await currentThreadId(page)}`)).json();
+    expect(JSON.stringify(sessions)).toContain('"peer_labels":"named"');
+  });
+
   test("a debate can be deleted from the sidebar", async ({ page, request }) => {
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await startDebate(page, "Delete me afterwards", 1);

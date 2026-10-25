@@ -111,6 +111,8 @@ describe("useDebateSession", () => {
         systemPrompt: "Be terse.",
       });
     });
+    // The participants' view of each other goes with the session.
+    expect(api.createDebateSession).toHaveBeenCalledWith(expect.objectContaining({ peer_labels: "anonymous" }));
     const ws = sockets[0];
     act(() => ws.open());
     expect(ws.sent[0]).toMatchObject({ type: "debate_start", summarizer: "gpt-6-luna", system_prompt: "Be terse." });
