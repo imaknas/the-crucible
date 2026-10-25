@@ -59,6 +59,31 @@ test.describe("live flows (scripted models)", () => {
     }
   });
 
+  test("a multi-model selection survives the refresh after each turn", async ({ page, request }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    const idle = () => expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    await send(page, "First question");
+    await expect(page.getByText(answerFrom(CLAUDE)).first()).toBeVisible();
+    await idle();
+    // The post-stream history refresh used to reset the selection to one model.
+    await expect(page.getByText("2 models", { exact: true })).toBeVisible();
+
+    await send(page, "Second question");
+    await idle();
+    await expect(page.getByText("2 models", { exact: true })).toBeVisible();
+
+    const threadId = await currentThreadId(page);
+    await expect
+      .poll(async () => {
+        const tree = await (await request.get(`${BACKEND_URL}/history/${threadId}`)).json();
+        const labels: string[] = tree.nodes.map((n: { data?: { label?: string } }) => n.data?.label ?? "");
+        return [GPT, CLAUDE].map((id) => labels.filter((l) => answerFrom(id).test(l)).length);
+      })
+      .toEqual([2, 2]);
+  });
+
   test("switching threads mid-stream does not leave the new thread loading", async ({ page }) => {
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     await send(page, "[[slow]] take your time");

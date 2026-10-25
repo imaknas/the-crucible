@@ -16,6 +16,8 @@ interface Options {
   setShowTree: (tree: boolean) => void;
   confirm: (title: string, message: string) => Promise<boolean>;
   pushToast: (message: string) => void;
+  /** Clicking a model's reply selects that model for the next message. */
+  setSelectedModels: (models: string[]) => void;
 }
 
 /** What the conversation tree lets you do to its checkpoints. */
@@ -33,6 +35,7 @@ export function useTreeActions({
   setShowTree,
   confirm,
   pushToast,
+  setSelectedModels,
 }: Options) {
   const activeCheckpointNode = useMemo(
     () => nodes.find((n) => n.id === activeCheckpoint),
@@ -44,13 +47,20 @@ export function useTreeActions({
     [edges],
   );
 
-  /** Open a checkpoint: it becomes the branch point for the next message. */
+  /**
+   * Open a checkpoint: it becomes the branch point for the next message, and
+   * clicking a model's reply selects that model. Only an explicit click does
+   * this — the refresh after every turn and opening a thread used to collapse
+   * a multi-model selection to whichever model wrote the newest node.
+   */
   const selectCheckpoint = useCallback(
     (id: string) => {
       setActiveCheckpoint(id);
+      const model = nodes.find((n) => n.id === id)?.metadata?.active_peer;
+      if (model) setSelectedModels([model]);
       if (threadId) fetchHistory(threadId, id);
     },
-    [threadId, fetchHistory, setActiveCheckpoint],
+    [threadId, nodes, fetchHistory, setActiveCheckpoint, setSelectedModels],
   );
 
   const deleteNode = useCallback(

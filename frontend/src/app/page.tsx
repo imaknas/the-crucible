@@ -85,15 +85,6 @@ export default function Home() {
     );
   }, []);
 
-  // Opening a checkpoint selects the model that wrote it.
-   
-  const handleHistoryLoaded = useCallback((data: any) => {
-     
-    const activeNode = (data.nodes || []).find((n: any) => n.id === data.current_checkpoint);
-    const model = activeNode?.metadata?.active_peer;
-    if (model) setSelectedModels((prev) => (prev.length === 1 && prev[0] === model ? prev : [model]));
-  }, [setSelectedModels]);
-
   const {
     nodes,
     setNodes,
@@ -105,7 +96,7 @@ export default function Home() {
     isHistoryLoading,
     fetchHistory,
     clearTree,
-  } = useHistoryTree(handleMessagesLoaded, handleHistoryLoaded);
+  } = useHistoryTree(handleMessagesLoaded);
 
   const handleThreadDeleted = useCallback(
     (deleted?: boolean) => {
@@ -204,6 +195,7 @@ export default function Home() {
     setShowTree,
     confirm: showConfirm,
     pushToast,
+    setSelectedModels,
   });
 
   // Deliberately does not call setShowTree. Sending used to yank you out of the
