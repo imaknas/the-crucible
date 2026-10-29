@@ -8,6 +8,7 @@ from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 
 # Persistence directory for ChromaDB (backend/chroma_db unless CHROMA_DIR is set,
 # which the e2e suite does so it never touches the real store).
@@ -31,12 +32,35 @@ _vector_store = None
 _init_lock = threading.RLock()
 
 
-def get_embeddings():
+class SerializedEmbeddings(Embeddings):
+    """Runs one embedding call at a time on the wrapped model.
+
+    Parallel models in one turn (RAG retrieval, debate stability) embed on
+    executor threads at the same moment, and concurrent inference on one
+    sentence-transformers model is not thread-safe: with torch 2.14 and
+    sentence-transformers 6 two simultaneous embed_query calls segfault the
+    whole server. A call takes milliseconds, so queueing costs nothing.
+    """
+
+    def __init__(self, inner: Embeddings):
+        self.inner = inner
+        self._lock = threading.Lock()
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        with self._lock:
+            return self.inner.embed_documents(texts)
+
+    def embed_query(self, text: str) -> List[float]:
+        with self._lock:
+            return self.inner.embed_query(text)
+
+
+def get_embeddings() -> Embeddings:
     global _embeddings
     if _embeddings is None:
         with _init_lock:
             if _embeddings is None:
-                _embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
+                _embeddings = SerializedEmbeddings(HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME))
     return _embeddings
 
 

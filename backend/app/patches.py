@@ -1,14 +1,16 @@
 """Third-party fixes applied once at startup.
 
-langchain_anthropic 1.3.2 crashes with "'dict' object has no attribute
+langchain_anthropic crashes with "'dict' object has no attribute
 'model_dump'" while streaming web-search beta events: message_delta carries a
-plain dict `container`. Wrap it so the original parser can call model_dump().
-Remove this once the pinned version is fixed upstream.
+plain dict `container`, and the chunk parser calls `container.model_dump()`.
+Found in 1.3.2 and still present in 1.7.6, where the parser moved from a
+module function to a ChatAnthropic method. Wrap the dict so the parser can call
+model_dump(). Remove this once upstream handles a dict container.
 
-The patch replaces a private module function, so it must fail loudly when
-upstream renames it rather than silently stop applying:
-tests/test_upstream_hooks.py checks that the symbol exists and that the
-streaming path still calls it, and a missing symbol raises here.
+The patch replaces a private method, so it must fail loudly when upstream
+renames it rather than silently stop applying: tests/test_upstream_hooks.py
+checks that the method exists and that the streaming path still calls it,
+and a missing method raises here.
 """
 
 PATCHED_ATTR = "_crucible_patched"
@@ -41,15 +43,15 @@ def apply_langchain_patches() -> None:
     if _applied:
         return
     try:
-        import langchain_anthropic.chat_models as anthropic_chat
+        from langchain_anthropic.chat_models import ChatAnthropic
     except ImportError:  # provider not installed: nothing to patch
         _applied = True
         return
 
-    original = getattr(anthropic_chat, ANTHROPIC_HOOK, None)
+    original = getattr(ChatAnthropic, ANTHROPIC_HOOK, None)
     if original is None:
         raise RuntimeError(
-            f"langchain_anthropic.chat_models.{ANTHROPIC_HOOK} no longer exists; "
+            f"langchain_anthropic ChatAnthropic.{ANTHROPIC_HOOK} no longer exists; "
             "the web-search streaming fix in app/patches.py cannot apply. "
             "Check whether the upstream bug is fixed and update or remove the patch."
         )
@@ -57,11 +59,11 @@ def apply_langchain_patches() -> None:
         _applied = True
         return
 
-    def _safe_make_chunk(event, *args, **kwargs):
+    def _safe_make_chunk(self, event, *args, **kwargs):
         wrap_dict_container(event)
-        return original(event, *args, **kwargs)
+        return original(self, event, *args, **kwargs)
 
     setattr(_safe_make_chunk, PATCHED_ATTR, True)
     _safe_make_chunk.__wrapped__ = original
-    setattr(anthropic_chat, ANTHROPIC_HOOK, _safe_make_chunk)
+    setattr(ChatAnthropic, ANTHROPIC_HOOK, _safe_make_chunk)
     _applied = True

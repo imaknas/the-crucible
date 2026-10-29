@@ -14,27 +14,45 @@ from langchain_core.messages import HumanMessage
 from app import patches
 
 
-def test_the_patched_anthropic_function_exists_and_streaming_calls_it():
-    import langchain_anthropic.chat_models as anthropic_chat
+def test_the_patched_anthropic_method_exists_and_streaming_calls_it():
+    from langchain_anthropic.chat_models import ChatAnthropic
 
     patches.apply_langchain_patches()
-    hook = getattr(anthropic_chat, patches.ANTHROPIC_HOOK)
+    hook = getattr(ChatAnthropic, patches.ANTHROPIC_HOOK)
     assert getattr(hook, patches.PATCHED_ATTR, False), "patch did not apply"
     assert callable(hook.__wrapped__)
-    # The streaming methods look the function up as a module global, which
-    # is what makes replacing the module attribute effective.
-    for method in (anthropic_chat.ChatAnthropic._stream, anthropic_chat.ChatAnthropic._astream):
+    # The streaming methods call it as self.<hook>, which is what makes
+    # replacing the class attribute effective.
+    for method in (ChatAnthropic._stream, ChatAnthropic._astream):
         assert patches.ANTHROPIC_HOOK in method.__code__.co_names, method.__name__
 
 
-def test_applying_twice_wraps_once():
-    import langchain_anthropic.chat_models as anthropic_chat
+def test_the_patched_method_still_parses_a_dict_container():
+    from langchain_anthropic.chat_models import ChatAnthropic
 
     patches.apply_langchain_patches()
-    first = getattr(anthropic_chat, patches.ANTHROPIC_HOOK)
+    llm = ChatAnthropic(model="claude-haiku-5-5", api_key="test-key")
+    usage = SimpleNamespace(
+        input_tokens=1, output_tokens=1, cache_read_input_tokens=0, cache_creation_input_tokens=0,
+        server_tool_use=None, cache_creation=None,
+    )
+    delta = SimpleNamespace(
+        stop_reason="end_turn", stop_sequence=None, container={"id": "c1"},
+        model_dump=lambda **_: {"stop_reason": "end_turn"},
+    )
+    event = SimpleNamespace(type="message_delta", usage=usage, delta=delta, context_management=None)
+    chunk, _ = getattr(llm, patches.ANTHROPIC_HOOK)(event, coerce_content_to_string=True)
+    assert chunk.response_metadata["container"] == {"id": "c1"}
+
+
+def test_applying_twice_wraps_once():
+    from langchain_anthropic.chat_models import ChatAnthropic
+
+    patches.apply_langchain_patches()
+    first = getattr(ChatAnthropic, patches.ANTHROPIC_HOOK)
     patches._applied = False
     patches.apply_langchain_patches()
-    assert getattr(anthropic_chat, patches.ANTHROPIC_HOOK) is first
+    assert getattr(ChatAnthropic, patches.ANTHROPIC_HOOK) is first
 
 
 def test_a_dict_container_gets_a_model_dump():
@@ -48,10 +66,10 @@ def test_a_dict_container_gets_a_model_dump():
 
 
 def test_a_missing_anthropic_hook_fails_loudly(monkeypatch):
-    import langchain_anthropic.chat_models as anthropic_chat
+    from langchain_anthropic.chat_models import ChatAnthropic
 
     monkeypatch.setattr(patches, "_applied", False)
-    monkeypatch.delattr(anthropic_chat, patches.ANTHROPIC_HOOK)
+    monkeypatch.delattr(ChatAnthropic, patches.ANTHROPIC_HOOK)
     with pytest.raises(RuntimeError, match=patches.ANTHROPIC_HOOK):
         patches.apply_langchain_patches()
 

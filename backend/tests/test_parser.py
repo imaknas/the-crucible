@@ -3,7 +3,7 @@ from app.utils.parser import extract_text_from_pdf
 
 
 def test_extract_text_from_pdf_success():
-    with patch("app.utils.parser.fitz.open") as mock_open:
+    with patch("app.utils.parser.pymupdf.open") as mock_open:
         mock_doc = MagicMock()
         mock_page1 = MagicMock()
         mock_page1.get_text.return_value = "Line 1\n\n\n\nLine 2"
@@ -21,6 +21,6 @@ def test_extract_text_from_pdf_success():
 
 
 def test_extract_text_from_pdf_exception():
-    with patch("app.utils.parser.fitz.open", side_effect=Exception("File not found")):
+    with patch("app.utils.parser.pymupdf.open", side_effect=Exception("File not found")):
         result = extract_text_from_pdf("nonexistent.pdf")
         assert "Error parsing PDF: File not found" in result

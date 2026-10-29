@@ -1,4 +1,4 @@
-import fitz  # type: ignore  # PyMuPDF
+import pymupdf
 import re
 
 
@@ -6,7 +6,7 @@ def extract_text_from_pdf(file_path: str) -> str:
     """Extracts and cleans text from a PDF file."""
     text = ""
     try:
-        doc = fitz.open(file_path)
+        doc = pymupdf.open(file_path)
         for page in doc:
             page_text = page.get_text()
             if page_text:

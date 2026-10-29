@@ -26,7 +26,8 @@ def test_get_embeddings(mock_hfe):
     emb2 = get_embeddings()
 
     assert emb1 is emb2
-    assert emb1 is mock_hf_instance
+    # The model is wrapped so concurrent calls queue (see SerializedEmbeddings).
+    assert emb1.inner is mock_hf_instance
     mock_hfe.assert_called_once()
 
 
@@ -118,3 +119,43 @@ def test_vector_store_initialises_once_under_concurrency(monkeypatch):
 
     assert len(created) == 1
     assert len({id(r) for r in results}) == 1
+
+
+def test_embedding_calls_never_overlap():
+    """Concurrent inference on one sentence-transformers model segfaults the
+    server (torch 2.14 / sentence-transformers 6), and parallel models in one
+    turn embed on executor threads at once: calls must run one at a time."""
+    import threading
+    import time
+
+    from app.services.rag import SerializedEmbeddings
+
+    class Recording:
+        active = 0
+        peak = 0
+        guard = threading.Lock()
+
+        def _call(self, out):
+            with self.guard:
+                self.active += 1
+                self.peak = max(self.peak, self.active)
+            time.sleep(0.01)
+            with self.guard:
+                self.active -= 1
+            return out
+
+        def embed_query(self, text):
+            return self._call([0.0])
+
+        def embed_documents(self, texts):
+            return self._call([[0.0] for _ in texts])
+
+    inner = Recording()
+    embeddings = SerializedEmbeddings(inner)
+    threads = [threading.Thread(target=embeddings.embed_query, args=("q",)) for _ in range(4)]
+    threads += [threading.Thread(target=embeddings.embed_documents, args=(["a", "b"],)) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert inner.peak == 1
