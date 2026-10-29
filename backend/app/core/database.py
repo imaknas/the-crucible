@@ -373,27 +373,76 @@ def load_node_positions(thread_id):
         conn.close()
 
 
+# 100 ns intervals between the UUID epoch (1582-10-15) and the Unix epoch.
+_UUID_EPOCH_OFFSET = 0x01B21DD213814000
+
+
+def checkpoint_time(checkpoint_id: str | None) -> float:
+    """When a checkpoint was written, from its id (Unix seconds; 0 if unknown).
+
+    LangGraph checkpoint ids are UUIDv6: the timestamp is the first 60 bits,
+    most significant first, with the version nibble in between.
+    """
+    if not checkpoint_id:
+        return 0.0
+    digits = checkpoint_id.replace("-", "")
+    if len(digits) != 32 or digits[12] != "6":
+        return 0.0
+    try:
+        ticks = int(digits[:12] + digits[13:16], 16)
+    except ValueError:
+        return 0.0
+    return max(0.0, (ticks - _UUID_EPOCH_OFFSET) / 1e7)
+
+
+def _sqlite_time(value: str | None) -> float:
+    """A CURRENT_TIMESTAMP value (UTC) as Unix seconds; 0 if unknown."""
+    if not value:
+        return 0.0
+    try:
+        from datetime import datetime, timezone
+
+        return datetime.fromisoformat(value).replace(tzinfo=timezone.utc).timestamp()
+    except ValueError:
+        return 0.0
+
+
 def list_threads():
+    """Top-level threads, most recently active first.
+
+    Activity is the newest checkpoint on the thread or any of its debate
+    sub-threads ({thread}::…), else when its newest debate was created. They
+    used to be ordered by thread id, which is random, so a new thread landed
+    anywhere in the sidebar.
+    """
     conn = get_db_connection()
     try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT thread_id, title FROM (
-                SELECT DISTINCT c.thread_id, m.title
-                FROM checkpoints c
-                LEFT JOIN thread_metadata m ON c.thread_id = m.thread_id
-                WHERE c.thread_id NOT LIKE '%::%'
-                UNION
-                SELECT tm.thread_id, tm.title
-                FROM thread_metadata tm
-                INNER JOIN debate_sessions ds ON tm.thread_id = ds.parent_thread_id
-                WHERE tm.thread_id NOT LIKE '%::%'
-            )
-            ORDER BY thread_id DESC
-        """)
-        return [{"id": row[0], "title": row[1] or row[0]} for row in cursor.fetchall()]
+        last_checkpoint = conn.execute("""
+            SELECT CASE WHEN instr(thread_id, '::') > 0
+                        THEN substr(thread_id, 1, instr(thread_id, '::') - 1)
+                        ELSE thread_id END AS root,
+                   MAX(checkpoint_id)
+            FROM checkpoints
+            GROUP BY root
+        """).fetchall()
+        own = {row[0] for row in conn.execute(
+            "SELECT DISTINCT thread_id FROM checkpoints WHERE thread_id NOT LIKE '%::%'"
+        )}
+        titles = dict(conn.execute("SELECT thread_id, title FROM thread_metadata").fetchall())
+        last_debate = dict(conn.execute(
+            "SELECT parent_thread_id, MAX(created_at) FROM debate_sessions GROUP BY parent_thread_id"
+        ).fetchall())
     finally:
         conn.close()
+
+    # Listed: threads with checkpoints of their own, and debate parents (which
+    # may have none) that have a metadata row.
+    listed = own | {t for t in last_debate if t in titles and "::" not in t}
+    activity = {root: checkpoint_time(cid) for root, cid in last_checkpoint}
+    for parent, created_at in last_debate.items():
+        activity[parent] = max(activity.get(parent, 0.0), _sqlite_time(created_at))
+    ordered = sorted(listed, key=lambda t: (activity.get(t, 0.0), t), reverse=True)
+    return [{"id": t, "title": titles.get(t) or t} for t in ordered]
 
 
 def get_thread_title(thread_id):
