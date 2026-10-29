@@ -204,7 +204,7 @@ export async function startDebate(
   await dialog.getByLabel("Max rounds").fill(String(rounds));
   if (options.named) {
     await dialog.getByRole("combobox", { name: "How models see each other" }).click();
-    await page.getByRole("option", { name: "See each other's names" }).click();
+    await page.getByRole("option", { name: "By model name" }).click();
   }
   await dialog.getByRole("button", { name: "Start Debate" }).click();
   // Starting a debate shows the tree; the status banner lives in the Arena view.

@@ -28,6 +28,13 @@ describe("DebateConfigDialog", () => {
     expect(screen.getByText("Claude Sonnet 5.5")).toBeInTheDocument();
   });
 
+  it("gives each setting its own label", () => {
+    setup();
+    // The participant list and the "how they see each other" select were both "Participants".
+    expect(screen.getAllByText("Participants")).toHaveLength(1);
+    expect(screen.getByText("Models see each other")).toBeInTheDocument();
+  });
+
   it("does not clamp the round count while typing", () => {
     const { rounds } = setup();
     fireEvent.change(rounds, { target: { value: "" } });
@@ -40,7 +47,7 @@ describe("DebateConfigDialog", () => {
   it("starts anonymous by default and can switch to named participants", () => {
     const { onStart } = setup();
     fireEvent.mouseDown(screen.getByRole("combobox", { name: "How models see each other" }));
-    fireEvent.click(screen.getByRole("option", { name: "See each other's names" }));
+    fireEvent.click(screen.getByRole("option", { name: "By model name" }));
     fireEvent.click(screen.getByRole("button", { name: "Start Debate" }));
     expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ peer_labels: "named" }));
   });

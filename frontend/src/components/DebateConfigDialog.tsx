@@ -254,7 +254,7 @@ export default function DebateConfigDialog({
               sx={labelSx}
               title="Anonymous: models see each other as Participant A, B… so a reply is judged by its argument, not by which model wrote it. Named: models see each other's model names. The banner always shows you who is who."
             >
-              Participants
+              Models see each other
             </Typography>
             <Select
               size="small"
@@ -266,10 +266,10 @@ export default function DebateConfigDialog({
               sx={{ fontSize: "0.8rem", minWidth: 160 }}
             >
               <MenuItem value="anonymous">
-                <Typography variant="caption">Anonymous to each other</Typography>
+                <Typography variant="caption">As Participant A, B…</Typography>
               </MenuItem>
               <MenuItem value="named">
-                <Typography variant="caption">See each other&apos;s names</Typography>
+                <Typography variant="caption">By model name</Typography>
               </MenuItem>
             </Select>
           </Box>

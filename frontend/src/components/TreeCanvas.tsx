@@ -16,7 +16,7 @@ import ReactFlow, {
   useStore,
   ControlButton,
   Position,
-  getRectOfNodes,
+  getNodesBounds,
 } from "reactflow";
 import CustomTreeNode, { LOD_THRESHOLD } from "./CustomTreeNode";
 import { shouldFitWholeTree } from "@/lib/treeFit";
@@ -321,8 +321,12 @@ function TreeViewInner({
   const processedEdges = React.useMemo(() => {
     return externalEdges.map((e) => {
       if (e.type === "synthesis_edge") {
+        // The backend's kind of edge, drawn as a styled default edge: React
+        // Flow has no "synthesis_edge" type and warned on every render.
         return {
           ...e,
+          type: "default",
+          data: { ...(e.data ?? {}), kind: "synthesis" },
           animated: true,
           style: { stroke: "#8b5cf6", strokeWidth: 2, strokeDasharray: "5,3" },
           markerEnd: {
@@ -441,7 +445,7 @@ function TreeViewInner({
       const hasActive = !!activeNodeId && externalNodes.some((n) => n.id === activeNodeId);
       const whole =
         !hasActive ||
-        shouldFitWholeTree(getRectOfNodes(getNodes()), { width, height }, FIT_PADDING, LOD_THRESHOLD);
+        shouldFitWholeTree(getNodesBounds(getNodes()), { width, height }, FIT_PADDING, LOD_THRESHOLD);
       fitView(
         whole
           ? { duration: 500, padding: FIT_PADDING, maxZoom: 0.85 }
