@@ -323,6 +323,63 @@ test.describe("live flows (scripted models)", () => {
     expect(JSON.stringify(sessions)).toContain('"peer_labels":"named"');
   });
 
+  test("a message after a finished debate continues it and keeps its title", async ({ page, request }) => {
+    const sent: { message?: string; debate_session_id?: string; parent_checkpoint_id?: string | null }[] = [];
+    page.on("websocket", (ws) => {
+      if (!/\/ws\/thread/.test(ws.url())) return;
+      ws.on("framesent", (f) => {
+        try {
+          sent.push(JSON.parse(String(f.payload)));
+        } catch {}
+      });
+    });
+    // The chat socket opened in beforeEach; a fresh session opens one we observe.
+    await newSession(page);
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await startDebate(page, "Cats or dogs?", 1);
+    await expect(debateStatus(page)).toHaveText("completed", { timeout: 20_000 });
+    const sessionId = await page.evaluate(() => localStorage.getItem("crucible_active_debate"));
+
+    await send(page, "Which argument was weakest?");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0, { timeout: 20_000 });
+    const frame = sent.find((f) => f.message === "Which argument was weakest?");
+    expect(frame?.debate_session_id).toBe(sessionId);
+    expect(frame?.parent_checkpoint_id).toBeNull();
+
+    // The reply follows the debate on screen; the record the models read is
+    // not shown again under the transcript, and the question appears once.
+    await expect(page.getByText("Which argument was weakest?")).toHaveCount(1);
+    await expect(page.getByText(/^A debate between/)).toHaveCount(0);
+    await expect(page.getByText(answerFrom(GPT)).last()).toBeVisible();
+
+    // The thread keeps the debate's title instead of being renamed by the turn.
+    const threads = await (await request.get(`${BACKEND_URL}/threads`)).json();
+    const id = await currentThreadId(page);
+    const title = threads.threads.find((t: { id: string; title: string }) => t.id === id)?.title;
+    expect(title).toMatch(/^Debate: Cats or dogs\?/);
+  });
+
+  test("a clean profile starts from the default arena, and the selection survives a reload", async ({ page }) => {
+    await openApp(page, { freshProfile: true });
+    await expect(page.getByText(/^3 models$/i).first()).toBeVisible();
+    const stored = await page.evaluate(() => localStorage.getItem("crucible_selected_models"));
+    expect(stored).toBeNull(); // nothing picked yet: the defaults are not written
+
+    // Narrow it to one model and reload: the pick is kept. (A family button's
+    // name ends with its selected count while it has one.)
+    await page.getByRole("button", { name: /^Anthropic \d+ models( \d+)?$/ }).click();
+    await page.getByRole("button", { name: "Claude Sonnet 5.5" }).first().click();
+    await page.getByRole("button", { name: /^Google \d+ models( \d+)?$/ }).click();
+    await page.getByRole("button", { name: "Gemini 3.1 Pro" }).first().click();
+    await expect(page.getByText(/^[23] models$/i)).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByText("GPT-6.1 Sol", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(/^[23] models$/i)).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem("crucible_selected_models"))).toBe(
+      JSON.stringify(["gpt-6.1-sol"]),
+    );
+  });
+
   test("a debate can be deleted from the sidebar", async ({ page, request }) => {
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await startDebate(page, "Delete me afterwards", 1);

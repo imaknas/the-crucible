@@ -11,12 +11,17 @@ export const NODE_SPACING_X = 260;
 /**
  * Open the app with a clean slate.
  *
- * The app persists the active thread, the active debate and the panel state in
- * localStorage, so without this each spec would inherit the previous one's view.
+ * The app persists the active thread, the active debate, the panel state and
+ * the model selection in localStorage, so without this each spec would inherit
+ * the previous one's view. Specs start from GPT-6.1 Sol alone (a clean profile
+ * starts from the backend's default arena: `freshProfile`).
  */
-export async function openApp(page: Page) {
+export async function openApp(page: Page, { freshProfile = false } = {}) {
   await page.goto("/");
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate((fresh) => {
+    localStorage.clear();
+    if (!fresh) localStorage.setItem("crucible_selected_models", JSON.stringify(["gpt-6.1-sol"]));
+  }, freshProfile);
   await page.reload();
   await expect(page.getByRole("button", { name: "New Session" })).toBeVisible();
 }
@@ -169,7 +174,7 @@ export async function newSession(page: Page) {
   await expect(page.getByPlaceholder(/Ask the arena/i)).toBeVisible();
 }
 
-/** Add a model to the arena selection (gpt-6.1-sol is selected by default). */
+/** Add a model to the arena selection (openApp starts from gpt-6.1-sol alone). */
 export async function addModel(page: Page, family: string, name: string) {
   // The default model is applied once /models answers; selecting before that
   // would stop the default from being added at all.
