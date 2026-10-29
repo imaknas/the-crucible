@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
+from app.catalog.names import listed_id
 from app.catalog.store import DATA
 
 DEFAULT_PRICES = DATA / "prices.json"
@@ -83,11 +84,7 @@ class PriceBook:
         self.day = day
 
     def resolve(self, model_name: str) -> Optional[str]:
-        name = model_name.strip().lower().removeprefix("models/")
-        if name in self._prices:
-            return name
-        matches = [m for m in self._prices if name.startswith(m + "-")]
-        return max(matches, key=len) if matches else None
+        return listed_id(model_name, self._prices)
 
     def price(self, model_name: str) -> Optional[Price]:
         model_id = self.resolve(model_name)

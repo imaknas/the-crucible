@@ -2,6 +2,8 @@ from fastapi import APIRouter
 import os
 from typing import List, Dict, Any
 
+from app.catalog.names import is_dated_snapshot, listed_id
+
 router = APIRouter(tags=["models"])
 
 # ─── Hardcoded Catalog ─────────────────────────────────────────
@@ -338,13 +340,18 @@ def display_name(model_id: str | None) -> str:
 
     Raw IDs like "claude-haiku-4-5-20251001" are 25 characters and get clipped
     mid-identifier wherever the UI shows them, so anything a person reads uses
-    this instead. Unknown IDs fall through unchanged.
+    this instead. A dated snapshot of a registered model, as providers report
+    the model that answered ("gpt-5.2-2025-12-11"), gets that model's name.
+    Unknown IDs fall through unchanged.
     """
     if not model_id:
         return ""
     cfg = MODEL_REGISTRY.get(model_id)
     if cfg:
         return str(cfg["name"])
+    base = listed_id(model_id, MODEL_REGISTRY)
+    if base and is_dated_snapshot(model_id, base):
+        return str(MODEL_REGISTRY[base]["name"])
     return "Synthesis" if model_id == "synthesis" else model_id
 
 
