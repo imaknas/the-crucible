@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from app.core import database as db
 from app.core.schema import is_summary_message
+from app.services.runs import answered_head
 from app.services.tree import build_history_tree, load_thread_states
 from app.api.deps import get_graph_app
 
@@ -33,7 +34,10 @@ async def get_history(
     active_config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
     if checkpoint_id:
         active_config["configurable"]["checkpoint_id"] = checkpoint_id
-    active_state = await graph_app.aget_state(active_config)
+        active_state = await graph_app.aget_state(active_config)
+    else:
+        # The composer replies to this: never an unanswered, abandoned turn.
+        active_state = await answered_head(graph_app, thread_id)
 
     tree_data = build_history_tree(thread_id, all_states, active_state)
 

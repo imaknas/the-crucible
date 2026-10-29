@@ -48,16 +48,48 @@ def tag_turn_kind(config: Dict[str, Any], kind: Optional[str]) -> None:
 async def resolve_fork_point(graph_app, thread_id: str) -> str:
     """Return the checkpoint new parallel runs should fork from.
 
-    That is the thread head, or, for an empty thread, a freshly written empty
-    root, so that every model in the first turn shares one parent.
+    That is the thread head (see answered_head), or, for an empty thread, a
+    freshly written empty root, so that every model in the first turn shares
+    one parent.
     """
     head, _ = await resolve_fork_point_ex(graph_app, thread_id)
     return head
 
 
+def _ends_on_person(snapshot) -> bool:
+    messages = (snapshot.values or {}).get("messages", []) if snapshot else []
+    return bool(messages) and getattr(messages[-1], "type", "") == "human"
+
+
+async def answered_head(graph_app, thread_id: str):
+    """The thread head, skipping a turn that never got its reply.
+
+    A turn cut off before any model answered (a closed tab, a dropped socket,
+    a model that failed) leaves the head on the person's message. Continuing
+    from it put the next message after an unanswered one, merged into one
+    request. The head is then its nearest ancestor that ends on a reply (or
+    the empty root), so the next turn is a sibling of the abandoned one,
+    which stays in the tree.
+    """
+    head = await graph_app.aget_state(thread_config(thread_id))
+    if not _ends_on_person(head):
+        return head
+    current = head
+    # The abandoned run's own input checkpoint still ends on the last reply,
+    # but holds that run's input as a pending write: walk past it too.
+    while (_ends_on_person(current) or _is_run_input(current)) and current.parent_config:
+        current = await graph_app.aget_state(current.parent_config)
+    return head if _ends_on_person(current) else current
+
+
+def _is_run_input(snapshot) -> bool:
+    metadata = getattr(snapshot, "metadata", None)
+    return isinstance(metadata, dict) and metadata.get("source") == "input"
+
+
 async def resolve_fork_point_ex(graph_app, thread_id: str) -> Tuple[str, bool]:
     """Like resolve_fork_point, also reporting whether the thread was empty."""
-    state = await graph_app.aget_state(thread_config(thread_id))
+    state = await answered_head(graph_app, thread_id)
     head = state.config.get("configurable", {}).get("checkpoint_id") if state.config else None
     if head:
         return head, False
