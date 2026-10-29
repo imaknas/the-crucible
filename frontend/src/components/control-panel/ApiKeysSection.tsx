@@ -4,6 +4,10 @@ import { ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { fetchKeyStatus, saveApiKeys, type KeyInfo, type ModelFamily } from "@/lib/api";
 import { FAMILY_ENV_KEY, SectionHeader, getFamilyColors } from "./primitives";
 
+function familiesMissingKeys(families: ModelFamily[]): string[] {
+  return families.filter((f) => !f.available && FAMILY_ENV_KEY[f.key]).map((f) => f.key);
+}
+
 /** API key entry per provider family; keys are sent to the backend, never stored here. */
 export default function ApiKeysSection({
   families,
@@ -17,7 +21,15 @@ export default function ApiKeysSection({
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
   const [keyInfo, setKeyInfo] = useState<Record<string, KeyInfo>>({});
   const [keyShowMap, setKeyShowMap] = useState<Record<string, boolean>>({});
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  // Families with no key start expanded, and so does any that loses its key
+  // later; adjusted during render when the family list changes.
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set(familiesMissingKeys(families)));
+  const [seenFamilies, setSeenFamilies] = useState(families);
+  if (families !== seenFamilies) {
+    setSeenFamilies(families);
+    const missing = familiesMissingKeys(families);
+    if (missing.length > 0) setExpandedKeys((prev) => new Set([...prev, ...missing]));
+  }
   const [keySaving, setKeySaving] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
@@ -31,15 +43,6 @@ export default function ApiKeysSection({
   useEffect(() => {
     refreshKeyInfo();
   }, []);
-
-  // Auto-expand families with no key on first load
-  useEffect(() => {
-    const missing = families
-      .filter((f) => !f.available && FAMILY_ENV_KEY[f.key])
-      .map((f) => f.key);
-    if (missing.length > 0)
-      setExpandedKeys((prev) => new Set([...prev, ...missing]));
-  }, [families]);
 
   const keyFamilies = families.filter((f) => FAMILY_ENV_KEY[f.key]);
   const hasChanges = Object.values(keyInputs).some((v) => v.trim() !== "");

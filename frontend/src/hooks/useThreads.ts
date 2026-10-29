@@ -67,7 +67,13 @@ export function useThreads(
   };
 
   useEffect(() => {
-    fetchThreads().then(() => {
+    // The list is set from the response callback, not synchronously in the
+    // effect body (react-hooks/set-state-in-effect).
+    api
+      .listThreads()
+      .then((data) => setThreads(data.threads || []))
+      .catch((error) => console.error("[LIBRARY] Connection error:", error))
+      .then(() => {
       // ?thread=<id> (e.g. from `crucible tree --open`) wins over the last
       // thread opened here, and is then dropped from the URL so a reload
       // doesn't keep forcing it.

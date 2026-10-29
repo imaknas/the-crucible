@@ -112,11 +112,14 @@ export const ChatInput = React.memo(
       setSeenClearSignal(clearSignal);
       setLocalInput("");
     }
-    const fileRef = React.useRef<HTMLInputElement>(null);
-
-    React.useEffect(() => {
+    // A new initialInput (edit-and-rebranch) replaces what is typed; adjusted
+    // during render, like the clear signal, rather than in an effect.
+    const [seenInitialInput, setSeenInitialInput] = React.useState(initialInput);
+    if (initialInput !== seenInitialInput) {
+      setSeenInitialInput(initialInput);
       setLocalInput(initialInput);
-    }, [initialInput]);
+    }
+    const fileRef = React.useRef<HTMLInputElement>(null);
 
     const state = {
       isLoading,
