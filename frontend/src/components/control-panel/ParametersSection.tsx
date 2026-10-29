@@ -12,7 +12,7 @@ export default function ParametersSection({
 }: {
   isDark: boolean;
   toggles: Toggles;
-  setToggles: React.Dispatch<React.SetStateAction<Toggles>>;
+  setToggles: (next: Toggles | ((prev: Toggles) => Toggles)) => void;
 }) {
   return (
     <Box>

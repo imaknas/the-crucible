@@ -1,22 +1,28 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import * as api from "@/lib/api";
 import { modelDisplayName } from "@/lib/modelNames";
+import { parseStoredSelection, resolveSelection, type SelectionDefaults } from "@/lib/modelSelection";
+import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
 
 export type CatalogStatus = "loading" | "ready" | "error";
+
+const SELECTION_KEY = "crucible_selected_models";
 
 /**
  * The model catalogue from GET /models (the only place the frontend fetches
  * it), plus the arena's model selection.
  *
- * The selection is seeded from the backend's `default_model` rather than a
- * hardcoded ID, which is how a previous default drifted onto a legacy model.
+ * The selection persists, and starts from the backend's `default_arena_models`
+ * (see `resolveSelection`) rather than a hardcoded ID, which is how a previous
+ * default drifted onto a legacy model.
  */
 export function useModelCatalog() {
   const [families, setFamilies] = useState<api.ModelFamily[]>([]);
   const [status, setStatus] = useState<CatalogStatus>("loading");
-  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [defaults, setDefaults] = useState<SelectionDefaults>({});
   // The summarizer the backend uses when none is chosen, for the keys that are set.
   const [defaultSummarizer, setDefaultSummarizer] = useState<string | null>(null);
+  const stored = useStoredValue(SELECTION_KEY);
 
   const load = useCallback(() => {
     return api
@@ -25,9 +31,7 @@ export function useModelCatalog() {
         setFamilies(data.families);
         setStatus("ready");
         setDefaultSummarizer(data.default_summarizer ?? null);
-        if (data.default_model) {
-          setSelectedModels((prev) => (prev.length ? prev : [data.default_model as string]));
-        }
+        setDefaults({ default_model: data.default_model, default_arena_models: data.default_arena_models });
       })
       .catch(() => setStatus("error"));
   }, []);
@@ -41,6 +45,15 @@ export function useModelCatalog() {
     setStatus("loading");
     load();
   }, [load]);
+
+  const selectedModels = useMemo(
+    () => resolveSelection(parseStoredSelection(stored), families, defaults),
+    [stored, families, defaults],
+  );
+  const setSelectedModels = useCallback(
+    (models: string[]) => writeStoredValue(SELECTION_KEY, JSON.stringify(models)),
+    [],
+  );
 
   // Changes identity once the catalogue loads, so memoised views that show
   // names re-render with them. Socket handlers read it through a ref.

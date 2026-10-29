@@ -28,6 +28,7 @@ import { useModelCatalog } from "@/hooks/useModelCatalog";
 import { useSummarizerChoice } from "@/hooks/useSummarizerChoice";
 import { useSystemPrompt } from "@/hooks/useSystemPrompt";
 import { useDebateDefaults } from "@/hooks/useDebateDefaults";
+import { useToggles } from "@/hooks/useToggles";
 import { useTreeActions } from "@/hooks/useTreeActions";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
 
@@ -44,7 +45,7 @@ export default function Home() {
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [documents, setDocuments] = useState<Record<string, string>>({});
-  const [toggles, setToggles] = useState({ use_rag: true, use_web_search: false });
+  const { toggles, setToggles } = useToggles();
   const [errorModals, setErrorModals] = useState<
     { id: string; title: string; details: string; suggestion?: string }[]
   >([]);
