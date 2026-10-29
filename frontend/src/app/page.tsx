@@ -168,9 +168,9 @@ export default function Home() {
   });
   const inDebate = !!debate.activeSessionId;
   const debateHasTranscript = debate.messages.length > 0;
-  // A turn sent under a debate's transcript, before any chat reply follows
+  // A turn sent under a debate's transcript, before any turn has followed
   // it, continues that debate (a running one takes sends as injections).
-  const continuesDebate = inDebate && messages.length === 0 ? debate.activeSessionId : null;
+  const { continuesDebate, markFollowedUp } = debate;
   // One banner for both views: its controls must be reachable from the tree too.
   const debateBanner: DebateBannerProps | null = inDebate
     ? {
@@ -234,18 +234,22 @@ export default function Home() {
   // tree; the view now changes only when you change it.
   const handleSendMessage = useCallback(
     (text: string) => {
-      sendInteractiveMessage(text, false, continuesDebate);
+      sendInteractiveMessage(text, false, continuesDebate).then((sent) => {
+        if (sent && continuesDebate) markFollowedUp();
+      });
       setInput("");
     },
-    [sendInteractiveMessage, setInput, continuesDebate],
+    [sendInteractiveMessage, setInput, continuesDebate, markFollowedUp],
   );
 
   const handleDeliberate = useCallback(
     (text: string) => {
-      sendInteractiveMessage(text, true, continuesDebate);
+      sendInteractiveMessage(text, true, continuesDebate).then((sent) => {
+        if (sent && continuesDebate) markFollowedUp();
+      });
       setInput("");
     },
-    [sendInteractiveMessage, setInput, continuesDebate],
+    [sendInteractiveMessage, setInput, continuesDebate, markFollowedUp],
   );
 
   return (

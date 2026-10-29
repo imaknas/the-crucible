@@ -301,10 +301,10 @@ export function useChatWebSocket({
     input: string,
     isDeliberation: boolean = false,
     continuesDebate: string | null = null,
-  ) => {
-    if (isLoading) return;
+  ): Promise<boolean> => {
+    if (isLoading) return false;
     const userMessage = input.trim();
-    if (!userMessage && !isDeliberation) return; // nothing to do
+    if (!userMessage && !isDeliberation) return false; // nothing to do
 
     // Check the socket before echoing the message, or a failed send leaves a
     // user bubble that was never delivered.
@@ -313,7 +313,7 @@ export function useChatWebSocket({
         "Connection Lost",
         "Not connected to the backend. It will reconnect automatically; try again in a moment.",
       );
-      return;
+      return false;
     }
 
     if (userMessage) {
@@ -348,6 +348,7 @@ export function useChatWebSocket({
       });
     });
     clearDocuments();
+    return true;
   };
 
   function sendFrame(frame: Record<string, unknown>) {

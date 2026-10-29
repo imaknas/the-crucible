@@ -359,6 +359,38 @@ test.describe("live flows (scripted models)", () => {
     expect(title).toMatch(/^Debate: Cats or dogs\?/);
   });
 
+  test("a debate started mid-thread is still continued after a reload", async ({ page }) => {
+    const sent: { message?: string; debate_session_id?: string }[] = [];
+    page.on("websocket", (ws) => {
+      if (!/\/ws\/thread/.test(ws.url())) return;
+      ws.on("framesent", (f) => {
+        try {
+          sent.push(JSON.parse(String(f.payload)));
+        } catch {}
+      });
+    });
+    await newSession(page);
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, "Opening question");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0, { timeout: 20_000 });
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await startDebate(page, "Mid-thread debate?", 1);
+    await expect(debateStatus(page)).toHaveText("completed", { timeout: 20_000 });
+    const sessionId = await page.evaluate(() => localStorage.getItem("crucible_active_debate"));
+
+    // After a reload the thread opens on its chat; reopening the debate from
+    // the sidebar puts it above the thread's own messages, and a turn sent
+    // under it still continues the debate.
+    await page.reload();
+    // This thread is the most recently active, so it is listed first.
+    await page.getByRole("button", { name: "Show 1 debate" }).first().click();
+    await page.getByRole("button", { name: /GPT-6\.1 Sol vs Claude Sonnet 5\.5/ }).first().click();
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await expect(debateStatus(page)).toHaveText("completed");
+    await send(page, "After the reload");
+    await expect.poll(() => sent.find((f) => f.message === "After the reload")?.debate_session_id).toBe(sessionId);
+  });
+
   test("a clean profile starts from the default arena, and the selection survives a reload", async ({ page }) => {
     await openApp(page, { freshProfile: true });
     await expect(page.getByText(/^3 models$/i).first()).toBeVisible();

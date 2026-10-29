@@ -225,6 +225,20 @@ describe("useDebateSession", () => {
     expect(result.current.activeSessionId).toBeNull();
   });
 
+  it("names the debate on screen for a chat turn to continue, until one has", async () => {
+    const { result } = setup();
+    expect(result.current.continuesDebate).toBeNull();
+    await startDebate(result, "s1");
+    expect(result.current.continuesDebate).toBe("s1");
+
+    act(() => result.current.markFollowedUp());
+    expect(result.current.continuesDebate).toBeNull();
+
+    // Another debate on screen is continued afresh.
+    await startDebate(result, "s2");
+    expect(result.current.continuesDebate).toBe("s2");
+  });
+
   it("persists the active session and completes on the server's word", async () => {
     const { result, sockets, opts } = setup();
     await startDebate(result);

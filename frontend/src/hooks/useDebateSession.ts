@@ -580,8 +580,18 @@ export function useDebateSession({
   const hasTranscript = transcript.messages.length > 0;
   const controls = useMemo(() => debateControls(status, hasTranscript), [status, hasTranscript]);
 
+  // The debate a chat turn sent now continues: the one on screen until a
+  // turn has followed it here. Tracked rather than read off the chat
+  // messages: a restored debate that started mid-thread sits above that
+  // thread's messages, and the turn then skipped the debate.
+  const [followedUp, setFollowedUp] = useState<string | null>(null);
+  const continuesDebate = activeSessionId && followedUp !== activeSessionId ? activeSessionId : null;
+  const markFollowedUp = useCallback(() => setFollowedUp(activeSessionId), [activeSessionId]);
+
   return {
     activeSessionId,
+    continuesDebate,
+    markFollowedUp,
     sessions,
     tree,
     activeNode,
