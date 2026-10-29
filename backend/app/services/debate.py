@@ -17,7 +17,9 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Container, Mapping, Optional, Sequence
 from uuid import uuid4
 
-from app.api.models import MODEL_REGISTRY
+from langchain_core.messages import AIMessage, HumanMessage
+
+from app.api.models import MODEL_REGISTRY, display_name
 from app.core import database as db
 from app.services.convergence import build_convergence_check
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
@@ -32,6 +34,7 @@ from app.services.peers import (
 )
 from app.services.synthesis import ARGUMENT_MAP, build_synthesis_prompt
 from app.services.runs import (
+    DEBATE_RECORD_KEY,
     final_state_of_run,
     seed_thread,
     seeded_message_count,
@@ -231,6 +234,7 @@ async def run_debate(
             graph_app, parent_thread_id, parent_checkpoint_id,
             [thread_ids[m] for m in participants],
         )
+        await asyncio.to_thread(db.update_debate_session, session_id, parent_checkpoint_id=parent_checkpoint_id)
 
     # The start frame's documents are in context for every round. Their
     # content is stored once, for the parent thread; each participant's turns
@@ -325,11 +329,11 @@ async def run_debate(
         }
 
     # Auto-synthesize if configured
-    if session.get("auto_synthesize") and session.get("synthesizer_model"):
+    if session.get("auto_synthesize"):
         async for event in _stream_synthesis(
             graph_app=graph_app,
             session_id=session_id,
-            session=session,
+            session={**session, "synthesizer_model": db.session_synthesizer(session)},
             prompt=prompt,
             rounds=await debate_rounds(graph_app, session),
             toggles=toggles,
@@ -624,6 +628,74 @@ async def _original_question(graph_app, session: dict[str, Any]) -> str:
     return ""
 
 
+# ─── Continuing the conversation ─────────────────────────────────────────────
+
+
+def debate_record_text(session: Mapping[str, Any], rounds: Mapping[str, Sequence[str]], synthesis: str = "") -> str:
+    """The whole debate as one message: every round of every participant
+    under the label the models used, which model that label was, and the
+    synthesis if one was written."""
+    peers = session_peers(session)
+    records = {m: _participant_record(replies) for m, replies in rounds.items()}
+    who = ", ".join(
+        f"{peers.label(m)} = {display_name(m)}" if peers.label(m) != m else display_name(m)
+        for m in sorted(rounds, key=peers.label)
+    )
+    n_rounds = max((len(r) for r in rounds.values()), default=0)
+    parts = [f"A debate between {who} ({n_rounds} rounds)."]
+    parts += [f"[{label}]:\n{record}" for label, record in labelled(peers, records)]
+    if synthesis:
+        parts.append(f"Synthesis by {display_name(db.session_synthesizer(dict(session)))}:\n{synthesis}")
+    return "\n\n".join(parts)
+
+
+async def continue_from_debate(graph_app, session_id: str) -> str:
+    """The parent-thread checkpoint a chat turn after this debate forks from.
+
+    A debate writes only to its sub-threads, so a turn sent on the parent
+    after it used to see nothing of it ("I don't see any arguments above")
+    while the screen showed the whole debate. The first such turn writes the
+    debate onto the parent, as the question and one message recording every
+    round and the synthesis, from the checkpoint the debate started at; later
+    turns reuse that record.
+    """
+    session = db.get_debate_session(session_id)
+    if not session:
+        raise ValueError(f"Session {session_id} not found")
+    parent_thread_id = session["parent_thread_id"]
+    async for snapshot in graph_app.aget_state_history(
+        thread_config(parent_thread_id), filter={DEBATE_RECORD_KEY: session_id}, limit=1
+    ):
+        return snapshot.config["configurable"]["checkpoint_id"]
+
+    question = await _original_question(graph_app, session)
+    rounds = await debate_rounds(graph_app, session)
+    synthesis_state = await graph_app.aget_state(thread_config(db.synthesis_thread_id(session)))
+    synthesis_msgs = (synthesis_state.values or {}).get("messages", []) if synthesis_state else []
+    last = synthesis_msgs[-1] if synthesis_msgs else None
+    synthesis = extract_text(last.content) if last is not None and last.type == "ai" else ""
+
+    config = thread_config(parent_thread_id, session.get("parent_checkpoint_id"))
+    config["metadata"] = {DEBATE_RECORD_KEY: session_id}
+    # Written as the graph's last node, so the next run starts a fresh turn.
+    asked = await graph_app.aupdate_state(config, {"messages": [HumanMessage(content=question)]}, as_node="synthesis")
+    asked["metadata"] = {DEBATE_RECORD_KEY: session_id}
+    recorded = await graph_app.aupdate_state(
+        asked,
+        {
+            "messages": [
+                AIMessage(
+                    content=debate_record_text(session, rounds, synthesis),
+                    additional_kwargs={DEBATE_RECORD_KEY: session_id},
+                )
+            ],
+            "active_peer": None,
+        },
+        as_node="synthesis",
+    )
+    return recorded["configurable"]["checkpoint_id"]
+
+
 async def synthesize_session(
     graph_app,
     session_id: str,
@@ -638,10 +710,7 @@ async def synthesize_session(
     if not session:
         yield {"type": "error", "session_id": session_id, "message": f"Session {session_id} not found"}
         return
-    model = synthesizer or session.get("synthesizer_model")
-    if not model:
-        yield {"type": "error", "session_id": session_id, "message": "No synthesizer model specified"}
-        return
+    model = synthesizer or db.session_synthesizer(session)
     if model not in known_models:
         yield {"type": "error", "session_id": session_id, "message": f"Unknown models: {model}"}
         return
@@ -658,7 +727,9 @@ async def synthesize_session(
         context=context,
     ):
         yield event
-    await asyncio.to_thread(db.update_debate_session, session_id, status="completed")
+    # Stored so readers of the session (the tree's colour, the restored
+    # transcript) name the model that wrote this synthesis.
+    await asyncio.to_thread(db.update_debate_session, session_id, synthesizer_model=model, status="completed")
 
 
 async def _stream_synthesis(

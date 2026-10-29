@@ -249,11 +249,18 @@ export async function loadDebateMessages(session: DebateSession): Promise<import
     const synthData = await fetchHistory(synthId);
     const synthMsgs = (synthData.messages ?? []).filter((m: any) => m.role === "assistant");
     if (synthMsgs.length > 0) {
+      const last = synthMsgs[synthMsgs.length - 1];
+      // The session names its synthesizer once one has run; older sessions
+      // whose synthesizer was left as "First participant" store none, and
+      // the reply itself says which model wrote it. "synthesis" is the
+      // thread key, never a model, and was shown as "Synthesis · synthesis".
+      const model = session.synthesizer_model ?? last.model ?? session.participants[0];
       result.push({
         id: "restored-synthesis",
         role: "assistant",
-        model: session.synthesizer_model ?? "synthesis",
-        content: synthMsgs[synthMsgs.length - 1].content ?? "",
+        model,
+        ...(last.model_name && !session.synthesizer_model ? { model_name: last.model_name } : {}),
+        content: last.content ?? "",
         type: "synthesis",
       } as any);
     }

@@ -17,6 +17,7 @@ from app.services.chat import auto_title, build_turn_input
 from app.services.chat import stream_turn
 from app.services.message_format import format_chat_messages
 from app.services.context import ContextSettings
+from app.services.debate import continue_from_debate
 from app.services.documents import attach_documents
 from app.services.runs import (
     final_state_of_run,
@@ -80,7 +81,8 @@ class ChatConnection:
 
     Client frames:  {message, model, toggles, documents, parent_checkpoint_id,
                      is_deliberation, type?}  — one per model (type "synthesis"
-                     tags a synthesis turn); or {type: "stop"}.
+                     tags a synthesis turn; debate_session_id, without a
+                     parent, continues that finished debate); or {type: "stop"}.
     Server frames:  stream_start, stream_token, stream_end, title_update, error.
                     stream_start and a model's error carry parent_checkpoint_id.
 
@@ -151,9 +153,18 @@ class ChatConnection:
             self._turn_parent = frame["parent_checkpoint_id"]
             self._turn_is_new_thread = False
         elif not (self._model_tasks and self._turn_parent):
-            self._turn_parent, self._turn_is_new_thread = await resolve_fork_point_ex(
-                self.graph_app, self.thread_id
-            )
+            if frame.get("debate_session_id"):
+                # Sent from a finished debate on screen: the turn continues it.
+                try:
+                    self._turn_parent = await continue_from_debate(self.graph_app, frame["debate_session_id"])
+                except ValueError as e:
+                    await self.send({"type": "error", "message": str(e), "model": frame.get("model")})
+                    return
+                self._turn_is_new_thread = False
+            else:
+                self._turn_parent, self._turn_is_new_thread = await resolve_fork_point_ex(
+                    self.graph_app, self.thread_id
+                )
         self._spawn(
             self._run_model(frame, self._turn_parent, self._turn_is_new_thread),
             model_task=True,
@@ -210,6 +221,10 @@ class ChatConnection:
         if not title:
             return
         try:
+            # A thread can be titled before its first checkpoint: a debate's
+            # parent is named after the debate. Never overwrite a title.
+            if await asyncio.to_thread(db.get_thread_title, self.thread_id):
+                return
             # Off the loop: the checkpointer commits its writes on this loop,
             # so a blocking write here can wait on a lock that is only
             # released once this call returns ("database is locked").

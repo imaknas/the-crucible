@@ -5,7 +5,7 @@ from app.core import database as db
 from app.core.database import load_node_positions
 from app.core.schema import is_summary_message
 from app.api.models import display_name
-from app.services.runs import SYNTHESIS_TURN, TURN_KIND_KEY, is_seed
+from app.services.runs import DEBATE_RECORD_KEY, SYNTHESIS_TURN, TURN_KIND_KEY, is_seed
 from app.utils.helpers import extract_text, get_preview_text
 
 # The frontend's chat synthesis prompt starts its instructions with this.
@@ -36,6 +36,24 @@ def _content_of(msg) -> str:
     else:
         content = msg
     return content if isinstance(content, str) else str(content)
+
+
+DEBATE_RECORD_NAME = "Debate"
+
+
+def is_debate_record(state_obj) -> bool:
+    """Whether this checkpoint's last message is the record of a debate,
+    written onto the parent thread when a chat turn continued it.
+
+    The message carries the flag, not only the checkpoint: the next turn's
+    run-input checkpoint also ends on the record and has no such metadata."""
+    m_list = state_obj.values.get("messages", [])
+    if not m_list or get_checkpoint_role(state_obj) != "assistant":
+        return False
+    extra = getattr(m_list[-1], "additional_kwargs", None)
+    if extra is None and isinstance(m_list[-1], dict):
+        extra = m_list[-1].get("additional_kwargs")
+    return isinstance(extra, dict) and bool(extra.get(DEBATE_RECORD_KEY))
 
 
 def is_synthesis_reply(state_obj) -> bool:
@@ -440,6 +458,9 @@ def build_graph_layout(
         if visual_role == "ai" and is_synthesis_reply(state):
             node["type"] = "synthesis"
             node["metadata"]["kind"] = "synthesis"
+        elif is_debate_record(state):
+            node["metadata"]["kind"] = "debate"
+            node["metadata"]["model_name"] = DEBATE_RECORD_NAME
         nodes.append(node)
 
         parent = parents.get(v_id)
@@ -536,6 +557,9 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
                     if not msg_model and role == "assistant":
                         msg_model = (state.values or {}).get("active_peer")
 
+                    debate_record = role == "assistant" and is_debate_record(state)
+                    if debate_record:
+                        msg_model = "debate"
                     if not msg_model:
                         msg_model = "assistant" if role == "assistant" else "user"
 
@@ -552,11 +576,15 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
                             "type": role,
                             "model": msg_model,
                             # What a person reads; the raw id stays in `model`.
-                            "model_name": display_name(msg_model)
+                            "model_name": DEBATE_RECORD_NAME
+                            if debate_record
+                            else display_name(msg_model)
                             if role == "assistant"
                             else None,
                             "kind": "synthesis"
                             if role == "assistant" and is_synthesis_reply(state)
+                            else "debate"
+                            if debate_record
                             else None,
                             "sources": sources,
                         }
@@ -687,7 +715,7 @@ def _synthesis_coming(session: Dict[str, Any]) -> bool:
     A debate with nothing configured, or one that has ended, gets no
     placeholder; a manual synthesis draws its node once it is written."""
     return (
-        bool(session.get("auto_synthesize") and session.get("synthesizer_model"))
+        bool(session.get("auto_synthesize"))
         and session.get("status") in ("running", "paused")
     )
 
@@ -773,7 +801,7 @@ def build_debate_tree(
     synthesis_y = (max_round + 1) * ROUND_HEIGHT + SYNTHESIS_GAP
 
     if synthesis_states:
-        syn_model = session.get("synthesizer_model", "synthesis")
+        syn_model = db.session_synthesizer(session)
         syn_color = family_colors.get(syn_model, "#8b5cf6")
         syn_nodes, syn_edges, _ = build_single_thread_for_debate(
             "synthesis", synthesis_states, lane_index=0, model_color=syn_color

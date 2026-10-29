@@ -73,6 +73,19 @@ export function questionMessage(content: string): Message {
   return { id: "debate-question", role: "user", content, type: "human" };
 }
 
+/**
+ * The chat messages to show under a debate's transcript. A turn after a
+ * debate continues from a record of it on the thread (kind "debate"); that
+ * record and the question before it repeat the transcript above, so only
+ * what follows the record is shown.
+ */
+export function afterDebateRecord(messages: Message[]): Message[] {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].kind === "debate") return messages.slice(i + 1);
+  }
+  return messages;
+}
+
 function update(messages: Message[], id: string, patch: (m: Message) => Message): Message[] {
   return messages.map((m) => (m.id === id ? patch(m) : m));
 }

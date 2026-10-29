@@ -29,7 +29,7 @@ import { useSummarizerChoice } from "@/hooks/useSummarizerChoice";
 import { useSystemPrompt } from "@/hooks/useSystemPrompt";
 import { useDebateDefaults } from "@/hooks/useDebateDefaults";
 import { useTreeActions } from "@/hooks/useTreeActions";
-import { peerLegend } from "@/lib/debateTranscript";
+import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
 
 /**
  * The app shell. State lives in hooks; this component wires them together and
@@ -167,6 +167,9 @@ export default function Home() {
   });
   const inDebate = !!debate.activeSessionId;
   const debateHasTranscript = debate.messages.length > 0;
+  // A turn sent under a debate's transcript, before any chat reply follows
+  // it, continues that debate (a running one takes sends as injections).
+  const continuesDebate = inDebate && messages.length === 0 ? debate.activeSessionId : null;
   // One banner for both views: its controls must be reachable from the tree too.
   const debateBanner: DebateBannerProps | null = inDebate
     ? {
@@ -230,18 +233,18 @@ export default function Home() {
   // tree; the view now changes only when you change it.
   const handleSendMessage = useCallback(
     (text: string) => {
-      sendInteractiveMessage(text, false);
+      sendInteractiveMessage(text, false, continuesDebate);
       setInput("");
     },
-    [sendInteractiveMessage, setInput],
+    [sendInteractiveMessage, setInput, continuesDebate],
   );
 
   const handleDeliberate = useCallback(
     (text: string) => {
-      sendInteractiveMessage(text, true);
+      sendInteractiveMessage(text, true, continuesDebate);
       setInput("");
     },
-    [sendInteractiveMessage, setInput],
+    [sendInteractiveMessage, setInput, continuesDebate],
   );
 
   return (
@@ -374,7 +377,7 @@ export default function Home() {
                 className="absolute inset-0 w-full h-full flex flex-col"
               >
                 <ChatView
-                  messages={inDebate && debateHasTranscript ? [...debate.messages, ...messages] : messages}
+                  messages={inDebate && debateHasTranscript ? [...debate.messages, ...afterDebateRecord(messages)] : messages}
                   nodes={nodes}
                   edges={edges}
                   isLoading={isLoading || isHistoryLoading}

@@ -48,6 +48,7 @@ def init_db():
             synthesizer_model TEXT,
             round_scores TEXT DEFAULT '{}',
             peer_labels TEXT,
+            parent_checkpoint_id TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -61,6 +62,10 @@ def init_db():
     # older rows stay NULL, and the debate service decides what NULL means.
     if "peer_labels" not in existing:
         conn.execute("ALTER TABLE debate_sessions ADD COLUMN peer_labels TEXT")
+    # Migration: the parent-thread checkpoint a debate started from, so a chat
+    # turn after it continues from the same point. NULL: started from nothing.
+    if "parent_checkpoint_id" not in existing:
+        conn.execute("ALTER TABLE debate_sessions ADD COLUMN parent_checkpoint_id TEXT")
 
     # Added later: documents attached to a thread, once per (thread, filename),
     # instead of in the graph state of every checkpoint.
@@ -178,7 +183,10 @@ def get_debate_session(session_id: str) -> dict[str, Any] | None:
 
 def update_debate_session(session_id: str, **kwargs: Any) -> None:
     """Update any subset of debate session fields."""
-    allowed = {"current_round", "status", "auto_synthesize", "synthesizer_model", "termination_policy"}
+    allowed = {
+        "current_round", "status", "auto_synthesize", "synthesizer_model", "termination_policy",
+        "parent_checkpoint_id",
+    }
     updates = {k: v for k, v in kwargs.items() if k in allowed}
     if not updates:
         return
@@ -234,6 +242,13 @@ def synthesis_thread_id(session: dict[str, Any]) -> str:
     store it; theirs is the parent's shared "{parent}::synthesis".
     """
     return session["thread_ids"].get(SYNTHESIS_KEY) or f"{session['parent_thread_id']}::{SYNTHESIS_KEY}"
+
+
+def session_synthesizer(session: dict[str, Any]) -> str:
+    """The model that writes a session's synthesis: the one it names, else its
+    first participant (what "First participant" in the debate dialog stores
+    as no model)."""
+    return session.get("synthesizer_model") or session["participants"][0]
 
 
 def session_thread_ids(session: dict[str, Any]) -> set[str]:

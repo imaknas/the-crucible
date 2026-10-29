@@ -20,6 +20,9 @@ SEED_KEY = "crucible_seed"
 TURN_KIND_KEY = "crucible_turn"
 SYNTHESIS_TURN = "synthesis"
 TURN_KINDS = frozenset({SYNTHESIS_TURN})
+# Names the debate session a parent-thread checkpoint records (written by
+# debate.continue_from_debate when a chat turn follows a debate).
+DEBATE_RECORD_KEY = "crucible_debate"
 
 
 def thread_config(thread_id: str, checkpoint_id: Optional[str] = None) -> Dict[str, Any]:

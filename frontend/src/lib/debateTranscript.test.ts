@@ -1,5 +1,6 @@
 import {
   EMPTY_TRANSCRIPT,
+  afterDebateRecord,
   debateControls,
   questionMessage,
   sessionRowStatus,
@@ -174,5 +175,20 @@ describe("roundLabel", () => {
     expect(roundLabel(0, "short")).toBe("Round 1 · independent");
     expect(roundLabel(3)).toBe("Round 4");
     expect(roundLabel(3, "short")).toBe("Round 4");
+  });
+});
+
+describe("afterDebateRecord", () => {
+  const msg = (id: string, role: "user" | "assistant", kind?: string) =>
+    ({ id, role, content: id, type: role === "user" ? "human" : "ai", kind }) as any;
+
+  it("drops the debate's question and record, which the transcript already shows", () => {
+    const thread = [msg("q", "user"), msg("record", "assistant", "debate"), msg("ask", "user"), msg("reply", "assistant")];
+    expect(afterDebateRecord(thread).map((m) => m.id)).toEqual(["ask", "reply"]);
+  });
+
+  it("keeps everything when the thread holds no record", () => {
+    const thread = [msg("ask", "user"), msg("reply", "assistant")];
+    expect(afterDebateRecord(thread)).toEqual(thread);
   });
 });

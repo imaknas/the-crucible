@@ -251,6 +251,29 @@ async def test_an_anonymous_debate_never_shows_a_model_id_to_a_debater():
 
 
 @pytest.mark.asyncio
+async def test_auto_synthesis_without_a_named_synthesizer_is_written_by_the_first_participant():
+    """The debate dialog's default synthesizer, "First participant", is stored
+    as no model; the debate used to finish without any synthesis."""
+    async with open_graph() as graph_app:
+        session = debate_svc.create_session("t-auto", [A, B], dict(POLICY), auto_synthesize=True)
+        events = [e async for e in debate_svc.run_debate(graph_app, session["session_id"], "Q?", {}, {})]
+        synthesis = await graph_app.aget_state(thread_config(db.synthesis_thread_id(session)))
+
+    ends = [e for e in events if e["type"] == "debate_synthesis_end"]
+    assert [e["model"] for e in ends] == [A], events
+    assert synthesis.values.get("messages")
+
+
+@pytest.mark.asyncio
+async def test_a_manual_synthesis_records_which_model_wrote_it():
+    async with open_graph() as graph_app:
+        session = await _debate(graph_app, "t-manual", "Q?")
+        events = [e async for e in debate_svc.synthesize_session(graph_app, session["session_id"], "", synthesizer=B)]
+    assert any(e["type"] == "debate_synthesis_end" for e in events), events
+    assert db.get_debate_session(session["session_id"])["synthesizer_model"] == B
+
+
+@pytest.mark.asyncio
 async def test_the_argument_map_reads_every_round_under_participant_labels():
     question = "Is it yes?"
     with use_model_factory(CallableModelFactory(_neutral)):

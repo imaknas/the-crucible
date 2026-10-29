@@ -174,6 +174,25 @@ describe("useChatWebSocket", () => {
     expect(frame).toMatchObject({ type: "synthesis", system_prompt: "Be terse." });
   });
 
+  it("continues a finished debate from the debate, not from the active checkpoint", async () => {
+    const { result } = renderHook(() => useChatWebSocket(mockProps));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Which argument was weakest?", false, "debate-1");
+    });
+    const frame = JSON.parse(MockWebSocket.instances[0].send.mock.calls[0][0]);
+    expect(frame).toMatchObject({ debate_session_id: "debate-1", parent_checkpoint_id: null });
+  });
+
+  it("sends an ordinary turn from the active checkpoint", async () => {
+    const { result } = renderHook(() => useChatWebSocket(mockProps));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const frame = JSON.parse(MockWebSocket.instances[0].send.mock.calls[0][0]);
+    expect(frame.parent_checkpoint_id).toBe("cp_1");
+    expect(frame).not.toHaveProperty("debate_session_id");
+  });
+
   it("does not echo a message it could not send", async () => {
     const { result } = renderHook(() => useChatWebSocket(mockProps));
     MockWebSocket.instances[0].readyState = 3; // CLOSED

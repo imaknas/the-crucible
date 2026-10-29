@@ -292,9 +292,15 @@ export function useChatWebSocket({
     };
   }, [threadId, setErrorModals, reconnectKey, openSocket]); // Reconnect only on thread change or after a dropped socket
 
+  /**
+   * `continuesDebate`: the finished debate on screen this turn follows. The
+   * backend writes that debate onto the thread and forks from it; without
+   * it the models saw nothing of the debate the person just read.
+   */
   const sendInteractiveMessage = async (
     input: string,
     isDeliberation: boolean = false,
+    continuesDebate: string | null = null,
   ) => {
     if (isLoading) return;
     const userMessage = input.trim();
@@ -335,7 +341,9 @@ export function useChatWebSocket({
         toggles: toggles,
         ...contextFields({ summarizer, systemPrompt }),
         documents: documents,
-        parent_checkpoint_id: activeCheckpointRef.current,
+        ...(continuesDebate
+          ? { debate_session_id: continuesDebate, parent_checkpoint_id: null }
+          : { parent_checkpoint_id: activeCheckpointRef.current }),
         is_deliberation: isDeliberation,
       });
     });

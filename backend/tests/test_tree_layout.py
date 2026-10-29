@@ -277,7 +277,6 @@ class TestDebateTree:
         # Nothing configured: no synthesis is coming, whatever the status.
         {"status": "running", "auto_synthesize": False, "synthesizer_model": None},
         {"status": "completed", "auto_synthesize": False, "synthesizer_model": None},
-        {"status": "running", "auto_synthesize": True, "synthesizer_model": None},
         # Configured, but the debate ended without one (stopped, cut off).
         {"status": "completed", "auto_synthesize": True, "synthesizer_model": "m1"},
         {"status": "interrupted", "auto_synthesize": True, "synthesizer_model": "m1"},
@@ -288,6 +287,8 @@ class TestDebateTree:
         assert not [e for e in tree["edges"] if e["target"] == "synthesis::pending"]
 
     @pytest.mark.parametrize("status", ["running", "paused"])
-    def test_pending_synthesis_node_while_an_auto_synthesis_is_coming(self, status):
-        tree = self._build(status=status, auto_synthesize=True, synthesizer_model="m1")
+    @pytest.mark.parametrize("synthesizer", ["m1", None])
+    def test_pending_synthesis_node_while_an_auto_synthesis_is_coming(self, status, synthesizer):
+        # No synthesizer named means the first participant writes it.
+        tree = self._build(status=status, auto_synthesize=True, synthesizer_model=synthesizer)
         assert [n for n in tree["nodes"] if n["id"] == "synthesis::pending"]
