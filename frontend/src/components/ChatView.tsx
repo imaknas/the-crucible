@@ -20,6 +20,7 @@ import { Message, ModelError } from "@/lib/types";
 import ModelErrorBubble from "./ModelErrorBubble";
 import BranchChip from "./BranchChip";
 import type { BranchPoint } from "@/lib/branching";
+import { cardExcerpt, orderSiblings } from "@/lib/arenaCompare";
 
 interface ChatViewProps {
   messages: Message[];
@@ -268,14 +269,27 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   const siblings = React.useMemo(
     () =>
       parentId
-        ? nodes.filter(
-            (n) =>
-              edges.some((e) => e.source === parentId && e.target === n.id) &&
-              !isSynthesisNode(n),
+        ? orderSiblings(
+            nodes.filter(
+              (n) =>
+                edges.some((e) => e.source === parentId && e.target === n.id) &&
+                !isSynthesisNode(n),
+            ),
+            selectedModels,
           )
         : [],
-    [nodes, edges, parentId, isSynthesisNode],
+    [nodes, edges, parentId, isSynthesisNode, selectedModels],
   );
+  // Compare cards opened to their whole excerpt, so answers can be read side by side.
+  const [expandedCards, setExpandedCards] = React.useState<Set<string>>(new Set());
+  const toggleCard = React.useCallback((id: string) => {
+    setExpandedCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   // Arena is active only if we have multiple genuine AI responses and we AREN'T currently on a synthesis path
   const isArenaActive = React.useMemo(() => {
@@ -877,17 +891,36 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                           sx={{
                             lineHeight: 1.6,
                             color: isActive ? "text.primary" : "text.secondary",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
+                            ...(expandedCards.has(sib.id)
+                              ? {}
+                              : {
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 5,
+                                  WebkitBoxOrient: "vertical",
+                                  overflow: "hidden",
+                                }),
                             fontSize: "0.75rem",
-                            mb: 2,
+                            mb: 1,
                           }}
                         >
-                          {sib.data.label.replace("...", "")}
-                          {sib.data.label.length > 50 ? "..." : ""}
+                          {cardExcerpt(sib)}
                         </Typography>
+                        <ButtonBase
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCard(sib.id);
+                          }}
+                          aria-expanded={expandedCards.has(sib.id)}
+                          sx={{
+                            alignSelf: "flex-start",
+                            mb: 1.5,
+                            fontSize: "0.75rem",
+                            fontWeight: 700,
+                            color: sibColor.text,
+                          }}
+                        >
+                          {expandedCards.has(sib.id) ? "Show less" : "Show more"}
+                        </ButtonBase>
                         <Box
                           sx={{
                             mt: "auto",
@@ -902,7 +935,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                             color: isActive ? sibColor.text : "text.disabled",
                           }}
                         >
-                          {isActive ? "Currently Active" : "Review This Path"}
+                          {isActive ? "Shown above" : "Read in full"}
                         </Box>
                       </Paper>
                     );
