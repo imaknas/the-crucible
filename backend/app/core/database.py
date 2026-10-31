@@ -265,13 +265,17 @@ def list_debate_sessions(parent_thread_id: str | None = None) -> list[dict[str, 
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        # Newest first. created_at has one-second resolution, and SQLite
+        # returns ties in insertion order (oldest first), so sessions created
+        # within the same second came back oldest first; rowid breaks the tie.
+        order = "ORDER BY created_at DESC, rowid DESC"
         if parent_thread_id:
             cursor.execute(
-                "SELECT * FROM debate_sessions WHERE parent_thread_id = ? ORDER BY created_at DESC",
+                f"SELECT * FROM debate_sessions WHERE parent_thread_id = ? {order}",
                 (parent_thread_id,),
             )
         else:
-            cursor.execute("SELECT * FROM debate_sessions ORDER BY created_at DESC")
+            cursor.execute(f"SELECT * FROM debate_sessions {order}")
         cols = [d[0] for d in cursor.description]
         return [_decode_session(cols, row) for row in cursor.fetchall()]
     finally:
