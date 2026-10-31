@@ -112,6 +112,11 @@ async def test_legacy_debate_without_stored_questions_is_named_from_its_lanes():
 
     assert _listed("thread_legacy")["title"] == "Debate: Should cities ban cars?"
 
+    # Redirected after questions were recorded: only the redirect is stored,
+    # and the debate is still named by the question it started with.
+    db.append_debate_entry("s1", "questions", {"round": 3, "prompt": "What about bikes?"})
+    assert _listed("thread_legacy")["title"] == "Debate: Should cities ban cars?"
+
 
 @pytest.mark.asyncio
 async def test_empty_thread_gets_a_plain_label_never_its_id():

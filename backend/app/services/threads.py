@@ -93,7 +93,10 @@ def _debate_question(thread_id: str) -> str:
     message."""
     for session in db.list_debate_sessions(thread_id):
         questions = sorted(session.get("questions") or [], key=lambda q: q["round"])
-        if questions and questions[0].get("prompt"):
+        # Only a round-0 entry is the original question: a session stored
+        # before questions were recorded and redirected since lists only the
+        # redirect (as debate.debate_questions also assumes).
+        if questions and questions[0]["round"] == 0 and questions[0].get("prompt"):
             return questions[0]["prompt"]
         lanes = [tid for key, tid in session["thread_ids"].items() if key != "synthesis"]
         firsts = db.first_messages(lanes)
@@ -101,6 +104,8 @@ def _debate_question(thread_id: str) -> str:
             prompt = _first_prompt(firsts.get(lane, []))
             if prompt:
                 return prompt
+        if questions and questions[0].get("prompt"):
+            return questions[0]["prompt"]
     return ""
 
 
