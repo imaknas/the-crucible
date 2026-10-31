@@ -7,14 +7,19 @@ import type { Message } from "@/lib/types";
  *
  * A message's key is its tree node id (`checkpoint_id`): the same id a
  * streamed reply got from stream_end, so it survives the refresh after a
- * turn. Payloads from before ids were sent fall back to the position, when
- * the message there has the same author.
+ * turn. The question echoed when it was sent has a client id; the same
+ * text at the same place keeps it, or the bubble remounted (and flickered)
+ * every time a turn settled. Payloads from before ids were sent fall back
+ * to the position, when the message there has the same author.
  */
 export function reconcileMessages(prev: Message[], next: Message[]): Message[] {
   return next.map((msg, idx) => {
+    const there = prev[idx];
+    if (there?.id && there.role === "user" && msg.role === "user" && there.content === msg.content && there.id !== msg.checkpoint_id) {
+      return { ...msg, id: there.id };
+    }
     if (msg.checkpoint_id) return { ...msg, id: msg.checkpoint_id };
     if (msg.id) return msg;
-    const there = prev[idx];
     const sameAuthor = there && there.role === msg.role && (there.model === msg.model || !msg.model);
     return { ...msg, id: sameAuthor && there.id ? there.id : `stable-${idx}` };
   });

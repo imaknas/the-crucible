@@ -24,6 +24,17 @@ describe("reconcileMessages", () => {
   });
 });
 
+describe("reconcileMessages, the echoed question", () => {
+  it("keeps the client id of the question echoed on send, so its bubble isn't remounted", () => {
+    const prev: Message[] = [{ id: "user-123", role: "user", content: "Q" }];
+    const next: Message[] = [
+      { id: "", role: "user", content: "Q", checkpoint_id: "n1" },
+      { id: "", role: "assistant", content: "A", checkpoint_id: "n2" },
+    ];
+    expect(reconcileMessages(prev, next).map((m) => m.id)).toEqual(["user-123", "n2"]);
+  });
+});
+
 describe("lastUserText", () => {
   it("returns the full text of the person's last message", () => {
     const long = "A question that is much longer than the forty characters a tree label keeps, with **markdown**.";

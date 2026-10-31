@@ -4,6 +4,7 @@ import { Message, ModelError, Toggles } from "@/lib/types";
 import { isOpen, useSocketFactory } from "@/lib/transport";
 import { contextFields } from "@/lib/runContext";
 import { markStopped } from "@/lib/messages";
+import { startLiveTurn, stopLiveTurn, updateLiveReply, type LiveTurn } from "@/lib/turns";
 import type { PushToast } from "@/hooks/useToasts";
 
 const NOT_CONNECTED = "Not connected to the backend. It reconnects by itself; try again in a moment.";
@@ -79,10 +80,10 @@ export function useChatWebSocket({
   // Full text of each reply streamed here, by tree node id: the compare
   // cards show it whole instead of the node's excerpt.
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
-  // The replies of the turn that last streamed here, open in full on their
-  // cards so the settled view keeps showing what was just read live.
-  const [liveTurn, setLiveTurn] = useState<string[]>([]);
-  const liveTurnRef = useRef<string[]>([]);
+  // A turn sent to several models streams into compare cards (lib/turns),
+  // not bubbles; these are the models it streams for.
+  const [liveTurn, setLiveTurn] = useState<LiveTurn | null>(null);
+  const liveModelsRef = useRef<Set<string>>(new Set());
 
   // Use refs for items that change frequently but shouldn't trigger WS reconnect
   const parentCheckpointRef = useRef(parentCheckpoint);
@@ -116,6 +117,7 @@ export function useChatWebSocket({
       expectedModelsCountRef.current = 0;
       finishedModelsCountRef.current = 0;
       setMessages(markStopped);
+      setLiveTurn(stopLiveTurn);
     };
 
     ws.onclose = (event) => {
@@ -123,6 +125,7 @@ export function useChatWebSocket({
         console.warn("[WS] Connection closed unexpectedly, code:", event.code);
         setIsLoading(false);
         setMessages(markStopped);
+        setLiveTurn(stopLiveTurn);
         // e.g. the backend restarted; reconnect instead of staying dead
         // until the user switches threads.
         reconnectTimer = setTimeout(() => setReconnectKey((k) => k + 1), 1500);
@@ -148,6 +151,21 @@ export function useChatWebSocket({
         if (sent && data.parent_checkpoint_id) sent.parent_checkpoint_id = data.parent_checkpoint_id;
         streamBufferRef.current[data.model] = "";
         pendingModelsRef.current.add(data.model);
+
+        if (liveModelsRef.current.has(data.model) && data.model !== synthesisModelRef.current) {
+          setLiveTurn((turn) =>
+            turn &&
+            updateLiveReply(turn, data.model, {
+              content: "",
+              streaming: true,
+              stopped: false,
+              error: null,
+              turn_id: data.turn_id ?? null,
+              ...(data.model_color ? { model_color: data.model_color } : {}),
+            }),
+          );
+          return;
+        }
 
         setMessages((prev) => [
           ...prev,
@@ -185,9 +203,21 @@ export function useChatWebSocket({
               });
               return changed ? updated : prev;
             });
+            setLiveTurn((turn) => {
+              if (!turn) return turn;
+              let next = turn;
+              for (const r of turn.replies) {
+                if (r.streaming && buf[r.model] !== undefined && r.content !== buf[r.model]) {
+                  next = updateLiveReply(next, r.model, { content: buf[r.model] });
+                }
+              }
+              return next;
+            });
           });
         }
       } else if (data.type === "stream_end" || data.type === "error") {
+        // A reply of the multi-model turn on screen (not a synthesis by one of its models).
+        const inLiveTurn = liveModelsRef.current.has(data.model) && data.model !== synthesisModelRef.current;
         if (data.type === "stream_end") {
           pendingModelsRef.current.delete(data.model);
           const content = streamBufferRef.current[data.model] ?? "";
@@ -207,6 +237,15 @@ export function useChatWebSocket({
                 : m,
             ),
           );
+          if (inLiveTurn) setLiveTurn((turn) =>
+            turn &&
+            updateLiveReply(turn, data.model, {
+              ...(content ? { content } : {}),
+              streaming: false,
+              checkpoint_id: data.checkpoint_id ?? null,
+              ...(data.turn_id ? { turn_id: data.turn_id } : {}),
+            }),
+          );
           delete streamBufferRef.current[data.model];
           if (data.checkpoint_id) {
             streamCheckpointsRef.current.push(data.checkpoint_id);
@@ -221,6 +260,13 @@ export function useChatWebSocket({
             delete streamBufferRef.current[data.model];
             setMessages((prev) =>
               prev.filter((m) => !(m.streaming && m.model === data.model)),
+            );
+            if (inLiveTurn) setLiveTurn((turn) =>
+              turn &&
+              updateLiveReply(turn, data.model, {
+                streaming: false,
+                error: String(data.message ?? "The model call failed."),
+              }),
             );
             const frame = {
               ...(sentFramesRef.current[data.model] ?? { model: data.model }),
@@ -260,8 +306,6 @@ export function useChatWebSocket({
             // No reply becomes the branch point: the next message continues
             // the latest turn, every model from its own reply. Pinning the
             // first reply here sent every model's next turn after one model.
-            liveTurnRef.current = [...streamCheckpointsRef.current];
-            setLiveTurn(liveTurnRef.current);
             onTurnSettledRef.current(threadId);
           }
 
@@ -296,7 +340,8 @@ export function useChatWebSocket({
       sentFramesRef.current = {};
       setModelErrors([]);
       setReplyTexts({});
-      setLiveTurn([]);
+      setLiveTurn(null);
+      liveModelsRef.current = new Set();
       streamCheckpointsRef.current = [];
       expectedModelsCountRef.current = 0;
       finishedModelsCountRef.current = 0;
@@ -340,7 +385,10 @@ export function useChatWebSocket({
     }
 
     setIsLoading(true);
-    setLiveTurn([]);
+    // Several models: their replies stream into cards; one model: a bubble.
+    const multi = respondingModels.length > 1;
+    liveModelsRef.current = new Set(multi ? respondingModels : []);
+    setLiveTurn(multi ? startLiveTurn(respondingModels, `live-${Date.now()}`) : null);
     expectedModelsCountRef.current = respondingModels.length;
     finishedModelsCountRef.current = 0;
 
@@ -377,6 +425,8 @@ export function useChatWebSocket({
       return;
     }
     setModelErrors((prev) => prev.filter((e) => e.id !== errorId));
+    // A retried card streams again in place.
+    setLiveTurn((turn) => turn && updateLiveReply(turn, error.model, { streaming: true, error: null, content: "" }));
     setIsLoading(true);
     expectedModelsCountRef.current = 1;
     finishedModelsCountRef.current = 0;
@@ -429,6 +479,7 @@ export function useChatWebSocket({
     expectedModelsCountRef.current = 0;
     finishedModelsCountRef.current = 0;
     setMessages(markStopped);
+    setLiveTurn(stopLiveTurn);
   }, []);
 
   return {

@@ -64,6 +64,48 @@ test.describe("live flows (scripted models)", () => {
     }
   });
 
+  test("a multi-model turn streams into cards that stay put when it settles", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, "[[slow]] Compare slowly");
+
+    const cards = page.getByRole("article");
+    await expect(cards).toHaveCount(2);
+    // Streaming: each card says so, and Continue waits for its reply.
+    await expect(page.locator('article[aria-busy="true"]').first()).toBeVisible();
+    await expect(
+      page.locator('article[aria-busy="true"]').first().getByRole("button", { name: /^Continue with/ }),
+    ).toBeDisabled();
+    // Measured from the question above, so scrolling doesn't count as moving.
+    const question = page.locator("section").getByText("[[slow]] Compare slowly", { exact: true });
+    const offset = async () => (await cards.first().boundingBox())!.y - (await question.boundingBox())!.y;
+    // The question's bubble animates in when sent; measure once it has landed.
+    await page.waitForTimeout(800);
+    const before = await offset();
+    // Tag the streaming cards' DOM nodes: settling must keep them, not remount them.
+    await cards.evaluateAll((els) => els.forEach((el) => el.setAttribute("data-e2e-mark", "streamed")));
+
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0, { timeout: 30_000 });
+    await expect(cards).toHaveCount(2);
+    await expect(page.locator('article[aria-busy="true"]')).toHaveCount(0);
+    // The settled turn is the same two cards in the same place, not bubbles that collapsed.
+    await expect(page.locator('article[data-e2e-mark="streamed"]')).toHaveCount(2);
+    await expect.poll(async () => Math.abs((await offset()) - before)).toBeLessThan(4);
+    await expect(cards.getByText(answerFrom(GPT))).toBeVisible();
+    await expect(cards.getByText(answerFrom(CLAUDE))).toBeVisible();
+    await expect(cards.first().getByRole("button", { name: /^Continue with/ })).toBeEnabled();
+  });
+
+  test("Stop marks every card still streaming as cut off", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, "[[slow]] take your time");
+    await expect(page.getByRole("article")).toHaveCount(2);
+    await page.getByRole("button", { name: "Stop generating" }).click();
+    await expect(page.locator('article[data-state="stopped"]')).toHaveCount(2);
+    await expect(page.getByText("Stopped before it finished: this reply is incomplete.").first()).toBeVisible();
+  });
+
   test("a multi-model selection survives the refresh after each turn", async ({ page, request }) => {
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await page.getByRole("button", { name: "Arena", exact: true }).click();

@@ -1,26 +1,16 @@
 import React, { useRef, useEffect } from "react";
-import {
-  Box,
-  Paper,
-  Typography,
-  ButtonBase,
-  Stack,
-  Divider,
-  CircularProgress,
-  Select,
-  MenuItem,
-  useTheme,
-} from "@mui/material";
-import { CheckCircle2, Sparkles, Network, Scale, Swords, X as XIcon, Pause, Play } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Box, Paper, Typography, ButtonBase, CircularProgress, useTheme } from "@mui/material";
+import { Sparkles, Network } from "lucide-react";
+import { motion } from "framer-motion";
 import { ChatInput } from "./ChatInput";
 import DebateBanner, { type DebateBannerProps } from "./DebateBanner";
-import { MessageBubble, getModelColor } from "./MessageBubble";
+import { MessageBubble } from "./MessageBubble";
 import { Message, ModelError } from "@/lib/types";
 import ModelErrorBubble from "./ModelErrorBubble";
 import BranchChip, { type AnswerChoice } from "./BranchChip";
 import type { BranchPoint } from "@/lib/branching";
-import { cardExcerpt, isSynthesisNode, orderSiblings, turnSiblings } from "@/lib/arenaCompare";
+import { buildTranscript, synthesizableIds, type LiveTurn } from "@/lib/turns";
+import TurnCards from "./TurnCards";
 
 interface ChatViewProps {
   messages: Message[];
@@ -47,8 +37,6 @@ interface ChatViewProps {
   /** The file being uploaded right now, if any. */
   uploading?: string | null;
   onAttach: (file: File) => void;
-  /** The checkpoint whose path the transcript shows. */
-  shownCheckpoint: string | null;
   onEditAndRebranch: () => void;
   stopStreaming: () => void;
   showEditButton: boolean;
@@ -77,25 +65,12 @@ interface ChatViewProps {
   contextNotes?: string[];
   /** Full text of replies streamed in this tab, by tree node id. */
   replyTexts?: Record<string, string>;
-  /** The replies of the turn that just streamed: their cards open in full. */
-  liveTurn?: string[];
+  /** The multi-model turn streaming (or just streamed) in this tab: it streams into cards. */
+  liveTurn?: LiveTurn | null;
 }
 
 
 const EMPTY_TEXTS: Record<string, string> = {};
-
-const cardActionSx = (color: string) => ({
-  px: 1,
-  py: 0.5,
-  borderRadius: 1.5,
-  fontSize: "0.7rem",
-  fontWeight: 800,
-  textTransform: "uppercase" as const,
-  letterSpacing: "0.08em",
-  color,
-  "&:hover": { bgcolor: "action.hover" },
-});
-const EMPTY_TURN: string[] = [];
 
 const ChatViewRaw: React.FC<ChatViewProps> = ({
   messages,
@@ -115,7 +90,6 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onRemoveDocument,
   uploading = null,
   onAttach,
-  shownCheckpoint,
   onEditAndRebranch,
   showEditButton,
   selectedModels,
@@ -135,7 +109,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   maxPromptChars,
   contextNotes,
   replyTexts = EMPTY_TEXTS,
-  liveTurn = EMPTY_TURN,
+  liveTurn = null,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerContentRef = useRef<HTMLDivElement>(null);
@@ -277,34 +251,22 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
     }
   }, [messages, isLoading]);
 
-  // "" = the first selected model, the original behaviour.
-  const [synthesizer, setSynthesizer] = React.useState("");
-
-  // The other models' replies to the same message: by turn, on whichever
-  // branch each model continued (lib/arenaCompare).
-  const siblings = React.useMemo(
-    () => orderSiblings(turnSiblings(nodes, edges, shownCheckpoint), selectedModels),
-    [nodes, edges, shownCheckpoint, selectedModels],
+  // The transcript as bubbles and turn grids: a turn sent to several models
+  // streams into cards and stays as them (lib/turns).
+  const items = React.useMemo(
+    () => buildTranscript({ messages, nodes, edges, selected: selectedModels, replyTexts, live: liveTurn }),
+    [messages, nodes, edges, selectedModels, replyTexts, liveTurn],
   );
-  // Cards whose open/closed state the person flipped. The turn that just
-  // streamed starts open, so its replies stay readable once it settles
-  // into cards, as they were while streaming.
-  const [toggledCards, setToggledCards] = React.useState<Set<string>>(new Set());
-  const isCardOpen = (id: string) => toggledCards.has(id) !== liveTurn.includes(id);
-  const toggleCard = React.useCallback((id: string) => {
-    setToggledCards((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  // Compare only genuine answers, and not while a synthesis is on screen.
-  const isArenaActive = React.useMemo(
-    () => siblings.length > 1 && !isSynthesisNode(nodes.find((n) => n.id === shownCheckpoint)),
-    [siblings, nodes, shownCheckpoint],
-  );
+  const lastTurnKey = React.useMemo(() => {
+    const last = items[items.length - 1];
+    return last?.kind === "turn" ? last.key : null;
+  }, [items]);
+  // Failures of the turn on cards show on their card; the rest as bubbles.
+  const bubbleErrors = React.useMemo(() => {
+    const last = items.find((it) => it.key === lastTurnKey);
+    const onCards = new Set(last?.kind === "turn" ? last.cards.map((c) => c.model) : []);
+    return modelErrors.filter((e) => !onCards.has(e.model));
+  }, [items, lastTurnKey, modelErrors]);
 
   return (
     <Box
@@ -507,8 +469,37 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
               </Box>
             )}
 
-            {/* Messages */}
-            {messages.map((msg, i) => {
+            {/* Messages, with each multi-model turn as its cards (lib/turns) */}
+            {items.map((item) => {
+              if (item.kind === "turn") {
+                return (
+                  <Box key={item.key} ref={(el: HTMLDivElement | null) => registerMessageRef(el, item.index)}>
+                    <TurnCards
+                      cards={item.cards}
+                      isDark={isDark}
+                      modelLabel={modelLabel}
+                      onViewReply={onViewReply}
+                      onContinueReply={onContinueReply}
+                      synthesis={
+                        item.key === lastTurnKey
+                          ? {
+                              ids: synthesizableIds(item.cards, nodes),
+                              disabled: isLoading || synthesizableIds(item.cards, nodes).length < 2,
+                              options: synthesizerOptions,
+                              firstSelected: selectedModels[0] ?? null,
+                              onSynthesize,
+                            }
+                          : null
+                      }
+                      errors={item.key === lastTurnKey ? modelErrors : []}
+                      onRetry={onRetryModel}
+                      onDismiss={onDismissModelError}
+                      retryDisabled={isLoading}
+                    />
+                  </Box>
+                );
+              }
+              const { msg, index: i } = item;
               const isUser = msg.role === "user" || msg.type === "human";
 
               // Debate round separator
@@ -642,7 +633,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
               );
             })}
 
-            {modelErrors.map((err) => (
+            {bubbleErrors.map((err) => (
               <ModelErrorBubble
                 key={err.id}
                 error={err}
@@ -652,265 +643,6 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                 retryDisabled={isLoading}
               />
             ))}
-
-            {/* Compare footer: sibling answers to the same prompt */}
-            {isArenaActive && (
-              <Box
-                component={motion.div}
-                key="arena"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 3,
-                  width: "100%",
-                  mt: 6,
-                  mb: 4,
-                }}
-              >
-                {/* Arena Header */}
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <Divider sx={{ flex: 1 }} />
-                  <Stack alignItems="center" spacing={1}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1.5,
-                        px: 2,
-                        py: 0.5,
-                        borderRadius: "20px",
-                        bgcolor: isDark
-                          ? "rgba(255,255,255,0.03)"
-                          : "rgba(0,0,0,0.02)",
-                        border: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
-                      <Scale width={12} height={12} color="#a78bfa" />
-                      <Typography
-                        variant="overline"
-                        sx={{
-                          fontSize: "0.6875rem",
-                          fontWeight: 800,
-                          letterSpacing: "0.2em",
-                          color: "text.secondary",
-                        }}
-                      >
-                        Compare answers
-                      </Typography>
-                    </Box>
-                    <ButtonBase
-                      component={motion.button}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() =>
-                        onSynthesize(
-                          siblings.map((s) => s.id),
-                          synthesizer || null,
-                        )
-                      }
-                      sx={{
-                        px: 2.5,
-                        py: 0.8,
-                        borderRadius: 8,
-                        border: "1px solid rgba(139, 92, 246, 0.3)",
-                        bgcolor: "rgba(139, 92, 246, 0.1)",
-                        color: "#a78bfa",
-                        fontSize: "0.6875rem",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        transition: "all 0.2s",
-                        "&:hover": {
-                          bgcolor: "rgba(139, 92, 246, 0.2)",
-                          boxShadow: "0 0 15px rgba(139, 92, 246, 0.2)",
-                        },
-                      }}
-                    >
-                      <Sparkles
-                        width={12}
-                        height={12}
-                        style={{
-                          display: "inline",
-                          marginRight: 6,
-                          marginTop: -2,
-                        }}
-                      />
-                      Synthesize answers
-                    </ButtonBase>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Typography component="label" htmlFor="synthesizer-select" sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
-                        written by
-                      </Typography>
-                      <Select
-                        size="small"
-                        variant="standard"
-                        disableUnderline
-                        value={synthesizer}
-                        displayEmpty
-                        onChange={(e) => setSynthesizer(String(e.target.value))}
-                        inputProps={{ id: "synthesizer-select", "aria-label": "Synthesis written by" }}
-                        sx={{ fontSize: "0.75rem", fontWeight: 600, color: "#a78bfa" }}
-                      >
-                        <MenuItem value="" sx={{ fontSize: "0.8rem" }}>
-                          {selectedModels[0] ? `${modelLabel(selectedModels[0])} (first selected)` : "First selected model"}
-                        </MenuItem>
-                        {synthesizerOptions.map((m) => (
-                          <MenuItem key={m} value={m} title={m} sx={{ fontSize: "0.8rem" }}>
-                            {modelLabel(m)}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </Box>
-                  </Stack>
-                  <Divider sx={{ flex: 1 }} />
-                </Box>
-
-                {/* Arena Cards */}
-                <Box
-                  sx={{
-                    display: "grid",
-                    gap: 2,
-                    gridTemplateColumns: {
-                      xs: "1fr",
-                      sm:
-                        siblings.length === 2
-                          ? "repeat(2, 1fr)"
-                          : "repeat(3, 1fr)",
-                      md:
-                        siblings.length === 2
-                          ? "repeat(2, 1fr)"
-                          : "repeat(3, 1fr)",
-                    },
-                  }}
-                >
-                  {siblings.map((sib) => {
-                    const isActive = sib.id === shownCheckpoint;
-                    const sibModel = sib.metadata?.active_peer || "assistant";
-                    const sibColor = getModelColor(sibModel, isDark, sib.metadata?.model_color);
-                    const sibLabel = sib.metadata?.model_name || modelLabel(sibModel);
-                    const open = isCardOpen(sib.id);
-                    const fullText = replyTexts[sib.id];
-
-                    return (
-                      <Paper
-                        key={sib.id}
-                        component="article"
-                        aria-label={`${sibLabel}'s answer`}
-                        sx={{
-                          borderRadius: 4,
-                          overflow: "hidden",
-                          transition: "border-color 0.2s",
-                          p: 2.5,
-                          display: "flex",
-                          flexDirection: "column",
-                          border: "1px solid",
-                          borderColor: isActive
-                            ? sibColor.main
-                            : isDark
-                              ? "rgba(255,255,255,0.06)"
-                              : "divider",
-                          bgcolor: isActive
-                            ? isDark
-                              ? "rgba(139, 92, 246, 0.05)"
-                              : "rgba(139, 92, 246, 0.03)"
-                            : isDark
-                              ? "rgba(255,255,255,0.02)"
-                              : "background.paper",
-                          boxShadow: isActive ? `0 10px 30px -10px ${sibColor.border}` : "none",
-                        }}
-                      >
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
-                          <Box
-                            sx={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: "50%",
-                              bgcolor: sibColor.dot,
-                              boxShadow: `0 0 8px ${sibColor.dot}`,
-                            }}
-                          />
-                          <Typography
-                            variant="overline"
-                            title={sibModel}
-                            sx={{ fontSize: "0.75rem", fontWeight: 800, letterSpacing: "0.1em", color: sibColor.text, flex: 1 }}
-                          >
-                            {sibLabel}
-                          </Typography>
-                          {isActive && (
-                            <Box
-                              title="This answer is shown in full above"
-                              sx={{ display: "flex", alignItems: "center", gap: 0.5, fontSize: "0.6875rem", fontWeight: 700, color: sibColor.text }}
-                            >
-                              <CheckCircle2 width={12} height={12} />
-                              Shown above
-                            </Box>
-                          )}
-                        </Box>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            lineHeight: 1.6,
-                            color: "text.primary",
-                            whiteSpace: open && fullText ? "pre-wrap" : undefined,
-                            ...(open
-                              ? {}
-                              : {
-                                  display: "-webkit-box",
-                                  WebkitLineClamp: 5,
-                                  WebkitBoxOrient: "vertical",
-                                  overflow: "hidden",
-                                }),
-                            fontSize: "0.8125rem",
-                            mb: 1,
-                          }}
-                        >
-                          {open && fullText ? fullText : cardExcerpt(sib)}
-                        </Typography>
-                        <ButtonBase
-                          onClick={() => toggleCard(sib.id)}
-                          aria-expanded={open}
-                          sx={{ alignSelf: "flex-start", mb: 1.5, fontSize: "0.75rem", fontWeight: 700, color: sibColor.text }}
-                        >
-                          {open ? "Show less" : "Show more"}
-                        </ButtonBase>
-                        <Box
-                          sx={{
-                            mt: "auto",
-                            pt: 1.5,
-                            borderTop: "1px solid",
-                            borderColor: "divider",
-                            display: "flex",
-                            gap: 1,
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          {!isActive && (
-                            <ButtonBase
-                              onClick={() => onViewReply(sib.id)}
-                              title="Show this answer's conversation above; who answers next doesn't change"
-                              sx={cardActionSx(sibColor.text)}
-                            >
-                              Read in full
-                            </ButtonBase>
-                          )}
-                          <ButtonBase
-                            onClick={() => onContinueReply(sib.id)}
-                            title={`Continue from this answer: your next message goes to ${sibLabel}`}
-                            aria-label={`Continue with ${sibLabel}`}
-                            sx={{ ...cardActionSx("text.secondary"), ml: "auto" }}
-                          >
-                            Continue from this
-                          </ButtonBase>
-                        </Box>
-                      </Paper>
-                    );
-                  })}
-                </Box>
-              </Box>
-            )}
 
             {/* Loading indicator */}
             {isLoading && (

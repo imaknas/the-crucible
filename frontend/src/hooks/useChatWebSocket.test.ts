@@ -226,10 +226,53 @@ describe("useChatWebSocket", () => {
       frame({ type: "stream_end", model: "claude-x", checkpoint_id: "n_b", turn_id: "t1" });
     });
     expect(onTurnSettled).toHaveBeenCalledWith("thread_1");
-    expect(result.current.liveTurn).toEqual(["n_a", "n_b"]);
     expect(result.current.replyTexts).toEqual({ n_a: "Hi there" });
-    expect(result.current.messages.find((m) => m.model === "gpt-4o")).toMatchObject({ id: "n_a", turn_id: "t1" });
+    // Several models: their replies streamed into the turn's cards, not bubbles.
+    expect(result.current.messages.filter((m) => m.role === "assistant")).toEqual([]);
+    expect(result.current.liveTurn).toMatchObject({
+      turnId: "t1",
+      replies: [
+        { model: "gpt-4o", content: "Hi there", streaming: false, checkpoint_id: "n_a" },
+        { model: "claude-x", streaming: false, checkpoint_id: "n_b" },
+      ],
+    });
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it("streams a single-model turn as a bubble, with no cards", async () => {
+    const { result } = renderHook(() => useChatWebSocket(mockProps));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const ws = MockWebSocket.instances[0];
+    act(() => {
+      ws.onmessage?.({ data: JSON.stringify({ type: "stream_start", model: "gpt-4o" }) });
+      ws.onmessage?.({ data: JSON.stringify({ type: "stream_end", model: "gpt-4o", checkpoint_id: "n_a" }) });
+    });
+    expect(result.current.liveTurn).toBeNull();
+    expect(result.current.messages.at(-1)).toMatchObject({ role: "assistant", id: "n_a" });
+  });
+
+  it("cards a model that fails, streams its retry back into the same card, and stops cards on Stop", async () => {
+    const { result } = renderHook(() => useChatWebSocket({ ...mockProps, selectedModels: ["gpt-4o", "claude-x"] }));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const ws = MockWebSocket.instances[0];
+    const frame = (data: object) => ws.onmessage?.({ data: JSON.stringify(data) });
+    act(() => {
+      frame({ type: "stream_start", model: "gpt-4o" });
+      frame({ type: "stream_end", model: "gpt-4o", checkpoint_id: "n_a" });
+      frame({ type: "error", model: "claude-x", message: "boom" });
+    });
+    expect(result.current.liveTurn?.replies[1]).toMatchObject({ model: "claude-x", error: "boom", streaming: false });
+
+    act(() => result.current.retryModel(result.current.modelErrors[0].id));
+    expect(result.current.liveTurn?.replies[1]).toMatchObject({ streaming: true, error: null });
+    act(() => frame({ type: "stream_start", model: "claude-x" }));
+    act(() => result.current.stopStreaming());
+    expect(result.current.liveTurn?.replies[1]).toMatchObject({ streaming: false, stopped: true });
+    expect(result.current.messages.filter((m) => m.role === "assistant")).toEqual([]);
   });
 
   it("marks a reply cut off by Stop as incomplete", async () => {

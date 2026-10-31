@@ -71,7 +71,6 @@ describe("ChatView", () => {
     setShowTree: jest.fn(),
     documents: [] as string[],
     onRemoveDocument: jest.fn(),
-    shownCheckpoint: "cp1",
     onEditAndRebranch: jest.fn(),
     onAttach: jest.fn(),
     stopStreaming: jest.fn(),
@@ -134,7 +133,6 @@ describe("ChatView synthesis", () => {
     setShowTree: jest.fn(),
     documents: [] as string[],
     onRemoveDocument: jest.fn(),
-    shownCheckpoint: "a1",
     onEditAndRebranch: jest.fn(),
     onAttach: jest.fn(),
     stopStreaming: jest.fn(),
@@ -156,43 +154,35 @@ describe("ChatView synthesis", () => {
     expect(screen.getByText("Synthesis · Claude")).toBeInTheDocument();
   });
 
-  it("leaves a synthesis out of the answers it compares, and synthesizes the real siblings", () => {
-    const onSynthesize = jest.fn();
-    const node = (id: string, extra: object = {}) => ({ id, data: { label: id }, position: { x: 0, y: 0 }, metadata: { role: "ai", active_peer: id }, ...extra });
-    render(
-      <ChatView
-        {...base}
-        onSynthesize={onSynthesize}
-        messages={[{ id: "u", role: "user", content: "Q", type: "human" }]}
-        nodes={[node("u"), node("a1"), node("a2"), node("syn", { type: "synthesis" })]}
-        edges={["a1", "a2", "syn"].map((t) => ({ id: `e-${t}`, source: "u", target: t }))}
-      />,
-    );
-    fireEvent.click(screen.getByText("Synthesize answers"));
-    expect(onSynthesize).toHaveBeenCalledWith(["a1", "a2"], null);
-  });
-
-  const card = (id: string, model: string, turn: string) => ({
+  const node = (id: string, model: string, turn: string, extra: object = {}) => ({
     id,
     data: { label: id },
     position: { x: 0, y: 0 },
     metadata: { role: "ai", active_peer: model, model_name: model.toUpperCase(), turn_id: turn, preview: `${id} excerpt` },
+    ...extra,
   });
+  const question = { id: "u", role: "user", content: "Q", type: "human" };
+  // The path on screen: the question and GPT's reply in turn t1.
+  const gptReply = { id: "a1", role: "assistant", content: "GPT's whole reply", model: "gpt", checkpoint_id: "a1", turn_id: "t1" };
 
-  it("compares the replies sent together, though each sits on its own branch", () => {
+  it("shows a multi-model turn as cards in place of the reply, and synthesizes the real answers", () => {
     const onSynthesize = jest.fn();
     render(
       <ChatView
         {...base}
         onSynthesize={onSynthesize}
-        messages={[{ id: "u", role: "user", content: "Q", type: "human" }]}
-        nodes={[card("a1", "gpt", "t1"), card("b1", "claude", "t1"), card("old", "gpt", "t0")]}
+        messages={[question, gptReply]}
+        nodes={[node("a1", "gpt", "t1"), node("b1", "claude", "t1"), node("syn", "gpt", "t1", { type: "synthesis" }), node("old", "gpt", "t0")]}
+        // Each model continued its own branch: the answers share a turn, not a parent.
         edges={[
           { id: "e1", source: "pa", target: "a1" },
           { id: "e2", source: "pb", target: "b1" },
         ]}
       />,
     );
+    expect(screen.getAllByRole("article")).toHaveLength(2);
+    // The path's own reply is its card, whole, not also a bubble above.
+    expect(screen.getAllByText("GPT's whole reply")).toHaveLength(1);
     fireEvent.click(screen.getByText("Synthesize answers"));
     expect(onSynthesize).toHaveBeenCalledWith(["a1", "b1"], null);
   });
@@ -205,8 +195,8 @@ describe("ChatView synthesis", () => {
         {...base}
         onViewReply={onViewReply}
         onContinueReply={onContinueReply}
-        messages={[{ id: "u", role: "user", content: "Q", type: "human" }]}
-        nodes={[card("a1", "gpt", "t1"), card("b1", "claude", "t1")]}
+        messages={[question, gptReply]}
+        nodes={[node("a1", "gpt", "t1"), node("b1", "claude", "t1")]}
         edges={[]}
       />,
     );
@@ -218,20 +208,76 @@ describe("ChatView synthesis", () => {
     expect(onContinueReply).toHaveBeenCalledWith("b1");
   });
 
-  it("opens the cards of a turn that just streamed, with the full replies", () => {
+  it("streams a multi-model turn into cards, Continue waiting for each reply's node", () => {
+    const live = {
+      key: "live-1",
+      turnId: "t1",
+      replies: [
+        { model: "gpt", content: "Partial GPT", streaming: true },
+        { model: "claude", content: "Claude done", streaming: false, checkpoint_id: "b1" },
+      ],
+    };
+    render(<ChatView {...base} isLoading messages={[question]} liveTurn={live} />);
+    const gpt = screen.getByRole("article", { name: "gpt's answer" });
+    expect(gpt).toHaveAttribute("aria-busy", "true");
+    expect(within(gpt).getByText("Partial GPT")).toBeInTheDocument();
+    expect(within(gpt).getByRole("button", { name: "Continue with gpt" })).toBeDisabled();
+    const claude = screen.getByRole("article", { name: "claude's answer" });
+    expect(within(claude).getByRole("button", { name: "Continue with claude" })).toBeEnabled();
+  });
+
+  it("keeps the same cards when the turn settles: only their content and ids fill in", () => {
+    const live = {
+      key: "live-1",
+      turnId: "t1",
+      replies: [
+        { model: "gpt", content: "GPT's whole reply", streaming: false, checkpoint_id: "a1", turn_id: "t1" },
+        { model: "claude", content: "Claude's whole reply", streaming: false, checkpoint_id: "b1", turn_id: "t1" },
+      ],
+    };
+    const { rerender } = render(<ChatView {...base} messages={[question]} liveTurn={live} />);
+    const before = screen.getAllByRole("article");
+    rerender(
+      <ChatView
+        {...base}
+        messages={[question, gptReply]}
+        nodes={[node("a1", "gpt", "t1"), node("b1", "claude", "t1")]}
+        edges={[]}
+        liveTurn={live}
+        replyTexts={{ a1: "GPT's whole reply", b1: "Claude's whole reply" }}
+      />,
+    );
+    const after = screen.getAllByRole("article");
+    // Same DOM nodes: nothing remounted, so nothing jumps.
+    expect(after).toHaveLength(2);
+    expect(after[0]).toBe(before[0]);
+    expect(after[1]).toBe(before[1]);
+    expect(within(after[1]).getByText("Claude's whole reply")).toBeInTheDocument();
+  });
+
+  it("shows a model that failed in the turn on its card, with Retry", () => {
+    const onRetryModel = jest.fn();
+    const live = {
+      key: "live-1",
+      turnId: "t1",
+      replies: [
+        { model: "gpt", content: "Fine", streaming: false, checkpoint_id: "a1" },
+        { model: "claude", content: "", streaming: false, error: "rate limited" },
+      ],
+    };
     render(
       <ChatView
         {...base}
-        messages={[{ id: "u", role: "user", content: "Q", type: "human" }]}
-        nodes={[card("a1", "gpt", "t1"), card("b1", "claude", "t1")]}
-        edges={[]}
-        liveTurn={["a1", "b1"]}
-        replyTexts={{ b1: "The whole of Claude's reply." }}
+        messages={[question]}
+        liveTurn={live}
+        modelErrors={[{ id: "err-1", model: "claude", message: "rate limited", frame: {} }]}
+        onRetryModel={onRetryModel}
       />,
     );
-    expect(screen.getByText("The whole of Claude's reply.")).toBeInTheDocument();
-    const claude = screen.getByRole("article", { name: "CLAUDE's answer" });
-    expect(within(claude).getByRole("button", { name: "Show less" })).toHaveAttribute("aria-expanded", "true");
+    const claude = screen.getByRole("article", { name: "claude's answer" });
+    expect(within(claude).getByRole("alert")).toHaveTextContent("rate limited");
+    fireEvent.click(within(claude).getByRole("button", { name: "Retry" }));
+    expect(onRetryModel).toHaveBeenCalledWith("err-1");
   });
 });
 

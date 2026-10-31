@@ -511,7 +511,6 @@ export default function Home() {
                   onRemoveDocument={documents.remove}
                   uploading={documents.uploading}
                   onAttach={documents.attach}
-                  shownCheckpoint={shown}
                   onEditAndRebranch={editAndRebranch}
                   showEditButton={!inDebate && shownNode?.metadata?.role === "user"}
                   selectedModels={selectedModels}
