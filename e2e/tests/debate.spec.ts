@@ -19,7 +19,8 @@ async function openDebate(page: import("@playwright/test").Page) {
   const treeResponse = page.waitForResponse(
     (r) => r.url().includes("/debate/sessions/") && r.url().endsWith("/tree"),
   );
-  await page.getByText(/rounds$/).first().click();
+  // A debate row reads "<question>" over "<models> · N rounds · <age>".
+  await page.getByText(/\d+ rounds/).first().click();
   await treeResponse;
   // Wait for the canvas to settle: the round bands paint from session metadata
   // and can beat the nodes onto the screen.

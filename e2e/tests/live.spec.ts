@@ -108,10 +108,11 @@ test.describe("live flows (scripted models)", () => {
         n.metadata?.role === "ai" && n.metadata?.active_peer === model,
       );
       expect(answers).toHaveLength(2);
-      const paths = await Promise.all(
+      type PathMessage = { role: string; model?: string };
+      const paths: PathMessage[][] = await Promise.all(
         answers.map(async (n: { id: string }) => {
           const res = await request.get(`${BACKEND_URL}/history/${threadId}?checkpoint_id=${encodeURIComponent(n.id)}`);
-          return (await res.json()).messages as { role: string; model?: string }[];
+          return (await res.json()).messages as PathMessage[];
         }),
       );
       const longest = paths.sort((a, b) => b.length - a.length)[0];
@@ -612,7 +613,7 @@ test.describe("entry points", () => {
     );
 
     await page.goto(`/?thread=${main.id}`);
-    await expect(nodes(page).filter({ hasText: /What does branching buy me/ }).first()).toBeVisible();
+    await expect(page.getByText(/What does branching buy me/).first()).toBeVisible();
     expect(new URL(page.url()).search).toBe("");
   });
 

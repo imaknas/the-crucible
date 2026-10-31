@@ -26,13 +26,18 @@ export async function openApp(page: Page, { freshProfile = false } = {}) {
   await expect(page.getByRole("button", { name: "New Session" })).toBeVisible();
 }
 
-/** Click a thread in the sidebar and wait for its tree to finish loading. */
+/**
+ * Click a thread in the sidebar, show its tree and wait for it to finish
+ * loading. The view is the person's own (persisted, Arena on a clean
+ * profile), so opening a thread no longer lands in the tree by itself.
+ */
 export async function openThread(page: Page, title: string) {
   const treeResponse = page.waitForResponse(
     (r) => r.url().includes("/history/") && r.status() === 200,
   );
   await page.getByRole("button", { name: title, exact: false }).first().click();
   await treeResponse;
+  await showTree(page);
   await expect(nodes(page).first()).toBeVisible();
   await waitForCanvasIdle(page);
 }

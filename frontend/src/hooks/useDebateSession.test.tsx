@@ -386,4 +386,38 @@ describe("useDebateSession", () => {
     expect(started).toBe(false);
     expect(opts.pushToast).toHaveBeenCalledWith(expect.stringMatching(/unreachable/), "error");
   });
+
+  it("asks before a redirect restarts the round, and sends nothing when declined", async () => {
+    const { result, sockets, opts } = setup();
+    await startDebate(result);
+    act(() => sockets[0].open());
+
+    opts.confirm.mockResolvedValueOnce(false);
+    let redirected = true;
+    await act(async () => {
+      redirected = await result.current.redirect("Is a taco a sandwich?");
+    });
+    expect(redirected).toBe(false);
+    expect(sockets[0].sent.some((f) => f.type === "debate_redirect")).toBe(false);
+
+    await act(async () => {
+      redirected = await result.current.redirect("Is a taco a sandwich?");
+    });
+    expect(redirected).toBe(true);
+    expect(opts.confirm).toHaveBeenLastCalledWith("Redirect the debate?", expect.any(String), {
+      confirmLabel: "Redirect",
+      destructive: false,
+    });
+    expect(sockets[0].sent.at(-1)).toEqual({ type: "debate_redirect", message: "Is a taco a sandwich?" });
+    expect(result.current.messages.at(-1)).toMatchObject({ type: "redirect", content: "Is a taco a sandwich?" });
+  });
+
+  it("injects into the next round", async () => {
+    const { result, sockets } = setup();
+    await startDebate(result);
+    act(() => sockets[0].open());
+    act(() => result.current.inject("Consider cost"));
+    expect(sockets[0].sent.at(-1)).toEqual({ type: "debate_inject", message: "Consider cost" });
+    expect(result.current.messages.at(-1)).toMatchObject({ type: "inject", content: "Consider cost" });
+  });
 });
