@@ -9,27 +9,34 @@ const node = (id: string, role: string, label: string): TreeNode => ({
 });
 
 const nodes = [
-  node("1-root", "system", "Start"),
-  node("2-q", "user", "What does branching buy me?"),
-  node("3-a", "ai", "A long answer ".repeat(10)),
-  node("4-q", "user", "Follow-up"),
+  node("root", "system", "Start"),
+  node("q", "user", "What does branching buy me?"),
+  node("a", "ai", "A long answer ".repeat(10)),
+  node("q2", "user", "Follow-up"),
 ];
 
 describe("branchPoint", () => {
-  it("names the node the next message branches from, clipped", () => {
-    const bp = branchPoint(nodes, "3-a")!;
+  it("names the chosen node, clipped, and says it is not the latest turn", () => {
+    const bp = branchPoint(nodes, "a", "q2")!;
+    expect(bp.node.id).toBe("a");
     expect(bp.preview.length).toBeLessThanOrEqual(60);
     expect(bp.preview.endsWith("…")).toBe(true);
     expect(bp.isLatest).toBe(false);
-    expect(bp.latestId).toBe("4-q");
   });
 
-  it("knows when you are already on the newest node", () => {
-    expect(branchPoint(nodes, "4-q")!.isLatest).toBe(true);
+  it("is the latest turn when nothing was chosen, shown at the thread's head", () => {
+    const bp = branchPoint(nodes, null, "q2")!;
+    expect(bp.isLatest).toBe(true);
+    expect(bp.node.id).toBe("q2");
   });
 
-  it("has nothing to say for an empty tree or no selection", () => {
-    expect(branchPoint([nodes[0]], "1-root")).toBeNull();
-    expect(branchPoint(nodes, null)).toBeNull();
+  it("a chosen node is never 'latest', even when it is the head", () => {
+    // Choosing the head pins the next message to it alone; Latest continues every model.
+    expect(branchPoint(nodes, "q2", "q2")!.isLatest).toBe(false);
+  });
+
+  it("has nothing to say for an empty tree, the root, or no head", () => {
+    expect(branchPoint([nodes[0]], null, "root")).toBeNull();
+    expect(branchPoint(nodes, null, null)).toBeNull();
   });
 });

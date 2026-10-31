@@ -3,6 +3,7 @@ import * as api from "@/lib/api";
 import { errorMessage } from "@/lib/errors";
 import type { TreeEdge, TreeNode } from "@/lib/types";
 import { branchPoint } from "@/lib/branching";
+import { lastUserText } from "@/lib/messages";
 import type { Confirm } from "@/hooks/useConfirm";
 import type { PushToast } from "@/hooks/useToasts";
 
@@ -11,8 +12,13 @@ interface Options {
   nodes: TreeNode[];
   edges: TreeEdge[];
   setNodes: React.Dispatch<React.SetStateAction<TreeNode[]>>;
-  activeCheckpoint: string | null;
-  setActiveCheckpoint: (id: string | null) => void;
+  /** The node the person chose to continue from; null = the latest turn (useHistoryTree). */
+  chosen: string | null;
+  setChosen: (id: string | null) => void;
+  /** Where the thread stands (the answered head). */
+  head: string | null;
+  /** The path the transcript shows. */
+  shown: string | null;
   fetchHistory: (threadId: string, checkpointId?: string) => void;
   fetchThreads: () => void;
   clearChatMessages: () => void;
@@ -30,8 +36,10 @@ export function useTreeActions({
   nodes,
   edges,
   setNodes,
-  activeCheckpoint,
-  setActiveCheckpoint,
+  chosen,
+  setChosen,
+  head,
+  shown,
   fetchHistory,
   fetchThreads,
   clearChatMessages,
@@ -41,24 +49,12 @@ export function useTreeActions({
   pushToast,
   continueFrom,
 }: Options) {
-  const activeCheckpointNode = useMemo(
-    () => nodes.find((n) => n.id === activeCheckpoint),
-    [nodes, activeCheckpoint],
-  );
+  /** The node the next message continues from: the chosen one, else the head. */
+  const anchorNode = useMemo(() => nodes.find((n) => n.id === (chosen ?? head)), [nodes, chosen, head]);
+  /** The node whose path is on screen. */
+  const shownNode = useMemo(() => nodes.find((n) => n.id === shown), [nodes, shown]);
 
-  const parentOf = useCallback(
-    (id: string) => edges.find((e) => e.target === id)?.source ?? null,
-    [edges],
-  );
-
-  /** Make a checkpoint the branch point without touching who answers. */
-  const openCheckpoint = useCallback(
-    (id: string) => {
-      setActiveCheckpoint(id);
-      if (threadId) fetchHistory(threadId, id);
-    },
-    [threadId, fetchHistory, setActiveCheckpoint],
-  );
+  const parentOf = useCallback((id: string) => edges.find((e) => e.target === id)?.source ?? null, [edges]);
 
   /**
    * Open a checkpoint: it becomes the branch point for the next message, and
@@ -70,21 +66,35 @@ export function useTreeActions({
   const selectCheckpoint = useCallback(
     (id: string) => {
       continueFrom(nodes.find((n) => n.id === id));
-      openCheckpoint(id);
+      setChosen(id);
+      if (threadId) fetchHistory(threadId, id);
     },
-    [nodes, continueFrom, openCheckpoint],
+    [nodes, continueFrom, setChosen, threadId, fetchHistory],
   );
 
-  /** What the composer's "Replying from" chip shows. */
-  const branch = useMemo(() => branchPoint(nodes, activeCheckpoint), [nodes, activeCheckpoint]);
+  /**
+   * Show a checkpoint's path without changing what the next message
+   * continues or who answers it: reading another model's reply is not a
+   * decision to continue it.
+   */
+  const viewCheckpoint = useCallback(
+    (id: string) => {
+      if (threadId) fetchHistory(threadId, id);
+    },
+    [threadId, fetchHistory],
+  );
+
+  /** What the composer's "Replying to" chip shows. */
+  const branch = useMemo(() => branchPoint(nodes, chosen, head), [nodes, chosen, head]);
 
   /**
-   * Back to replying to the newest message. Not a node click: who answers
-   * stays as it is.
+   * Back to the latest turn: every model continues its own reply there. Not
+   * a node click: who answers stays as it is.
    */
   const resetToLatest = useCallback(() => {
-    if (branch && !branch.isLatest) openCheckpoint(branch.latestId);
-  }, [branch, openCheckpoint]);
+    setChosen(null);
+    if (threadId) fetchHistory(threadId);
+  }, [setChosen, threadId, fetchHistory]);
 
   /**
    * "Branch from here" on a tree node: it becomes the parent of the next
@@ -100,9 +110,8 @@ export function useTreeActions({
   );
 
   const deleteNode = useCallback(
-    async (nodeId?: string) => {
-      const targetId = nodeId || activeCheckpoint;
-      if (!targetId || !threadId) return;
+    async (nodeId: string) => {
+      if (!threadId) return;
       const ok = await confirm(
         "Delete message",
         "This removes this message and everything that branches from it. This can't be undone.",
@@ -110,36 +119,46 @@ export function useTreeActions({
       );
       if (!ok) return;
       try {
-        await api.deleteCheckpoint(threadId, targetId);
-        if (activeCheckpoint === targetId) {
-          // The open checkpoint is gone: fall back to its parent.
-          const parentId = parentOf(targetId);
+        await api.deleteCheckpoint(threadId, nodeId);
+        if (chosen === nodeId) {
+          // The chosen checkpoint is gone: continue from its parent.
+          const parentId = parentOf(nodeId);
           clearChatMessages();
-          setActiveCheckpoint(parentId);
-          fetchHistory(threadId, parentId || undefined);
+          setChosen(parentId);
+          fetchHistory(threadId, parentId ?? undefined);
         } else {
-          fetchHistory(threadId, activeCheckpoint || undefined);
+          fetchHistory(threadId, chosen ?? undefined);
         }
         fetchThreads();
       } catch (error) {
         pushToast(errorMessage(error, "Couldn't delete the message"), "error");
       }
     },
-    [activeCheckpoint, threadId, confirm, parentOf, clearChatMessages, setActiveCheckpoint, fetchHistory, fetchThreads, pushToast],
+    [chosen, threadId, confirm, parentOf, clearChatMessages, setChosen, fetchHistory, fetchThreads, pushToast],
   );
 
   /**
-   * Re-ask a user message differently: branch from its parent with the text
-   * in the composer. The one action that switches the view on purpose.
+   * Re-ask one of your messages differently: branch from its parent with the
+   * message's full text in the composer (the tree label is a clipped,
+   * markdown-stripped preview). The one action that switches the view on
+   * purpose.
    */
-  const editAndRebranch = useCallback(() => {
-    if (!activeCheckpointNode || !threadId) return;
-    const parentId = parentOf(activeCheckpointNode.id);
-    setActiveCheckpoint(parentId);
-    fetchHistory(threadId, parentId || undefined);
-    setInput(activeCheckpointNode.data.label.replace("...", ""));
+  const editAndRebranch = useCallback(async () => {
+    const node = shownNode;
+    if (!node || !threadId) return;
+    let text: string | null = null;
+    try {
+      text = lastUserText((await api.fetchHistory(threadId, node.id)).messages ?? []);
+    } catch (error) {
+      pushToast(errorMessage(error, "Couldn't load the message"), "error");
+      return;
+    }
+    const parentId = parentOf(node.id);
+    setChosen(parentId);
+    fetchHistory(threadId, parentId ?? undefined);
+    setInput(text ?? node.data.label);
     setShowTree(false);
-  }, [activeCheckpointNode, threadId, parentOf, setActiveCheckpoint, fetchHistory, setInput, setShowTree]);
+  }, [shownNode, threadId, parentOf, setChosen, fetchHistory, setInput, setShowTree, pushToast]);
 
   const moveNode = useCallback(
     (nodeId: string, position: { x: number; y: number }) => {
@@ -164,14 +183,18 @@ export function useTreeActions({
           return u ? { ...n, position: { x: u.x, y: u.y } } : n;
         }),
       );
-      api.saveNodePositions(threadId, updates).catch((e) => pushToast(errorMessage(e, "Couldn't save the new layout"), "error"));
+      api
+        .saveNodePositions(threadId, updates)
+        .catch((e) => pushToast(errorMessage(e, "Couldn't save the new layout"), "error"));
     },
     [threadId, setNodes, pushToast],
   );
 
   return {
-    activeCheckpointNode,
+    anchorNode,
+    shownNode,
     selectCheckpoint,
+    viewCheckpoint,
     deleteNode,
     editAndRebranch,
     moveNode,

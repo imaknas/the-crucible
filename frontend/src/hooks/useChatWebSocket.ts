@@ -3,13 +3,14 @@ import * as api from "@/lib/api";
 import { Message, ModelError, Toggles } from "@/lib/types";
 import { isOpen, useSocketFactory } from "@/lib/transport";
 import { contextFields } from "@/lib/runContext";
+import { markStopped } from "@/lib/messages";
 import type { PushToast } from "@/hooks/useToasts";
 
 const NOT_CONNECTED = "Not connected to the backend. It reconnects by itself; try again in a moment.";
 
 export function useChatWebSocket({
   threadId,
-  activeCheckpoint,
+  parentCheckpoint,
   selectedModels,
   respondingModels = selectedModels,
   toggles,
@@ -17,14 +18,17 @@ export function useChatWebSocket({
   systemPrompt = null,
   documents,
   clearDocuments,
-  onHistoryRefreshNeeded,
-  setActiveCheckpoint,
+  onTurnSettled,
   setErrorModals,
   pushToast,
   onThreadsChanged,
 }: {
   threadId: string | null;
-  activeCheckpoint: string | null;
+  /**
+   * The node the person chose to continue from, or null for the latest
+   * turn: the backend then continues every model from its own reply there.
+   */
+  parentCheckpoint: string | null;
   /** The Control Panel's selection; its first model writes a synthesis by default. */
   selectedModels: string[];
   /** Who answers the next message (lib/replyTarget); default: the selection. */
@@ -36,12 +40,11 @@ export function useChatWebSocket({
   systemPrompt?: string | null;
   documents: Record<string, string>;
   clearDocuments: () => void;
-  onHistoryRefreshNeeded: (
-    threadId: string,
-    nodeId?: string,
-    skipMessages?: boolean,
-  ) => void;
-  setActiveCheckpoint: (cpId: string | null) => void;
+  /**
+   * Every model of a turn has finished. The next message continues the
+   * latest turn again; the caller resets the branch point and reloads.
+   */
+  onTurnSettled: (threadId: string) => void;
   setErrorModals: React.Dispatch<React.SetStateAction<any[]>>;
   /** Notices, e.g. that a message couldn't be sent. */
   pushToast: PushToast;
@@ -72,26 +75,29 @@ export function useChatWebSocket({
   // The model writing a synthesis right now, so its bubble streams as one.
   const synthesisModelRef = useRef<string | null>(null);
 
-  // Use refs for items that change frequently but shouldn't trigger WS reconnect
-  const activeCheckpointRef = useRef(activeCheckpoint);
-  useEffect(() => {
-    activeCheckpointRef.current = activeCheckpoint;
-  }, [activeCheckpoint]);
+  // Full text of each reply streamed here, by tree node id: the compare
+  // cards show it whole instead of the node's excerpt.
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
+  // The replies of the turn that last streamed here, open in full on their
+  // cards so the settled view keeps showing what was just read live.
+  const [liveTurn, setLiveTurn] = useState<string[]>([]);
+  const liveTurnRef = useRef<string[]>([]);
 
-  const onHistoryRefreshRef = useRef(onHistoryRefreshNeeded);
+  // Use refs for items that change frequently but shouldn't trigger WS reconnect
+  const parentCheckpointRef = useRef(parentCheckpoint);
   useEffect(() => {
-    onHistoryRefreshRef.current = onHistoryRefreshNeeded;
-  }, [onHistoryRefreshNeeded]);
+    parentCheckpointRef.current = parentCheckpoint;
+  }, [parentCheckpoint]);
 
   const onThreadsChangedRef = useRef(onThreadsChanged);
   useEffect(() => {
     onThreadsChangedRef.current = onThreadsChanged;
   }, [onThreadsChanged]);
 
-  const setActiveCheckpointRef = useRef(setActiveCheckpoint);
+  const onTurnSettledRef = useRef(onTurnSettled);
   useEffect(() => {
-    setActiveCheckpointRef.current = setActiveCheckpoint;
-  }, [setActiveCheckpoint]);
+    onTurnSettledRef.current = onTurnSettled;
+  }, [onTurnSettled]);
 
   useEffect(() => {
     if (!threadId) return;
@@ -108,18 +114,14 @@ export function useChatWebSocket({
       streamBufferRef.current = {};
       expectedModelsCountRef.current = 0;
       finishedModelsCountRef.current = 0;
-      setMessages((prev) =>
-        prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
-      );
+      setMessages(markStopped);
     };
 
     ws.onclose = (event) => {
       if (!event.wasClean && !disposed) {
         console.warn("[WS] Connection closed unexpectedly, code:", event.code);
         setIsLoading(false);
-        setMessages((prev) =>
-          prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
-        );
+        setMessages(markStopped);
         // e.g. the backend restarted; reconnect instead of staying dead
         // until the user switches threads.
         reconnectTimer = setTimeout(() => setReconnectKey((k) => k + 1), 1500);
@@ -186,20 +188,28 @@ export function useChatWebSocket({
       } else if (data.type === "stream_end" || data.type === "error") {
         if (data.type === "stream_end") {
           pendingModelsRef.current.delete(data.model);
+          const content = streamBufferRef.current[data.model] ?? "";
           setMessages((prev) =>
             prev.map((m) =>
               m.streaming && m.model === data.model
                 ? {
                     ...m,
+                    // The tree node id: the history refresh keys the same reply by it.
                     id: data.checkpoint_id || m.id,
-                    content: streamBufferRef.current[data.model] || m.content,
+                    checkpoint_id: data.checkpoint_id ?? null,
+                    turn_id: data.turn_id ?? null,
+                    ...(data.model_color ? { model_color: data.model_color } : {}),
+                    content: content || m.content,
                     streaming: false,
                   }
                 : m,
             ),
           );
           delete streamBufferRef.current[data.model];
-          streamCheckpointsRef.current.push(data.checkpoint_id);
+          if (data.checkpoint_id) {
+            streamCheckpointsRef.current.push(data.checkpoint_id);
+            if (content) setReplyTexts((prev) => ({ ...prev, [data.checkpoint_id]: content }));
+          }
         } else if (data.type === "error") {
           if (data.model) {
             // One model failing is shown inline, next to its siblings'
@@ -245,11 +255,12 @@ export function useChatWebSocket({
           }
 
           if (streamCheckpointsRef.current.length > 0) {
-            const firstCp = streamCheckpointsRef.current[0];
-            setActiveCheckpointRef.current(firstCp);
-            // Load formatted server messages through reconciliation (no flash
-            // because we removed the pre-clear from useHistoryTree).
-            onHistoryRefreshRef.current(threadId, undefined, false);
+            // No reply becomes the branch point: the next message continues
+            // the latest turn, every model from its own reply. Pinning the
+            // first reply here sent every model's next turn after one model.
+            liveTurnRef.current = [...streamCheckpointsRef.current];
+            setLiveTurn(liveTurnRef.current);
+            onTurnSettledRef.current(threadId);
           }
 
           streamCheckpointsRef.current = [];
@@ -261,9 +272,9 @@ export function useChatWebSocket({
           onThreadsChangedRef.current?.();
         }
       } else if (data.type === "title_update") {
-        // Title updates never overwrite messages: refresh the tree and the
-        // sidebar, which otherwise kept the old name until a reload.
-        onHistoryRefreshRef.current(threadId, undefined, true);
+        // The title shows only in the sidebar, which otherwise kept the old
+        // name until a reload. The tree is left alone: reloading it here
+        // moved the transcript to the thread's head mid-turn.
         onThreadsChangedRef.current?.();
       }
     };
@@ -282,6 +293,8 @@ export function useChatWebSocket({
       pendingModels.clear();
       sentFramesRef.current = {};
       setModelErrors([]);
+      setReplyTexts({});
+      setLiveTurn([]);
       streamCheckpointsRef.current = [];
       expectedModelsCountRef.current = 0;
       finishedModelsCountRef.current = 0;
@@ -325,6 +338,7 @@ export function useChatWebSocket({
     }
 
     setIsLoading(true);
+    setLiveTurn([]);
     expectedModelsCountRef.current = respondingModels.length;
     finishedModelsCountRef.current = 0;
 
@@ -339,7 +353,7 @@ export function useChatWebSocket({
         documents: documents,
         ...(continuesDebate
           ? { debate_session_id: continuesDebate, parent_checkpoint_id: null }
-          : { parent_checkpoint_id: activeCheckpointRef.current }),
+          : { parent_checkpoint_id: parentCheckpointRef.current }),
         is_deliberation: isDeliberation,
       });
     });
@@ -373,16 +387,14 @@ export function useChatWebSocket({
 
   /**
    * Merge the replies at these checkpoints into one, written by `model`
-   * (default: the first selected model) from `parentId`. The backend reads
-   * the full replies and writes the prompt, the same synthesis `crucible
-   * synthesize --answers` and MCP `synthesize_answers` run, and tags the
-   * turn so the reply shows as a synthesis in the tree and the transcript.
+   * (default: the first selected model). The backend reads the full replies,
+   * writes the prompt (the same synthesis `crucible synthesize --answers` and
+   * MCP `synthesize_answers` run), hangs it from the question the answers
+   * responded to, and tags the turn so the reply shows as a synthesis in the
+   * tree and the transcript. Replies sent together may sit on different
+   * branches, so no parent is named here.
    */
-  const synthesizeBranches = async (
-    checkpointIds: string[],
-    parentId: string | null,
-    model?: string | null,
-  ) => {
+  const synthesizeBranches = async (checkpointIds: string[], model?: string | null) => {
     if (!threadId || isLoading || checkpointIds.length < 2) return;
     const synthesizer = model || selectedModels[0];
     if (!synthesizer || !isOpen(wsRef.current)) return;
@@ -398,7 +410,7 @@ export function useChatWebSocket({
       toggles: toggles,
       ...contextFields({ summarizer, systemPrompt }),
       documents: documents,
-      parent_checkpoint_id: parentId,
+      parent_checkpoint_id: null,
       type: "synthesis",
     });
     clearDocuments();
@@ -414,9 +426,7 @@ export function useChatWebSocket({
     streamBufferRef.current = {};
     expectedModelsCountRef.current = 0;
     finishedModelsCountRef.current = 0;
-    setMessages((prev) =>
-      prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
-    );
+    setMessages(markStopped);
   }, []);
 
   return {
@@ -429,5 +439,7 @@ export function useChatWebSocket({
     modelErrors,
     retryModel,
     dismissModelError,
+    replyTexts,
+    liveTurn,
   };
 }

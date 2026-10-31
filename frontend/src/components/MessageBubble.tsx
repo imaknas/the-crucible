@@ -569,6 +569,15 @@ export const MessageBubble = React.memo(
                 </AccordionDetails>
               </Accordion>
             )}
+            {msg.stopped && (
+              <Typography
+                variant="caption"
+                data-testid="reply-stopped"
+                sx={{ display: "block", mt: 1.5, color: "warning.main", fontWeight: 600 }}
+              >
+                Stopped before it finished: this reply is incomplete.
+              </Typography>
+            )}
             {msg.streaming && (
               <Box
                 component="span"

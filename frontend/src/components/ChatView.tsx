@@ -20,32 +20,35 @@ import { Message, ModelError } from "@/lib/types";
 import ModelErrorBubble from "./ModelErrorBubble";
 import BranchChip, { type AnswerChoice } from "./BranchChip";
 import type { BranchPoint } from "@/lib/branching";
-import { cardExcerpt, orderSiblings } from "@/lib/arenaCompare";
+import { cardExcerpt, isSynthesisNode, orderSiblings, turnSiblings } from "@/lib/arenaCompare";
 
 interface ChatViewProps {
   messages: Message[];
   nodes: any[];
   edges: any[];
   isLoading: boolean;
+  /** The composer's text; the page owns it, so Edit & fork can fill it. */
   input: string;
   setInput: (val: string) => void;
   onSendMessage: (text: string) => void;
-  onSwitchCheckpoint: (id: string) => void;
+  /** Show a reply's path without changing what the next message continues or who answers. */
+  onViewReply: (id: string) => void;
+  /** Continue from a reply: it becomes the branch point and its model answers. */
+  onContinueReply: (id: string) => void;
   /** Merge the answers at these checkpoints; `model` writes it (null = first selected). */
-  onSynthesize: (checkpointIds: string[], parentId: string | null, model?: string | null) => void;
+  onSynthesize: (checkpointIds: string[], model?: string | null) => void;
   /** Models a synthesis can be written by (those with a key). */
   synthesizerOptions?: string[];
   onDeliberate: (text: string) => void;
   setShowTree: (val: boolean) => void;
   documents: Record<string, string>;
   setDocuments: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  activeCheckpoint: string | null;
-  onDeleteNode: () => void;
+  /** The checkpoint whose path the transcript shows. */
+  shownCheckpoint: string | null;
   onEditAndRebranch: () => void;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   stopStreaming: () => void;
   showEditButton: boolean;
-  threadId: string | null;
   selectedModels: string[];
   /** Who answers the next message; default: the selection. */
   respondingModels?: string[];
@@ -56,8 +59,6 @@ interface ChatViewProps {
   debateBanner?: DebateBannerProps | null;
   /** Display name for a model ID; raw IDs only appear in tooltips. */
   modelLabel: (id: string) => string;
-  /** Changes when the composer should empty itself (a debate started). */
-  composerClearSignal?: number;
   /** Models that failed in the latest turn, shown inline with a Retry. */
   modelErrors?: ModelError[];
   onRetryModel?: (errorId: string) => void;
@@ -67,8 +68,27 @@ interface ChatViewProps {
   onResetBranch?: () => void;
   /** Who answers a clicked reply, switchable on the branch chip. */
   answerChoice?: AnswerChoice | null;
+  /** Full text of replies streamed in this tab, by tree node id. */
+  replyTexts?: Record<string, string>;
+  /** The replies of the turn that just streamed: their cards open in full. */
+  liveTurn?: string[];
 }
 
+
+const EMPTY_TEXTS: Record<string, string> = {};
+
+const cardActionSx = (color: string) => ({
+  px: 1,
+  py: 0.5,
+  borderRadius: 1.5,
+  fontSize: "0.7rem",
+  fontWeight: 800,
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.08em",
+  color,
+  "&:hover": { bgcolor: "action.hover" },
+});
+const EMPTY_TURN: string[] = [];
 
 const ChatViewRaw: React.FC<ChatViewProps> = ({
   messages,
@@ -78,19 +98,18 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   input,
   setInput,
   onSendMessage,
-  onSwitchCheckpoint,
+  onViewReply,
+  onContinueReply,
   onSynthesize,
   synthesizerOptions = [],
   onDeliberate,
   setShowTree,
   documents,
   setDocuments,
-  activeCheckpoint,
-  onDeleteNode,
+  shownCheckpoint,
   onEditAndRebranch,
   onFileUpload,
   showEditButton,
-  threadId,
   selectedModels,
   respondingModels,
   stopStreaming,
@@ -99,13 +118,14 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onDebateRedirect,
   debateBanner,
   modelLabel,
-  composerClearSignal,
   modelErrors = [],
   onRetryModel,
   onDismissModelError,
   branchPoint,
   onResetBranch,
   answerChoice = null,
+  replyTexts = EMPTY_TEXTS,
+  liveTurn = EMPTY_TURN,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerContentRef = useRef<HTMLDivElement>(null);
@@ -233,16 +253,6 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
     [],
   );
 
-  const handleSendMessage = (val: string) => {
-    onSendMessage(val);
-    setInput("");
-  };
-
-  const handleDeliberateClick = (val: string) => {
-    onDeliberate(val);
-    setInput("");
-  };
-
   const handleScroll = () => {
     if (scrollRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
@@ -257,39 +267,22 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
     }
   }, [messages, isLoading]);
 
-  // A synthesis reply is tagged by the backend (node type / metadata kind).
-  const isSynthesisNode = React.useCallback(
-    (node: any) => node?.type === "synthesis" || node?.metadata?.kind === "synthesis",
-    [],
-  );
   // "" = the first selected model, the original behaviour.
   const [synthesizer, setSynthesizer] = React.useState("");
 
-  const parentEdge = React.useMemo(
-    () => edges.find((e) => e.target === activeCheckpoint),
-    [edges, activeCheckpoint],
-  );
-  const parentId = parentEdge ? parentEdge.source : null;
-
-  // Filter out synthesis nodes from parallel comparison - synthesis is a resolution, not a competitor
+  // The other models' replies to the same message: by turn, on whichever
+  // branch each model continued (lib/arenaCompare).
   const siblings = React.useMemo(
-    () =>
-      parentId
-        ? orderSiblings(
-            nodes.filter(
-              (n) =>
-                edges.some((e) => e.source === parentId && e.target === n.id) &&
-                !isSynthesisNode(n),
-            ),
-            selectedModels,
-          )
-        : [],
-    [nodes, edges, parentId, isSynthesisNode, selectedModels],
+    () => orderSiblings(turnSiblings(nodes, edges, shownCheckpoint), selectedModels),
+    [nodes, edges, shownCheckpoint, selectedModels],
   );
-  // Compare cards opened to their whole excerpt, so answers can be read side by side.
-  const [expandedCards, setExpandedCards] = React.useState<Set<string>>(new Set());
+  // Cards whose open/closed state the person flipped. The turn that just
+  // streamed starts open, so its replies stay readable once it settles
+  // into cards, as they were while streaming.
+  const [toggledCards, setToggledCards] = React.useState<Set<string>>(new Set());
+  const isCardOpen = (id: string) => toggledCards.has(id) !== liveTurn.includes(id);
   const toggleCard = React.useCallback((id: string) => {
-    setExpandedCards((prev) => {
+    setToggledCards((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -297,11 +290,11 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
     });
   }, []);
 
-  // Arena is active only if we have multiple genuine AI responses and we AREN'T currently on a synthesis path
-  const isArenaActive = React.useMemo(() => {
-    const activeNode = nodes.find((n) => n.id === activeCheckpoint);
-    return siblings.length > 1 && !isSynthesisNode(activeNode);
-  }, [siblings, nodes, activeCheckpoint, isSynthesisNode]);
+  // Compare only genuine answers, and not while a synthesis is on screen.
+  const isArenaActive = React.useMemo(
+    () => siblings.length > 1 && !isSynthesisNode(nodes.find((n) => n.id === shownCheckpoint)),
+    [siblings, nodes, shownCheckpoint],
+  );
 
   return (
     <Box
@@ -554,15 +547,6 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                 );
               }
 
-              // Skip old-style internal synthesis prompts (not debate synthesis messages)
-              if (
-                msg.content?.startsWith(
-                  "I have received perspectives from multiple models:",
-                )
-              ) {
-                return null;
-              }
-
               // Synthesis replies (chat or debate): a loading pill until text
               // arrives, then a bubble that looks like a synthesis.
               if (msg.type === "synthesis" || msg.kind === "synthesis") {
@@ -713,8 +697,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       whileTap={{ scale: 0.97 }}
                       onClick={() =>
                         onSynthesize(
-                          siblings.map((s: any) => s.id),
-                          parentId,
+                          siblings.map((s) => s.id),
                           synthesizer || null,
                         )
                       }
@@ -793,23 +776,23 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                     },
                   }}
                 >
-                  {siblings.map((sib: any, sIdx: number) => {
-                    const isActive = sib.id === activeCheckpoint;
+                  {siblings.map((sib) => {
+                    const isActive = sib.id === shownCheckpoint;
                     const sibModel = sib.metadata?.active_peer || "assistant";
                     const sibColor = getModelColor(sibModel);
                     const sibLabel = sib.metadata?.model_name || modelLabel(sibModel);
+                    const open = isCardOpen(sib.id);
+                    const fullText = replyTexts[sib.id];
 
                     return (
                       <Paper
                         key={sib.id}
-                        component={motion.div}
-                        whileHover={{ y: -4, borderColor: sibColor.main }}
-                        onClick={() => onSwitchCheckpoint(sib.id)}
+                        component="article"
+                        aria-label={`${sibLabel}'s answer`}
                         sx={{
-                          cursor: "pointer",
                           borderRadius: 4,
                           overflow: "hidden",
-                          transition: "all 0.3s",
+                          transition: "border-color 0.2s",
                           p: 2.5,
                           display: "flex",
                           flexDirection: "column",
@@ -826,69 +809,33 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                             : isDark
                               ? "rgba(255,255,255,0.02)"
                               : "background.paper",
-                          boxShadow: isActive
-                            ? `0 10px 30px -10px ${sibColor.border}`
-                            : "none",
-                          opacity: isActive ? 1 : 0.7,
-                          "&:hover": {
-                            opacity: 1,
-                          },
+                          boxShadow: isActive ? `0 10px 30px -10px ${sibColor.border}` : "none",
                         }}
                       >
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            mb: 2,
-                          }}
-                        >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
                           <Box
                             sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1.5,
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              bgcolor: sibColor.dot,
+                              boxShadow: `0 0 8px ${sibColor.dot}`,
                             }}
+                          />
+                          <Typography
+                            variant="overline"
+                            title={sibModel}
+                            sx={{ fontSize: "0.75rem", fontWeight: 800, letterSpacing: "0.1em", color: sibColor.text, flex: 1 }}
                           >
-                            <Box
-                              sx={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: "50%",
-                                bgcolor: sibColor.dot,
-                                boxShadow: `0 0 8px ${sibColor.dot}`,
-                              }}
-                            />
-                            <Typography
-                              variant="overline"
-                              title={sibModel}
-                              sx={{
-                                fontSize: "0.75rem",
-                                fontWeight: 800,
-                                letterSpacing: "0.1em",
-                                color: sibColor.text,
-                              }}
-                            >
-                              {sibLabel}
-                            </Typography>
-                          </Box>
+                            {sibLabel}
+                          </Typography>
                           {isActive && (
                             <Box
-                              sx={{
-                                px: 0.8,
-                                py: 0.2,
-                                borderRadius: 1,
-                                bgcolor: sibColor.main,
-                                color: "#fff",
-                                display: "flex",
-                                alignItems: "center",
-                              }}
+                              title="This answer is shown in full above"
+                              sx={{ display: "flex", alignItems: "center", gap: 0.5, fontSize: "0.6875rem", fontWeight: 700, color: sibColor.text }}
                             >
-                              <CheckCircle2
-                                width={10}
-                                height={10}
-                                color="inherit"
-                              />
+                              <CheckCircle2 width={12} height={12} />
+                              Shown above
                             </Box>
                           )}
                         </Box>
@@ -896,8 +843,9 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                           variant="body2"
                           sx={{
                             lineHeight: 1.6,
-                            color: isActive ? "text.primary" : "text.secondary",
-                            ...(expandedCards.has(sib.id)
+                            color: "text.primary",
+                            whiteSpace: open && fullText ? "pre-wrap" : undefined,
+                            ...(open
                               ? {}
                               : {
                                   display: "-webkit-box",
@@ -905,27 +853,18 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                                   WebkitBoxOrient: "vertical",
                                   overflow: "hidden",
                                 }),
-                            fontSize: "0.75rem",
+                            fontSize: "0.8125rem",
                             mb: 1,
                           }}
                         >
-                          {cardExcerpt(sib)}
+                          {open && fullText ? fullText : cardExcerpt(sib)}
                         </Typography>
                         <ButtonBase
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleCard(sib.id);
-                          }}
-                          aria-expanded={expandedCards.has(sib.id)}
-                          sx={{
-                            alignSelf: "flex-start",
-                            mb: 1.5,
-                            fontSize: "0.75rem",
-                            fontWeight: 700,
-                            color: sibColor.text,
-                          }}
+                          onClick={() => toggleCard(sib.id)}
+                          aria-expanded={open}
+                          sx={{ alignSelf: "flex-start", mb: 1.5, fontSize: "0.75rem", fontWeight: 700, color: sibColor.text }}
                         >
-                          {expandedCards.has(sib.id) ? "Show less" : "Show more"}
+                          {open ? "Show less" : "Show more"}
                         </ButtonBase>
                         <Box
                           sx={{
@@ -933,15 +872,28 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                             pt: 1.5,
                             borderTop: "1px solid",
                             borderColor: "divider",
-                            textAlign: "center",
-                            fontSize: "0.7rem",
-                            fontWeight: 800,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.1em",
-                            color: isActive ? sibColor.text : "text.disabled",
+                            display: "flex",
+                            gap: 1,
+                            justifyContent: "space-between",
                           }}
                         >
-                          {isActive ? "Shown above" : "Read in full"}
+                          {!isActive && (
+                            <ButtonBase
+                              onClick={() => onViewReply(sib.id)}
+                              title="Show this answer's conversation above; who answers next doesn't change"
+                              sx={cardActionSx(sibColor.text)}
+                            >
+                              Read in full
+                            </ButtonBase>
+                          )}
+                          <ButtonBase
+                            onClick={() => onContinueReply(sib.id)}
+                            title={`Continue from this answer: your next message goes to ${sibLabel}`}
+                            aria-label={`Continue with ${sibLabel}`}
+                            sx={{ ...cardActionSx("text.secondary"), ml: "auto" }}
+                          >
+                            Continue from this
+                          </ButtonBase>
                         </Box>
                       </Paper>
                     );
@@ -1040,8 +992,10 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
       {/* Input Bar */}
       <ChatInput
         isLoading={isLoading}
-        onSendMessage={handleSendMessage}
-        onDeliberate={handleDeliberateClick}
+        value={input}
+        onChange={setInput}
+        onSendMessage={onSendMessage}
+        onDeliberate={onDeliberate}
         stopStreaming={stopStreaming}
         onFileUpload={onFileUpload}
         documents={documents}
@@ -1052,11 +1006,9 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         onEditAndRebranch={onEditAndRebranch}
         showEditButton={showEditButton}
         isDark={isDark}
-        initialInput={input}
         onDebateOpen={onDebateOpen}
         onDebateInject={onDebateInject}
         onDebateRedirect={onDebateRedirect}
-        clearSignal={composerClearSignal}
         header={
           branchPoint && !debateBanner ? (
             <BranchChip

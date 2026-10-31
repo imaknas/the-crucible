@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import ChatView from "./ChatView";
 import { replyAuthor } from "./MessageBubble";
 
@@ -64,23 +64,20 @@ describe("ChatView", () => {
     input: "",
     setInput: jest.fn(),
     onSendMessage: jest.fn(),
-    onSwitchCheckpoint: jest.fn(),
+    onViewReply: jest.fn(),
+    onContinueReply: jest.fn(),
     onSynthesize: jest.fn(),
     onDeliberate: jest.fn(),
     setShowTree: jest.fn(),
     documents: {},
     setDocuments: jest.fn(),
-    activeCheckpoint: "cp1",
-    onDeleteNode: jest.fn(),
+    shownCheckpoint: "cp1",
     onEditAndRebranch: jest.fn(),
     onFileUpload: jest.fn(),
     stopStreaming: jest.fn(),
     showEditButton: true,
-    threadId: "t1",
     selectedModels: ["gpt-4o"],
     clearDocuments: jest.fn(),
-    onHistoryRefreshNeeded: jest.fn(),
-    setActiveCheckpoint: jest.fn(),
     setErrorModals: jest.fn(),
     modelLabel: (id: string) => (id === "claude-sonnet-5-5" ? "Claude Sonnet 5.5" : id),
   };
@@ -102,7 +99,7 @@ describe("ChatView", () => {
   });
 
   it("shows welcome screen when no threadId exists", () => {
-    render(<ChatView {...mockProps} threadId={null} />);
+    render(<ChatView {...mockProps} />);
     expect(screen.getByText(/Ask the arena anything/i)).toBeInTheDocument();
   });
 
@@ -130,19 +127,18 @@ describe("ChatView synthesis", () => {
     input: "",
     setInput: jest.fn(),
     onSendMessage: jest.fn(),
-    onSwitchCheckpoint: jest.fn(),
+    onViewReply: jest.fn(),
+    onContinueReply: jest.fn(),
     onSynthesize: jest.fn(),
     onDeliberate: jest.fn(),
     setShowTree: jest.fn(),
     documents: {},
     setDocuments: jest.fn(),
-    activeCheckpoint: "a1",
-    onDeleteNode: jest.fn(),
+    shownCheckpoint: "a1",
     onEditAndRebranch: jest.fn(),
     onFileUpload: jest.fn(),
     stopStreaming: jest.fn(),
     showEditButton: false,
-    threadId: "t1",
     selectedModels: ["gpt-6.1-sol"],
     modelLabel: (id: string) => id,
   };
@@ -173,7 +169,69 @@ describe("ChatView synthesis", () => {
       />,
     );
     fireEvent.click(screen.getByText("Synthesize answers"));
-    expect(onSynthesize).toHaveBeenCalledWith(["a1", "a2"], "u", null);
+    expect(onSynthesize).toHaveBeenCalledWith(["a1", "a2"], null);
+  });
+
+  const card = (id: string, model: string, turn: string) => ({
+    id,
+    data: { label: id },
+    position: { x: 0, y: 0 },
+    metadata: { role: "ai", active_peer: model, model_name: model.toUpperCase(), turn_id: turn, preview: `${id} excerpt` },
+  });
+
+  it("compares the replies sent together, though each sits on its own branch", () => {
+    const onSynthesize = jest.fn();
+    render(
+      <ChatView
+        {...base}
+        onSynthesize={onSynthesize}
+        messages={[{ id: "u", role: "user", content: "Q", type: "human" }]}
+        nodes={[card("a1", "gpt", "t1"), card("b1", "claude", "t1"), card("old", "gpt", "t0")]}
+        edges={[
+          { id: "e1", source: "pa", target: "a1" },
+          { id: "e2", source: "pb", target: "b1" },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByText("Synthesize answers"));
+    expect(onSynthesize).toHaveBeenCalledWith(["a1", "b1"], null);
+  });
+
+  it("reads another answer without changing who answers next, and continues it only on request", () => {
+    const onViewReply = jest.fn();
+    const onContinueReply = jest.fn();
+    render(
+      <ChatView
+        {...base}
+        onViewReply={onViewReply}
+        onContinueReply={onContinueReply}
+        messages={[{ id: "u", role: "user", content: "Q", type: "human" }]}
+        nodes={[card("a1", "gpt", "t1"), card("b1", "claude", "t1")]}
+        edges={[]}
+      />,
+    );
+    const claude = screen.getByRole("article", { name: "CLAUDE's answer" });
+    fireEvent.click(within(claude).getByRole("button", { name: "Read in full" }));
+    expect(onViewReply).toHaveBeenCalledWith("b1");
+    expect(onContinueReply).not.toHaveBeenCalled();
+    fireEvent.click(within(claude).getByRole("button", { name: "Continue with CLAUDE" }));
+    expect(onContinueReply).toHaveBeenCalledWith("b1");
+  });
+
+  it("opens the cards of a turn that just streamed, with the full replies", () => {
+    render(
+      <ChatView
+        {...base}
+        messages={[{ id: "u", role: "user", content: "Q", type: "human" }]}
+        nodes={[card("a1", "gpt", "t1"), card("b1", "claude", "t1")]}
+        edges={[]}
+        liveTurn={["a1", "b1"]}
+        replyTexts={{ b1: "The whole of Claude's reply." }}
+      />,
+    );
+    expect(screen.getByText("The whole of Claude's reply.")).toBeInTheDocument();
+    const claude = screen.getByRole("article", { name: "CLAUDE's answer" });
+    expect(within(claude).getByRole("button", { name: "Show less" })).toHaveAttribute("aria-expanded", "true");
   });
 });
 

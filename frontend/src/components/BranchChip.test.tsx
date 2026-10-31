@@ -11,8 +11,7 @@ const point: BranchPoint = {
     metadata: { role: "ai", active_peer: "claude-x", model_name: "Claude X" },
   },
   preview: "answer",
-  latestId: "a1",
-  isLatest: true,
+  isLatest: false,
 };
 const label = (id: string) => (id === "claude-x" ? "Claude X" : id);
 
@@ -84,6 +83,22 @@ describe("BranchChip", () => {
 
   it("offers no switch when there is no choice", () => {
     render(<BranchChip point={point} onReset={jest.fn()} modelLabel={label} />);
-    expect(screen.queryByRole("button", { name: /instead/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Ask/ })).toBeNull();
+  });
+});
+
+describe("BranchChip, latest turn", () => {
+  it("says the latest turn is continued and offers no way back to it", () => {
+    render(<BranchChip point={{ ...point, isLatest: true }} onReset={jest.fn()} modelLabel={label} />);
+    expect(screen.getByTestId("branch-chip")).toHaveTextContent("Continuing the latest turn");
+    expect(screen.queryByRole("button", { name: /latest turn instead/ })).toBeNull();
+  });
+
+  it("offers the latest turn when branching from a chosen node", () => {
+    const onReset = jest.fn();
+    render(<BranchChip point={point} onReset={onReset} modelLabel={label} />);
+    expect(screen.getByTestId("branch-chip")).toHaveTextContent("Branching from Claude X");
+    fireEvent.click(screen.getByRole("button", { name: "Continue the latest turn instead" }));
+    expect(onReset).toHaveBeenCalled();
   });
 });

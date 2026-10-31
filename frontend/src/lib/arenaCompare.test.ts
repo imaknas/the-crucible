@@ -1,4 +1,4 @@
-import { cardExcerpt, orderSiblings } from "./arenaCompare";
+import { cardExcerpt, orderSiblings, turnSiblings } from "./arenaCompare";
 
 const node = (id: string, model: string, label = "", preview?: string) => ({
   id,
@@ -27,5 +27,46 @@ describe("cardExcerpt", () => {
 
   it("falls back to the label for nodes without an excerpt", () => {
     expect(cardExcerpt(node("c", "m", "Short answer"))).toBe("Short answer");
+  });
+});
+
+describe("turnSiblings", () => {
+  const n = (id: string, extra: Record<string, unknown> = {}, type?: string) => ({
+    id,
+    type,
+    data: { label: id },
+    metadata: { role: "ai", active_peer: id, ...extra },
+  });
+
+  it("finds the replies sent together by their turn, across branches", () => {
+    const nodes = [
+      n("q1", { role: "user", turn_id: "t2" }),
+      n("a", { turn_id: "t2" }),
+      n("b", { turn_id: "t2" }),
+      n("old", { turn_id: "t1" }),
+      n("syn", { turn_id: "t2", kind: "synthesis" }),
+    ];
+    // a and b hang off different parents: each model continued its own branch.
+    const edges = [
+      { source: "pa", target: "a" },
+      { source: "pb", target: "b" },
+    ];
+    expect(turnSiblings(nodes, edges, "a").map((x) => x.id)).toEqual(["a", "b"]);
+  });
+
+  it("falls back to shared parents for threads without turns", () => {
+    const nodes = [n("a"), n("b"), n("c"), n("syn", {}, "synthesis")];
+    const edges = [
+      { source: "u", target: "a" },
+      { source: "u", target: "b" },
+      { source: "u", target: "syn" },
+      { source: "x", target: "c" },
+    ];
+    expect(turnSiblings(nodes, edges, "b").map((x) => x.id)).toEqual(["a", "b"]);
+  });
+
+  it("has no siblings for a user message or an unknown node", () => {
+    expect(turnSiblings([n("u", { role: "user" })], [], "u")).toEqual([]);
+    expect(turnSiblings([], [], "x")).toEqual([]);
   });
 });

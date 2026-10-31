@@ -2,7 +2,8 @@
 // Single source of truth for all shared data types across the frontend.
 
 export interface Message {
-  id: string; // Stable client-side key; updated to server checkpoint_id after stream_end
+  /** Stable client-side key: the tree node id once the server has one, so a refresh doesn't remount it. */
+  id: string;
   role: string;
   content: string;
   type?: string;
@@ -12,7 +13,15 @@ export interface Message {
   /** "synthesis" for a reply that merged sibling answers (set by the backend). */
   kind?: string | null;
   streaming?: boolean;
+  /** Cut off before it finished (Stop, or the connection dropped): what is shown is partial. */
+  stopped?: boolean;
   sources?: { text: string; filename: string }[];
+  /** The tree node this message is (path messages and stream_end carry it). */
+  checkpoint_id?: string | null;
+  /** The person's message and every reply sent with it share one. */
+  turn_id?: string | null;
+  /** The model family's colour, from the backend. */
+  model_color?: string | null;
 }
 
 /** One model's failed turn, shown inline with a Retry instead of a modal. */
@@ -50,6 +59,8 @@ export interface TreeNode {
     pending?: boolean;
     /** "synthesis" for a chat synthesis reply. */
     kind?: string;
+    /** The person's message and every reply sent with it share one; absent on older threads. */
+    turn_id?: string;
     [key: string]: unknown;
   };
   /** "synthesis" renders the node as a SynthesisTreeNode. */

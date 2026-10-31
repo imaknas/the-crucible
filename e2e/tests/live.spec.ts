@@ -89,6 +89,37 @@ test.describe("live flows (scripted models)", () => {
       .toEqual([2, 2]);
   });
 
+  test("sending again after a multi-model turn continues each model's own conversation", async ({ page, request }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    const idle = () => expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    await send(page, "Opening question");
+    await idle();
+    await expect(page.getByTestId("branch-chip")).toContainText("Continuing the latest turn");
+    await send(page, "Follow-up for both");
+    await idle();
+
+    // Each second answer follows its own model's first answer, not one model's.
+    const threadId = await currentThreadId(page);
+    const tree = await (await request.get(`${BACKEND_URL}/history/${threadId}`)).json();
+    for (const model of [GPT, CLAUDE]) {
+      const answers = tree.nodes.filter((n: { metadata?: { active_peer?: string; role?: string } }) =>
+        n.metadata?.role === "ai" && n.metadata?.active_peer === model,
+      );
+      expect(answers).toHaveLength(2);
+      const paths = await Promise.all(
+        answers.map(async (n: { id: string }) => {
+          const res = await request.get(`${BACKEND_URL}/history/${threadId}?checkpoint_id=${encodeURIComponent(n.id)}`);
+          return (await res.json()).messages as { role: string; model?: string }[];
+        }),
+      );
+      const longest = paths.sort((a, b) => b.length - a.length)[0];
+      const repliers = longest.filter((m) => m.role === "assistant").map((m) => m.model);
+      expect(repliers.every((m) => m?.startsWith(model))).toBe(true);
+    }
+  });
+
   test("continuing a clicked reply asks its model alone, and the selection stays as set", async ({ page }) => {
     const sent: { model?: string; message?: string }[] = [];
     page.on("websocket", (ws) => {

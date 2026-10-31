@@ -163,8 +163,8 @@ test.describe("conversation tree", () => {
     await expect(chip).toContainText("Branching from");
     await expect(chip).toContainText("What does branching buy me?");
 
-    await chip.getByRole("button", { name: /latest message/ }).click();
-    await expect(chip).toContainText("Replying to");
+    await chip.getByRole("button", { name: /latest turn/ }).click();
+    await expect(chip).toContainText("Continuing the latest turn");
   });
 
   test("repaints node colours when the theme is toggled", async ({ page }) => {

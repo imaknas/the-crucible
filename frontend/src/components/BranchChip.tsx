@@ -26,9 +26,10 @@ function answerLabels({ replyModel, selected }: AnswerChoice, modelLabel: (id: s
 }
 
 /**
- * "Replying from: …" above the composer: the checkpoint the next message
- * branches from, who answers it when a model's reply was clicked, and a way
- * back to the newest node when it isn't that one.
+ * Above the composer: what the next message continues — the latest turn
+ * (every model its own reply there), or a node the person chose — who
+ * answers it when a model's reply was clicked, and a way back to the latest
+ * turn.
  */
 export default function BranchChip({
   point,
@@ -67,7 +68,11 @@ export default function BranchChip({
     >
       <CornerDownRight width={14} height={14} style={{ flexShrink: 0, opacity: 0.7 }} />
       <Typography
-        title={meta?.preview || point.node.data.label}
+        title={
+          point.isLatest
+            ? "Each model continues from its own reply in the latest turn"
+            : meta?.preview || point.node.data.label
+        }
         sx={{
           fontSize: "0.75rem",
           color: "text.secondary",
@@ -78,11 +83,22 @@ export default function BranchChip({
           textOverflow: "ellipsis",
         }}
       >
-        {point.isLatest ? "Replying to " : "Branching from "}
-        <Box component="span" sx={{ fontWeight: 700, color: "text.primary" }}>
-          {who}
-        </Box>
-        : “{point.preview}”
+        {point.isLatest ? (
+          <>
+            Continuing the{" "}
+            <Box component="span" sx={{ fontWeight: 700, color: "text.primary" }}>
+              latest turn
+            </Box>
+          </>
+        ) : (
+          <>
+            Branching from{" "}
+            <Box component="span" sx={{ fontWeight: 700, color: "text.primary" }}>
+              {who}
+            </Box>
+            : “{point.preview}”
+          </>
+        )}
       </Typography>
       {answer && side && (
         <ButtonBase
@@ -110,7 +126,7 @@ export default function BranchChip({
       {!point.isLatest && (
         <ButtonBase
           onClick={onReset}
-          aria-label="Reply to the latest message instead"
+          aria-label="Continue the latest turn instead"
           sx={{
             display: "flex",
             alignItems: "center",

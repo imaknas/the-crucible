@@ -58,6 +58,8 @@ interface TreeCanvasProps {
   /** Stability per round (each model vs its own previous answer), keyed by round number as a string. */
   roundScores?: Record<string, number>;
   maxRound?: number;
+  /** Models are answering: the tree gets their nodes once they finish, so say so meanwhile. */
+  answering?: boolean;
 }
 
 const selector = (s: any) => ({
@@ -239,6 +241,7 @@ function TreeViewInner({
   lanes = [],
   roundScores = {},
   maxRound = 0,
+  answering = false,
 }: TreeCanvasProps) {
   const isDark = useTheme().palette.mode === "dark";
   const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]);
@@ -525,8 +528,33 @@ function TreeViewInner({
           <div style={{ fontSize: 11, opacity: 0.8 }}>
             {debateMode
               ? "Rounds appear here as each model responds."
-              : "Send a message to start building the tree."}
+              : "Switch to Arena (top right) and send a message to start the tree."}
           </div>
+        </div>
+      )}
+      {answering && !debateMode && (
+        <div
+          role="status"
+          style={{
+            position: "absolute",
+            top: 12,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 6,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 12px",
+            borderRadius: 999,
+            fontSize: 12,
+            fontWeight: 600,
+            background: isDark ? "#1e293b" : "#ffffff",
+            color: isDark ? "#cbd5e1" : "#334155",
+            border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+          }}
+        >
+          Models answering… their replies join the tree when they finish.
         </div>
       )}
       <ReactFlow

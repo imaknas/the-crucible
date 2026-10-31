@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Box } from "@mui/material";
 import TreeCanvas from "@/components/TreeCanvas";
@@ -33,6 +33,7 @@ import { useToggles } from "@/hooks/useToggles";
 import { useTreeActions } from "@/hooks/useTreeActions";
 import { useReplyTarget } from "@/hooks/useReplyTarget";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
+import { reconcileMessages } from "@/lib/messages";
 
 /**
  * The app shell. State lives in hooks; this component wires them together and
@@ -76,29 +77,23 @@ export default function Home() {
   const setMessagesRef = useRef<React.Dispatch<React.SetStateAction<Message[]>> | null>(null);
 
   const handleMessagesLoaded = useCallback((msgs: Message[]) => {
-    setMessagesRef.current?.((prev) =>
-      msgs.map((newMsg, idx) => {
-        const existing = prev.find((p) => p.id === newMsg.id) || prev[idx];
-        if (existing && existing.role === newMsg.role && (existing.model === newMsg.model || !newMsg.model)) {
-          return { ...newMsg, id: existing.id || newMsg.id || `stable-${idx}` };
-        }
-        return { ...newMsg, id: newMsg.id || `stable-${idx}` };
-      }),
-    );
+    setMessagesRef.current?.((prev) => reconcileMessages(prev, msgs));
   }, []);
 
   const {
     nodes,
     setNodes,
     edges,
-    activeCheckpoint,
-    setActiveCheckpoint,
+    chosen,
+    setChosen,
+    head,
+    shown,
     showTree,
     setShowTree,
     isHistoryLoading,
     fetchHistory,
     clearTree,
-  } = useHistoryTree(handleMessagesLoaded);
+  } = useHistoryTree(handleMessagesLoaded, pushToast);
 
   const handleThreadCleared = useCallback(() => {
     clearTree();
@@ -121,11 +116,18 @@ export default function Home() {
     pushToast,
   });
 
+  // The node the next message continues: the chosen one, else the head.
+  const anchorNode = useMemo(() => nodes.find((n) => n.id === (chosen ?? head)), [nodes, chosen, head]);
   // A clicked reply is continued with its model; the selection stays as set.
-  const reply = useReplyTarget(
-    threadId,
-    selectedModels,
-    nodes.find((n) => n.id === activeCheckpoint),
+  const reply = useReplyTarget(threadId, selectedModels, anchorNode);
+
+  // A turn has finished: the next one continues the latest turn again.
+  const handleTurnSettled = useCallback(
+    (tid: string) => {
+      setChosen(null);
+      fetchHistory(tid);
+    },
+    [setChosen, fetchHistory],
   );
 
   const clearDocuments = useCallback(() => setDocuments({}), []);
@@ -139,9 +141,11 @@ export default function Home() {
     modelErrors,
     retryModel,
     dismissModelError,
+    replyTexts,
+    liveTurn,
   } = useChatWebSocket({
     threadId,
-    activeCheckpoint,
+    parentCheckpoint: chosen,
     selectedModels,
     respondingModels: reply.responders,
     toggles,
@@ -149,8 +153,7 @@ export default function Home() {
     systemPrompt,
     documents,
     clearDocuments,
-    onHistoryRefreshNeeded: fetchHistory,
-    setActiveCheckpoint,
+    onTurnSettled: handleTurnSettled,
     setErrorModals,
     pushToast,
     onThreadsChanged: fetchThreads,
@@ -211,8 +214,9 @@ export default function Home() {
   };
 
   const {
-    activeCheckpointNode,
+    shownNode,
     selectCheckpoint,
+    viewCheckpoint,
     deleteNode,
     editAndRebranch,
     moveNode,
@@ -225,8 +229,10 @@ export default function Home() {
     nodes,
     edges,
     setNodes,
-    activeCheckpoint,
-    setActiveCheckpoint,
+    chosen,
+    setChosen,
+    head,
+    shown,
     fetchHistory,
     fetchThreads,
     clearChatMessages,
@@ -239,24 +245,49 @@ export default function Home() {
 
   // Deliberately does not call setShowTree. Sending used to yank you out of the
   // tree; the view now changes only when you change it.
-  const handleSendMessage = useCallback(
-    (text: string) => {
-      sendInteractiveMessage(text, false, continuesDebate).then((sent) => {
-        if (sent && continuesDebate) markFollowedUp();
+  const send = useCallback(
+    (text: string, deliberate: boolean) => {
+      sendInteractiveMessage(text, deliberate, continuesDebate).then((sent) => {
+        if (!sent) return;
+        setInput("");
+        if (continuesDebate) markFollowedUp();
       });
+    },
+    [sendInteractiveMessage, continuesDebate, markFollowedUp],
+  );
+  const handleSendMessage = useCallback((text: string) => send(text, false), [send]);
+  const handleDeliberate = useCallback((text: string) => send(text, true), [send]);
+  const { redirect: debateRedirect, switchTo: debateSwitchTo } = debate;
+  const handleDebateRedirect = useCallback(
+    (text: string) => {
+      debateRedirect(text);
       setInput("");
     },
-    [sendInteractiveMessage, setInput, continuesDebate, markFollowedUp],
+    [debateRedirect],
   );
 
-  const handleDeliberate = useCallback(
-    (text: string) => {
-      sendInteractiveMessage(text, true, continuesDebate).then((sent) => {
-        if (sent && continuesDebate) markFollowedUp();
-      });
-      setInput("");
+  const answerChoice = useMemo(
+    () =>
+      reply.replyModel && reply.canAskAll
+        ? { replyModel: reply.replyModel, askAll: reply.askAll, selected: selectedModels, onChange: reply.setAskAll }
+        : null,
+    [reply.replyModel, reply.canAskAll, reply.askAll, reply.setAskAll, selectedModels],
+  );
+  const chatMessages = useMemo(
+    () => (inDebate && debateHasTranscript ? [...debate.messages, ...afterDebateRecord(messages)] : messages),
+    [inDebate, debateHasTranscript, debate.messages, messages],
+  );
+  const { setOpen: setSidebarOpen } = layout.sidebar;
+  const { setOpen: setPanelOpen } = layout.panel;
+  const closeSidebar = useCallback(() => setSidebarOpen(false), [setSidebarOpen]);
+  const closePanel = useCallback(() => setPanelOpen(false), [setPanelOpen]);
+  const { reset: resetReply } = reply;
+  const switchDebate = useCallback(
+    (id: string) => {
+      resetReply();
+      return debateSwitchTo(id);
     },
-    [sendInteractiveMessage, setInput, continuesDebate, markFollowedUp],
+    [resetReply, debateSwitchTo],
   );
 
   return (
@@ -284,13 +315,10 @@ export default function Home() {
         activeDebateStatus={inDebate ? debate.status : null}
         modelLabel={modelLabel}
         onDeleteDebateSession={debate.remove}
-        onSwitchDebateSession={(id) => {
-          reply.reset();
-          return debate.switchTo(id);
-        }}
+        onSwitchDebateSession={switchDebate}
         mode={layout.sidebar.mode}
         open={layout.sidebar.open}
-        onClose={() => layout.sidebar.setOpen(false)}
+        onClose={closeSidebar}
         collapsed={layout.sidebar.collapsed}
         onCollapsedChange={layout.sidebar.setCollapsed}
       />
@@ -369,12 +397,13 @@ export default function Home() {
                     key={threadId}
                     nodes={nodes}
                     edges={edges}
-                    activeNodeId={activeCheckpoint || undefined}
+                    activeNodeId={shown || undefined}
                     onNodeClick={selectCheckpoint}
                     onNodeDragStop={moveNode}
                     onLayoutPositions={applyLayout}
                     onDeleteNode={deleteNode}
                     onBranchNode={branchFrom}
+                    answering={isLoading}
                   />
                 )}
               </motion.div>
@@ -388,14 +417,15 @@ export default function Home() {
                 className="absolute inset-0 w-full h-full flex flex-col"
               >
                 <ChatView
-                  messages={inDebate && debateHasTranscript ? [...debate.messages, ...afterDebateRecord(messages)] : messages}
+                  messages={chatMessages}
                   nodes={nodes}
                   edges={edges}
                   isLoading={isLoading || isHistoryLoading}
                   input={input}
                   setInput={setInput}
                   onSendMessage={handleSendMessage}
-                  onSwitchCheckpoint={selectCheckpoint}
+                  onViewReply={viewCheckpoint}
+                  onContinueReply={selectCheckpoint}
                   onSynthesize={synthesizeBranches}
                   synthesizerOptions={availableModelIds}
                   onDeliberate={handleDeliberate}
@@ -403,35 +433,25 @@ export default function Home() {
                   setShowTree={setShowTree}
                   documents={documents}
                   setDocuments={setDocuments}
-                  activeCheckpoint={activeCheckpoint}
-                  onDeleteNode={deleteNode}
+                  shownCheckpoint={shown}
                   onEditAndRebranch={editAndRebranch}
                   onFileUpload={handleFileUpload}
-                  showEditButton={!inDebate && activeCheckpointNode?.metadata?.role === "user"}
-                  threadId={threadId}
+                  showEditButton={!inDebate && shownNode?.metadata?.role === "user"}
                   selectedModels={selectedModels}
                   respondingModels={reply.responders}
                   onDebateOpen={debate.openDialog}
                   onDebateInject={inDebate && debate.controls.inject ? debate.inject : undefined}
-                  onDebateRedirect={inDebate && debate.controls.redirect ? debate.redirect : undefined}
+                  onDebateRedirect={inDebate && debate.controls.redirect ? handleDebateRedirect : undefined}
                   debateBanner={inDebate && debateHasTranscript ? debateBanner : null}
                   modelLabel={modelLabel}
-                  composerClearSignal={debate.startCount}
                   modelErrors={inDebate ? [] : modelErrors}
                   onRetryModel={retryModel}
                   onDismissModelError={dismissModelError}
                   branchPoint={inDebate ? null : branch}
                   onResetBranch={resetToLatest}
-                  answerChoice={
-                    reply.replyModel && reply.canAskAll
-                      ? {
-                          replyModel: reply.replyModel,
-                          askAll: reply.askAll,
-                          selected: selectedModels,
-                          onChange: reply.setAskAll,
-                        }
-                      : null
-                  }
+                  answerChoice={answerChoice}
+                  replyTexts={replyTexts}
+                  liveTurn={liveTurn}
                 />
               </motion.div>
             )}
@@ -448,14 +468,14 @@ export default function Home() {
         selectedModels={selectedModels}
         setSelectedModels={setSelectedModels}
         messagesCount={nodes.length}
-        activeCheckpointLabel={activeCheckpointNode?.data?.label || "START"}
+        activeCheckpointLabel={chosen === null ? "Latest turn" : anchorNode?.data?.label || "Start"}
         debateDefaults={debateDefaults}
         setDebateDefaults={setDebateDefaults}
         collapsed={layout.panel.collapsed}
         onCollapsedChange={layout.panel.setCollapsed}
         mode={layout.panel.mode}
         open={layout.panel.open}
-        onClose={() => layout.panel.setOpen(false)}
+        onClose={closePanel}
         summarizerChoice={summarizerChoice}
         summarizer={summarizer}
         defaultSummarizer={defaultSummarizer}
@@ -470,11 +490,12 @@ export default function Home() {
         onStart={(config) => {
           // Turns after the debate continue it with its participants, not a reply clicked before.
           reply.reset();
+          setInput("");
           return debate.start(config, {
             participants: selectedModels,
             toggles,
             documents,
-            parentCheckpointId: activeCheckpoint,
+            parentCheckpointId: chosen ?? head,
             summarizer,
             systemPrompt,
           });

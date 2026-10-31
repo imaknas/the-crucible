@@ -28,7 +28,7 @@ class MockWebSocket {
 describe("useChatWebSocket", () => {
   const mockProps = {
     threadId: "thread_1",
-    activeCheckpoint: "cp_1",
+    parentCheckpoint: "cp_1" as string | null,
     selectedModels: ["gpt-4o"],
     toggles: {
       use_rag: true,
@@ -36,8 +36,7 @@ describe("useChatWebSocket", () => {
     },
     documents: {},
     clearDocuments: jest.fn(),
-    onHistoryRefreshNeeded: jest.fn(),
-    setActiveCheckpoint: jest.fn(),
+    onTurnSettled: jest.fn(),
     setErrorModals: jest.fn(),
     pushToast: jest.fn(),
   };
@@ -87,7 +86,7 @@ describe("useChatWebSocket", () => {
     const { result } = renderHook(() => useChatWebSocket(mockProps));
 
     await act(async () => {
-      await result.current.synthesizeBranches(["a1", "a2"], "cp_1");
+      await result.current.synthesizeBranches(["a1", "a2"]);
     });
 
     expect(result.current.isLoading).toBe(true);
@@ -96,7 +95,9 @@ describe("useChatWebSocket", () => {
     expect(frame).toMatchObject({
       type: "synthesis",
       model: "gpt-4o",
-      parent_checkpoint_id: "cp_1",
+      // The answers may sit on different branches: the backend hangs the
+      // synthesis from the question they answered.
+      parent_checkpoint_id: null,
       answer_checkpoint_ids: ["a1", "a2"],
     });
     expect(frame).not.toHaveProperty("message");
@@ -105,7 +106,7 @@ describe("useChatWebSocket", () => {
   it("synthesizes with the chosen synthesizer, streaming as a synthesis", async () => {
     const { result } = renderHook(() => useChatWebSocket(mockProps));
     await act(async () => {
-      await result.current.synthesizeBranches(["a1", "a2"], "cp_1", "claude-x");
+      await result.current.synthesizeBranches(["a1", "a2"], "claude-x");
     });
     const ws = MockWebSocket.instances[0];
     expect(JSON.parse(ws.send.mock.calls[0][0]).model).toBe("claude-x");
@@ -117,7 +118,7 @@ describe("useChatWebSocket", () => {
   it("does not synthesize fewer than two answers", async () => {
     const { result } = renderHook(() => useChatWebSocket(mockProps));
     await act(async () => {
-      await result.current.synthesizeBranches(["a1"], "cp_1");
+      await result.current.synthesizeBranches(["a1"]);
     });
     expect(MockWebSocket.instances[0].send).not.toHaveBeenCalled();
     expect(result.current.isLoading).toBe(false);
@@ -166,7 +167,7 @@ describe("useChatWebSocket", () => {
   it("sends the system prompt with a synthesis turn", async () => {
     const { result } = renderHook(() => useChatWebSocket({ ...mockProps, systemPrompt: "Be terse." }));
     await act(async () => {
-      await result.current.synthesizeBranches(["a1", "a2"], "cp_1");
+      await result.current.synthesizeBranches(["a1", "a2"]);
     });
     const frame = JSON.parse(MockWebSocket.instances[0].send.mock.calls[0][0]);
     expect(frame).toMatchObject({ type: "synthesis", system_prompt: "Be terse." });
@@ -181,7 +182,70 @@ describe("useChatWebSocket", () => {
     expect(frame).toMatchObject({ debate_session_id: "debate-1", parent_checkpoint_id: null });
   });
 
-  it("sends an ordinary turn from the active checkpoint", async () => {
+  it("sends no parent for the latest turn, so every model continues its own reply", async () => {
+    const { result } = renderHook(() =>
+      useChatWebSocket({ ...mockProps, parentCheckpoint: null, selectedModels: ["gpt-4o", "claude-x"] }),
+    );
+    await act(async () => {
+      await result.current.sendInteractiveMessage("And then?");
+    });
+    const frames = MockWebSocket.instances[0].send.mock.calls.map((c) => JSON.parse(c[0]));
+    expect(frames.map((f) => f.model)).toEqual(["gpt-4o", "claude-x"]);
+    expect(frames.every((f) => f.parent_checkpoint_id === null)).toBe(true);
+  });
+
+  it("settles a turn without pinning the next one to its first reply", async () => {
+    const onTurnSettled = jest.fn();
+    const { result } = renderHook(() =>
+      useChatWebSocket({ ...mockProps, onTurnSettled, selectedModels: ["gpt-4o", "claude-x"] }),
+    );
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const ws = MockWebSocket.instances[0];
+    const frame = (data: object) => ws.onmessage?.({ data: JSON.stringify(data) });
+    act(() => {
+      frame({ type: "stream_start", model: "gpt-4o", turn_id: "t1" });
+      frame({ type: "stream_token", model: "gpt-4o", token: "Hi there" });
+      frame({ type: "stream_end", model: "gpt-4o", checkpoint_id: "n_a", turn_id: "t1" });
+    });
+    expect(onTurnSettled).not.toHaveBeenCalled();
+    act(() => {
+      frame({ type: "stream_start", model: "claude-x", turn_id: "t1" });
+      frame({ type: "stream_end", model: "claude-x", checkpoint_id: "n_b", turn_id: "t1" });
+    });
+    expect(onTurnSettled).toHaveBeenCalledWith("thread_1");
+    expect(result.current.liveTurn).toEqual(["n_a", "n_b"]);
+    expect(result.current.replyTexts).toEqual({ n_a: "Hi there" });
+    expect(result.current.messages.find((m) => m.model === "gpt-4o")).toMatchObject({ id: "n_a", turn_id: "t1" });
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it("marks a reply cut off by Stop as incomplete", async () => {
+    const { result } = renderHook(() => useChatWebSocket(mockProps));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const ws = MockWebSocket.instances[0];
+    act(() => ws.onmessage?.({ data: JSON.stringify({ type: "stream_start", model: "gpt-4o" }) }));
+    act(() => result.current.stopStreaming());
+    expect(JSON.parse(ws.send.mock.calls.at(-1)[0])).toEqual({ type: "stop" });
+    expect(result.current.messages.at(-1)).toMatchObject({ streaming: false, stopped: true });
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it("marks a reply cut off by a dropped connection as incomplete", async () => {
+    const { result } = renderHook(() => useChatWebSocket(mockProps));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const ws = MockWebSocket.instances[0];
+    act(() => ws.onmessage?.({ data: JSON.stringify({ type: "stream_start", model: "gpt-4o" }) }));
+    act(() => ws.onclose?.({ wasClean: false, code: 1006 }));
+    expect(result.current.messages.at(-1)).toMatchObject({ stopped: true });
+  });
+
+  it("sends an ordinary turn from the chosen checkpoint", async () => {
     const { result } = renderHook(() => useChatWebSocket(mockProps));
     await act(async () => {
       await result.current.sendInteractiveMessage("Hello");

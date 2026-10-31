@@ -6,6 +6,9 @@ import { debateAction, deliberateAction, sendAction, type ComposerAction } from 
 
 interface ChatInputProps {
   isLoading: boolean;
+  /** The text in the box. The page owns it: Edit & fork fills it, a started debate clears it. */
+  value: string;
+  onChange: (value: string) => void;
   onSendMessage: (val: string) => void;
   onDeliberate: (val: string) => void;
   stopStreaming: () => void;
@@ -20,12 +23,9 @@ interface ChatInputProps {
   onEditAndRebranch: () => void;
   showEditButton: boolean;
   isDark: boolean;
-  initialInput?: string;
   onDebateOpen?: (prompt: string) => void;
   onDebateInject?: (message: string) => void;
   onDebateRedirect?: (message: string) => void;
-  /** Clears the composer whenever it changes (e.g. once a debate has started). */
-  clearSignal?: number;
   /** A finished debate is on screen: Send continues the regular chat instead. */
   debateOnScreen?: boolean;
   /** Shown above the text box, e.g. which checkpoint the next message branches from. */
@@ -90,6 +90,8 @@ function ComposerButton({
 export const ChatInput = React.memo(
   ({
     isLoading,
+    value,
+    onChange,
     onSendMessage,
     onDeliberate,
     stopStreaming,
@@ -102,27 +104,13 @@ export const ChatInput = React.memo(
     onEditAndRebranch,
     showEditButton,
     isDark,
-    initialInput = "",
     onDebateOpen,
     onDebateInject,
     onDebateRedirect,
-    clearSignal = 0,
     debateOnScreen = false,
     header,
   }: ChatInputProps) => {
-    const [localInput, setLocalInput] = React.useState(initialInput);
-    const [seenClearSignal, setSeenClearSignal] = React.useState(clearSignal);
-    if (clearSignal !== seenClearSignal) {
-      setSeenClearSignal(clearSignal);
-      setLocalInput("");
-    }
-    // A new initialInput (edit-and-rebranch) replaces what is typed; adjusted
-    // during render, like the clear signal, rather than in an effect.
-    const [seenInitialInput, setSeenInitialInput] = React.useState(initialInput);
-    if (initialInput !== seenInitialInput) {
-      setSeenInitialInput(initialInput);
-      setLocalInput(initialInput);
-    }
+    const localInput = value;
     const fileRef = React.useRef<HTMLInputElement>(null);
 
     const state = {
@@ -147,27 +135,25 @@ export const ChatInput = React.memo(
       if (!send.enabled) return;
       if (onDebateInject) {
         onDebateInject(localInput);
+        onChange("");
       } else {
         onSendMessage(localInput);
       }
-      setLocalInput("");
     };
 
     const handleRedirect = () => {
       if (!redirect.enabled || !onDebateRedirect) return;
       onDebateRedirect(localInput);
-      setLocalInput("");
     };
 
     // The typed text is optional: an empty box asks for a plain review.
     const handleDeliberateClick = () => {
       if (!deliberate.enabled) return;
       onDeliberate(localInput);
-      setLocalInput("");
     };
 
-    // The text stays until the debate actually starts (clearSignal), so
-    // cancelling the dialog doesn't lose it.
+    // The text stays until the debate actually starts (the page clears it
+    // then), so cancelling the dialog doesn't lose it.
     const handleDebateClick = () => {
       if (!debate.enabled) return;
       onDebateOpen?.(localInput);
@@ -242,7 +228,7 @@ export const ChatInput = React.memo(
               multiline
               maxRows={6}
               value={localInput}
-              onChange={(e) => setLocalInput(e.target.value)}
+              onChange={(e) => onChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault();
