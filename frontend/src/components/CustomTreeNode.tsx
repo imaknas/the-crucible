@@ -32,9 +32,18 @@ export const LOD_THRESHOLD = 0.6;
  * tree; debate lanes are 300px), so a 190px chip can grow by at most ~1.36x
  * before neighbouring columns collide.
  */
-const LOD_CHIP_WIDTH = 190;
-const LOD_MAX_BOOST = 1.35;
+export const LOD_CHIP_WIDTH = 190;
+export const LOD_MAX_BOOST = 1.35;
 const zoomSelector = (s: { transform: number[] }) => s.transform[2];
+
+/**
+ * How much the far-zoom chip is counter-scaled at `zoom`: enough to hold a
+ * readable size as the canvas shrinks, capped so it can never overlap the
+ * next column.
+ */
+export function chipScale(zoom: number) {
+  return Math.min(1 / Math.max(zoom, 0.08), LOD_MAX_BOOST);
+}
 
 /** Rough size signal for the far-zoom chip; the label is a clipped preview. */
 function wordCount(text: string) {
@@ -69,9 +78,7 @@ const CustomTreeNode = React.memo(
     if (zoom < LOD_THRESHOLD && (modelName || role === "user")) {
       const label = role === "user" ? "You" : modelName;
       const words = wordCount(data.metadata?.preview || data.label || "");
-      // Counter-scale so the chip holds a readable size as the canvas shrinks,
-      // capped so it can never overlap the next column.
-      const boost = Math.min(1 / Math.max(zoom, 0.08), LOD_MAX_BOOST);
+      const boost = chipScale(zoom);
       // Far out there is no room for both lines; the name is what matters.
       const showMeta = zoom >= 0.42;
 

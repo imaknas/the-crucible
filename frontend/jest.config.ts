@@ -8,8 +8,14 @@ const createJestConfig = nextJest({
 const config: Config = {
   coverageProvider: "v8",
   // Count every source file, not just the ones a test happens to import;
-  // otherwise untested files (page.tsx, TreeCanvas…) vanish from the report.
-  collectCoverageFrom: ["src/**/*.{ts,tsx}", "!src/**/*.test.{ts,tsx}", "!src/**/*.d.ts"],
+  // otherwise untested files (page.tsx, ControlPanel…) vanish from the report.
+  collectCoverageFrom: [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.test.{ts,tsx}",
+    "!src/**/*.d.ts",
+    // Test helpers (DOM stubs) are not app code.
+    "!src/test/**",
+  ],
   testEnvironment: "jsdom",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   moduleNameMapper: {
