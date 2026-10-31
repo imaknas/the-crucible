@@ -101,6 +101,14 @@ def get_content_key(state_obj) -> str:
 
     extracted = extract_text(content)
     role = get_checkpoint_role(state_obj)
+    # A reply is its message, not its text: models in one turn often answer
+    # alike ("Red"), and merging siblings by text dropped all but one of them
+    # from the tree. The checkpoints of the run that wrote a reply all carry
+    # the same message id. The person's question is written once per model's
+    # run, each copy with its own id, so it still merges by text.
+    reply_id = getattr(last, "id", None) if getattr(last, "type", None) == "ai" else None
+    if isinstance(reply_id, str) and reply_id:
+        return f"{len(m_list)}|{role}|id:{reply_id}"
     return f"{len(m_list)}|{role}|{extracted}"
 
 
