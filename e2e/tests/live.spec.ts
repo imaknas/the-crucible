@@ -644,7 +644,10 @@ test.describe("live flows (scripted models)", () => {
       buffer: Buffer.from("The launch moved to Friday."),
     });
     await send(page, "When is the launch?");
-    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+    // The backend indexes an upload in the background after answering it; the
+    // first one loads the embedding model, which slows the turn sent right
+    // after (about 10 s here against the usual 12 s budget).
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0, { timeout: 45_000 });
     expect(sent.at(-1)?.document_names).toEqual(["brief.txt"]);
     expect(sent.at(-1)).not.toHaveProperty("documents");
     await expect(page.getByRole("button", { name: "brief.txt" })).toHaveCount(0);
