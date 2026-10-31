@@ -8,6 +8,18 @@ include = ["app*"]
 [tool.uv]
 package = true
 
+# On Linux (the Docker image) torch comes from PyTorch's CPU index: the PyPI
+# build bundles CUDA, about 4.5 GB of libraries the app never uses, since the
+# only model it runs is the small embedding model. macOS wheels have no CUDA
+# and stay on PyPI.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [project]
 name = "backend"
 version = "1.0.0"
@@ -41,6 +53,9 @@ dependencies = [
   "httpx>=0.28.1",
   "numpy>=2.5.4",
   "starlette>=1.9.0",
+  # Not imported: sentence-transformers needs it. Declared so its source can be
+  # chosen below.
+  "torch>=2.14.1",
 ]
 
 [project.scripts]

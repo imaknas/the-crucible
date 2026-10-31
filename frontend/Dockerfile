@@ -1,33 +1,40 @@
-# Stage 1: Install dependencies and build the app
+# Built from the repository root (docker-compose.yml sets the context): the
+# frontend is an npm workspace, and its lockfile is the root's.
+
+# Stage 1: install dependencies and build the app
 FROM node:24-alpine AS builder
 WORKDIR /app
 
-# Install dependencies first (for caching)
+# Dependencies first, for caching
 COPY package.json package-lock.json ./
-RUN npm ci
+COPY frontend/package.json ./frontend/
+RUN npm ci --workspace frontend --include-workspace-root=false
 
-# Copy source and build
-COPY . .
-# Disable Next.js telemetry
+COPY frontend ./frontend
+# Next.js inlines NEXT_PUBLIC_* into the browser bundle when it builds, so the
+# backend's address is a build argument: setting it when the container starts
+# changes nothing.
+ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN npm run build --workspace frontend
 
-# Stage 2: Production runner
+# Stage 2: production runner
 FROM node:24-alpine AS runner
-# Install curl for healthcheck
+# curl for the healthcheck
 RUN apk add --no-cache curl
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy necessary files from builder
-COPY --from=builder /app/next.config.ts ./
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/frontend/package.json /app/frontend/next.config.ts ./frontend/
+COPY --from=builder /app/frontend/public ./frontend/public
+COPY --from=builder /app/frontend/.next ./frontend/.next
 
+WORKDIR /app/frontend
 EXPOSE 3000
 
 # Healthcheck to ensure the UI is responsive

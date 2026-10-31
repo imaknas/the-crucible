@@ -1,0 +1,12 @@
+# Only the frontend image builds from the repository root (its npm workspace
+# lockfile is here); send that build only what it reads. The backend image
+# builds from backend/, with its own .dockerignore.
+*
+!package.json
+!package-lock.json
+!frontend
+frontend/node_modules
+frontend/.next
+frontend/.next-*
+frontend/coverage
+frontend/.env*

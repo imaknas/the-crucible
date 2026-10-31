@@ -9,8 +9,16 @@ services:
       - crucible_data:/app/data
       - crucible_uploads:/app/uploads
       - crucible_chroma:/app/chroma_db
-    env_file:
-      - ./backend/.env
+      # The embedding model document search downloads on first use.
+      - crucible_models:/root/.cache/huggingface
+      # The provider keys. Mounted rather than passed as environment variables
+      # so a key set or removed in the UI (Control Panel → API keys) is written
+      # back to this file and survives a rebuild. The server reads it at start.
+      - type: bind
+        source: ./backend/.env
+        target: /app/.env
+        bind:
+          create_host_path: false
     environment:
       - DATABASE_PATH=/app/data/checkpoints.sqlite
       - PORT=8000
@@ -21,12 +29,17 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      # The repository root: the frontend is an npm workspace whose lockfile
+      # is there (see .dockerignore for what the build is sent).
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        # Built into the browser bundle: the address the browser reaches the
+        # backend at. Rebuild after changing CRUCIBLE_BACKEND_PORT.
+        NEXT_PUBLIC_API_URL: http://localhost:${CRUCIBLE_BACKEND_PORT:-8000}
     ports:
       - "127.0.0.1:${CRUCIBLE_FRONTEND_PORT:-3000}:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:${CRUCIBLE_BACKEND_PORT:-8000}
       - PORT=3000
     restart: unless-stopped
     depends_on:
@@ -36,3 +49,4 @@ volumes:
   crucible_data:
   crucible_uploads:
   crucible_chroma:
+  crucible_models:
