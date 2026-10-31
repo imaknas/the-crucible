@@ -14,8 +14,6 @@ import DebateConfigDialog from "@/components/DebateConfigDialog";
 import AppHeader from "@/components/AppHeader";
 import DebateBanner, { type DebateBannerProps } from "@/components/DebateBanner";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import * as api from "@/lib/api";
-import { errorMessage } from "@/lib/errors";
 import type { Message } from "@/lib/types";
 import { useLayoutPanels } from "@/hooks/useLayoutPanels";
 import { useThreads } from "@/hooks/useThreads";
@@ -30,6 +28,7 @@ import { useSummarizerChoice } from "@/hooks/useSummarizerChoice";
 import { useSystemPrompt } from "@/hooks/useSystemPrompt";
 import { useDebateDefaults } from "@/hooks/useDebateDefaults";
 import { useToggles } from "@/hooks/useToggles";
+import { useDocuments } from "@/hooks/useDocuments";
 import { useTreeActions } from "@/hooks/useTreeActions";
 import { useReplyTarget } from "@/hooks/useReplyTarget";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
@@ -45,7 +44,6 @@ import { reconcileMessages } from "@/lib/messages";
  */
 export default function Home() {
   const [input, setInput] = useState("");
-  const [documents, setDocuments] = useState<Record<string, string>>({});
   const { toggles, setToggles } = useToggles();
   const [errorModals, setErrorModals] = useState<
     { id: string; title: string; details: string; suggestion?: string }[]
@@ -104,7 +102,6 @@ export default function Home() {
   const handleThreadCleared = useCallback(() => {
     clearTree();
     setMessagesRef.current?.([]);
-    setDocuments({});
   }, [clearTree]);
 
   const {
@@ -137,7 +134,17 @@ export default function Home() {
     [setChosen, fetchHistory],
   );
 
-  const clearDocuments = useCallback(() => setDocuments({}), []);
+  // An upload is searchable at once: document search turns on with it.
+  const handleUploaded = useCallback(
+    (filename: string) => {
+      if (toggles.use_rag) return;
+      setToggles((prev) => ({ ...prev, use_rag: true }));
+      pushToast(`${filename} is attached, and "Search my documents" is now on for later turns.`, "info");
+    },
+    [toggles.use_rag, setToggles, pushToast],
+  );
+  const documents = useDocuments({ threadId, pushToast, onUploaded: handleUploaded });
+
   const {
     messages,
     setMessages,
@@ -158,8 +165,8 @@ export default function Home() {
     toggles,
     summarizer,
     systemPrompt,
-    documents,
-    clearDocuments,
+    documentNames: documents.names,
+    clearDocuments: documents.clear,
     onTurnSettled: handleTurnSettled,
     setErrorModals,
     pushToast,
@@ -225,17 +232,6 @@ export default function Home() {
   }, [isLoading, showConfirm, confirmLeaveDebate]);
 
   // ─── Tree node & composer actions ───────────────────────────────
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !threadId) return;
-    try {
-      const data = await api.uploadDocument(file, threadId);
-      setDocuments((prev) => ({ ...prev, [data.filename]: data.full_content }));
-    } catch (error) {
-      pushToast(errorMessage(error, "Couldn't upload the file"), "error", "Upload failed");
-    }
-  };
-
   const {
     shownNode,
     selectCheckpoint,
@@ -455,11 +451,12 @@ export default function Home() {
                   onDeliberate={handleDeliberate}
                   stopStreaming={stopStreaming}
                   setShowTree={setShowTree}
-                  documents={documents}
-                  setDocuments={setDocuments}
+                  documents={documents.names}
+                  onRemoveDocument={documents.remove}
+                  uploading={documents.uploading}
+                  onAttach={documents.attach}
                   shownCheckpoint={shown}
                   onEditAndRebranch={editAndRebranch}
-                  onFileUpload={handleFileUpload}
                   showEditButton={!inDebate && shownNode?.metadata?.role === "user"}
                   selectedModels={selectedModels}
                   respondingModels={reply.responders}
@@ -520,7 +517,7 @@ export default function Home() {
             .start(config, {
               participants: selectedModels,
               toggles,
-              documents,
+              documentNames: documents.names,
               parentCheckpointId: chosen ?? head,
               summarizer,
               systemPrompt,

@@ -16,7 +16,7 @@ export function useChatWebSocket({
   toggles,
   summarizer = null,
   systemPrompt = null,
-  documents,
+  documentNames,
   clearDocuments,
   onTurnSettled,
   setErrorModals,
@@ -38,7 +38,8 @@ export function useChatWebSocket({
   summarizer?: string | null;
   /** The person's system prompt; null = models get none. */
   systemPrompt?: string | null;
-  documents: Record<string, string>;
+  /** Files attached to this turn, by name; the backend reads them from the thread. */
+  documentNames: string[];
   clearDocuments: () => void;
   /**
    * Every model of a turn has finished. The next message continues the
@@ -350,7 +351,7 @@ export function useChatWebSocket({
         model: model,
         toggles: toggles,
         ...contextFields({ summarizer, systemPrompt }),
-        documents: documents,
+        document_names: documentNames,
         ...(continuesDebate
           ? { debate_session_id: continuesDebate, parent_checkpoint_id: null }
           : { parent_checkpoint_id: parentCheckpointRef.current }),
@@ -409,7 +410,7 @@ export function useChatWebSocket({
       model: synthesizer,
       toggles: toggles,
       ...contextFields({ summarizer, systemPrompt }),
-      documents: documents,
+      document_names: documentNames,
       parent_checkpoint_id: null,
       type: "synthesis",
     });

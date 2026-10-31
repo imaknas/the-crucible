@@ -104,7 +104,7 @@ export const CLIENT_HEADERS = { "X-Crucible-Client": "1" } as const;
 export async function uploadDocument(
   file: File,
   threadId: string,
-): Promise<{ filename: string; full_content: string }> {
+): Promise<{ filename: string }> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("thread_id", threadId);

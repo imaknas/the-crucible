@@ -4,7 +4,12 @@ import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
 
 const STORAGE_KEY = "crucible_toggles";
 
-export const DEFAULT_TOGGLES: Toggles = { use_rag: true, use_web_search: false };
+/**
+ * Document search starts off: with nothing uploaded it only adds a retrieval
+ * and grading step to every turn. Uploading a file turns it on (the page says
+ * so).
+ */
+export const DEFAULT_TOGGLES: Toggles = { use_rag: false, use_web_search: false };
 
 /** Stored toggles over the defaults; a missing or malformed value keeps the default. */
 export function parseToggles(raw: string | null): Toggles {

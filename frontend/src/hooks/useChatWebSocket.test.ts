@@ -34,7 +34,7 @@ describe("useChatWebSocket", () => {
       use_rag: true,
       use_web_search: false,
     },
-    documents: {},
+    documentNames: [] as string[],
     clearDocuments: jest.fn(),
     onTurnSettled: jest.fn(),
     setErrorModals: jest.fn(),
@@ -180,6 +180,17 @@ describe("useChatWebSocket", () => {
     });
     const frame = JSON.parse(MockWebSocket.instances[0].send.mock.calls[0][0]);
     expect(frame).toMatchObject({ debate_session_id: "debate-1", parent_checkpoint_id: null });
+  });
+
+  it("names the attached documents instead of sending their text", async () => {
+    const { result } = renderHook(() => useChatWebSocket({ ...mockProps, documentNames: ["notes.pdf"] }));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Summarize it");
+    });
+    const frame = JSON.parse(MockWebSocket.instances[0].send.mock.calls[0][0]);
+    expect(frame.document_names).toEqual(["notes.pdf"]);
+    expect(frame).not.toHaveProperty("documents");
+    expect(mockProps.clearDocuments).toHaveBeenCalled();
   });
 
   it("sends no parent for the latest turn, so every model continues its own reply", async () => {

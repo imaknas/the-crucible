@@ -80,7 +80,7 @@ async function startDebate(result: ReturnType<typeof setup>["result"], sessionId
     await result.current.start(DEFAULT_DEBATE_DEFAULTS, {
       participants: ["a", "b"],
       toggles: { use_rag: false, use_web_search: false },
-      documents: {},
+      documentNames: [],
       parentCheckpointId: null,
     });
   });
@@ -104,7 +104,7 @@ describe("useDebateSession", () => {
       await result.current.start(DEFAULT_DEBATE_DEFAULTS, {
         participants: ["a", "b"],
         toggles: { use_rag: false, use_web_search: false },
-        documents: {},
+        documentNames: [],
         parentCheckpointId: null,
         summarizer: "gpt-6-luna",
         systemPrompt: "Be terse.",
@@ -378,7 +378,7 @@ describe("useDebateSession", () => {
       started = await result.current.start(DEFAULT_DEBATE_DEFAULTS, {
         participants: ["a", "b"],
         toggles: { use_rag: false, use_web_search: false },
-        documents: {},
+        documentNames: [],
         parentCheckpointId: null,
       });
     });

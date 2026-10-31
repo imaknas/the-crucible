@@ -15,9 +15,9 @@ const baseProps = {
   onSendMessage: jest.fn(),
   onDeliberate: jest.fn(),
   stopStreaming: jest.fn(),
-  onFileUpload: jest.fn(),
-  documents: {},
-  setDocuments: jest.fn(),
+  onAttach: jest.fn(),
+  documents: [] as string[],
+  onRemoveDocument: jest.fn(),
   selectedModels: ["gpt-6.1-sol", "claude-sonnet-5-5"],
   messages: [],
   onEditAndRebranch: jest.fn(),
@@ -88,5 +88,22 @@ describe("ChatInput", () => {
     fireEvent.change(composer(), { target: { value: "Go on" } });
     expect(screen.getByRole("button", { name: "Deliberate" })).toBeEnabled();
     expect(screen.getByRole("button", { name: /Start debate/i })).toBeEnabled();
+  });
+
+  it("says attachments go with one message, shows an upload in progress, and takes the same file twice", () => {
+    const onAttach = jest.fn();
+    const { container, rerender } = render(
+      <Controlled {...baseProps} onAttach={onAttach} documents={["notes.txt"]} uploading="big.pdf" />,
+    );
+    expect(screen.getByText("Sent with your next message only")).toBeInTheDocument();
+    expect(screen.getByText("Uploading big.pdf…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Attach a document" })).toBeDisabled();
+
+    rerender(<Controlled {...baseProps} onAttach={onAttach} documents={[]} />);
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["x"], "notes.txt", { type: "text/plain" });
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(onAttach).toHaveBeenCalledWith(file);
+    expect(input.value).toBe("");
   });
 });

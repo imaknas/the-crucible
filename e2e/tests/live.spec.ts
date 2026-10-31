@@ -567,6 +567,38 @@ test.describe("live flows (scripted models)", () => {
     });
     expect((await upload).status()).toBe(200);
     await expect(page.getByRole("button", { name: "e2e-notes.txt" })).toBeVisible();
+    await expect(page.getByText("Sent with your next message only")).toBeVisible();
+  });
+
+  test("an attached document goes out by name and is gone after the turn", async ({ page }) => {
+    const sent: { document_names?: string[]; documents?: unknown }[] = [];
+    page.on("websocket", (ws) => {
+      if (!/\/ws\/thread/.test(ws.url())) return;
+      ws.on("framesent", (f) => {
+        try {
+          sent.push(JSON.parse(String(f.payload)));
+        } catch {}
+      });
+    });
+    await newSession(page);
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "brief.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("The launch moved to Thursday."),
+    });
+    await expect(page.getByRole("button", { name: "brief.txt" })).toBeVisible();
+    // Re-attaching the same file works (the input used to keep its value).
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "brief.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("The launch moved to Friday."),
+    });
+    await send(page, "When is the launch?");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+    expect(sent.at(-1)?.document_names).toEqual(["brief.txt"]);
+    expect(sent.at(-1)).not.toHaveProperty("documents");
+    await expect(page.getByRole("button", { name: "brief.txt" })).toHaveCount(0);
   });
 });
 

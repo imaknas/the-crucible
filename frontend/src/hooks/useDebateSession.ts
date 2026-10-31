@@ -28,7 +28,8 @@ export interface DebateStartContext extends RunContext {
   participants: string[];
   prompt: string;
   toggles: Toggles;
-  documents: Record<string, string>;
+  /** Files attached to the question, by name (stored on the parent thread). */
+  documentNames: string[];
   parentCheckpointId: string | null;
 }
 
@@ -469,7 +470,7 @@ export function useDebateSession({
           prompt,
           toggles: ctx.toggles,
           ...contextFields(ctx),
-          documents: ctx.documents,
+          document_names: ctx.documentNames,
           parent_checkpoint_id: ctx.parentCheckpointId,
         });
         return true;

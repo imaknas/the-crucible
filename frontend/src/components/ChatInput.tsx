@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Paper, Typography, ButtonBase, TextField, IconButton, Tooltip, Chip } from "@mui/material";
+import { Box, Paper, Typography, ButtonBase, TextField, IconButton, Tooltip, Chip, CircularProgress } from "@mui/material";
 import { Send, FileText, Edit3, Scale, X, StopCircle, Swords, CornerUpLeft, Paperclip } from "lucide-react";
 import { Message } from "@/lib/types";
 import { debateAction, deliberateAction, sendAction, type ComposerAction } from "@/lib/composer";
@@ -12,9 +12,13 @@ interface ChatInputProps {
   onSendMessage: (val: string) => void;
   onDeliberate: (val: string) => void;
   stopStreaming: () => void;
-  onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  documents: Record<string, any>;
-  setDocuments: (docs: Record<string, any>) => void;
+  /** Upload a file and attach it to the next message. */
+  onAttach: (file: File) => void;
+  /** Files attached to the next message, by name. */
+  documents: string[];
+  onRemoveDocument: (name: string) => void;
+  /** The file being uploaded right now, if any. */
+  uploading?: string | null;
   /** The Control Panel's selection: a debate's participants. */
   selectedModels: string[];
   /** Who answers Send and Deliberate (lib/replyTarget); default: the selection. */
@@ -95,9 +99,10 @@ export const ChatInput = React.memo(
     onSendMessage,
     onDeliberate,
     stopStreaming,
-    onFileUpload,
+    onAttach,
     documents,
-    setDocuments,
+    onRemoveDocument,
+    uploading = null,
     selectedModels,
     respondingModels = selectedModels,
     messages,
@@ -196,18 +201,14 @@ export const ChatInput = React.memo(
               },
             }}
           >
-            {Object.keys(documents).length > 0 && (
-              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", pt: 1.5, px: 1.5 }}>
-                {Object.keys(documents).map((docName) => (
+            {(documents.length > 0 || uploading) && (
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", pt: 1.5, px: 1.5 }}>
+                {documents.map((docName) => (
                   <Chip
                     key={docName}
                     label={docName}
                     size="small"
-                    onDelete={() => {
-                      const newDocs = { ...documents };
-                      delete newDocs[docName];
-                      setDocuments(newDocs);
-                    }}
+                    onDelete={() => onRemoveDocument(docName)}
                     deleteIcon={<X width={12} height={12} aria-label={`Remove ${docName}`} />}
                     sx={{
                       bgcolor: isDark ? "rgba(255,255,255,0.06)" : "action.hover",
@@ -221,6 +222,19 @@ export const ChatInput = React.memo(
                     icon={<FileText width={12} height={12} style={{ marginLeft: 8, color: "inherit" }} />}
                   />
                 ))}
+                {uploading && (
+                  <Chip
+                    size="small"
+                    label={`Uploading ${uploading}…`}
+                    icon={<CircularProgress size={10} sx={{ ml: 1 }} />}
+                    sx={{ fontSize: "0.75rem", color: "text.secondary" }}
+                  />
+                )}
+                {/* Attachments go with one message; said here because the chips
+                    vanishing after Send looked like losing them. */}
+                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.75rem" }}>
+                  Sent with your next message only
+                </Typography>
               </Box>
             )}
             <TextField
@@ -263,7 +277,12 @@ export const ChatInput = React.memo(
                 ref={fileRef}
                 type="file"
                 hidden
-                onChange={onFileUpload}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  // Reset, or picking the same file again fires no change.
+                  e.target.value = "";
+                  if (file) onAttach(file);
+                }}
                 accept=".pdf,.txt"
                 aria-hidden="true"
                 tabIndex={-1}
@@ -272,6 +291,7 @@ export const ChatInput = React.memo(
                 <IconButton
                   size="small"
                   aria-label="Attach a document"
+                  disabled={!!uploading}
                   onClick={() => fileRef.current?.click()}
                   sx={{ color: "text.secondary" }}
                 >

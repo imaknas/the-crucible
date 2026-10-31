@@ -41,12 +41,15 @@ interface ChatViewProps {
   synthesizerOptions?: string[];
   onDeliberate: (text: string) => void;
   setShowTree: (val: boolean) => void;
-  documents: Record<string, string>;
-  setDocuments: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  /** Files attached to the next message, by name. */
+  documents: string[];
+  onRemoveDocument: (name: string) => void;
+  /** The file being uploaded right now, if any. */
+  uploading?: string | null;
+  onAttach: (file: File) => void;
   /** The checkpoint whose path the transcript shows. */
   shownCheckpoint: string | null;
   onEditAndRebranch: () => void;
-  onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   stopStreaming: () => void;
   showEditButton: boolean;
   selectedModels: string[];
@@ -105,10 +108,11 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onDeliberate,
   setShowTree,
   documents,
-  setDocuments,
+  onRemoveDocument,
+  uploading = null,
+  onAttach,
   shownCheckpoint,
   onEditAndRebranch,
-  onFileUpload,
   showEditButton,
   selectedModels,
   respondingModels,
@@ -997,9 +1001,10 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         onSendMessage={onSendMessage}
         onDeliberate={onDeliberate}
         stopStreaming={stopStreaming}
-        onFileUpload={onFileUpload}
+        onAttach={onAttach}
         documents={documents}
-        setDocuments={setDocuments}
+        onRemoveDocument={onRemoveDocument}
+        uploading={uploading}
         selectedModels={selectedModels}
         respondingModels={respondingModels}
         messages={messages}
