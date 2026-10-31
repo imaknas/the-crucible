@@ -2,140 +2,214 @@
 Seed a presentable demo database for the README demo recording.
 
 Unlike e2e/seed_db.py this makes **real** model calls, so the demo shows
-genuine output rather than invented text attributed to named models. Prompts ask
-for two or three sentences: that keeps the cost to a few cents and, more
-usefully, keeps replies short enough to read inside a tree node.
+genuine output rather than invented text attributed to named models. It runs
+the app's own services (arena turns, synthesis, debate), so the database is
+exactly what the web UI writes: turns carry their turn ids and show as
+compare cards, replies continue their own conversations, the debate is
+anonymous and ends in an argument map.
 
-Writes to scripts/.demo/demo.sqlite. Never point this at backend/checkpoints.sqlite.
+Prompts ask for three sentences: that keeps the cost down and, more usefully,
+keeps replies short enough to read inside a tree node. Every call is metered
+against the providers' prices (catalog/data/prices.json); the run stops
+starting steps once --budget is spent, and any failed call stops it.
 
-Usage:  uv run --project backend python scripts/seed_demo.py
+Writes to scripts/.demo/ (database and vector store). Never point this at
+backend/checkpoints.sqlite.
+
+Usage:
+  uv run --project backend python scripts/seed_demo.py --estimate   # upper bound, no calls
+  uv run --project backend python scripts/seed_demo.py --budget 3   # real calls
 """
 
+import argparse
 import asyncio
 import os
 import sys
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "scripts" / ".demo" / "demo.sqlite"
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-if DB_PATH.exists():
-    DB_PATH.unlink()
+DEMO_DIR = ROOT / "scripts" / ".demo"
+DB_PATH = DEMO_DIR / "demo.sqlite"
 
-os.environ["DATABASE_PATH"] = str(DB_PATH)
-sys.path.insert(0, str(ROOT / "backend"))
+# Shown as the models' answers in the README, so they are the app's defaults.
+MODELS = ["gpt-6.1-sol", "claude-sonnet-5-5", "gemini-3.1-pro-preview"]
+SYNTHESIZER = "claude-sonnet-5-5"
 
-from dotenv import load_dotenv  # noqa: E402
-
-load_dotenv(ROOT / "backend" / ".env")
-
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver  # noqa: E402
-
-import app.services.graph as graph_mod  # noqa: E402
-from app.core import database as db  # noqa: E402
-from app.services import debate as debate_svc  # noqa: E402
-
-# Appended to every prompt: short answers cost less and, more importantly,
-# stay readable inside a tree node. Phrased as something a user would type,
-# since the prompt itself appears in the demo.
+# Appended to every prompt. Phrased as something a person would type, since
+# the prompt itself appears in the demo.
 BREVITY = " Answer in three sentences."
 
-# ─── Thread 1: a branching comparison ────────────────────────────────────────
-TREE_THREAD = "thread_demo_arch"
-TREE_TITLE = "Monolith or microservices?"
+# ─── Thread 1: an arena turn, each model continuing, a branch, a synthesis ───
+ARENA_THREAD = "thread_demo_arch"
+ARENA_TITLE = "Monolith or microservices?"
+ARENA_QUESTION = "A four-person team is starting a new B2B product. Monolith or microservices?"
+FOLLOW_UP = "What is the first signal that we have outgrown that choice?"
+BRANCH = "Argue the opposite case as strongly as you can."
 
-# ─── Thread 2: a three-way debate ────────────────────────────────────────────
+# ─── Thread 2: an anonymous three-way debate ─────────────────────────────────
 DEBATE_THREAD = "thread_demo_rag"
 DEBATE_TITLE = "Is RAG a bridge or an architecture?"
 DEBATE_QUESTION = (
     "Is retrieval-augmented generation a bridge technology that longer context "
     "windows will make obsolete, or a permanent part of serious LLM systems?"
 )
-DEBATE_MODELS = ["gpt-5.4", "claude-sonnet-5", "gemini-3.1-pro-preview"]
+DEBATE_ROUNDS = 2
+
+# The calls the run makes, for --estimate: (model, input tokens at most).
+# Output is bounded at OUTPUT_BOUND tokens a call: three sentences plus
+# whatever reasoning a thinking model spends, which bills as output.
+OUTPUT_BOUND = 4000
+PLANNED_CALLS = (
+    [(m, 500) for m in MODELS]  # the arena turn
+    + [(m, 1000) for m in MODELS]  # each continues its own reply
+    + [("claude-sonnet-5-5", 1000)]  # the branch
+    + [(SYNTHESIZER, 2000)]  # synthesis of the first turn
+    + [(m, 500) for m in MODELS]  # debate round 1, independent answers
+    + [(m, 3000) for m in MODELS] * (DEBATE_ROUNDS - 1)  # cross-examination
+    + [(SYNTHESIZER, 6000)]  # the argument map
+)
 
 
-async def turn(app, thread_id, model, text, parent=None):
-    cfg = {"configurable": {"thread_id": thread_id}}
-    if parent:
-        cfg["configurable"]["checkpoint_id"] = parent
-    await app.ainvoke(
-        {
-            "active_peer": model,
-            "messages": [("user", text)],
-            "toggles": {"use_rag": False, "use_web_search": False},
-            "is_deliberation": False,
-            "current_thesis": "",
-            "documents": {},
-        },
-        cfg,
-    )
-    snapshot = await app.aget_state({"configurable": {"thread_id": thread_id}})
-    return snapshot.config["configurable"]["checkpoint_id"]
+def parse_args():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--estimate", action="store_true", help="print an upper bound on the cost and exit")
+    parser.add_argument("--budget", type=float, help="USD; required for a real run")
+    parser.add_argument("--env-file", type=Path, default=ROOT / "backend" / ".env", help="provider keys")
+    args = parser.parse_args()
+    if not args.estimate and args.budget is None:
+        parser.error("a real run needs --budget (USD); --estimate shows what it may cost")
+    return args
 
 
-async def main():
-    db.init_db()
+def upper_bound(prices) -> float:
+    total = 0.0
+    for model, input_tokens in PLANNED_CALLS:
+        price = prices.price(model)
+        if price is None:
+            raise SystemExit(f"{model} has no price in catalog/data/prices.json")
+        total += price.cost(input_tokens, OUTPUT_BOUND)
+    return total
 
-    async with AsyncSqliteSaver.from_conn_string(str(DB_PATH)) as saver:
-        app = graph_mod.workflow.compile(checkpointer=saver)
 
-        # ── A thread that forks, so the tree shows a real branch point ──
-        db.rename_thread(TREE_THREAD, TREE_TITLE)
-        root = await turn(
-            app,
-            TREE_THREAD,
-            "gpt-5.4",
-            "A four-person team is starting a new B2B product. Monolith or "
-            "microservices?" + BREVITY,
-        )
-        await turn(
-            app,
-            TREE_THREAD,
-            "gpt-5.4",
-            "What is the first signal that we have outgrown that choice?" + BREVITY,
-        )
-        # Same question, different model, branched from the same checkpoint.
-        await turn(
-            app,
-            TREE_THREAD,
-            "claude-sonnet-5",
-            "Argue the opposite case as strongly as you can." + BREVITY,
-            parent=root,
-        )
-        print("  tree thread done")
+async def drain(run, label: str, spend) -> list[dict]:
+    """Every event of one service run; stops the seed on a failed call."""
+    events = [e async for e in run]
+    failed = [e for e in events if e.get("error") or e.get("type") == "error"]
+    if failed or spend.errors:
+        raise SystemExit(f"{label} failed: {failed or spend.errors}")
+    print(f"  {label}: ${spend.total:.3f} so far")
+    return events
 
-        # ── A real debate: 3 models, 2 rounds, convergence scored, synthesised ──
-        db.rename_thread(DEBATE_THREAD, DEBATE_TITLE)
-        session = debate_svc.create_session(
-            parent_thread_id=DEBATE_THREAD,
-            participants=DEBATE_MODELS,
-            termination_policy={
-                "max_rounds": 2,
-                "convergence_threshold": 0.9,
-                "llm_judge": None,
-                "mode": "any",
-            },
-            auto_synthesize=True,
-            synthesizer_model="claude-sonnet-5",
-        )
-        async for event in debate_svc.run_debate(
-            graph_app=app,
-            session_id=session["session_id"],
-            prompt=DEBATE_QUESTION + BREVITY,
-            toggles={"use_rag": False, "use_web_search": False},
-            documents={},
-        ):
-            kind = event.get("type")
-            if kind in {"debate_round_start", "debate_converged", "debate_session_status"}:
-                print(f"  {kind}: {event.get('round', event.get('status', ''))}")
-            elif kind == "debate_round_end" and "convergence_score" in event:
-                print(f"  round {event['round']} convergence {event['convergence_score']:.3f}")
-            elif kind == "error":
-                print(f"  ERROR {event.get('model')}: {event.get('message')}")
 
-    print(f"\nseeded {DB_PATH}")
-    print(f"  threads={len(db.list_threads())} debates={len(db.list_debate_sessions())}")
+async def seed(spend, factory):
+    from app.core import database as db
+    from app.llm import use_model_factory
+    from app.services import debate as debate_svc
+    from app.services.arena import open_graph, run_arena, synthesize_thread
+
+    toggles = {"use_rag": False, "use_web_search": False}
+    async with open_graph() as app:
+        with use_model_factory(factory):
+            db.rename_thread(ARENA_THREAD, ARENA_TITLE)
+            first = await drain(
+                run_arena(app, ARENA_QUESTION + BREVITY, ARENA_THREAD, models=MODELS, toggles=toggles),
+                "arena turn",
+                spend,
+            )
+            answers = {e["model"]: e["checkpoint_id"] for e in first if e.get("type") == "end"}
+            spend.check()
+            # No parent: each model continues its own reply, as Send does.
+            await drain(
+                run_arena(app, FOLLOW_UP + BREVITY, ARENA_THREAD, models=MODELS, toggles=toggles),
+                "each continues its own",
+                spend,
+            )
+            spend.check()
+            await drain(
+                run_arena(
+                    app,
+                    BRANCH + BREVITY,
+                    ARENA_THREAD,
+                    models=["claude-sonnet-5-5"],
+                    toggles=toggles,
+                    parent_checkpoint_id=answers["claude-sonnet-5-5"],
+                ),
+                "branch",
+                spend,
+            )
+            spend.check()
+            # Last, so the next Send in the demo still continues each model's
+            # own reply rather than the synthesis.
+            await drain(
+                synthesize_thread(
+                    app, ARENA_THREAD, SYNTHESIZER, toggles, checkpoint_ids=[answers[m] for m in MODELS]
+                ),
+                "synthesis",
+                spend,
+            )
+            spend.check()
+
+            db.rename_thread(DEBATE_THREAD, DEBATE_TITLE)
+            session = debate_svc.create_session(
+                parent_thread_id=DEBATE_THREAD,
+                participants=MODELS,
+                termination_policy={
+                    "max_rounds": DEBATE_ROUNDS,
+                    "convergence_threshold": 0.9,
+                    "llm_judge": None,
+                    "mode": "all",
+                },
+                auto_synthesize=True,
+                synthesizer_model=SYNTHESIZER,
+            )
+            events = await drain(
+                debate_svc.run_debate(app, session["session_id"], DEBATE_QUESTION + BREVITY, toggles),
+                "debate",
+                spend,
+            )
+            status = [e["status"] for e in events if e.get("type") == "debate_session_status"]
+            print(f"  debate {session['session_id']}: {status[-1] if status else 'no status'}")
+
+
+def main():
+    args = parse_args()
+    sys.path.insert(0, str(ROOT / "backend"))
+    from app.catalog.prices import PriceBook, load_prices
+
+    prices = PriceBook(load_prices(), date.today().isoformat())
+    bound = upper_bound(prices)
+    print(f"{len(PLANNED_CALLS)} model calls, at most ${bound:.2f} (≤{OUTPUT_BOUND} output tokens a call)")
+    if args.estimate:
+        return
+
+    DEMO_DIR.mkdir(parents=True, exist_ok=True)
+    if DB_PATH.exists():
+        DB_PATH.unlink()
+    os.environ["DATABASE_PATH"] = str(DB_PATH)
+    os.environ["CHROMA_DIR"] = str(DEMO_DIR / "chroma")
+
+    from dotenv import load_dotenv
+
+    load_dotenv(args.env_file)
+
+    from app.core.storage import Storage, set_storage
+    from app.llm import CallableModelFactory
+    from app.llm.factory import ProviderModelFactory
+    from app.services.compaction_eval import Spend
+
+    set_storage(Storage.from_env())
+    spend = Spend(prices, limit=args.budget)
+    real = ProviderModelFactory()
+    factory = CallableModelFactory(lambda model, toggles: real.chat(model, toggles).with_config(callbacks=[spend]))
+    try:
+        asyncio.run(seed(spend, factory))
+    finally:
+        print(f"\nspent ${spend.total:.3f}" + (f" (unpriced calls: {spend.unpriced})" if spend.unpriced else ""))
+        for model, cost in sorted(spend.by_model.items()):
+            print(f"  {model}: ${cost:.3f}")
+    print(f"seeded {DB_PATH}")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

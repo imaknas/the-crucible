@@ -1,12 +1,14 @@
 /**
  * Record the README demo (docs/demo.webp) in light mode.
  *
- * Expects the demo stack from scripts/seed_demo.py to be running, ideally with
- * a production frontend build (no dev overlay, no compile pauses):
- *   cd backend && DATABASE_PATH=../scripts/.demo/demo.sqlite \
- *     uv run python -m uvicorn app.main:server --port 8200
- *   cd frontend && NEXT_PUBLIC_API_URL=http://127.0.0.1:8200 npx next build \
- *     && npx next start -p 3200
+ * Expects the demo stack from scripts/seed_demo.py to be running, with a
+ * production frontend build (no dev overlay, no compile pauses) and the
+ * backend reading the provider keys (uvicorn alone doesn't load .env, and the
+ * header would say no keys are set):
+ *   cd backend && DATABASE_PATH=../scripts/.demo/demo.sqlite CHROMA_DIR=../scripts/.demo/chroma \
+ *     uv run python -m uvicorn app.main:server --port 8200 --env-file .env
+ *   cd frontend && NEXT_PUBLIC_API_URL=http://127.0.0.1:8200 NEXT_DIST_DIR=.next-demo npx next build \
+ *     && NEXT_DIST_DIR=.next-demo npx next start -p 3200
  *
  * Then:  node scripts/record_demo.mjs      (needs ffmpeg and uv on PATH)
  *
@@ -139,54 +141,61 @@ async function scrollBy(dy, { ms = 700, x = 900, y = 480 } = {}) {
   }
 }
 
+/** The node of `name` lowest on the canvas: its latest reply. */
+async function lowestNode(name) {
+  const found = await page.locator(".react-flow__node").filter({ hasText: name }).all();
+  const placed = await Promise.all(found.map(async (l) => ({ l, y: (await l.boundingBox())?.y ?? -1 })));
+  return placed.sort((a, b) => b.y - a.y)[0].l;
+}
+
 // ─── Lead-in (trimmed from the output) ──────────────────────────
 await page.goto(APP);
 await page.getByRole("button", { name: "New Session" }).waitFor();
+// The settings panel is a rail in the recording: the cards need the width.
+await page.getByRole("button", { name: "Hide settings panel" }).click();
 await page.mouse.move(cursor.x, cursor.y);
 await pause(1200);
 const leadIn = (Date.now() - started) / 1000;
 
-// ─── 1. A conversation is a tree ────────────────────────────────
-await pause(1200);
+// ─── 1. Three models answer at once; the conversation is a tree ──
+await pause(1000);
 let loaded = page.waitForResponse((r) => r.url().includes("/history/") && r.ok());
 await clickOn(page.getByRole("button", { name: "Monolith or microservices?" }));
 await loaded;
-await canvasIdle();
+await pause(1400);
 const tree = page.getByRole("button", { name: "Tree", exact: true });
-if ((await tree.getAttribute("aria-pressed")) !== "true") await clickOn(tree);
+const arena = page.getByRole("button", { name: "Arena", exact: true });
+await clickOn(tree, { settle: 600 });
 await clickOn(page.locator(".react-flow__controls-fitview"), { settle: 700 });
 await canvasIdle();
-await pause(900);
+await pause(1600);
 
-// Open a branch: selecting a node expands it and makes it the branch point.
-const branchNodes = page.locator(".react-flow__node");
-const count = await branchNodes.count();
-await clickOn(branchNodes.nth(Math.max(0, count - 1)), { settle: 1600 });
+// ─── 2. Each model continued its own conversation: read them side by side ──
+await clickOn(await lowestNode("GPT-6.1 Sol"), { settle: 900 });
+await clickOn(arena, { settle: 1200 });
+// Full-screen scrolling is what costs bytes in the output; keep it short.
+await scrollBy(-20000, { ms: TICK });
+await pause(2400);
+await scrollBy(20000, { ms: 1400 });
+await pause(1800);
 
-// ─── 2. The same branch as a transcript ─────────────────────────
-await clickOn(page.getByRole("button", { name: "Arena", exact: true }), { settle: 1800 });
-
-// ─── 3. A three-model debate ────────────────────────────────────
+// ─── 3. An anonymous three-model debate, read node by node ───────
 loaded = page.waitForResponse((r) => r.url().endsWith("/tree") && r.ok());
 await clickOn(page.getByRole("button", { name: "Is RAG a bridge or an architecture?" }));
 await loaded;
 await canvasIdle();
-await pause(700);
-if ((await tree.getAttribute("aria-pressed")) !== "true") await clickOn(tree);
-await canvasIdle();
-await pause(1500);
-const debateAnswer = page.locator(".react-flow__node").filter({ hasText: /GPT|Claude|Gemini/ });
-if (await debateAnswer.count()) await clickOn(debateAnswer.nth(1), { settle: 1800 });
+await pause(1800);
+const reply = await lowestNode("GPT-6.1 Sol");
+await clickOn(reply, { settle: 700 });
+await clickOn(reply.getByRole("button", { name: "Read in full" }), { settle: 2600 });
+await clickOn(page.getByRole("dialog").getByRole("button", { name: "Close" }), { settle: 600 });
 
-// ─── 4. Read the debate, rounds to synthesis ────────────────────
-await clickOn(page.getByRole("button", { name: "Arena", exact: true }), { settle: 1200 });
-// Full-screen scrolling is what costs bytes in the output; keep it short.
+// ─── 4. The transcript ends in an argument map, not a verdict ────
+await clickOn(arena, { settle: 1000 });
 await scrollBy(-20000, { ms: TICK });
-await pause(1400);
-await scrollBy(600, { ms: 700 });
-await pause(1400);
-await scrollBy(20000, { ms: 700 });
-await pause(2000);
+await pause(1600);
+await scrollBy(20000, { ms: 1400 });
+await pause(2400);
 
 // ─── Encode ─────────────────────────────────────────────────────
 const video = page.video();

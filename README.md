@@ -4,11 +4,11 @@
 
 The Crucible is a full-stack research interface for putting the same question to OpenAI, Anthropic and Google models at once. Every conversation is a **tree**: you can branch from any point, compare models side by side, have them debate each other over several rounds, and synthesize the results. It also runs headless, as a CLI and as an MCP server for other agents.
 
-![Demo: opening a branched conversation tree, reading a branch as a transcript, then a three-model debate and its transcript](docs/demo.webp)
+![Demo: three models answer one question and each continues its own conversation, shown as a tree and as compare cards; then an anonymous three-model debate, one reply read in full, and the argument map it ends in](docs/demo.webp)
 
-<p align="center"><em>A question forks into two branches answered by different models; one branch read as a transcript; then a three-model debate, as lanes with per-round stability and as a transcript. Tree and transcript are two views of the same session — the view never switches on its own.</em></p>
+<p align="center"><em>Three models answer the same question, each continues its own conversation, one answer is argued the other way on a branch, and a synthesis merges the first answers: the tree shows all of it, and picking a reply shows its path with every turn as side-by-side cards. Then an anonymous three-model debate (Participant A/B/C, decoded in the banner) as lanes with per-round stability, one reply read in full, and the argument map it ends in — positions, what changed, what is unresolved, no verdict.</em></p>
 
-> Recorded against a session from `scripts/seed_demo.py`; the answers are real output from GPT-5.4, Claude Sonnet 5 and Gemini 3.1 Pro.
+> Recorded against sessions from `scripts/seed_demo.py`, which runs the app's own arena, synthesis and debate services; the answers are real output from GPT-6.1 Sol, Claude Sonnet 5.5 and Gemini 3.1 Pro (15 calls, about $0.14 metered on 2026-10-31).
 
 ---
 
@@ -301,11 +301,12 @@ The end-to-end suite builds its own fixture database (`e2e/seed_db.py`) and star
 <summary>Re-recording the demo</summary>
 
 ```bash
-uv run --project backend python scripts/seed_demo.py     # makes real model calls
-cd backend && DATABASE_PATH=../scripts/.demo/demo.sqlite \
-  uv run python -m uvicorn app.main:server --port 8200 &
-cd frontend && NEXT_PUBLIC_API_URL=http://127.0.0.1:8200 npx next build \
-  && npx next start -p 3200 &
+uv run --project backend python scripts/seed_demo.py --estimate   # upper bound on the cost, no calls
+uv run --project backend python scripts/seed_demo.py --budget 1   # real calls, stops at the budget
+cd backend && DATABASE_PATH=../scripts/.demo/demo.sqlite CHROMA_DIR=../scripts/.demo/chroma \
+  uv run python -m uvicorn app.main:server --port 8200 --env-file .env &   # keys, or the header says none are set
+cd frontend && NEXT_PUBLIC_API_URL=http://127.0.0.1:8200 NEXT_DIST_DIR=.next-demo npx next build \
+  && NEXT_DIST_DIR=.next-demo npx next start -p 3200 &
 node scripts/record_demo.mjs      # docs/demo.webp (light mode; needs ffmpeg and uv)
 ```
 
