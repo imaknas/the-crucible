@@ -34,6 +34,7 @@ import { useTreeActions } from "@/hooks/useTreeActions";
 import { useReplyTarget } from "@/hooks/useReplyTarget";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
 import { reconcileMessages } from "@/lib/messages";
+import { mayLeaveThread } from "@/lib/leaveGuard";
 
 /**
  * The app shell. State lives in hooks; this component wires them together and
@@ -258,18 +259,8 @@ export default function Home() {
 
   const { confirmLeave: confirmLeaveDebate } = debate;
   useEffect(() => {
-    leaveGuardRef.current = async () => {
-      if (
-        isLoading &&
-        !(await showConfirm(
-          "Leave while models answer?",
-          "The models are still answering in this session. Leaving stops them where they are.",
-          { confirmLabel: "Stop and leave" },
-        ))
-      )
-        return false;
-      return confirmLeaveDebate();
-    };
+    leaveGuardRef.current = () =>
+      mayLeaveThread({ answering: isLoading, confirm: showConfirm, confirmLeaveDebate });
   }, [isLoading, showConfirm, confirmLeaveDebate]);
 
   // ─── Tree node & composer actions ───────────────────────────────

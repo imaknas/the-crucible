@@ -6,8 +6,9 @@ const STORAGE_KEY = "crucible_toggles";
 
 /**
  * Document search starts off: with nothing uploaded it only adds a retrieval
- * and grading step to every turn. Uploading a file turns it on (the page says
- * so).
+ * and grading step to every turn. Uploading a file leaves it off: the file's
+ * text already goes with the next message, and the page says how to reach it
+ * in later turns.
  */
 export const DEFAULT_TOGGLES: Toggles = { use_rag: false, use_web_search: false };
 
