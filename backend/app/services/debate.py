@@ -253,6 +253,17 @@ async def run_debate(
         yield event
 
 
+def check_not_running(session: Mapping[str, Any], force: bool = False) -> None:
+    """Raises ValueError if another client is running this debate: two runs
+    would write rounds into the same lanes. ``force`` is for a session left
+    marked running by a backend that died mid-debate."""
+    if session.get("status") == "running" and not force:
+        raise ValueError(
+            f"Debate {session['session_id']} is running in another client (the web UI or another command). "
+            "Continue it once that run stops, or force it if that run is gone."
+        )
+
+
 async def continue_debate(
     graph_app,
     session_id: str,

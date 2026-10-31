@@ -341,6 +341,17 @@ async def run_debate(
         )
 
 
+def _idle_session(session_id: str, force: bool) -> Dict[str, Any]:
+    session = db.get_debate_session(session_id)
+    if not session:
+        raise ToolError(f"Debate session {session_id} not found.")
+    try:
+        debate_svc.check_not_running(session, force)
+    except ValueError as e:
+        raise _tool_error(e)
+    return session
+
+
 @mcp.tool()
 @_quiet
 async def continue_debate(
@@ -351,17 +362,18 @@ async def continue_debate(
     use_web_search: bool = False,
     system_prompt: Optional[str] = None,
     summarizer: Optional[str] = None,
+    force: bool = False,
 ) -> Dict[str, Any]:
     """Run more rounds of a debate that stopped: resume after running fewer
     rounds (a pause), or add messages (inject) to the next round's prompts.
     The session's auto-synthesis, if set, is rewritten over every round.
+    Refused while another client runs the debate; force=true only for one
+    left marked running by a backend that died.
 
     Returns the same shape as run_debate, for the new rounds.
     """
     context = _context(system_prompt, summarizer)
-    session = db.get_debate_session(session_id)
-    if not session:
-        raise ToolError(f"Debate session {session_id} not found.")
+    session = _idle_session(session_id, force)
     async with arena_svc.open_graph() as graph_app:
         return await _collect_debate(
             debate_svc.continue_debate(graph_app, session_id, rounds, inject or (),
@@ -380,17 +392,17 @@ async def redirect_debate(
     use_web_search: bool = False,
     system_prompt: Optional[str] = None,
     summarizer: Optional[str] = None,
+    force: bool = False,
 ) -> Dict[str, Any]:
     """Restart a debate on a new question, from where each participant's
     lane stands (they keep what was said). Runs the session's rounds again.
+    Refused while another client runs the debate (see continue_debate's force).
 
     Returns the same shape as run_debate.
     """
     context = _context(system_prompt, summarizer)
     documents = _attachments(attachments)
-    session = db.get_debate_session(session_id)
-    if not session:
-        raise ToolError(f"Debate session {session_id} not found.")
+    session = _idle_session(session_id, force)
     async with arena_svc.open_graph() as graph_app:
         return await _collect_debate(
             debate_svc.run_debate(graph_app, session_id, prompt, _toggles(use_web_search, use_rag), documents,

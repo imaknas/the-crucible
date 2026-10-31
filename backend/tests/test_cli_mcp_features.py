@@ -205,6 +205,23 @@ def test_debates_continue_with_an_injected_message():
     assert db.get_debate_session(sid)["status"] == "completed"
 
 
+def test_a_debate_running_elsewhere_is_not_continued_unless_forced():
+    debate = _json(["debate", "Topic", "-m", A, "-m", B, "-r", "1", "--no-synthesize"])
+    sid = debate["session_id"]
+    db.update_debate_session(sid, status="running")  # e.g. a web UI socket
+    _fails(["debates", "continue", sid], "running in another client")
+    _fails(["debates", "redirect", sid, "Other?"], "running in another client")
+    assert db.get_debate_session(sid)["status"] == "running"  # left alone
+    # A backend that died mid-debate leaves it marked running.
+    assert [r["round"] for r in _json(["debates", "continue", sid, "--force"])["rounds"]] == [1]
+
+
+def test_chat_renders_the_reply():
+    result = runner.invoke(cli_app, ["chat", "hi", "-m", A, "-t", "t"])
+    assert result.exit_code == 0, result.exception
+    assert f"reply from {A}" in result.stdout
+
+
 def test_debates_redirect_list_and_delete():
     debate = _json(["debate", "Topic", "-m", A, "-m", B, "-r", "1", "--no-synthesize", "-t", "t"])
     sid = debate["session_id"]
@@ -327,6 +344,10 @@ async def test_mcp_debate_lifecycle(mcp_server):
         after = await _call(client, "invoke_arena", {"prompt": "Summarize it", "models": [A],
                                                      "after_debate_session_id": sid, "synthesize": False})
         assert after["thread_id"] == "d" and "A debate between" in _sent(A)
+
+        db.update_debate_session(sid, status="running")
+        with pytest.raises(ToolError, match="running in another client"):
+            await client.call_tool("continue_debate", {"session_id": sid})
 
         await _call(client, "delete_debate", {"session_id": sid})
         with pytest.raises(ToolError, match="not found"):

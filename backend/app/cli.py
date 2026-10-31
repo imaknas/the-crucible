@@ -185,6 +185,12 @@ def _opt_format():
     return typer.Option("rich", "--format", "-f", help=FORMAT_HELP)
 
 
+def _opt_force():
+    return typer.Option(
+        False, "--force", help="Run even though the debate is marked running (left so by a backend that died)."
+    )
+
+
 # ─── CHAT / ARENA ────────────────────────────────────────────────
 
 
@@ -299,7 +305,9 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
     from app.services.arena import open_graph, run_arena
     from app.services.chat import auto_title
     from app.services.context import DEFAULT_CONTEXT
-    from app.cli_display import ArenaDisplay, print_header, print_info, print_success, print_error, render_synthesis
+    from app.cli_display import (
+        ArenaDisplay, ReplyDisplay, print_header, print_info, print_success, print_error, render_synthesis,
+    )
 
     single = len(models) == 1 and not synthesizer
     result: Dict[str, Any] = {"thread_id": thread_id, "prompt": prompt, "parent_checkpoint_id": None, "answers": {}, "synthesis": None}
@@ -311,7 +319,7 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
         if not single:
             print_info(f"Models: {', '.join(models)}")
         console.print()
-        display = ArenaDisplay(models)
+        display = ReplyDisplay(models[0]) if single else ArenaDisplay(models)
         display.start()
 
     new_thread = False
@@ -632,6 +640,7 @@ def debates_continue(
     web_search: bool = _opt_web(),
     summarizer: Optional[str] = _opt_summarizer(),
     system: Optional[str] = _opt_system(),
+    force: bool = _opt_force(),
     format_output: str = _opt_format(),
 ):
     """Run more rounds of a stopped debate (resume after a pause, or inject a message)."""
@@ -648,6 +657,7 @@ def debates_continue(
             session = db.get_debate_session(session_id)
             if not session:
                 raise ValueError(f"Debate session {session_id} not found.")
+            debate_svc.check_not_running(session, force)
             events = debate_svc.continue_debate(graph_app, session_id, rounds, inject or (),
                                                 _toggles(web_search, rag), context=context)
             return await _follow_debate(events, session, "", as_json, f"{rounds} more round(s)")
@@ -666,6 +676,7 @@ def debates_redirect(
     web_search: bool = _opt_web(),
     summarizer: Optional[str] = _opt_summarizer(),
     system: Optional[str] = _opt_system(),
+    force: bool = _opt_force(),
     format_output: str = _opt_format(),
 ):
     """Restart a debate on a new question, from where each model's lane stands."""
@@ -683,6 +694,7 @@ def debates_redirect(
             session = db.get_debate_session(session_id)
             if not session:
                 raise ValueError(f"Debate session {session_id} not found.")
+            debate_svc.check_not_running(session, force)
             events = debate_svc.run_debate(graph_app, session_id, prompt, _toggles(web_search, rag), documents,
                                            context=context)
             policy = session["termination_policy"]

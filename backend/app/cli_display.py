@@ -117,6 +117,36 @@ class ArenaDisplay:
         return all(self.finished.values())
 
 
+class ReplyDisplay:
+    """One model's reply, as `crucible chat` shows it: the raw text while it
+    streams, then rendered Markdown. Same methods as ArenaDisplay."""
+
+    def __init__(self, model: str):
+        self.model = model
+        self.buffer = ""
+        self._live: Optional[Live] = None
+
+    def start(self):
+        color = get_model_color(self.model)
+        console.print(f"{get_model_icon(self.model)} [bold {color}]{self.model}[/bold {color}]:\n")
+        self._live = Live(Text("▌", style="dim"), console=console, refresh_per_second=8, transient=True)
+        self._live.__enter__()
+
+    def update_token(self, model: str, token: str):
+        self.buffer += token
+        if self._live:
+            self._live.update(Text(self.buffer + "▌"))
+
+    def finish_model(self, model: str):
+        pass
+
+    def stop(self):
+        if self._live:
+            self._live.__exit__(None, None, None)
+            self._live = None
+            console.print(Markdown(self.buffer))
+
+
 # ─── Tree Rendering ─────────────────────────────────────────────
 
 
