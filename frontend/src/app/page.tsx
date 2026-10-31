@@ -431,118 +431,118 @@ export default function Home() {
               animation (mode="wait") before the tree could mount. The first
               view appears without an enter animation; later switches animate. */}
           {threadResolved && (
-          <AnimatePresence mode="wait" initial={false}>
-            {!threadId ? (
-              <motion.div
-                key="landing"
-                initial={{ opacity: 0, filter: "blur(10px)" }}
-                animate={{ opacity: 1, filter: "blur(0px)" }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.4 }}
-                className="absolute inset-0 w-full h-full flex"
-              >
-                <LandingView onStartNewExperiment={startNewExperiment} hasAnyKey={hasAnyKey} />
-              </motion.div>
-            ) : showTree ? (
-              <motion.div
-                key="tree"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="absolute inset-0 w-full h-full"
-              >
-                {inDebate ? (
-                  <div className="w-full h-full flex flex-col">
-                    {debateBanner && <DebateBanner {...debateBanner} />}
-                    <div className="flex-1 min-h-0 relative">
-                      <TreeCanvas
-                        key={`debate-${debate.activeSessionId}`}
-                        nodes={debate.tree.nodes}
-                        edges={debate.tree.edges}
-                        debateMode
-                        lanes={debate.tree.lanes}
-                        roundScores={debate.tree.sessionMeta?.round_scores}
-                        maxRound={debate.tree.sessionMeta?.max_round ?? debate.round}
-                        activeNodeId={debate.activeNode || undefined}
-                        onNodeClick={debate.setActiveNode}
-                        onReadNode={debate.readNode}
-                        loading={debate.tree.loading}
-                      />
-                      <DebateReplyDialog
-                        reading={debate.reading}
-                        lanes={debate.tree.lanes}
-                        onClose={debate.closeReading}
-                      />
+            <AnimatePresence mode="wait" initial={false}>
+              {!threadId ? (
+                <motion.div
+                  key="landing"
+                  initial={{ opacity: 0, filter: "blur(10px)" }}
+                  animate={{ opacity: 1, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.4 }}
+                  className="absolute inset-0 w-full h-full flex"
+                >
+                  <LandingView onStartNewExperiment={startNewExperiment} hasAnyKey={hasAnyKey} />
+                </motion.div>
+              ) : showTree ? (
+                <motion.div
+                  key="tree"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute inset-0 w-full h-full"
+                >
+                  {inDebate ? (
+                    <div className="w-full h-full flex flex-col">
+                      {debateBanner && <DebateBanner {...debateBanner} />}
+                      <div className="flex-1 min-h-0 relative">
+                        <TreeCanvas
+                          key={`debate-${debate.activeSessionId}`}
+                          nodes={debate.tree.nodes}
+                          edges={debate.tree.edges}
+                          debateMode
+                          lanes={debate.tree.lanes}
+                          roundScores={debate.tree.sessionMeta?.round_scores}
+                          maxRound={debate.tree.sessionMeta?.max_round ?? debate.round}
+                          activeNodeId={debate.activeNode || undefined}
+                          onNodeClick={debate.setActiveNode}
+                          onReadNode={debate.readNode}
+                          loading={debate.tree.loading}
+                        />
+                        <DebateReplyDialog
+                          reading={debate.reading}
+                          lanes={debate.tree.lanes}
+                          onClose={debate.closeReading}
+                        />
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <TreeCanvas
-                    key={threadId}
+                  ) : (
+                    <TreeCanvas
+                      key={threadId}
+                      nodes={nodes}
+                      edges={edges}
+                      activeNodeId={shown || undefined}
+                      onNodeClick={selectCheckpoint}
+                      onNodeDragStop={moveNode}
+                      onLayoutPositions={applyLayout}
+                      onDeleteNode={deleteNode}
+                      onBranchNode={branchFrom}
+                      answering={isLoading}
+                      loading={isHistoryLoading}
+                    />
+                  )}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="chat"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute inset-0 w-full h-full flex flex-col"
+                >
+                  <ChatView
+                    messages={chatMessages}
                     nodes={nodes}
                     edges={edges}
-                    activeNodeId={shown || undefined}
-                    onNodeClick={selectCheckpoint}
-                    onNodeDragStop={moveNode}
-                    onLayoutPositions={applyLayout}
-                    onDeleteNode={deleteNode}
-                    onBranchNode={branchFrom}
-                    answering={isLoading}
-                    loading={isHistoryLoading}
+                    isLoading={isLoading || isHistoryLoading}
+                    input={input}
+                    setInput={setInput}
+                    onSendMessage={handleSendMessage}
+                    onViewReply={viewCheckpoint}
+                    onContinueReply={selectCheckpoint}
+                    onSynthesize={synthesizeBranches}
+                    synthesizerOptions={availableModelIds}
+                    onDeliberate={handleDeliberate}
+                    stopStreaming={stopStreaming}
+                    setShowTree={setShowTree}
+                    documents={documents.names}
+                    onRemoveDocument={documents.remove}
+                    uploading={documents.uploading}
+                    onAttach={documents.attach}
+                    onEditAndRebranch={editAndRebranch}
+                    showEditButton={!inDebate && shownNode?.metadata?.role === "user"}
+                    selectedModels={selectedModels}
+                    respondingModels={reply.responders}
+                    onDebateOpen={debate.openDialog}
+                    onDebateInject={inDebate && debate.controls.inject ? debate.inject : undefined}
+                    onDebateRedirect={inDebate && debate.controls.redirect ? handleDebateRedirect : undefined}
+                    debateBanner={inDebate && debateHasTranscript ? debateBanner : null}
+                    modelLabel={modelLabel}
+                    modelErrors={inDebate ? [] : modelErrors}
+                    onRetryModel={retryModel}
+                    onDismissModelError={dismissModelError}
+                    branchPoint={inDebate ? null : branch}
+                    onResetBranch={resetToLatest}
+                    answerChoice={answerChoice}
+                    replyTexts={replyTexts}
+                    maxPromptChars={limits.max_prompt_chars}
+                    contextNotes={contextNotes}
+                    liveTurn={liveTurn}
                   />
-                )}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="chat"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="absolute inset-0 w-full h-full flex flex-col"
-              >
-                <ChatView
-                  messages={chatMessages}
-                  nodes={nodes}
-                  edges={edges}
-                  isLoading={isLoading || isHistoryLoading}
-                  input={input}
-                  setInput={setInput}
-                  onSendMessage={handleSendMessage}
-                  onViewReply={viewCheckpoint}
-                  onContinueReply={selectCheckpoint}
-                  onSynthesize={synthesizeBranches}
-                  synthesizerOptions={availableModelIds}
-                  onDeliberate={handleDeliberate}
-                  stopStreaming={stopStreaming}
-                  setShowTree={setShowTree}
-                  documents={documents.names}
-                  onRemoveDocument={documents.remove}
-                  uploading={documents.uploading}
-                  onAttach={documents.attach}
-                  onEditAndRebranch={editAndRebranch}
-                  showEditButton={!inDebate && shownNode?.metadata?.role === "user"}
-                  selectedModels={selectedModels}
-                  respondingModels={reply.responders}
-                  onDebateOpen={debate.openDialog}
-                  onDebateInject={inDebate && debate.controls.inject ? debate.inject : undefined}
-                  onDebateRedirect={inDebate && debate.controls.redirect ? handleDebateRedirect : undefined}
-                  debateBanner={inDebate && debateHasTranscript ? debateBanner : null}
-                  modelLabel={modelLabel}
-                  modelErrors={inDebate ? [] : modelErrors}
-                  onRetryModel={retryModel}
-                  onDismissModelError={dismissModelError}
-                  branchPoint={inDebate ? null : branch}
-                  onResetBranch={resetToLatest}
-                  answerChoice={answerChoice}
-                  replyTexts={replyTexts}
-                  maxPromptChars={limits.max_prompt_chars}
-                  contextNotes={contextNotes}
-                  liveTurn={liveTurn}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
           )}
         </div>
       </Box>
