@@ -48,6 +48,7 @@ ROUTES: dict = {
     ("GET", "/debate/sessions/{session_id}"): (("debates show", None), ("get_debate", None)),
     ("DELETE", "/debate/sessions/{session_id}"): (("debates delete", None), ("delete_debate", None)),
     ("GET", "/debate/sessions/{session_id}/tree"): (("debates show", None), ("get_debate", None)),
+    ("GET", "/debate/sessions/{session_id}/transcript"): (("debates show", None), ("get_debate", None)),
     ("WS", "/debate/ws/{session_id}"): (("debate", None), ("run_debate", None)),
 }
 
@@ -57,6 +58,7 @@ ROUTES: dict = {
 DEBATE_COMMANDS: dict = {
     "debate_start": (("debate", None), ("run_debate", None)),
     "debate_redirect": (("debates redirect", None), ("redirect_debate", None)),
+    "debate_continue": (("debates continue", None), ("continue_debate", None)),
     "debate_inject": (("debates continue", "--inject"), ("continue_debate", "inject")),
     "debate_control": (("debates continue", "--rounds"), ("continue_debate", "rounds")),
     "debate_synthesize": (("synthesize", "--debate"), ("synthesize_debate", None)),
@@ -67,6 +69,7 @@ CHAT_FRAME: dict = {
     "parent_checkpoint_id": (("chat", "--from"), ("invoke_arena", "parent_checkpoint_id")),
     "is_deliberation": (("arena", "--deliberate"), ("invoke_arena", "deliberation")),
     "documents": (("arena", "--attach"), ("invoke_arena", "attachments")),
+    "document_names": (("arena", "--attach"), ("invoke_arena", "attachments")),
     "debate_session_id": (("chat", "--after-debate"), ("invoke_arena", "after_debate_session_id")),
     "answer_checkpoint_ids": (("synthesize", "--answers"), ("synthesize_answers", "checkpoint_ids")),
     "toggles.use_rag": (("arena", "--rag"), ("invoke_arena", "use_rag")),
@@ -138,7 +141,8 @@ def test_only_listed_exceptions_skip_mcp():
 def test_chat_frame_fields_are_listed():
     """The chat socket's documented frame fields, from its docstring."""
     doc = ChatConnection.__doc__
-    for field in ("parent_checkpoint_id", "is_deliberation", "documents", "debate_session_id", "answer_checkpoint_ids"):
+    for field in ("parent_checkpoint_id", "is_deliberation", "documents", "document_names", "debate_session_id",
+                  "answer_checkpoint_ids"):
         assert field in doc and field in CHAT_FRAME, field
 
 

@@ -48,8 +48,9 @@ def test_env_injection_rejected(env_file, value):
     assert "DATABASE_PATH" not in env_file.read_text()
 
 
-def test_mask_reveals_only_last_four():
-    assert keys_svc.mask("sk-abcdefghijkl") == "•" * 11 + "ijkl"
+def test_mask_reveals_only_last_four_and_not_the_length():
+    assert keys_svc.mask("sk-abcdefghijkl") == "••••ijkl"
+    assert keys_svc.mask("sk-" + "x" * 90 + "ijkl") == "••••ijkl"
 
 
 def test_cors_rejects_foreign_origin():

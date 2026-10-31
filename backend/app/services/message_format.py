@@ -1,190 +1,83 @@
-"""Turning stored LangChain messages into what the chat client renders."""
+"""What a stored LangChain message says about itself: who wrote it, and the
+web sources it cites.
 
-from app.core.schema import is_summary_message
-from app.utils.helpers import extract_text
+Every reader of messages (the transcript, the summarizer, the CLI and MCP)
+asks these two functions; each used to carry its own copy, and they drifted
+(only one of three extracted native search citations).
+"""
+
+from typing import Any, Dict, List, Optional
 
 
-def format_chat_messages(raw_messages: list, active_model: str) -> list:
-    """LangChain messages → the client's message dicts, with model attribution
-    and web-search sources recovered from provider-specific metadata."""
-    formatted = []
+def message_model(msg: Any) -> Optional[str]:
+    """The model id a message records as its author, or None.
 
-    # 1. First pass: Filter technical markers to ensure correct indexing
-    meaningful_messages = []
-    for m in raw_messages:
-        content = (
-            getattr(m, "content", "")
-            if hasattr(m, "content")
-            else (m.get("content", "") if isinstance(m, dict) else str(m))
+    Providers put it in different places: the message's `name` (set by the
+    graph), `additional_kwargs`, `response_metadata`, or the keys of a
+    serialized dict."""
+    name = getattr(msg, "name", None)
+    if isinstance(name, str) and name:
+        return name
+    extra = getattr(msg, "additional_kwargs", None)
+    if isinstance(extra, dict):
+        found = extra.get("model", extra.get("model_id")) or extra.get("name")
+        if found:
+            return found
+    meta = getattr(msg, "response_metadata", None)
+    if isinstance(meta, dict):
+        found = meta.get("model_name", meta.get("model_id")) or meta.get("model")
+        if found:
+            return found
+    if isinstance(msg, dict):
+        return (
+            msg.get("name")
+            or msg.get("model")
+            or msg.get("additional_kwargs", {}).get("model_id")
+            or msg.get("metadata", {}).get("active_peer")
         )
-        # Skip technical system markers
-        if is_summary_message(m):
+    return None
+
+
+def message_sources(msg: Any) -> Optional[List[Dict[str, str]]]:
+    """The web sources a reply cites as [{text, filename}] (filename is the
+    URL), or None: sources the app stored, else the provider's own grounding
+    (Gemini groundingMetadata, OpenAI annotations, Anthropic citations)."""
+    extra = getattr(msg, "additional_kwargs", None)
+    if not isinstance(extra, dict):
+        extra = msg.get("additional_kwargs", {}) if isinstance(msg, dict) else {}
+    if extra.get("sources"):
+        return extra["sources"]
+
+    found: List[Dict[str, str]] = []
+    meta = getattr(msg, "response_metadata", None) or {}
+    grounding = (
+        meta.get("groundingMetadata") or meta.get("grounding_metadata")
+        or extra.get("groundingMetadata") or extra.get("grounding_metadata")
+    )
+    if isinstance(grounding, dict):
+        for chunk in grounding.get("groundingChunks") or grounding.get("grounding_chunks") or []:
+            web = chunk.get("web") or {}
+            uri = web.get("uri") or web.get("url")
+            if uri:
+                found.append({"text": web.get("title") or "Web Result", "filename": uri})
+
+    content = getattr(msg, "content", None) if not isinstance(msg, dict) else msg.get("content")
+    blocks = getattr(msg, "content_blocks", None) or (content if isinstance(content, list) else [])
+    for block in blocks:
+        if not isinstance(block, dict) or block.get("type") not in ("text", "server_tool_result"):
             continue
-        meaningful_messages.append(m)
+        for ann in block.get("annotations") or []:
+            if isinstance(ann, dict) and ann.get("url"):
+                found.append({"text": ann.get("title", "Web Source"), "filename": ann["url"]})
+        citations = block.get("citations") or block.get("citation")
+        if isinstance(citations, dict):
+            citations = [citations]
+        for cit in citations if isinstance(citations, list) else []:
+            if isinstance(cit, dict):
+                found.append({
+                    "text": cit.get("document_title") or cit.get("title") or cit.get("source_name") or "Web Source",
+                    "filename": cit.get("document_url") or cit.get("url") or "Web Search",
+                })
 
-    for i, msg in enumerate(meaningful_messages):
-        role = "user"
-        if hasattr(msg, "type"):
-            role = "user" if msg.type == "human" else "assistant"
-        elif isinstance(msg, dict):
-            role = msg.get("role") or (
-                "user" if msg.get("type") == "human" else "assistant"
-            )
-
-        content = (
-            getattr(msg, "content", "")
-            if hasattr(msg, "content")
-            else (msg.get("content", "") if isinstance(msg, dict) else str(msg))
-        )
-        if not content and role != "assistant":
-            continue
-
-        # Heavy Duty Attribution Recovery
-        msg_model = None
-
-        # Priority 1: Direct name attribute
-        msg_model = getattr(msg, "name", None)
-        if msg_model and not isinstance(msg_model, str):
-            msg_model = None
-
-        # Priority 2: additional_kwargs
-        if not msg_model and hasattr(msg, "additional_kwargs"):
-            add_kwargs = getattr(msg, "additional_kwargs", {})
-            if isinstance(add_kwargs, dict):
-                msg_model = add_kwargs.get(
-                    "model", add_kwargs.get("model_id")
-                ) or add_kwargs.get("name")
-
-        # Priority 3: response_metadata
-        if not msg_model and hasattr(msg, "response_metadata"):
-            resp_meta = getattr(msg, "response_metadata", {})
-            if isinstance(resp_meta, dict):
-                msg_model = resp_meta.get(
-                    "model_name", resp_meta.get("model_id")
-                ) or resp_meta.get("model")
-
-        # Priority 4: Dictionary keys (for JSON serialized state)
-        if not msg_model and isinstance(msg, dict):
-            msg_model = (
-                msg.get("name")
-                or msg.get("model")
-                or msg.get("additional_kwargs", {}).get("model_id")
-                or msg.get("metadata", {}).get("active_peer")
-            )
-
-        # Context Fallback: Only the VERY LAST message in the meaningful list defaults to active_model
-        if not msg_model:
-            is_last = i == len(meaningful_messages) - 1
-            if role == "assistant":
-                msg_model = active_model if is_last else "assistant"
-            else:
-                msg_model = "user"
-
-        # Extract sources if present
-        sources = None
-        if hasattr(msg, "additional_kwargs"):
-            sources = getattr(msg, "additional_kwargs", {}).get("sources")
-        if not sources and isinstance(msg, dict):
-            sources = msg.get("additional_kwargs", {}).get("sources")
-
-        # Native Grounding Metadata Extraction
-        if not sources:
-            extracted_sources = []
-
-            # 1. Google Gemini Grounding (`groundingMetadata` in response_metadata or additional_kwargs)
-            resp_meta = getattr(msg, "response_metadata", {})
-            add_kwargs = getattr(msg, "additional_kwargs", {})
-
-            gm = (
-                resp_meta.get("groundingMetadata")
-                or resp_meta.get("grounding_metadata")
-                or add_kwargs.get("groundingMetadata")
-                or add_kwargs.get("grounding_metadata")
-            )
-            if isinstance(gm, dict):
-                # Handle both camelCase from raw API and snake_case from some wrappers
-                chunks = gm.get("groundingChunks") or gm.get("grounding_chunks") or []
-                for chunk in chunks:
-                    web = chunk.get("web", {})
-                    if not web:
-                        # Fallback if structure is different
-                        continue
-
-                    uri = web.get("uri") or web.get("url")
-                    title = web.get("title") or "Web Result"
-                    if uri:
-                        extracted_sources.append({"text": title, "filename": uri})
-
-            # 2. OpenAI & Anthropic Native Search Extraction
-            # Models might return `content_blocks` (OpenAI Python SDK) or list-based `content`
-            c_blocks = []
-            if hasattr(msg, "content_blocks"):
-                c_blocks = msg.content_blocks
-            elif hasattr(msg, "content") and isinstance(msg.content, list):
-                c_blocks = msg.content
-            elif isinstance(msg, dict) and isinstance(msg.get("content"), list):
-                c_blocks = msg["content"]
-
-            for block in c_blocks:
-                if isinstance(block, dict) and block.get("type") in (
-                    "text",
-                    "server_tool_result",
-                ):
-                    # OpenAI uses 'annotations'
-                    if "annotations" in block:
-                        for ann in block["annotations"]:
-                            if ann.get("url"):
-                                extracted_sources.append(
-                                    {
-                                        "text": ann.get("title", "Web Source"),
-                                        "filename": ann.get("url"),
-                                    }
-                                )
-                    # Anthropic or general citation array fallback
-                    # Check for 'citations' (plural) or 'citation' (singular)
-                    citations = block.get("citations") or block.get("citation")
-                    if citations:
-                        if isinstance(citations, dict):
-                            citations = [citations]
-
-                        if isinstance(citations, list):
-                            for cit in citations:
-                                if isinstance(cit, dict):
-                                    url = (
-                                        cit.get("document_url")
-                                        or cit.get("url")
-                                        or "Web Search"
-                                    )
-                                    title = (
-                                        cit.get("document_title")
-                                        or cit.get("title")
-                                        or cit.get("source_name")
-                                        or "Web Source"
-                                    )
-                                    extracted_sources.append(
-                                        {
-                                            "text": title,
-                                            "filename": url,
-                                        }
-                                    )
-
-            if extracted_sources:
-                # Deduplicate by URL
-                unique_sources = []
-                seen = set()
-                for s in extracted_sources:
-                    if s["filename"] not in seen:
-                        seen.add(s["filename"])
-                        unique_sources.append(s)
-                sources = unique_sources
-
-        formatted.append(
-            {
-                "role": role,
-                "content": extract_text(content, wrap_thinking=True),
-                "type": role,
-                "model": msg_model,
-                "sources": sources,
-            }
-        )
-    return formatted
+    unique = list({s["filename"]: s for s in found}.values())
+    return unique or None

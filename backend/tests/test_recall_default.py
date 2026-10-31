@@ -67,7 +67,7 @@ async def test_the_rewriter_call_never_streams_into_the_reply(compacting_graph):
                                        message=f"Turn {i}: what did we decide about the vendor budget and the rollout?"):
             if event["type"] == "token":
                 streamed.append(event["token"])
-            else:
+            elif event["type"] == "end":
                 parent = event["checkpoint_id"]
                 assert MARKER not in str(event)
     assert rewrites, "recall never ran: the test did not reach the path it guards"

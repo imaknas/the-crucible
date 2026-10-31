@@ -164,7 +164,8 @@ def test_create_session_structure():
         "claude-sonnet-4-6": f"thread-xyz::{sid}::claude-sonnet-4-6",
         "synthesis": f"thread-xyz::{sid}::synthesis",
     }
-    assert session["status"] == "running"
+    # Running is set by the run that claims it, not by creating it.
+    assert session["status"] == "pending"
     assert session["current_round"] == 0
     assert session["session_id"].startswith("debate-")
     mock_create.assert_called_once()
@@ -174,66 +175,31 @@ def test_create_session_structure():
 
 
 @pytest.mark.asyncio
-async def test_run_debate_event_sequence():
-    """Verify that run_debate yields the expected event types in order."""
+async def test_run_debate_event_sequence(tmp_path, monkeypatch):
+    """run_debate yields the expected event types in order (real graph, fake LLM)."""
+    import os
+
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+
+    from app.core import database as db
+    from app.llm import CallableModelFactory, use_model_factory
+    from app.services.arena import open_graph
     from app.services.debate import run_debate
 
-    # Build a minimal mock graph_app that yields one on_chat_model_stream + on_chain_end
-    async def fake_astream_events(state, config, version="v2", **_kwargs):
-        chunk = MagicMock()
-        chunk.content = "Hello"
-        yield {"event": "on_chat_model_stream", "metadata": {"langgraph_node": "draft"}, "data": {"chunk": chunk}}
-
-        output_msg = MagicMock()
-        output_msg.type = "ai"
-        output_msg.name = "gpt-5.2"
-        output_msg.content = "Hello"
-        yield {
-            "event": "on_chain_end",
-            "name": "LangGraph",
-            "metadata": {"checkpoint_id": "cp-001"},
-            "data": {"output": {"messages": [output_msg]}},
-        }
-
-    mock_graph = MagicMock()
-    mock_graph.astream_events = fake_astream_events
-
-    session_id = "debate-test-001"
-    session_data = {
-        "session_id": session_id,
-        "parent_thread_id": "thread-parent",
-        "participants": ["gpt-5.2", "claude-sonnet-4-6"],
-        "thread_ids": {
-            "gpt-5.2": "thread-parent::gpt-5.2",
-            "claude-sonnet-4-6": "thread-parent::claude-sonnet-4-6",
-        },
-        "current_round": 0,
-        "status": "running",
-        "termination_policy": {"max_rounds": 1, "convergence_threshold": None, "llm_judge": None, "mode": "all"},
-        "auto_synthesize": False,
-        "synthesizer_model": None,
-    }
-
-    with patch("app.services.debate.db.get_debate_session", return_value=session_data), \
-         patch("app.services.debate.db.get_thread_title", return_value="titled"), \
-         patch("app.services.debate.db.update_debate_session"):
-
-        events = []
-        async for event in run_debate(
-            graph_app=mock_graph,
-            session_id=session_id,
-            prompt="Test debate prompt",
-            toggles={},
-            documents={},
-        ):
-            events.append(event)
+    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "seq.sqlite"))
+    factory = CallableModelFactory(lambda m, _t: FakeListChatModel(responses=[f"Hello from {m}"]))
+    with use_model_factory(factory), patch.dict(os.environ, {"OPENAI_API_KEY": "k", "ANTHROPIC_API_KEY": "k"}):
+        async with open_graph() as graph_app:
+            session = create_session(
+                "thread-parent", ["gpt-5.4", "claude-sonnet-5"],
+                {"max_rounds": 1, "convergence_threshold": None, "llm_judge": None, "mode": "all"},
+            )
+            session_id = session["session_id"]
+            events = [e async for e in run_debate(graph_app, session_id, "Test debate prompt", {}, {})]
 
     event_types = [e["type"] for e in events]
-    assert "debate_session_created" in event_types
-    assert "debate_round_start" in event_types
-    assert "stream_start" in event_types
-    assert "stream_token" in event_types
-    assert "stream_end" in event_types
-    assert "debate_round_end" in event_types
-    assert "debate_session_status" in event_types
+    assert event_types[0] == "debate_session_created"
+    for kind in ("debate_round_start", "stream_start", "stream_token", "stream_end", "debate_round_end"):
+        assert kind in event_types
     assert events[-1] == {"type": "debate_session_status", "session_id": session_id, "status": "completed"}
+    assert db.get_debate_session(session_id)["status"] == "completed"

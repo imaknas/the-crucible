@@ -83,10 +83,10 @@ def test_retrieve_context(mock_get_vs):
         "test query", k=2, filter={"thread_id": "thread-1"}
     )
 
-    # Exception handling
+    # A failure is not an empty result: the graph turns it into a notice.
     mock_vs.similarity_search_with_score.side_effect = Exception("DB error")
-    docs = retrieve_context("test query", "thread-1")
-    assert docs == []
+    with pytest.raises(Exception, match="DB error"):
+        retrieve_context("test query", "thread-1")
 
 
 def test_vector_store_initialises_once_under_concurrency(monkeypatch):

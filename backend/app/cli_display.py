@@ -14,6 +14,7 @@ from rich.tree import Tree as RichTree
 from rich.table import Table
 from rich.spinner import Spinner
 from rich import box
+from rich.markup import escape
 
 from app.registry import model_color
 
@@ -89,6 +90,9 @@ class ArenaDisplay:
         if self._live:
             self._live.__exit__(None, None, None)
             self._live = None
+            # The live panel ends without a newline; the next line would
+            # otherwise start on its bottom border.
+            console.line()
 
     @property
     def all_finished(self) -> bool:
@@ -162,9 +166,13 @@ def render_ascii_tree(
         if not node:
             return
 
-        label = node.get("data", {}).get("label", "?")
-        role = node.get("metadata", {}).get("role", "")
-        model = node.get("metadata", {}).get("active_peer", "")
+        meta = node.get("metadata", {})
+        # The text as written: the canvas label drops markdown and brackets.
+        excerpt = (meta.get("excerpt") or node.get("data", {}).get("label", "?")).strip().splitlines()
+        label = excerpt[0][:60] + ("…" if len(excerpt[0]) > 60 or len(excerpt) > 1 else "") if excerpt else "(empty)"
+        role = meta.get("role", "")
+        model = meta.get("active_peer", "")
+        kind = meta.get("kind")
         is_active = node_id == active_id
 
         # Style
@@ -178,6 +186,8 @@ def render_ascii_tree(
             color = get_model_color(model) if model else "white"
             style = color
             marker = f" [{model}]" if model else ""
+        if kind:
+            marker += f" ({kind})"
 
         # The checkpoint id is what --from, delete-branch and synthesize
         # --answers take.
@@ -198,17 +208,20 @@ def render_ascii_tree(
 
 
 def render_threads_table(threads: List[Dict[str, str]]) -> None:
-    """Render a table of threads."""
+    """Render a table of threads, most recently active first."""
     if not threads:
-        console.print("[dim]No experiments found.[/dim]")
+        console.print("[dim]No threads yet.[/dim]")
         return
 
-    table = Table(title="🧪 Experiments", box=box.SIMPLE_HEAVY)
+    table = Table(title="🧪 Threads", box=box.SIMPLE_HEAVY)
     table.add_column("ID", style="dim", no_wrap=True)
     table.add_column("Title", style="bold")
+    table.add_column("Last active", style="dim", no_wrap=True)
 
     for t in threads:
-        table.add_row(t["id"], t.get("title", t["id"]))
+        # Text cells: a title like "list[int]" is not markup.
+        updated = (t.get("updated_at") or "").replace("T", " ")[:16]
+        table.add_row(Text(t["id"]), Text(t.get("title") or t["id"]), updated)
 
     console.print(table)
 
@@ -216,12 +229,14 @@ def render_threads_table(threads: List[Dict[str, str]]) -> None:
 # ─── Consensus / Synthesis Display ───────────────────────────────
 
 
-def render_synthesis(content: str, judge_model: Optional[str] = None) -> None:
-    """Render the final consensus panel."""
-    title = "🔬 Consensus"
+def render_synthesis(content: str, judge_model: Optional[str] = None, kind: str = "Synthesis") -> None:
+    """Render a synthesis panel: of independent answers ("Synthesis"), or a
+    debate's "Argument map", which maps positions and never declares a
+    consensus."""
+    title = f"🔬 {kind}"
     if judge_model:
         icon = get_model_icon(judge_model)
-        title = f"🔬 Consensus (Judge: {icon} {judge_model})"
+        title = f"🔬 {kind} (by {icon} {judge_model})"
 
     console.print()
     console.print(
@@ -252,11 +267,13 @@ def print_header():
 
 
 def print_success(msg: str):
-    console.print(f"[bold green]✓[/bold green] {msg}")
+    """``msg`` is plain text (user and model text included), not markup."""
+    console.print(f"[bold green]✓[/bold green] {escape(msg)}")
 
 
 def print_error(msg: str):
-    console.print(f"[bold red]✗[/bold red] {msg}")
+    """``msg`` is plain text (user and model text included), not markup."""
+    console.print(f"[bold red]✗[/bold red] {escape(msg)}")
 
 
 def print_info(msg: str):

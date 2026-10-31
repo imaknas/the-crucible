@@ -5,7 +5,8 @@ from app.core import database as db
 from app.core.database import load_node_positions
 from app.core.schema import is_summary_message
 from app.registry import SYNTHESIS_COLOR, display_name, model_color
-from app.services.runs import DEBATE_RECORD_KEY, SYNTHESIS_TURN, TURN_KIND_KEY, is_seed
+from app.services.message_format import message_model, message_sources
+from app.services.runs import DEBATE_RECORD_KEY, SYNTHESIS_TURN, TURN_ID_KEY, TURN_KIND_KEY, is_seed
 from app.utils.helpers import extract_text, get_preview_text
 
 # Chat synthesis prompts written before they were flagged (by the frontend)
@@ -455,6 +456,14 @@ def build_graph_layout(
                     "has_thoughts": has_thoughts,
                     # Longer excerpt, revealed when the node is selected
                     "preview": get_preview_text(content, max_length=400),
+                    "model_color": model_color(state.values.get("active_peer"))
+                    if visual_role == "ai"
+                    else None,
+                    # Replies sent together share it, across branches.
+                    "turn_id": _turn_id(state),
+                    # The text as written (the label and preview drop markdown).
+                    "excerpt": content[:300],
+                    "created_at": getattr(state, "created_at", None),
                 },
             }
         # A synthesis reply hangs off the same prompt as the answers it merged;
@@ -486,13 +495,16 @@ def _seeded_length(states) -> int:
 
 
 def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
+    """The transcript on the path from the root to ``active_state_id``.
+
+    Walks parent links backwards, taking each checkpoint's last message.
+    LangGraph writes several checkpoints per turn that end on the same
+    message; only consecutive repeats are dropped, so two identical replies
+    on one path (two "OK"s) both stay. Each message carries the checkpoint
+    of its tree node (the first checkpoint it ends) and its turn id.
     """
-    Graph-Path Reconstruction: Walks backwards from the active checkpoint
-    to the root, collecting the last (unique) message from each node.
-    This bypasses any state-level summarization truncation.
-    """
-    path_messages = []
-    seen_keys = set()
+    path_messages: List[Dict] = []
+    previous_key = None
     curr_id = active_state_id
     # Messages seeded from another thread (a debate's parent conversation)
     # are context, not messages said on this one. The seed checkpoint and the
@@ -503,107 +515,75 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
     while curr_id in state_map:
         state = state_map[curr_id]
         m_list = state.values.get("messages", [])
+        key = None
 
         if len(m_list) > seeded:
             msg = m_list[-1]
-
-            # 1. Identify role
             role = "user"
             if hasattr(msg, "type"):
                 role = "user" if msg.type == "human" else "assistant"
             elif isinstance(msg, dict):
-                role = msg.get("role") or (
-                    "user" if msg.get("type") == "human" else "assistant"
-                )
+                role = msg.get("role") or ("user" if msg.get("type") == "human" else "assistant")
+            content = _content_of(msg)
+            key = (role, id(msg) if not content else content)
 
-            # 2. Extract content
-            content = (
-                getattr(msg, "content", "")
-                if hasattr(msg, "content")
-                else (msg.get("content", "") if isinstance(msg, dict) else str(msg))
-            )
-            content_str = str(content)
-
-            # 3. Filter technical markers
             is_technical = (
                 is_summary_message(msg)
                 or is_synthesis_prompt(msg)
                 or getattr(msg, "type", "") == "remove"
             )
+            if is_technical or not content.strip():
+                key = None
+            elif key == previous_key and path_messages:
+                # The same message one checkpoint up: its node is further up.
+                path_messages[-1]["checkpoint_id"] = curr_id
+                path_messages[-1]["turn_id"] = _turn_id(state) or path_messages[-1]["turn_id"]
+            else:
+                debate_record = role == "assistant" and is_debate_record(state)
+                msg_model = message_model(msg)
+                if not msg_model and role == "assistant":
+                    msg_model = (state.values or {}).get("active_peer")
+                if debate_record:
+                    msg_model = "debate"
+                if not msg_model:
+                    msg_model = "assistant" if role == "assistant" else "user"
+                path_messages.append(
+                    {
+                        "role": role,
+                        "content": extract_text(getattr(msg, "content", content), wrap_thinking=True),
+                        "type": role,
+                        "model": msg_model,
+                        # What a person reads; the raw id stays in `model`.
+                        "model_name": DEBATE_RECORD_NAME
+                        if debate_record
+                        else display_name(msg_model)
+                        if role == "assistant"
+                        else None,
+                        "model_color": model_color(msg_model) if role == "assistant" and not debate_record else None,
+                        "kind": "synthesis"
+                        if role == "assistant" and is_synthesis_reply(state)
+                        else "debate"
+                        if debate_record
+                        else None,
+                        "sources": message_sources(msg) if role == "assistant" else None,
+                        "checkpoint_id": curr_id,
+                        "turn_id": _turn_id(state),
+                    }
+                )
+        previous_key = key
 
-            if not is_technical and content_str.strip():
-                # 4. Deduplicate (LangGraph creates multiple checkpoints per turn)
-                text = extract_text(content, wrap_thinking=True)
-                key = (role, text[:200])  # Use prefix for speed
-                if key not in seen_keys:
-                    # 5. Heavy Duty Attribution Recovery
-                    msg_model = None
-                    msg_model = getattr(msg, "name", None)
-                    if not msg_model and hasattr(msg, "additional_kwargs"):
-                        add_kwargs = getattr(msg, "additional_kwargs", {})
-                        if isinstance(add_kwargs, dict):
-                            msg_model = add_kwargs.get(
-                                "model", add_kwargs.get("model_id")
-                            ) or add_kwargs.get("name")
-                    if not msg_model and hasattr(msg, "response_metadata"):
-                        resp_meta = getattr(msg, "response_metadata", {})
-                        if isinstance(resp_meta, dict):
-                            msg_model = resp_meta.get(
-                                "model_name", resp_meta.get("model_id")
-                            ) or resp_meta.get("model")
-                    if not msg_model and isinstance(msg, dict):
-                        msg_model = (
-                            msg.get("name")
-                            or msg.get("model")
-                            or msg.get("additional_kwargs", {}).get("model_id")
-                            or msg.get("metadata", {}).get("active_peer")
-                        )
-                    if not msg_model and role == "assistant":
-                        msg_model = (state.values or {}).get("active_peer")
-
-                    debate_record = role == "assistant" and is_debate_record(state)
-                    if debate_record:
-                        msg_model = "debate"
-                    if not msg_model:
-                        msg_model = "assistant" if role == "assistant" else "user"
-
-                    sources = None
-                    if hasattr(msg, "additional_kwargs"):
-                        sources = getattr(msg, "additional_kwargs", {}).get("sources")
-                    if not sources and isinstance(msg, dict):
-                        sources = msg.get("additional_kwargs", {}).get("sources")
-
-                    path_messages.append(
-                        {
-                            "role": role,
-                            "content": text,
-                            "type": role,
-                            "model": msg_model,
-                            # What a person reads; the raw id stays in `model`.
-                            "model_name": DEBATE_RECORD_NAME
-                            if debate_record
-                            else display_name(msg_model)
-                            if role == "assistant"
-                            else None,
-                            "kind": "synthesis"
-                            if role == "assistant" and is_synthesis_reply(state)
-                            else "debate"
-                            if debate_record
-                            else None,
-                            "sources": sources,
-                        }
-                    )
-                    seen_keys.add(key)
-
-        # Move up
         curr_id = (
             state.parent_config["configurable"]["checkpoint_id"]
             if state.parent_config
             else None
         )
 
-    # Return in chronological order
     return list(reversed(path_messages))
+
+
+def _turn_id(state) -> Optional[str]:
+    meta = getattr(state, "metadata", None)
+    return meta.get(TURN_ID_KEY) if isinstance(meta, dict) else None
 
 
 # ─── Debate Tree ──────────────────────────────────────────────────

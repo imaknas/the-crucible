@@ -45,4 +45,4 @@ async def test_sub_threads_are_never_listed_and_titles_are_kept():
         await resolve_fork_point(graph_app, "thread_one")
         await resolve_fork_point(graph_app, "thread_one::debate-1::gpt-5.4")
     db.rename_thread("thread_one", "Named")
-    assert db.list_threads() == [{"id": "thread_one", "title": "Named"}]
+    assert [{"id": t["id"], "title": t["title"]} for t in db.list_threads()] == [{"id": "thread_one", "title": "Named"}]

@@ -37,6 +37,11 @@ class CrucibleState(TypedDict):
     # before the store carry it. New turns write {}.
     documents: Optional[Dict[str, str]]
 
+    # What degraded this turn without failing it (a summary that couldn't be
+    # written, retrieval that errored), for the client to show. Each turn
+    # starts with none.
+    notices: Optional[List[str]]
+
 
 # ─── Context summaries ─────────────────────────────────────────────
 # summarize_history appends a system message holding the summary. It is

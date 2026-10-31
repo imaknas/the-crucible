@@ -97,18 +97,25 @@ def read_document(path: str) -> Document:
     return Document(name, _text_of(path))
 
 
-def upload_file(thread_id: str, path: str, index, root: Optional[str] = None) -> dict:
-    """Upload a local file to a thread for retrieval (``use_rag``), as the web
-    UI's upload does; ``index`` is rag.index_document or a stand-in.
+def keep_upload(thread_id: str, doc: Document, index, documents) -> dict:
+    """What an upload does once its text is known, whoever received it:
+    index it for retrieval (``use_rag``; ``index`` is rag.index_document or a
+    stand-in) and keep it as a document the thread's turns can attach by
+    name (``documents`` is a ThreadDocumentStore). Returns {filename, chunks}."""
+    documents.save(thread_id, {doc.filename: doc.text})
+    return {"filename": doc.filename, "chunks": index(doc.text, doc.filename, thread_id)}
 
-    Returns {filename, chunks}."""
+
+def upload_file(thread_id: str, path: str, index, documents, root: Optional[str] = None) -> dict:
+    """Upload a local file to a thread, as the web UI's upload does
+    (keep_upload). Returns {filename, chunks}."""
     name = checked_filename(path)
     if not os.path.isfile(path):
         raise ValueError(f"No such file: {path}")
     check_size(os.path.getsize(path))
     with open(path, "rb") as f:
         doc = save_upload(thread_id, name, f.read(), root)
-    return {"filename": doc.filename, "chunks": index(doc.text, doc.filename, thread_id)}
+    return keep_upload(thread_id, doc, index, documents)
 
 
 def read_documents(paths) -> dict:

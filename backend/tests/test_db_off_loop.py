@@ -99,7 +99,7 @@ async def test_auto_title_survives_a_checkpoint_write_awaiting_commit(db_path):
     async def title():
         await held.wait()
         started = time.monotonic()
-        await connection._auto_rename([{"role": "user", "content": prompt}])
+        await connection._name_thread(prompt)
         return time.monotonic() - started
 
     async with aiosqlite.connect(db_path) as conn:

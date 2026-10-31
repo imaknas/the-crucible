@@ -28,6 +28,43 @@ class ThreadDeleter:
         db.delete_thread_data(thread_id)
 
 
+class ThreadNotFound(ValueError):
+    pass
+
+
+def list_threads() -> list:
+    """Top-level threads, most recently active first: {id, title, updated_at}."""
+    db.init_db()
+    return db.list_threads()
+
+
+def _require(thread_id: str) -> None:
+    if "::" in thread_id:
+        # A debate lane: removing or renaming one corrupts its debate.
+        raise ThreadNotFound(f"{thread_id} is part of a debate, not a thread; use the debate's own commands.")
+    if not db.thread_exists(thread_id):
+        raise ThreadNotFound(f"Thread {thread_id} not found.")
+
+
+def rename_thread(thread_id: str, title: str) -> str:
+    """Give an existing thread a title; returns it. Blocking (SQLite)."""
+    title = title.strip()
+    if not title:
+        raise ValueError("A title is required.")
+    db.init_db()
+    _require(thread_id)
+    db.rename_thread(thread_id, title)
+    return title
+
+
+def delete_thread(thread_id: str, deleter: Callable[[str], None]) -> None:
+    """Delete an existing thread through ``deleter`` (default_thread_deleter
+    in the app). Blocking (SQLite, Chroma, the filesystem)."""
+    db.init_db()
+    _require(thread_id)
+    deleter(thread_id)
+
+
 def default_thread_deleter() -> ThreadDeleter:
     """The app's stores: the Chroma collection and the upload directory."""
     from app.services import rag

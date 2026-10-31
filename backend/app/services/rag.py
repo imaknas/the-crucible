@@ -115,8 +115,9 @@ def delete_thread_chunks(thread_id: str, collection=None) -> None:
 
 def index_document(text: str, filename: str, thread_id: str) -> int:
     """
-    Split a document into semantic chunks and index it in ChromaDB.
-    Associates the chunks with a specific thread_id.
+    Split a document into semantic chunks and index it in ChromaDB, tagged
+    with its thread and filename; an earlier upload of the same file in the
+    thread is replaced.
     """
     if not text.strip():
         return 0
@@ -137,6 +138,8 @@ def index_document(text: str, filename: str, thread_id: str) -> int:
         return 0
 
     vs = get_vector_store()
+    # Re-uploading a file replaces its chunks instead of adding a second copy.
+    get_chunk_collection().delete(where={"$and": [{"thread_id": thread_id}, {"filename": filename}]})
     vs.add_documents(chunks)
     log.info(f"[RAG] Indexed {len(chunks)} chunks (thread {thread_id})")
 
@@ -156,15 +159,9 @@ def retrieve_context(query: str, thread_id: str, k: int = 5) -> List[Document]:
     # Filter strictly by thread_id so models don't cross-contaminate conversations
     filter_dict = {"thread_id": thread_id}
 
-    try:
-        # returns [(Document, score), ...] - score is L2 distance for default Chroma
-        docs_and_scores = vs.similarity_search_with_score(
-            query, k=k, filter=filter_dict
-        )
-        log.info(f"[RAG] Retrieved {len(docs_and_scores)} chunks (thread {thread_id})")
-
-        # Unpack just the Document objects
-        return [doc for doc, score in docs_and_scores]
-    except Exception as e:
-        log.warning(f"[RAG] Retrieval error: {e}")
-        return []
+    # returns [(Document, score), ...] - score is L2 distance for default Chroma.
+    # Errors propagate: the graph reports them as a notice on the turn rather
+    # than answering as if the thread had no documents.
+    docs_and_scores = vs.similarity_search_with_score(query, k=k, filter=filter_dict)
+    log.info(f"[RAG] Retrieved {len(docs_and_scores)} chunks (thread {thread_id})")
+    return [doc for doc, score in docs_and_scores]

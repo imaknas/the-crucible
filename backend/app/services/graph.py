@@ -17,7 +17,8 @@ from app.utils.helpers import extract_text
 from app.services import rag as rag_service
 from app.llm import model_factory_from
 from app.llm.providers import REQUEST_NOTES_HEADER
-from app.services.documents import documents_for_run
+from app.services.documents import document_thread, documents_for_run
+from app.services.message_format import message_model
 from app.services.recall import INTERNAL_TAG
 from app.compaction import ContextSnapshot, DetailedBrief, EarlierMessage, KeepRecent, ModelBudget, ThresholdPolicy
 
@@ -408,11 +409,19 @@ def retrieve_node(state: CrucibleState, config: RunnableConfig):
     if not query.strip():
         return {"retrieved_chunks": []}
 
-    thread_id = config.get("configurable", {}).get("thread_id", "")
+    # The thread whose files the run reads: a debate participant drafts on
+    # its own sub-thread, but the files were uploaded to the parent.
+    thread_id = document_thread(config)
     if not thread_id:
         return {"retrieved_chunks": []}
 
-    docs = rag_service.retrieve_context(query, thread_id)
+    retrieve = config.get("configurable", {}).get("retriever") or rag_service.retrieve_context
+    try:
+        docs = retrieve(query, thread_id)
+    except Exception as e:
+        log.warning(f"[RAG] Retrieval failed: {e}")
+        return {"retrieved_chunks": [], "notices": [*(state.get("notices") or []),
+                                                    f"Searching this thread's documents failed ({e}); the answer doesn't use them."]}
     chunks = [
         {"text": d.page_content, "filename": d.metadata.get("filename", "Unknown")}
         for d in docs
@@ -681,23 +690,7 @@ def summarize_history(state: CrucibleState, config: RunnableConfig):
             if hasattr(m, "type") and m.type == "human":
                 return f"[User]: {content_text}"
             elif hasattr(m, "type") and m.type == "ai":
-                # Recover name for summary text
-                msg_model = getattr(m, "name", None)
-
-                # Priority 2: additional_kwargs
-                if not msg_model and hasattr(m, "additional_kwargs"):
-                    add_kwargs = getattr(m, "additional_kwargs", {})
-                    msg_model = add_kwargs.get(
-                        "model", add_kwargs.get("model_id")
-                    ) or add_kwargs.get("name")
-
-                # Priority 3: response_metadata
-                if not msg_model and hasattr(m, "response_metadata"):
-                    resp_meta = getattr(m, "response_metadata", {})
-                    msg_model = resp_meta.get(
-                        "model_name", resp_meta.get("model_id")
-                    ) or resp_meta.get("model")
-
+                msg_model = message_model(m)
                 return f"[{msg_model or 'AI'}]: {content_text}"
             else:
                 return f"[System]: {content_text}"
@@ -721,7 +714,9 @@ def summarize_history(state: CrucibleState, config: RunnableConfig):
         return {"messages": [summary_msg]}
     except Exception as e:
         log.warning(f"[Summarize] failed (non-fatal): {e}")
-        return {"messages": []}
+        return {"messages": [], "notices": [*(state.get("notices") or []),
+                                            f"Summarizing the history failed ({e}); the model saw it unsummarized, "
+                                            "trimmed to fit if it was too long."]}
 
 
 def should_summarize(state: CrucibleState):

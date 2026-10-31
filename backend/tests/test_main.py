@@ -7,76 +7,73 @@ from unittest.mock import MagicMock
 from app.llm import CallableModelFactory
 
 
-class TestFormatMessages:
-    """Tests for format_chat_messages()."""
+class TestMessageFacts:
+    """Who wrote a message and what it cites (services/message_format)."""
 
-    def test_human_message_object(self):
-        from app.services.message_format import format_chat_messages as _format_messages
+    def test_author_from_name_kwargs_metadata_or_dict(self):
+        from langchain_core.messages import AIMessage
 
-        msg = MagicMock()
-        msg.type = "human"
-        msg.content = "Hello"
-        msg.name = None  # Explicitly reset to avoid MagicMock returning a new mock
-        result = _format_messages([msg], "gpt-5.2")
-        assert len(result) == 1
-        assert result[0]["role"] == "user"
-        assert result[0]["content"] == "Hello"
-        assert result[0]["model"] == "user"
+        from app.services.message_format import message_model
 
-    def test_ai_message_object(self):
-        from app.services.message_format import format_chat_messages as _format_messages
+        assert message_model(AIMessage(content="x", name="gpt-5.4")) == "gpt-5.4"
+        assert message_model(AIMessage(content="x", additional_kwargs={"model_id": "claude-x"})) == "claude-x"
+        assert message_model(AIMessage(content="x", response_metadata={"model_name": "gemini-x"})) == "gemini-x"
+        assert message_model({"type": "ai", "content": "x", "model": "m"}) == "m"
+        assert message_model(AIMessage(content="x")) is None
 
-        msg = MagicMock()
-        msg.type = "ai"
-        msg.content = "Reply from GPT"
-        msg.name = None
-        result = _format_messages([msg], "gpt-5.2")
-        assert result[0]["role"] == "assistant"
-        assert result[0]["content"] == "Reply from GPT"
-        assert result[0]["model"] == "gpt-5.2"
+    def test_sources_stored_or_native(self):
+        from langchain_core.messages import AIMessage
 
-    def test_dict_message(self):
-        from app.services.message_format import format_chat_messages as _format_messages
+        from app.services.message_format import message_sources
 
-        msg = {"type": "human", "content": "Hello", "role": "user"}
-        result = _format_messages([msg], "gpt-5.2")
-        assert result[0]["role"] == "user"
-        assert result[0]["content"] == "Hello"
+        stored = [{"text": "Doc", "filename": "a.md"}]
+        assert message_sources(AIMessage(content="x", additional_kwargs={"sources": stored})) == stored
+        gemini = AIMessage(content="x", response_metadata={
+            "grounding_metadata": {"grounding_chunks": [{"web": {"uri": "https://e.x", "title": "E"}}]}})
+        assert message_sources(gemini) == [{"text": "E", "filename": "https://e.x"}]
+        cited = AIMessage(content=[{"type": "text", "text": "x", "annotations": [{"url": "https://o.x", "title": "O"}]}])
+        assert message_sources(cited) == [{"text": "O", "filename": "https://o.x"}]
+        assert message_sources(AIMessage(content="plain")) is None
 
-    def test_multiple_messages(self):
-        from app.services.message_format import format_chat_messages as _format_messages
 
-        m1 = MagicMock()
-        m1.type = "human"
-        m1.content = "Q"
-        m1.name = None
-        m2 = MagicMock()
-        m2.type = "ai"
-        m2.content = "A"
-        m2.name = None
-        m3 = MagicMock()
-        m3.type = "human"
-        m3.content = "Follow-up"
-        m3.name = None
-        result = _format_messages([m1, m2, m3], "claude-sonnet-4-6")
-        assert len(result) == 3
-        assert result[0]["role"] == "user"
-        assert result[1]["role"] == "assistant"
-        assert result[1]["model"] == "assistant"
-        assert result[2]["role"] == "user"
+class TestTranscript:
+    """tree.format_messages: the path's messages, one per message."""
 
-    def test_empty_messages(self):
-        from app.services.message_format import format_chat_messages as _format_messages
+    @staticmethod
+    def _path(*steps):
+        """steps: message lists, one per checkpoint, each the parent of the next."""
+        from types import SimpleNamespace
 
-        result = _format_messages([], "gpt-5.2")
-        assert result == []
+        states = {}
+        for i, messages in enumerate(steps):
+            states[f"c{i}"] = SimpleNamespace(
+                values={"messages": messages, "active_peer": "gpt-5.4"},
+                metadata={"crucible_turn_id": f"t{i // 3}"},
+                parent_config={"configurable": {"checkpoint_id": f"c{i - 1}"}} if i else None,
+                config={"configurable": {"checkpoint_id": f"c{i}"}},
+            )
+        return f"c{len(steps) - 1}", states
 
-    def test_string_fallback(self):
-        from app.services.message_format import format_chat_messages as _format_messages
+    def test_identical_replies_on_one_path_both_stay(self):
+        from langchain_core.messages import AIMessage, HumanMessage
 
-        result = _format_messages(["raw string message"], "gpt-5.2")
-        assert len(result) == 1
-        assert result[0]["content"] == "raw string message"
+        from app.services.tree import format_messages
+
+        q1, a1 = HumanMessage(content="Ready?"), AIMessage(content="OK", name="gpt-5.4")
+        q2, a2 = HumanMessage(content="Go on"), AIMessage(content="OK", name="gpt-5.4")
+        shown = format_messages(*self._path([q1], [q1, a1], [q1, a1, q2], [q1, a1, q2, a2]))
+        assert [m["content"] for m in shown] == ["Ready?", "OK", "Go on", "OK"]
+
+    def test_each_message_carries_its_first_checkpoint(self):
+        from langchain_core.messages import AIMessage, HumanMessage
+
+        from app.services.tree import format_messages
+
+        q, a = HumanMessage(content="Q"), AIMessage(content="A", name="gpt-5.4")
+        # LangGraph repeats the reply over the run's last checkpoints.
+        shown = format_messages(*self._path([q], [q, a], [q, a], [q, a]))
+        assert [(m["content"], m["checkpoint_id"]) for m in shown] == [("Q", "c0"), ("A", "c1")]
+        assert shown[1]["model_name"] and shown[1]["turn_id"] == "t0"
 
 
 class TestGraphNodes:

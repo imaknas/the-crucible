@@ -33,14 +33,15 @@ def ws_env():
             state["cancelled"] += 1
             raise
 
-    async def fake_synthesis(**kwargs):
+    async def fake_synthesis(*args, **kwargs):
         yield {"type": "debate_synthesis_end", "content": "done"}
+        yield {"type": "debate_session_status", "session_id": "debate-ws", "status": "completed"}
 
     with (
         patch.object(debate_api.db, "get_debate_session", return_value=dict(SESSION)),
         patch.object(debate_api.db, "update_debate_session", side_effect=lambda sid, **kw: state["statuses"].append(kw.get("status"))),
         patch.object(debate_api.debate_svc, "run_debate", side_effect=slow_debate),
-        patch.object(debate_api.debate_svc, "_stream_synthesis", side_effect=fake_synthesis),
+        patch.object(debate_api.debate_svc, "synthesize_session", side_effect=fake_synthesis),
         TestClient(app) as client,
     ):
         client.app.state.graph_app = MagicMock()
@@ -110,18 +111,20 @@ def test_pause_is_acknowledged_and_resume_restores(ws_env):
         _recv_until(ws, "debate_session_status", "completed")
 
 
-def test_disconnect_mid_debate_marks_interrupted(ws_env):
+def test_disconnect_cancels_the_debate(ws_env):
+    """The run itself then records it as interrupted
+    (test_debate_lifecycle.py, against the real service)."""
     client, state = ws_env
     with client.websocket_connect("/debate/ws/debate-ws") as ws:
         ws.send_json({"type": "debate_start", "prompt": "Q"})
         _recv_until(ws, "debate_round_start")
     # The handler's finally runs on the server loop after the client closes.
     for _ in range(50):
-        if "interrupted" in state["statuses"]:
+        if state["cancelled"]:
             break
         import time
         time.sleep(0.02)
-    assert "interrupted" in state["statuses"]
+    assert state["cancelled"] == 1
 
 
 def test_a_redirect_keeps_the_summarizer_the_debate_started_with(ws_env, monkeypatch):
@@ -132,12 +135,14 @@ def test_a_redirect_keeps_the_summarizer_the_debate_started_with(ws_env, monkeyp
         _recv_until(ws, "debate_round_start")
         ws.send_json({"type": "debate_redirect", "message": "narrower"})
         _recv_until(ws, "debate_round_start")
-        assert [c.summarizer for c in state["contexts"]] == ["gpt-6-luna", "gpt-6-luna"]
+        # The redirect names no settings: the run uses the ones the debate
+        # stored at its start (test_debate_lifecycle.py).
+        assert state["contexts"][0].summarizer == "gpt-6-luna" and state["contexts"][1] is None
         ws.send_json({"type": "debate_control", "action": "stop"})
         _recv_until(ws, "debate_session_status", "completed")
 
 
-def test_a_start_frame_with_only_a_system_prompt_carries_it_through_a_redirect(ws_env):
+def test_a_start_frame_with_only_a_system_prompt_passes_it_on(ws_env):
     """Settings used to be read only from frames naming a summarizer, so a
     system prompt on its own would have been dropped."""
     client, state = ws_env
@@ -146,7 +151,7 @@ def test_a_start_frame_with_only_a_system_prompt_carries_it_through_a_redirect(w
         _recv_until(ws, "debate_round_start")
         ws.send_json({"type": "debate_redirect", "message": "narrower"})
         _recv_until(ws, "debate_round_start")
-        assert [c.system_prompt for c in state["contexts"]] == ["Be terse.", "Be terse."]
+        assert state["contexts"][0].system_prompt == "Be terse." and state["contexts"][1] is None
         ws.send_json({"type": "debate_control", "action": "stop"})
         _recv_until(ws, "debate_session_status", "completed")
 

@@ -15,7 +15,7 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from app.api.history import get_history
 from app.core import database as db
 from app.llm import CallableModelFactory, use_model_factory
-from app.services.arena import open_graph
+from app.services.arena import open_graph, turn_start
 from app.services.chat import stream_turn
 from app.services.runs import resolve_fork_point
 
@@ -43,7 +43,8 @@ def isolated(tmp_path, monkeypatch):
 
 
 async def _turn(graph_app, thread_id, text):
-    parent = await resolve_fork_point(graph_app, thread_id)
+    # Where the app forks a turn nobody pointed anywhere.
+    parent = (await turn_start(graph_app, thread_id)).default
     end = None
     async for event in stream_turn(graph_app, thread_id, parent, message=text, model=MODEL):
         if event["type"] == "end":

@@ -92,7 +92,7 @@ def test_tree_unknown_thread_fails():
 def test_synthesize_thread_combines_branch_answers():
     _json(["arena", "Q?", "-m", A, "-m", B, "-t", "t-syn", "--no-synthesize", "--format", "json"])
     out = _json(["synthesize", "-t", "t-syn", "-j", B, "--format", "json"])
-    assert sorted(a["content"] for a in out["answers"].values()) == sorted([f"reply from {A}", f"reply from {B}"])
+    assert sorted(a["content"] for a in out["answers"]) == sorted([f"reply from {A}", f"reply from {B}"])
     assert out["synthesis"]["model"] == B
     assert out["synthesis"]["content"] == f"reply from {B}"
 
@@ -130,7 +130,7 @@ def test_synthesize_debate_recovers_question():
 def test_threads_and_models_json():
     _json(["chat", "hi", "-m", A, "-t", "t-list", "--format", "json"])
     threads = _json(["threads", "--format", "json"])["threads"]
-    assert {"id": "t-list", "title": "hi"} in threads
+    assert {"id": "t-list", "title": "hi"} in [{"id": t["id"], "title": t["title"]} for t in threads]
     models = _json(["models", "--format", "json"])["models"]
     assert any(m["id"] == A and m["key_available"] for m in models)
 
@@ -158,25 +158,28 @@ async def test_mcp_exposes_tools(mcp_server):
 @pytest.mark.asyncio
 async def test_mcp_arena_returns_answers_and_branches_are_readable(mcp_server):
     async with Client(mcp_server) as client:
-        res = (await client.call_tool("invoke_arena", {"prompt": "Q?", "models": [A, B], "thread_id": "m1"})).data
-        assert res["answers"][B]["content"] == f"reply from {B}"
+        res = (await client.call_tool("invoke_arena", {"prompt": "Q?", "models": [A, B]})).data
+        thread = res["thread_id"]
+        assert res["new_thread"] is True
+        answer = {a["model"]: a for a in res["answers"]}
+        assert answer[B]["content"] == f"reply from {B}" and answer[B]["model_name"]
         assert res["synthesis"]["model"] == A
 
         branch = (await client.call_tool(
-            "get_thread_messages", {"thread_id": "m1", "checkpoint_id": res["answers"][B]["checkpoint_id"]}
+            "get_thread_messages", {"thread_id": thread, "checkpoint_id": answer[B]["checkpoint_id"]}
         )).data
         assert [m["content"] for m in branch["messages"]] == ["Q?", f"reply from {B}"]
 
-        answers = (await client.call_tool("get_branch_answers", {"thread_id": "m1"})).data["answers"]
+        answers = (await client.call_tool("get_branch_answers", {"thread_id": thread})).data["answers"]
         # The synthesis branch is a tip too, but the fake gives it the same
         # text as gpt-5.4's answer and identical tips are deduplicated.
         assert {a["content"] for a in answers} == {f"reply from {A}", f"reply from {B}"}
 
-        status = (await client.call_tool("get_thread_status", {"thread_id": "m1"})).data
+        status = (await client.call_tool("get_thread_status", {"thread_id": thread})).data
         assert status["message_count"] >= 2
         assert status["thesis"] is None  # key kept for callers; no longer maintained
 
-        summary = (await client.call_tool("get_thread_summary", {"thread_id": "m1"})).data
+        summary = (await client.call_tool("get_thread_summary", {"thread_id": thread})).data
         assert summary["thesis"] is None
         assert summary["context_summary"] is None  # nothing was compacted
         assert summary["latest_answer"]["content"].startswith("reply from ")

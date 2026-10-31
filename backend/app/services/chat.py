@@ -6,6 +6,7 @@ with a run id (see services/runs.py), so parallel models in one turn stay on
 their own branches.
 """
 
+import asyncio
 import logging
 from typing import Any, AsyncIterator, Dict, Mapping, Optional, Sequence
 
@@ -14,7 +15,15 @@ from langchain_core.messages import HumanMessage
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.documents import attach_documents
 from app.services.recall import INTERNAL_TAG
-from app.services.runs import TURN_KIND_KEY, TURN_KINDS, final_state_of_run, tag_run, tag_turn_kind, thread_config
+from app.services.runs import (
+    TURN_KIND_KEY,
+    TURN_KINDS,
+    final_state_of_run,
+    tag_run,
+    tag_turn,
+    tag_turn_kind,
+    thread_config,
+)
 from app.utils.helpers import clean_string, extract_text
 
 log = logging.getLogger(__name__)
@@ -68,6 +77,7 @@ def build_turn_input(
         "is_deliberation": is_deliberation,
         "attached_documents": list(document_names),
         "documents": {},
+        "notices": [],
         "messages": [message],
     }
 
@@ -82,29 +92,74 @@ def auto_title(first_user_message: str) -> Optional[str]:
     return first_line[:TITLE_CHARS].rsplit(" ", 1)[0] + "…"
 
 
+def thread_title(first_message: str, kind: Optional[str] = None) -> Optional[str]:
+    """The title a new thread gets, whichever client started it: its first
+    message (auto_title); a debate's says it is one."""
+    title = auto_title(first_message or "")
+    if kind == "debate":
+        return f"Debate: {title}" if title else "Debate"
+    if kind == "deliberation" and not title:
+        return "Deliberation"
+    return title
+
+
+async def name_new_thread(thread_id: str, first_message: str, kind: Optional[str] = None) -> Optional[str]:
+    """Title a thread from its first message unless it already has a title;
+    returns the title written, or None.
+
+    A thread can be titled before its first checkpoint (a debate's parent is
+    named after the debate), so an existing title is never overwritten. The
+    writes run off the event loop: the checkpointer commits on the loop, and
+    a blocking write there can wait on a lock that is only released once it
+    returns ("database is locked")."""
+    from app.core import database as db
+
+    title = thread_title(first_message, kind)
+    if not title or await asyncio.to_thread(db.get_thread_title, thread_id):
+        return None
+    await asyncio.to_thread(db.rename_thread, thread_id, title)
+    return title
+
+
 async def path_messages(graph_app, final_state) -> list:
     """Client-ready messages on the path from the root to `final_state`.
 
-    Walks parent checkpoints rather than reading final_state's own messages,
-    which may be pruned by summarisation.
+    Built from the path's checkpoints rather than final_state's own messages,
+    which may be pruned by summarisation. The thread's checkpoints come in
+    one saver pass; walking parent links with a read per checkpoint made
+    every reply's cost grow with the thread's length.
     """
     from app.services.tree import format_messages
 
+    states = await thread_state_map(graph_app, final_state.config["configurable"]["thread_id"])
+    cid = final_state.config["configurable"]["checkpoint_id"]
+    states.setdefault(cid, final_state)
+    return format_messages(cid, states)
+
+
+async def thread_state_map(graph_app, thread_id: str) -> Dict[str, Any]:
+    """Every checkpoint of a thread by id, in one saver pass."""
     states: Dict[str, Any] = {}
-    current = final_state
-    base = current.config
-    while current:
-        cid = current.config.get("configurable", {}).get("checkpoint_id")
-        if not cid:
+    async for snapshot in graph_app.aget_state_history(thread_config(thread_id)):
+        states[snapshot.config["configurable"]["checkpoint_id"]] = snapshot
+    return states
+
+
+def node_checkpoint(snapshot, states: Mapping[str, Any]) -> str:
+    """The checkpoint the tree shows for the message ``snapshot`` ends on:
+    the first of the run's consecutive checkpoints ending on it. Every id the
+    backend hands out is this one, so an id from a reply, the tree, search or
+    a path is the same id (deleting it deletes that reply)."""
+    from app.services.tree import get_content_key
+
+    key = get_content_key(snapshot)
+    current = snapshot
+    while current.parent_config:
+        parent = states.get(current.parent_config["configurable"]["checkpoint_id"])
+        if parent is None or get_content_key(parent) != key:
             break
-        states[cid] = current
-        parent_id = (current.parent_config or {}).get("configurable", {}).get("checkpoint_id")
-        if not parent_id or parent_id in states:
-            break
-        current = await graph_app.aget_state(
-            {**base, "configurable": {**base["configurable"], "checkpoint_id": parent_id}}
-        )
-    return format_messages(final_state.config["configurable"]["checkpoint_id"], states)
+        current = parent
+    return current.config["configurable"]["checkpoint_id"]
 
 
 async def stream_turn(
@@ -116,20 +171,35 @@ async def stream_turn(
     model: str,
     toggles: Optional[Mapping[str, bool]] = None,
     documents: Optional[Mapping[str, str]] = None,
+    document_names: Optional[Sequence[str]] = None,
     is_deliberation: bool = False,
     context: ContextSettings = DEFAULT_CONTEXT,
     turn_kind: Optional[str] = None,
+    turn_id: Optional[str] = None,
+    configurable: Optional[Mapping[str, Any]] = None,
+    with_path: bool = True,
 ) -> AsyncIterator[Dict[str, Any]]:
-    """Run one model's turn. Yields ``token`` events, then one ``end`` event
-    carrying the new checkpoint id, the reply's text and the path's messages.
-    Raises on failure.
+    """Run one model's turn: every client's turns (chat, arena, synthesis,
+    debate rounds) go through here.
 
-    ``turn_kind="synthesis"`` tags the turn's checkpoints, so the tree and the
-    transcript can show the reply as a synthesis rather than another answer."""
+    Yields ``token`` events, ``drafted`` once the reply is written (later
+    nodes are bookkeeping), then one ``end`` event: the reply's checkpoint
+    (its tree node), text, turn id, the run's attached documents and
+    retrieved sources, notices about anything that degraded the turn, and
+    (``with_path``) the path's messages. Raises on failure.
+
+    ``parent_checkpoint_id`` None continues from the thread head.
+    ``documents`` are saved and attached; ``document_names`` attach files
+    already saved for the run's document thread. ``turn_kind="synthesis"``
+    tags the turn's checkpoints, so the tree and the transcript can show the
+    reply as a synthesis. ``configurable`` adds run settings (e.g. the
+    document thread a debate lane reads)."""
     config = context.apply(thread_config(thread_id, parent_checkpoint_id))
+    config["configurable"].update(configurable or {})
     run_id = tag_run(config)
     tag_turn_kind(config, turn_kind)
-    document_names = await attach_documents(config, documents)
+    tag_turn(config, turn_id)
+    names = list(document_names) if document_names is not None else await attach_documents(config, documents)
     state = await graph_app.aget_state(config)
 
     current = state.values.get("messages", [])
@@ -143,13 +213,17 @@ async def stream_turn(
         message=message,
         model=model,
         toggles=toggles,
-        document_names=document_names,
+        document_names=names,
         is_deliberation=is_deliberation,
         turn_kind=turn_kind,
     )
 
     async for event in graph_app.astream_events(turn_input, config, version="v2", exclude_tags=[INTERNAL_TAG]):
-        if event.get("event") != "on_chat_model_stream":
+        kind = event.get("event")
+        if kind == "on_chain_end" and event.get("name") == "draft":
+            yield {"type": "drafted"}
+            continue
+        if kind != "on_chat_model_stream":
             continue
         if event.get("metadata", {}).get("langgraph_node") != "draft":
             continue
@@ -163,12 +237,24 @@ async def stream_turn(
     final = await final_state_of_run(graph_app, thread_id, run_id)
     if final is None:
         raise RuntimeError(f"{model} finished without writing a checkpoint")
-    yield {
+    states = await thread_state_map(graph_app, thread_id)
+    cid = final.config["configurable"]["checkpoint_id"]
+    states.setdefault(cid, final)
+    values = final.values or {}
+    end = {
         "type": "end",
-        "checkpoint_id": final.config["configurable"]["checkpoint_id"],
+        "checkpoint_id": node_checkpoint(final, states),
         "content": reply_text(final),
-        "messages": await path_messages(graph_app, final),
+        "turn_id": turn_id,
+        "attached_documents": list(values.get("attached_documents") or []),
+        "retrieved": sorted({c.get("filename") for c in values.get("retrieved_chunks") or [] if c.get("filename")}),
+        "notices": list(values.get("notices") or []),
     }
+    if with_path:
+        from app.services.tree import format_messages
+
+        end["messages"] = format_messages(cid, states)
+    yield end
 
 
 def reply_text(state) -> str:

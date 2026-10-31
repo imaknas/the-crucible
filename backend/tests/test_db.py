@@ -380,7 +380,7 @@ class TestDebateParentTitle:
                 conn.execute("CREATE TABLE checkpoints (thread_id TEXT, checkpoint_id TEXT)")
             db.create_debate_session(self._session("thread_new"))
             assert db.get_thread_title("thread_new") is None
-            assert {"id": "thread_new", "title": "thread_new"} in db.list_threads()
+            assert {"id": "thread_new", "title": "thread_new"} in [{"id": t["id"], "title": t["title"]} for t in db.list_threads()]
 
     def test_init_clears_placeholder_titles(self, tmp_path):
         from app.core import database as db

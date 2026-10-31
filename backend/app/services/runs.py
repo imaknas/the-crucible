@@ -20,6 +20,9 @@ SEED_KEY = "crucible_seed"
 TURN_KIND_KEY = "crucible_turn"
 SYNTHESIS_TURN = "synthesis"
 TURN_KINDS = frozenset({SYNTHESIS_TURN})
+# Shared by every run of one turn (each model answering the same message), so
+# readers can group the replies to it even when they sit on different branches.
+TURN_ID_KEY = "crucible_turn_id"
 # Names the debate session a parent-thread checkpoint records (written by
 # debate.continue_from_debate when a chat turn follows a debate).
 DEBATE_RECORD_KEY = "crucible_debate"
@@ -37,6 +40,16 @@ def tag_run(config: Dict[str, Any]) -> str:
     run_id = uuid.uuid4().hex
     config["metadata"] = {**config.get("metadata", {}), RUN_ID_KEY: run_id}
     return run_id
+
+
+def new_turn_id() -> str:
+    return uuid.uuid4().hex
+
+
+def tag_turn(config: Dict[str, Any], turn_id: Optional[str]) -> None:
+    """Mark the run as part of turn ``turn_id`` (copied into checkpoint metadata)."""
+    if turn_id:
+        config["metadata"] = {**config.get("metadata", {}), TURN_ID_KEY: turn_id}
 
 
 def tag_turn_kind(config: Dict[str, Any], kind: Optional[str]) -> None:

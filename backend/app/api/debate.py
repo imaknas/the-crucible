@@ -1,5 +1,7 @@
 import asyncio
 import json
+import logging
+from contextlib import aclosing
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
@@ -9,6 +11,8 @@ from app.api.deps import get_graph_app
 from app.core import database as db
 from app.services import debate as debate_svc
 from app.services.context import ContextSettings
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/debate", tags=["debate"])
 
@@ -48,9 +52,15 @@ def create_session(req: CreateSessionRequest) -> dict[str, Any]:
         raise HTTPException(400, str(e))
 
 
+def _row(session: dict[str, Any]) -> dict[str, Any]:
+    """The stored session plus what a reader wants (its question)."""
+    view = debate_svc.session_view(session)
+    return {**session, "question": view["question"], "questions": view["questions"], "created_at": view["created_at"]}
+
+
 @router.get("/sessions")
 def list_sessions(parent_thread_id: str | None = None) -> list[dict[str, Any]]:
-    return db.list_debate_sessions(parent_thread_id)
+    return [_row(s) for s in db.list_debate_sessions(parent_thread_id)]
 
 
 @router.get("/sessions/{session_id}")
@@ -58,7 +68,16 @@ def get_session(session_id: str) -> dict[str, Any]:
     session = db.get_debate_session(session_id)
     if not session:
         raise HTTPException(404, f"Session {session_id} not found")
-    return session
+    return _row(session)
+
+
+@router.get("/sessions/{session_id}/transcript")
+async def get_transcript(session_id: str, graph_app=Depends(get_graph_app)):
+    """Every round of every participant, aligned by round, plus the synthesis."""
+    try:
+        return await debate_svc.debate_transcript(graph_app, session_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
 
 
 @router.delete("/sessions/{session_id}", status_code=204)
@@ -104,9 +123,6 @@ class DebateConnection:
         self._lock = asyncio.Lock()
         self._task: Optional[asyncio.Task] = None
         self.control = debate_svc.DebateControl()
-        # The start frame's history choices; a redirect frame carries none,
-        # so the redirected debate keeps them.
-        self.context = ContextSettings()
 
     # ─── plumbing ────────────────────────────────────────────────
     async def send(self, event: dict) -> None:
@@ -133,34 +149,43 @@ class DebateConnection:
         self._task = None
 
     async def _run(self, events) -> None:
-        async for event in events:
-            await self.send(event)
+        try:
+            async with aclosing(events):
+                async for event in events:
+                    await self.send(event)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            # The task has no other way to tell the client; without this the
+            # debate just stopped streaming.
+            log.exception("[Debate WS] run failed")
+            await self.send({"type": "error", "session_id": self.session_id, "message": f"The debate stopped: {e}"})
 
-    async def _settings(self, data: dict) -> Optional[ContextSettings]:
-        """The frame's context settings (the connection's own when it names
-        none), or None after reporting why they cannot be used."""
-        context = ContextSettings.from_frame(data) if ContextSettings.named_in(data) else self.context
+    async def _settings(self, data: dict) -> tuple[bool, Optional[ContextSettings]]:
+        """(usable, the frame's context settings or None = the debate's
+        stored ones); reports why a frame's settings can't be used."""
+        if not ContextSettings.named_in(data):
+            return True, None
+        context = ContextSettings.from_frame(data)
         if problem := context.problem():
             await self.send({"type": "error", "session_id": self.session_id, "message": problem})
-            return None
-        self.context = context
-        return context
+            return False, None
+        return True, context
 
     async def _restart(self, prompt: str, data: dict, parent_checkpoint_id: Optional[str]) -> None:
+        # Our own run first: its claim on the session ends with it.
         await self._cancel()
-        if not db.get_debate_session(self.session_id):
-            await self.send({"type": "error", "message": f"Session {self.session_id} not found"})
-            return
-        context = await self._settings(data)
-        if context is None:
+        usable, context = await self._settings(data)
+        if not usable:
             return
         self.control = debate_svc.DebateControl()
         self._task = asyncio.create_task(self._run(debate_svc.run_debate(
             graph_app=self.graph_app,
             session_id=self.session_id,
             prompt=prompt,
-            toggles=data.get("toggles", {}),
-            documents=data.get("documents", {}),
+            toggles=data.get("toggles"),
+            documents=data.get("documents") or {},
+            document_names=data.get("document_names"),
             parent_checkpoint_id=parent_checkpoint_id,
             control=self.control,
             context=context,
@@ -173,6 +198,25 @@ class DebateConnection:
     async def on_redirect(self, data: dict) -> None:
         # Restart on the new prompt, from each model's current thread head.
         await self._restart(data.get("message", ""), data, None)
+
+    async def on_continue(self, data: dict) -> None:
+        """More rounds of a stopped debate (e.g. one interrupted by a reload),
+        with an optional message injected into the first."""
+        await self._cancel()
+        usable, context = await self._settings(data)
+        if not usable:
+            return
+        self.control = debate_svc.DebateControl()
+        message = (data.get("message") or "").strip()
+        self._task = asyncio.create_task(self._run(debate_svc.continue_debate(
+            self.graph_app,
+            self.session_id,
+            rounds=int(data.get("rounds") or 1),
+            inject=[message] if message else [],
+            toggles=data.get("toggles"),
+            control=self.control,
+            context=context,
+        )))
 
     async def on_inject(self, data: dict) -> None:
         message = (data.get("message") or "").strip()
@@ -205,8 +249,8 @@ class DebateConnection:
         # Synthesising ends the debate: stop the rounds first so the old task
         # can't be orphaned beyond the reach of stop/disconnect.
         await self._cancel()
-        context = await self._settings(data)
-        if context is None:
+        usable, context = await self._settings(data)
+        if not usable:
             return
 
         async def synthesize():
@@ -215,16 +259,16 @@ class DebateConnection:
                 self.session_id,
                 prompt=data.get("prompt", ""),
                 synthesizer=data.get("synthesizer_model"),
-                toggles=data.get("toggles", {}),
+                toggles=data.get("toggles"),
                 context=context,
             ))
-            await self.status("completed")
 
         self._task = asyncio.create_task(synthesize())
 
     COMMANDS = {
         "debate_start": on_start,
         "debate_redirect": on_redirect,
+        "debate_continue": on_continue,
         "debate_inject": on_inject,
         "debate_control": on_control,
         "debate_synthesize": on_synthesize,
@@ -244,8 +288,7 @@ class DebateConnection:
         except WebSocketDisconnect:
             pass
         finally:
-            # The debate cannot outlive its socket. Record that it was cut
-            # short so a reload doesn't restore it as "running".
+            # The debate cannot outlive its socket. The run records that it
+            # was cut short, so a reload doesn't restore it as "running".
             if self.running:
                 self._task.cancel()
-                await asyncio.to_thread(db.update_debate_session, self.session_id, status="interrupted")

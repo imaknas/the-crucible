@@ -12,6 +12,11 @@ from fastapi.testclient import TestClient
 from app.core import database as db
 from app.services import debate as debate_svc
 from app.services.debate import MAX_ROUNDS, _stream_round, check_session_config
+from types import SimpleNamespace
+
+from langchain_core.messages import AIMessage
+
+from app.services.runs import SEED_KEY
 
 A, B = "gpt-5.4", "claude-sonnet-5"
 
@@ -128,9 +133,17 @@ class _OneReply:
         yield {"event": "on_chain_end", "name": "draft", "data": {}}
         yield {"event": "on_chain_end", "name": "LangGraph", "data": {"output": {"messages": []}}}
 
+    async def aget_state(self, config):
+        return SimpleNamespace(values={}, created_at="t0", config=config, parent_config=None, metadata={}, next=())
+
     async def aget_state_history(self, config, filter=None, limit=None):
-        if False:
-            yield None
+        if filter and SEED_KEY in filter:
+            return
+        yield SimpleNamespace(
+            values={"messages": [AIMessage(content="ok")]},
+            config={"configurable": {**config["configurable"], "checkpoint_id": "cp-final"}},
+            parent_config=None, metadata={}, next=(), created_at="t1",
+        )
 
 
 @pytest.mark.asyncio
@@ -170,6 +183,9 @@ async def test_a_stored_round_count_above_the_limit_is_capped(monkeypatch):
     monkeypatch.setattr(debate_svc.db, "get_debate_session", lambda _sid: session)
     monkeypatch.setattr(debate_svc.db, "update_debate_session", lambda *a, **k: None)
     monkeypatch.setattr(debate_svc.db, "get_thread_title", lambda _t: "titled")
+    monkeypatch.setattr(debate_svc.db, "claim_debate_session", lambda *_a: True)
+    monkeypatch.setattr(debate_svc.db, "append_debate_entry", lambda *_a: None)
+    monkeypatch.setattr(debate_svc.db, "record_round_score", lambda *_a: None)
 
     rounds = [
         e["round"]

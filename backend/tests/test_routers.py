@@ -15,6 +15,7 @@ def mock_db():
         patch("app.core.database.get_thread_checkpoint_graph") as mock_graph,
         patch("app.core.database.list_threads") as mock_threads,
         patch("app.core.database.get_all_checkpoint_ids") as mock_cids,
+        patch("app.core.database.thread_exists", return_value=True),
     ):
         yield {"graph": mock_graph, "threads": mock_threads, "cids": mock_cids}
 
@@ -72,7 +73,8 @@ def test_delete_thread(client, mock_db):
 
 
 def test_rename_thread(client):
-    with patch("app.core.database.rename_thread") as mock_rename:
+    with patch("app.core.database.rename_thread") as mock_rename, \
+            patch("app.core.database.thread_exists", return_value=True):
         response = client.patch("/threads/t1/rename", json={"title": "New Title"})
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
@@ -80,36 +82,30 @@ def test_rename_thread(client):
 
 
 def test_delete_checkpoint(client, mock_graph_app):
-    with (
-        patch("app.core.database.get_all_checkpoint_ids") as mock_get_all,
-        patch("app.core.database.get_thread_checkpoint_graph") as mock_graph,
-        patch("app.core.database.delete_checkpoint_data") as mock_del,
-    ):
-        mock_get_all.return_value = {"cp1", "cp2", "cp3"}
-        # Graph: cp1 is root, cp2 child of cp1, cp3 child of cp2
-        # If we delete cp2, it should also delete cp3
-        mock_graph.return_value = [("cp1", "root"), ("cp2", "cp1"), ("cp3", "cp2")]
+    """Deleting a node takes everything below it, never what's above."""
+    from types import SimpleNamespace
 
-        # mock aget_state
-        mock_state = MagicMock()
-        mock_state.values = {"messages": []}
+    from langchain_core.messages import AIMessage, HumanMessage
 
-        async def mock_aget_state(*args, **kwargs):
-            return mock_state
+    q, a, f = HumanMessage(content="Q"), AIMessage(content="A"), HumanMessage(content="Follow-up")
+    chain = {"cp1": ([q], None), "cp2": ([q, a], "cp1"), "cp3": ([q, a, f], "cp2")}
 
-        mock_graph_app.aget_state = mock_aget_state
+    async def history(config, **_kwargs):
+        for cid, (messages, parent) in chain.items():
+            yield SimpleNamespace(
+                values={"messages": messages}, metadata={}, next=(), created_at=cid,
+                config={"configurable": {"thread_id": "t1", "checkpoint_id": cid}},
+                parent_config={"configurable": {"checkpoint_id": parent}} if parent else None,
+            )
 
-
-        with patch("app.services.tree.get_content_key", return_value="hash"):
-            response = client.delete("/history/t1/checkpoints/cp2")
-
+    mock_graph_app.aget_state_history = history
+    with patch("app.core.database.delete_checkpoint_data") as mock_del:
+        response = client.delete("/history/t1/checkpoints/cp2")
         assert response.status_code == 200
+        assert mock_del.call_args[0][1] == {"cp2", "cp3"}
 
-        # Check what was deleted
-        args = mock_del.call_args[0][1]  # set of ids
-        assert "cp2" in args
-        assert "cp3" in args
-        assert "cp1" not in args
+        assert client.delete("/history/t1/checkpoints/cp1").status_code == 400  # the thread's start
+        assert client.delete("/history/t1/checkpoints/nope").status_code == 404
 
 
 def test_save_node_positions(client):
@@ -155,7 +151,8 @@ def test_get_graph_topology(client, mock_graph_app):
 
 
 def test_search_history_with_results(client, mock_graph_app):
-    with patch("app.core.database.get_thread_checkpoint_graph") as mock_get_graph:
+    with patch("app.core.database.get_thread_checkpoint_graph") as mock_get_graph, \
+            patch("app.core.database.thread_exists", return_value=True):
         mock_get_graph.return_value = [("cp1", "root")]
 
         # mock aget_state to return state with messages

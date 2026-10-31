@@ -1,5 +1,5 @@
 import asyncio
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -25,24 +25,27 @@ async def get_history(
 
 @router.post("/{thread_id}/positions")
 async def save_positions(thread_id: str, updates: List[PositionUpdate]):
-    try:
-        await asyncio.to_thread(db.save_node_positions, thread_id, updates)
-        return {"status": "ok"}
-    except Exception as e:
-        return {"error": str(e)}
+    await asyncio.to_thread(db.save_node_positions, thread_id, updates)
+    return {"status": "ok"}
 
 
 @router.delete("/{thread_id}/checkpoints/{checkpoint_id}")
 async def delete_checkpoint(thread_id: str, checkpoint_id: str, graph_app=Depends(get_graph_app)):
     try:
-        return {"status": "ok", "deleted_count": await history.delete_branch(graph_app, thread_id, checkpoint_id)}
-    except Exception as e:
-        import traceback
-
-        traceback.print_exc()
-        return {"error": str(e)}
+        deleted = await history.delete_branch(graph_app, thread_id, checkpoint_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    if not deleted:
+        raise HTTPException(404, f"Checkpoint {checkpoint_id} not found on thread {thread_id}.")
+    return {"status": "ok", "deleted_count": deleted}
 
 
 @router.get("/{thread_id}/search")
 async def search_history(thread_id: str, q: str, graph_app=Depends(get_graph_app)):
-    return {"results": await history.search_thread(graph_app, thread_id, q)}
+    # The sidebar searches as the person types: a too-short query finds nothing.
+    if len(q.strip()) < 2:
+        return {"results": []}
+    try:
+        return {"results": await history.search_thread(graph_app, thread_id, q)}
+    except ValueError as e:
+        raise HTTPException(404, str(e))

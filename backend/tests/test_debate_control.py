@@ -1,7 +1,10 @@
 """Debate controls: inject, pause/resume, stop cancellation, timeout handling."""
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+from langchain_core.messages import AIMessage
 
 import pytest
 
@@ -9,6 +12,7 @@ from app.services import debate as debate_svc
 from app.services.convergence import _compute_sync
 from app.services.debate import DebateControl, _build_round_prompts, run_debate
 from app.services.peers import NamedPeers
+from app.services.runs import SEED_KEY
 
 PARTICIPANTS = ["gpt-5.4", "claude-sonnet-5"]
 
@@ -51,9 +55,19 @@ class FakeGraph:
             self.cancelled += 1
             raise
 
+    # What chat.stream_turn reads around the run: an empty thread before it,
+    # and the run's own last checkpoint after it.
+    async def aget_state(self, config):
+        return SimpleNamespace(values={}, created_at="t0", config=config, parent_config=None, metadata={}, next=())
+
     async def aget_state_history(self, config, filter=None, limit=None):
-        if False:
-            yield None
+        if filter and SEED_KEY in filter:
+            return
+        yield SimpleNamespace(
+            values={"messages": [AIMessage(content="answer")]},
+            config={"configurable": {**config["configurable"], "checkpoint_id": "cp-final"}},
+            parent_config=None, metadata={}, next=(), created_at="t1",
+        )
 
 
 async def _collect(gen, on_event=None):
@@ -73,6 +87,8 @@ class _PatchedDb:
             patch.object(debate_svc.db, "get_debate_session", return_value=_session(max_rounds)),
             patch.object(debate_svc.db, "update_debate_session"),
             patch.object(debate_svc.db, "get_thread_title", return_value="titled"),
+            patch.object(debate_svc.db, "claim_debate_session", return_value=True),
+            patch.object(debate_svc.db, "append_debate_entry"),
         ]
 
     def __enter__(self):

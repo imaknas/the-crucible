@@ -204,11 +204,19 @@ def _opt_force():
 # ─── CHAT / ARENA ────────────────────────────────────────────────
 
 
+def _check_turn_options(as_json: bool, thread, from_checkpoint, after_debate) -> None:
+    """Option combinations that can't work, refused before anything runs."""
+    if from_checkpoint and not thread:
+        raise typer.BadParameter("--from needs --thread (the checkpoint's thread)", param_hint="--from")
+    if from_checkpoint and after_debate:
+        raise typer.BadParameter("pass --from or --after-debate, not both", param_hint="--after-debate")
+
+
 @app.command()
 def chat(
     prompt: Optional[str] = typer.Argument(None, help="The message to send (or pipe via stdin)."),
-    model: str = typer.Option(DEFAULT_MODEL, "--model", "-m", help="Model ID to use."),
-    thread: Optional[str] = typer.Option(None, "--thread", "-t", help="Existing thread to continue."),
+    model: List[str] = typer.Option([DEFAULT_MODEL], "--model", "-m", help="Model ID to use (one; `crucible arena` asks several)."),
+    thread: Optional[str] = typer.Option(None, "--thread", "-t", help="Thread to continue (a new id starts a thread by that name)."),
     from_checkpoint: Optional[str] = _opt_from(),
     after_debate: Optional[str] = _opt_after_debate(),
     deliberate: bool = typer.Option(
@@ -224,27 +232,33 @@ def chat(
     """
     [bold green]💬 Chat[/bold green] — One model's turn.
 
-    Supports stdin piping: echo "question" | crucible chat --model gpt-5.4
+    Without --from it continues the model's own latest reply on the thread
+    (or the latest answer). Supports stdin piping: echo "question" | crucible chat -m gpt-5.4
     """
     as_json = _check_format(format_output)
     _load_env()
+    if len(model) > 1:
+        raise typer.BadParameter("chat asks one model; `crucible arena` asks several", param_hint="--model")
+    _check_turn_options(as_json, thread, from_checkpoint, after_debate)
+    model_id = model[0]
 
     if prompt is None and not sys.stdin.isatty():
         prompt = sys.stdin.read().strip()
     if not prompt and not deliberate:
         _fail("No prompt provided. Pass a message or pipe via stdin.", as_json)
 
-    _validate_models([model], as_json)
+    _validate_models([model_id], as_json)
     context = _run_context(as_json, summarizer, system)
     documents = _documents(attach, as_json)
     thread_id = thread or (_debate_thread(after_debate, as_json) if after_debate else _gen_thread_id("chat"))
     result = _run(
-        _run_turn(prompt or "", [model], thread_id, None, _toggles(web_search, rag), as_json, context,
+        _run_turn(prompt or "", [model_id], thread_id, None, _toggles(web_search, rag), as_json, context,
                   parent=from_checkpoint, after_debate=after_debate, documents=documents, deliberate=deliberate),
         as_json,
     )
-    answer = result["answers"].get(model, {})
-    out = {"thread_id": thread_id, "model": model, **answer, "parent_checkpoint_id": result["parent_checkpoint_id"]}
+    answer = result["answers"].get(model_id, {})
+    out = {"thread_id": thread_id, "model": model_id, "new_thread": result["new_thread"],
+           "parent_checkpoint_id": result["parents"].get(model_id), "turn_id": result["turn_id"], **answer}
     if as_json:
         _emit_json(out)
     if answer.get("error"):
@@ -253,12 +267,12 @@ def chat(
 
 @app.command()
 def arena(
-    prompt: Optional[str] = typer.Argument(None, help="The question to put to every model."),
+    prompt: Optional[str] = typer.Argument(None, help="The question to put to every model (optional with --deliberate)."),
     models: Optional[List[str]] = typer.Option(
         None, "--models", "-m", help="Model IDs to include (repeat the flag)."
     ),
     thread: Optional[str] = typer.Option(
-        None, "--thread", "-t", help="Existing thread ID to continue."
+        None, "--thread", "-t", help="Thread to continue (a new id starts a thread by that name)."
     ),
     from_checkpoint: Optional[str] = _opt_from(),
     after_debate: Optional[str] = _opt_after_debate(),
@@ -282,12 +296,15 @@ def arena(
     [bold green]⚔️  Arena Mode[/bold green] — Multi-model parallel answers.
 
     Every model answers the same prompt independently (each on its own branch),
-    then one model synthesizes the answers.
+    then one model synthesizes the answers. Without --from, each model
+    continues its own latest reply, so models that answered side by side keep
+    their own conversations. Exits 1 if any model or the synthesis failed.
     """
     as_json = _check_format(format_output)
     _load_env()
+    _check_turn_options(as_json, thread, from_checkpoint, after_debate)
     if not prompt and not deliberate:
-        _fail("No prompt provided.", as_json)
+        _fail("No prompt provided. Pass the question as an argument.", as_json)
     resolved = _validate_models(models, as_json)
     synthesizer = None if (no_synthesize or deliberate) else (judge or resolved[0])
     if synthesizer:
@@ -303,7 +320,8 @@ def arena(
     )
     if as_json:
         _emit_json(result)
-    if result["answers"] and all(a["error"] for a in result["answers"].values()):
+    failed = any(a["error"] for a in result["answers"].values())
+    if failed or (result["synthesis"] and result["synthesis"]["error"]):
         raise typer.Exit(1)
 
 
@@ -311,28 +329,28 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
                     parent=None, after_debate=None, documents=None, deliberate=False):
     """One turn by every model in ``models`` (chat is one model), then the
     synthesis if a synthesizer is set."""
-    from app.core import database as db
+    from rich.markup import escape
+
     from app.services.arena import open_graph, run_arena
-    from app.services.chat import auto_title
+    from app.services.chat import name_new_thread
     from app.services.context import DEFAULT_CONTEXT
     from app.cli_display import (
         ArenaDisplay, ReplyDisplay, print_header, print_info, print_success, print_error, render_synthesis,
     )
 
     single = len(models) == 1 and not synthesizer
-    result: Dict[str, Any] = {"thread_id": thread_id, "prompt": prompt, "parent_checkpoint_id": None, "answers": {}, "synthesis": None}
+    result: Dict[str, Any] = {
+        "thread_id": thread_id, "prompt": prompt, "new_thread": False, "turn_id": None,
+        "parent_checkpoint_id": None, "parents": {}, "answers": {}, "synthesis": None,
+    }
     display = None
     if not as_json:
         if not single:
             print_header()
-        print_info(f"Thread: [dim]{thread_id}[/dim]")
+        print_info(f"Thread: [dim]{escape(thread_id)}[/dim]")
         if not single:
-            print_info(f"Models: {', '.join(models)}")
-        console.print()
-        display = ReplyDisplay(models[0]) if single else ArenaDisplay(models)
-        display.start()
+            print_info(f"Models: {escape(', '.join(models))}")
 
-    new_thread = False
     async with open_graph() as graph_app:
         try:
             async for event in run_arena(graph_app, prompt, thread_id, models, toggles, synthesizer,
@@ -340,12 +358,22 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
                                          after_debate=after_debate, documents=documents, is_deliberation=deliberate):
                 kind = event["type"]
                 if kind == "start":
-                    result["parent_checkpoint_id"] = event["parent_checkpoint_id"]
-                    new_thread = event["new_thread"]
+                    result.update({k: event[k] for k in ("parent_checkpoint_id", "parents", "new_thread", "turn_id")})
+                    if not as_json:
+                        if event["new_thread"] and parent is None and after_debate is None:
+                            print_info(f"Starting a new thread [dim]{escape(thread_id)}[/dim]")
+                        else:
+                            for model, cp in event["parents"].items():
+                                print_info(f"{escape(model)} continues from [dim]{cp}[/dim]")
+                        console.print()
+                        display = ReplyDisplay(models[0]) if single else ArenaDisplay(models)
+                        display.start()
                 elif kind == "token" and display:
                     display.update_token(event["model"], event["token"])
                 elif kind == "end":
-                    result["answers"][event["model"]] = {k: event[k] for k in ("content", "checkpoint_id", "error")}
+                    result["answers"][event["model"]] = {
+                        k: event.get(k) for k in ("content", "checkpoint_id", "error", "attached_documents", "retrieved", "notices")
+                    }
                     if display:
                         if event["error"]:
                             display.update_token(event["model"], f"\n[error] {event['error']}")
@@ -353,8 +381,7 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
                 elif kind == "synthesis_start" and display:
                     display.stop()
                     display = None
-                    console.print()
-                    print_info(f"Synthesizing with {event['model']}…")
+                    print_info(f"Synthesizing with {escape(event['model'])}…")
                 elif kind == "synthesis":
                     result["synthesis"] = {k: event[k] for k in ("model", "content", "checkpoint_id", "error")}
                     if not as_json:
@@ -366,18 +393,28 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
             if display:
                 display.stop()
 
-    if new_thread and not db.get_thread_title(thread_id):
-        if single:
-            title = auto_title(prompt) or ("Deliberation" if deliberate else None)
-        else:
-            title = f"{'Deliberation' if deliberate else 'Arena'}: {prompt[:40]}"
-        if title:
-            db.rename_thread(thread_id, title)
+    answered = [m for m, a in result["answers"].items() if not a["error"] and a["content"]]
+    if synthesizer and len(answered) < 2:
+        result["synthesis_skipped"] = f"only {len(answered)} model(s) answered; a synthesis needs two"
+    if result["new_thread"]:
+        await name_new_thread(thread_id, prompt, kind="deliberation" if deliberate else None)
     if not as_json:
         for model, answer in result["answers"].items():
             if answer.get("checkpoint_id"):
-                print_info(f"{model}: checkpoint [dim]{answer['checkpoint_id']}[/dim]")
-        print_success(f"Thread saved: {thread_id}")
+                print_info(f"{escape(model)}: checkpoint [dim]{answer['checkpoint_id']}[/dim]")
+            if answer.get("attached_documents"):
+                print_info(f"  attached: {escape(', '.join(answer['attached_documents']))}")
+            if answer.get("retrieved"):
+                print_info(f"  from your documents: {escape(', '.join(answer['retrieved']))}")
+            for notice in answer.get("notices") or []:
+                print_error(f"{model}: {notice}")
+        if result.get("synthesis_skipped"):
+            print_error(f"Synthesis skipped: {result['synthesis_skipped']}.")
+        failed = [m for m, a in result["answers"].items() if a["error"]]
+        if failed:
+            print_error(f"Failed: {', '.join(failed)}. Retry with --from <the checkpoint it continued from> -m <model>.")
+        if len(failed) < len(result["answers"]):
+            print_success(f"Thread saved: {thread_id}")
     return result
 
 
@@ -387,9 +424,9 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
 def debate(
     prompt: str = typer.Argument(..., help="The topic for the debate."),
     models: Optional[List[str]] = typer.Option(
-        None, "--models", "-m", help="Model IDs to debate (repeat the flag; at least two)."
+        None, "--models", "-m", help="Model IDs to debate (repeat the flag; at least two different ones)."
     ),
-    rounds: int = typer.Option(2, "--rounds", "-r", min=1, help="Maximum number of rounds."),
+    rounds: int = typer.Option(2, "--rounds", "-r", min=1, max=10, help="Maximum number of rounds (1-10)."),
     judge: Optional[str] = typer.Option(
         None, "--judge", "-j", help="Model that writes the final synthesis, an argument map (default: the first model)."
     ),
@@ -398,7 +435,8 @@ def debate(
         "anonymous", "--peers", help="How models see each other: anonymous (Participant A, B…) or named (model ids)."
     ),
     threshold: Optional[float] = typer.Option(
-        None, "--threshold", help="Stop early once every model's answer stops changing: similarity to its own previous round (0-1). Measures stability, not agreement."
+        None, "--threshold", min=0.0, max=1.0,
+        help="Stop early once every model's answer stops changing: similarity to its own previous round (0-1). Measures stability, not agreement.",
     ),
     mode: str = typer.Option("all", "--mode", help="With both --threshold and --convergence-judge: all = both must hold, any = either is enough."),
     convergence_judge: Optional[str] = typer.Option(
@@ -423,8 +461,8 @@ def debate(
     Runs the same debate engine as the web UI: each model debates on its own
     branch, sees its peers' previous answers every round, and the debate can
     stop early once answers stop changing or a judge finds agreement. The
-    session shows up in the web UI. Pause by running fewer rounds and resume
-    or inject with `crucible debates continue`.
+    session shows up in the web UI. Ctrl-C stops it; to pause, run fewer
+    rounds, then `crucible debates continue` (with --inject to add a message).
     """
     as_json = _check_format(format_output)
     _load_env()
@@ -434,9 +472,11 @@ def debate(
         raise typer.BadParameter("must be 'anonymous' or 'named'", param_hint="--peers")
     if from_checkpoint and not thread:
         raise typer.BadParameter("--from needs --thread (the checkpoint's thread)", param_hint="--from")
+    if models and len(set(models)) < len(models):
+        raise typer.BadParameter("each model can take part once", param_hint="--models")
     resolved = _validate_models(models, as_json)
     if len(resolved) < 2:
-        _fail("A debate needs at least two models with API keys.", as_json)
+        _fail("A debate needs at least two different models with API keys.", as_json)
     synthesizer = None if no_synthesize else (judge or resolved[0])
     for extra in filter(None, [synthesizer, convergence_judge]):
         _validate_models([extra], as_json)
@@ -459,6 +499,8 @@ def debate(
     )
     if as_json:
         _emit_json(result)
+    if result["failed"] or (result["synthesis"] and result["synthesis"].get("error")):
+        raise typer.Exit(1)
 
 
 # "deliberate" was this command's first name; Deliberation itself is
@@ -469,12 +511,14 @@ app.command("deliberate", hidden=True)(debate)
 
 async def _run_debate(prompt, models, thread_id, policy, synthesizer, toggles, as_json, peer_labels="anonymous",
                       context=None, *, parent=None, documents=None):
-    from app.core import database as db
     from app.services import debate as debate_svc
     from app.services.arena import open_graph
-    from app.services.context import DEFAULT_CONTEXT
+    from app.services.runs import fork_point
 
     async with open_graph() as graph_app:
+        if parent:
+            # Before the session exists: a bad checkpoint leaves nothing behind.
+            await fork_point(graph_app, thread_id, parent)
         session = debate_svc.create_session(
             parent_thread_id=thread_id,
             participants=models,
@@ -483,99 +527,122 @@ async def _run_debate(prompt, models, thread_id, policy, synthesizer, toggles, a
             synthesizer_model=synthesizer,
             peer_labels=peer_labels,
         )
-        if not db.get_thread_title(thread_id):
-            db.rename_thread(thread_id, f"Debate: {prompt[:40]}")
         events = debate_svc.run_debate(graph_app, session["session_id"], prompt, toggles, documents or {},
-                                       parent_checkpoint_id=parent, context=context or DEFAULT_CONTEXT)
+                                       parent_checkpoint_id=parent, context=context)
         return await _follow_debate(events, session, prompt, as_json, f"up to {policy['max_rounds']} round(s)")
 
 
 async def _follow_debate(events, session, prompt, as_json, plan: str) -> Dict[str, Any]:
-    """Show (or collect) a debate run's events; mark the session interrupted
-    if the run doesn't finish (Ctrl-C is how a CLI debate is stopped)."""
-    from app.core import database as db
+    """Show (or collect) a debate run's events. The run records its own
+    status; Ctrl-C (how a CLI debate is stopped) leaves it interrupted."""
+    from contextlib import aclosing
+
+    from rich.markup import escape
+
+    from app.services import debate as debate_svc
     from app.cli_display import ArenaDisplay, print_header, print_info, print_success, print_error, render_synthesis
 
     session_id, thread_id = session["session_id"], session["parent_thread_id"]
     models = list(dict.fromkeys(session["participants"]))
+    labels = debate_svc.peer_legend(session)
     result: Dict[str, Any] = {
         "session_id": session_id,
         "thread_id": thread_id,
         "prompt": prompt,
         "models": models,
+        "labels": labels,
         "rounds": [],
         "converged": None,
         "synthesis": None,
+        "failed": {},
         "errors": [],
     }
     if not as_json:
         print_header()
-        print_info(f"Thread: [dim]{thread_id}[/dim]  Session: [dim]{session_id}[/dim]")
-        print_info(f"Models: {', '.join(models)}  ·  {plan}")
+        print_info(f"Thread: [dim]{escape(thread_id)}[/dim]  Session: [dim]{session_id}[/dim]")
+        print_info(f"Models: {escape(', '.join(models))}  ·  {plan}")
+        if labels:
+            print_info("They see each other as: " + escape(", ".join(f"{label} = {m}" for m, label in labels.items())))
 
     display = None
     current: Optional[Dict[str, Any]] = None
-    finished = False
     try:
-        async for event in events:
-            kind = event["type"]
-            if kind == "debate_round_start":
-                current = {"round": event["round"], "responses": {}, "errors": {}, "convergence_score": None}
-                result["rounds"].append(current)
-                if not as_json:
-                    console.print()
-                    console.rule(f"Round {event['round'] + 1}" + (" · independent answers" if event["round"] == 0 else ""))
-                    display = ArenaDisplay(models)
-                    display.start()
-            elif kind == "stream_token" and display and current is not None:
-                display.update_token(event["model"], event["token"])
-            elif kind == "stream_end" and current is not None:
-                current["responses"][event["model"]] = event.get("content", "")
-                if display:
-                    display.finish_model(event["model"])
-            elif kind == "error":
-                if event.get("model") and current is not None:
-                    current["errors"][event["model"]] = event["message"]
-                    if display:
-                        display.update_token(event["model"], f"\n[error] {event['message']}")
-                        display.finish_model(event["model"])
-                else:
-                    result["errors"].append(event["message"])
+        async with aclosing(events):
+            async for event in events:
+                kind = event["type"]
+                if kind == "debate_round_start":
+                    current = {"round": event["round"], "responses": {}, "errors": {}, "convergence_score": None, "verdict": None}
+                    result["rounds"].append(current)
                     if not as_json:
-                        print_error(event["message"])
-            elif kind == "debate_round_end":
-                if display:
-                    display.stop()
-                    display = None
-                if current is not None:
-                    current["convergence_score"] = event.get("convergence_score")
-                if not as_json and event.get("convergence_score") is not None:
-                    print_info(f"Stability: {event['convergence_score']:.3f}")
-            elif kind == "debate_converged":
-                result["converged"] = {k: event.get(k) for k in ("round", "score", "reason", "method")}
-                if not as_json:
-                    why = "the models agree" if event.get("method") == "judge" else "answers stopped changing"
-                    print_success(f"Stopped after round {event['round'] + 1}: {why} ({event.get('reason')})")
-            elif kind == "debate_synthesis_start" and not as_json:
-                console.print()
-                print_info(f"Synthesizing with {event['model']}…")
-            elif kind == "debate_synthesis_end":
-                result["synthesis"] = {"model": event["model"], "content": event["content"], "checkpoint_id": event.get("checkpoint_id")}
-                if not as_json:
-                    render_synthesis(event["content"], event["model"])
-            elif kind == "debate_session_status" and event.get("status") == "completed":
-                finished = True
+                        console.print()
+                        console.rule(f"Round {event['round'] + 1}" + (" · independent answers" if event["round"] == 0 else ""))
+                        display = ArenaDisplay(models)
+                        display.start()
+                elif kind == "stream_token" and display and current is not None:
+                    display.update_token(event["model"], event["token"])
+                elif kind == "stream_end" and current is not None:
+                    current["responses"][event["model"]] = event.get("content", "")
+                    if display:
+                        display.finish_model(event["model"])
+                elif kind == "error":
+                    if event.get("model") and current is not None:
+                        current["errors"][event["model"]] = event["message"]
+                        result["failed"].setdefault(event["model"], []).append(current["round"])
+                        if display:
+                            display.update_token(event["model"], f"\n[error] {event['message']}")
+                            display.finish_model(event["model"])
+                    else:
+                        result["errors"].append(event["message"])
+                        if display:
+                            display.stop()
+                            display = None
+                        if not as_json:
+                            print_error(event["message"])
+                elif kind == "debate_round_end":
+                    if display:
+                        display.stop()
+                        display = None
+                    if current is not None:
+                        current["convergence_score"] = event.get("convergence_score")
+                        current["verdict"] = event.get("verdict")
+                    verdict = event.get("verdict")
+                    if not as_json and verdict:
+                        what = "judge" if verdict["method"] == "judge" else "stability"
+                        score = f" {verdict['score']:.3f}" if verdict.get("score") is not None else ""
+                        print_info(f"{what}:{score} · {'stop' if verdict['reached'] else 'go on'}"
+                                   + (f" ({escape(str(verdict['reason']))})" if verdict.get("reason") else ""))
+                elif kind == "debate_converged":
+                    result["converged"] = {k: event.get(k) for k in ("round", "score", "reason", "method")}
+                    if not as_json:
+                        why = "the models agree" if event.get("method") == "judge" else "answers stopped changing"
+                        print_success(f"Stopped after round {event['round'] + 1}: {why} ({event.get('reason')})")
+                elif kind == "debate_synthesis_start" and not as_json:
+                    print_info(f"Writing the argument map with {escape(event['model'])}…")
+                elif kind == "debate_synthesis_end":
+                    result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error")}
+                    if not as_json:
+                        if event.get("error"):
+                            print_error(event["error"] + f" Retry: crucible synthesize -d {session_id} -j <another model>")
+                        if event.get("content"):
+                            render_synthesis(event["content"], event["model"], kind="Argument map")
+                elif kind == "debate_session_status":
+                    result["status"] = event.get("status")
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        if not as_json:
+            console.print()
+            print_error(f"Interrupted. Resume with: crucible debates continue {session_id}")
+        raise
     finally:
         if display:
             display.stop()
-        if not finished:
-            # Ctrl-C or a crash mid-debate: don't leave it marked running.
-            db.update_debate_session(session_id, status="interrupted")
 
-    if not finished and result["errors"] and not result["rounds"]:
+    if not result["rounds"] and result["errors"]:
         raise ValueError(result["errors"][0])
     if not as_json:
         console.print()
+        if result["failed"]:
+            print_error("Failed: " + ", ".join(f"{m} (round {', '.join(str(r + 1) for r in rs)})"
+                                                 for m, rs in result["failed"].items()))
         print_success(f"Debate saved: {session_id} (thread {thread_id})")
     return result
 
@@ -585,24 +652,27 @@ def debates_list(
     thread: Optional[str] = typer.Option(None, "--thread", "-t", help="Only this thread's debates."),
     format_output: str = _opt_format(),
 ):
-    """Debate sessions, newest first."""
+    """Debate sessions, newest first, with their question."""
     as_json = _check_format(format_output)
     _load_env()
     from rich.table import Table
+    from rich.text import Text
 
     from app.core import database as db
+    from app.services import debate as debate_svc
 
     db.init_db()
-    sessions = db.list_debate_sessions(thread)
+    sessions = [debate_svc.session_view(s) for s in db.list_debate_sessions(thread)]
     if as_json:
         _emit_json({"sessions": sessions})
         return
     table = Table(box=None)
-    for col in ("Session", "Thread", "Participants", "Rounds", "Status"):
-        table.add_column(col)
+    for col in ("Session", "Question", "Participants", "Rounds", "Status", "Created"):
+        table.add_column(col, overflow="fold")
     for s in sessions:
-        table.add_row(s["session_id"], s["parent_thread_id"], ", ".join(s["participants"]),
-                      str((s.get("current_round") or 0) + 1), s.get("status") or "")
+        rounds = (s.get("current_round") or 0) + 1 if s.get("status") not in ("pending", None) else 0
+        table.add_row(s["session_id"], Text((s.get("question") or "")[:50]), Text(", ".join(s["participants"])),
+                      str(rounds), s.get("status") or "", (s.get("created_at") or "")[:16].replace("T", " "))
     console.print(table)
 
 
@@ -611,7 +681,7 @@ def debates_show(
     session_id: str = typer.Argument(..., help="Debate session id."),
     format_output: str = _opt_format(),
 ):
-    """Every round of every participant, and the synthesis."""
+    """Every round of every participant, aligned by round, and the argument map."""
     as_json = _check_format(format_output)
     _load_env()
 
@@ -620,43 +690,58 @@ def debates_show(
         from app.services.arena import open_graph
 
         async with open_graph() as graph_app:
-            return await debate_svc.session_record(graph_app, session_id)
+            return await debate_svc.debate_transcript(graph_app, session_id)
 
     record = _run(read(), as_json)
     if as_json:
         _emit_json(record)
         return
     from rich.markdown import Markdown
+    from rich.text import Text
 
-    console.print(f"[bold]{record['question']}[/bold]")
-    for model, replies in record["rounds"].items():
-        console.rule(f"{record['labels'].get(model, model)} · {model}")
-        for i, text in enumerate(replies):
-            console.print(f"[dim]Round {i + 1}[/dim]")
-            console.print(Markdown(text or "_(no answer this round)_"))
+    labels = record["labels"]
+    injected = {}
+    for entry in record["injected"]:
+        injected.setdefault(entry["round"], []).append(entry["message"])
+    question = None
+    for rnd in record["rounds"]:
+        if rnd["question"] != question:
+            question = rnd["question"]
+            console.print(Text(question, style="bold"))
+        title = f"Round {rnd['round'] + 1}" + (" · independent answers" if rnd["round"] == 0 else "")
+        if rnd.get("score") is not None:
+            title += f" · stability {rnd['score']:.3f}"
+        console.rule(title)
+        for message in injected.get(rnd["round"], []):
+            console.print(Text(f"You added: {message}", style="italic"))
+        for model, text in rnd["responses"].items():
+            console.print(Text(f"{labels.get(model, model)} · {model}", style="bold"))
+            console.print(Markdown(text))
+        for model in rnd["errors"]:
+            console.print(Text(f"{labels.get(model, model)} · {model}: no answer this round", style="red"))
     if record["synthesis"]:
-        console.rule("Synthesis")
-        console.print(Markdown(record["synthesis"]))
+        console.rule(f"Argument map · {record['synthesis']['model']}")
+        console.print(Markdown(record["synthesis"]["content"]))
 
 
 @debates_app.command("continue")
 def debates_continue(
     session_id: str = typer.Argument(..., help="Debate session id."),
-    rounds: int = typer.Option(1, "--rounds", "-r", min=1, help="How many more rounds."),
+    rounds: int = typer.Option(1, "--rounds", "-r", min=1, max=10, help="How many more rounds (a debate runs 10 at most in all)."),
     inject: Optional[List[str]] = typer.Option(
         None, "--inject", "-i", help="Add this to the next round's prompts (repeat for more)."
     ),
-    rag: bool = _opt_rag(),
-    web_search: bool = _opt_web(),
-    summarizer: Optional[str] = _opt_summarizer(),
-    system: Optional[str] = _opt_system(),
+    rag: Optional[bool] = typer.Option(None, "--rag/--no-rag", help="Search the thread's uploads (default: as the debate started)."),
+    web_search: Optional[bool] = typer.Option(None, "--web-search/--no-web-search", help="Web search (default: as the debate started)."),
+    summarizer: Optional[str] = typer.Option(None, "--summarizer", help="Summarizer (default: the debate's)."),
+    system: Optional[str] = typer.Option(None, "--system", help="System prompt (default: the debate's)."),
     force: bool = _opt_force(),
     format_output: str = _opt_format(),
 ):
     """Run more rounds of a stopped debate (resume after a pause, or inject a message)."""
     as_json = _check_format(format_output)
     _load_env()
-    context = _run_context(as_json, summarizer, system)
+    context = _run_context(as_json, summarizer, system) if summarizer or system else None
 
     async def go():
         from app.core import database as db
@@ -667,32 +752,48 @@ def debates_continue(
             session = db.get_debate_session(session_id)
             if not session:
                 raise ValueError(f"Debate session {session_id} not found.")
-            debate_svc.check_not_running(session, force)
             events = debate_svc.continue_debate(graph_app, session_id, rounds, inject or (),
-                                                _toggles(web_search, rag), context=context)
+                                                _stored_toggles(session, web_search, rag), context=context, force=force)
             return await _follow_debate(events, session, "", as_json, f"{rounds} more round(s)")
 
     result = _run(go(), as_json)
     if as_json:
         _emit_json(result)
+    if result["failed"]:
+        raise typer.Exit(1)
+
+
+def _stored_toggles(session, web_search: Optional[bool], rag: Optional[bool]):
+    """The debate's start toggles with the ones given on the command line;
+    None when none was given, so the run uses what the debate stored."""
+    if web_search is None and rag is None:
+        return None
+    toggles = dict((session.get("settings") or {}).get("toggles") or {})
+    if web_search is not None:
+        toggles["use_web_search"] = web_search
+    if rag is not None:
+        toggles["use_rag"] = rag
+    return toggles
 
 
 @debates_app.command("redirect")
 def debates_redirect(
     session_id: str = typer.Argument(..., help="Debate session id."),
     prompt: str = typer.Argument(..., help="The new question the debate continues on."),
+    rounds: Optional[int] = typer.Option(None, "--rounds", "-r", min=1, max=10, help="Rounds on the new question (default: the debate's own)."),
     attach: Optional[List[str]] = _opt_attach(),
-    rag: bool = _opt_rag(),
-    web_search: bool = _opt_web(),
-    summarizer: Optional[str] = _opt_summarizer(),
-    system: Optional[str] = _opt_system(),
+    rag: Optional[bool] = typer.Option(None, "--rag/--no-rag", help="Search the thread's uploads (default: as the debate started)."),
+    web_search: Optional[bool] = typer.Option(None, "--web-search/--no-web-search", help="Web search (default: as the debate started)."),
+    summarizer: Optional[str] = typer.Option(None, "--summarizer", help="Summarizer (default: the debate's)."),
+    system: Optional[str] = typer.Option(None, "--system", help="System prompt (default: the debate's)."),
     force: bool = _opt_force(),
     format_output: str = _opt_format(),
 ):
-    """Restart a debate on a new question, from where each model's lane stands."""
+    """Put a new question to a debate: its rounds follow the earlier ones, each
+    model keeping what it said."""
     as_json = _check_format(format_output)
     _load_env()
-    context = _run_context(as_json, summarizer, system)
+    context = _run_context(as_json, summarizer, system) if summarizer or system else None
     documents = _documents(attach, as_json)
 
     async def go():
@@ -704,34 +805,44 @@ def debates_redirect(
             session = db.get_debate_session(session_id)
             if not session:
                 raise ValueError(f"Debate session {session_id} not found.")
-            debate_svc.check_not_running(session, force)
-            events = debate_svc.run_debate(graph_app, session_id, prompt, _toggles(web_search, rag), documents,
-                                           context=context)
+            if rounds:
+                policy = {**session["termination_policy"], "max_rounds": rounds}
+                db.update_debate_session(session_id, termination_policy=policy)
+                session = {**session, "termination_policy": policy}
+            events = debate_svc.run_debate(graph_app, session_id, prompt, _stored_toggles(session, web_search, rag),
+                                           documents, context=context, force=force)
             policy = session["termination_policy"]
             return await _follow_debate(events, session, prompt, as_json, f"up to {policy.get('max_rounds')} round(s)")
 
     result = _run(go(), as_json)
     if as_json:
         _emit_json(result)
+    if result["failed"]:
+        raise typer.Exit(1)
 
 
 @debates_app.command("delete")
 def debates_delete(
     session_id: str = typer.Argument(..., help="Debate session id."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Don't ask first."),
+    format_output: str = _opt_format(),
 ):
-    """Delete a debate and its lanes (the thread it started from stays)."""
+    """Delete a debate and its lanes (the thread it started from stays if it has anything else)."""
+    as_json = _check_format(format_output)
     _load_env()
     from app.core import database as db
     from app.cli_display import print_success
 
     db.init_db()
     if not db.get_debate_session(session_id):
-        _fail(f"Debate session {session_id} not found.", False)
-    if not yes and not typer.confirm(f"Delete debate {session_id}? This cannot be undone."):
+        _fail(f"Debate session {session_id} not found.", as_json)
+    if not yes and not typer.confirm(f"Delete debate {session_id}? This cannot be undone.", err=True):
         return
     db.delete_debate_session(session_id)
-    print_success(f"Deleted {session_id}")
+    if as_json:
+        _emit_json({"deleted": session_id})
+    else:
+        print_success(f"Deleted {session_id}")
 
 
 # ─── SYNTHESIZE Command ─────────────────────────────────────────
@@ -741,14 +852,14 @@ def debates_delete(
 def synthesize(
     thread: Optional[str] = typer.Option(None, "--thread", "-t", help="Thread whose answers to synthesize."),
     answers: Optional[List[str]] = typer.Option(
-        None, "--answers", "-a", help="Checkpoint of an answer to include (repeat; default: the latest answer on every branch)."
+        None, "--answers", "-a", help="Checkpoint of an answer to include (repeat; default: the answers to the latest question)."
     ),
     from_checkpoint: Optional[str] = typer.Option(
-        None, "--from", help="Where the synthesis goes (default: beside --answers, else the thread head)."
+        None, "--from", help="Where the synthesis goes (default: beside the answers, under their question)."
     ),
-    debate: Optional[str] = typer.Option(None, "--debate", "-d", help="Debate session to synthesize."),
+    debate: Optional[str] = typer.Option(None, "--debate", "-d", help="Debate session to map."),
     judge: Optional[str] = typer.Option(
-        None, "--judge", "-j", help=f"Model that writes the synthesis (default: {DEFAULT_MODEL}, or the debate's own synthesizer)."
+        None, "--judge", "-j", help="Model that writes it (default: the first answer's model, or the debate's synthesizer)."
     ),
     summarizer: Optional[str] = _opt_summarizer(),
     system: Optional[str] = _opt_system(),
@@ -757,10 +868,10 @@ def synthesize(
     """
     [bold cyan]🔬 Synthesize[/bold cyan] — Combine existing answers into one.
 
-    With --thread: the latest answer on every branch of the thread (e.g. each
-    model's arena answer), or exactly the --answers given, is synthesized and
-    the result added to the thread. With --debate: every round of every
-    participant becomes an argument map.
+    With --thread: the answers to the thread's latest question (each model's
+    reply in that turn), or exactly the --answers given; the synthesis is
+    added beside them. With --debate: every round of every participant
+    becomes an argument map.
     """
     as_json = _check_format(format_output)
     _load_env()
@@ -775,7 +886,7 @@ def synthesize(
     if debate:
         result = _run(_run_synthesize_debate(debate, judge, as_json, context), as_json)
     else:
-        result = _run(_run_synthesize_thread(thread, judge or DEFAULT_MODEL, as_json, context, answers, from_checkpoint), as_json)
+        result = _run(_run_synthesize_thread(thread, judge, as_json, context, answers, from_checkpoint), as_json)
     if as_json:
         _emit_json(result)
     if not result.get("synthesis") or result["synthesis"].get("error"):
@@ -783,19 +894,24 @@ def synthesize(
 
 
 async def _run_synthesize_thread(thread_id, judge, as_json, context, answers=None, parent=None):
-    from app.services.arena import open_graph, synthesize_thread
-    from app.cli_display import print_header, print_info, print_error, render_synthesis
+    from rich.markup import escape
 
-    result: Dict[str, Any] = {"thread_id": thread_id, "answers": {}, "synthesis": None}
+    from app.services.arena import open_graph, synthesize_thread
+    from app.cli_display import print_header, print_info, print_error, print_success, render_synthesis
+
+    result: Dict[str, Any] = {"thread_id": thread_id, "parent_checkpoint_id": None, "answers": [], "synthesis": None}
     if not as_json:
         print_header()
     async with open_graph() as graph_app:
         async for event in synthesize_thread(graph_app, thread_id, judge, context=context,
                                              checkpoint_ids=answers, parent_checkpoint_id=parent):
-            if event["type"] == "end":
-                result["answers"][event["checkpoint_id"]] = {"model": event["model"], "content": event["content"]}
+            if event["type"] == "start":
+                result["parent_checkpoint_id"] = event["parent_checkpoint_id"]
+            elif event["type"] == "end":
+                result["answers"].append({k: event[k] for k in ("model", "content", "checkpoint_id")})
             elif event["type"] == "synthesis_start" and not as_json:
-                print_info(f"Synthesizing {len(result['answers'])} answers with {event['model']}…")
+                print_info(f"Synthesizing {len(result['answers'])} answers "
+                           f"({escape(', '.join(a['model'] for a in result['answers']))}) with {escape(event['model'])}…")
             elif event["type"] == "synthesis":
                 result["synthesis"] = {k: event[k] for k in ("model", "content", "checkpoint_id", "error")}
                 if not as_json:
@@ -803,6 +919,7 @@ async def _run_synthesize_thread(thread_id, judge, as_json, context, answers=Non
                         print_error(f"Synthesis failed: {event['error']}")
                     else:
                         render_synthesis(event["content"], event["model"])
+                        print_success(f"Saved at {event['checkpoint_id']} (under {result['parent_checkpoint_id']})")
     return result
 
 
@@ -810,7 +927,7 @@ async def _run_synthesize_debate(session_id, judge, as_json, context):
     from app.core import database as db
     from app.services import debate as debate_svc
     from app.services.arena import open_graph
-    from app.cli_display import print_header, print_info, render_synthesis
+    from app.cli_display import print_header, print_info, print_error, render_synthesis
 
     result: Dict[str, Any] = {"session_id": session_id, "synthesis": None}
     async with open_graph() as graph_app:
@@ -823,11 +940,14 @@ async def _run_synthesize_debate(session_id, judge, as_json, context):
             if event["type"] == "error":
                 raise ValueError(event["message"])
             if event["type"] == "debate_synthesis_start" and not as_json:
-                print_info(f"Synthesizing with {event['model']}…")
+                print_info(f"Writing the argument map with {event['model']}…")
             elif event["type"] == "debate_synthesis_end":
-                result["synthesis"] = {"model": event["model"], "content": event["content"], "checkpoint_id": event.get("checkpoint_id"), "error": None}
+                result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error")}
                 if not as_json:
-                    render_synthesis(event["content"], event["model"])
+                    if event.get("error"):
+                        print_error(event["error"])
+                    if event.get("content"):
+                        render_synthesis(event["content"], event["model"], kind="Argument map")
     return result
 
 
@@ -858,28 +978,42 @@ def tree(
         print_success("Opened in browser.")
         return
 
-    data = _run(_thread_tree(thread), as_json)
+    async def read():
+        from app.services import history
+        from app.services.arena import open_graph
+
+        async with open_graph() as graph_app:
+            if as_json:
+                return await history.compact_tree(graph_app, thread)
+            data = await history.thread_tree(graph_app, thread)
+            if not data["nodes"]:
+                await history.compact_tree(graph_app, thread)  # raises for an unknown thread
+            return data
+
+    data = _run(read(), as_json)
     if as_json:
-        _emit_json({"thread_id": thread, "nodes": data["nodes"], "edges": data["edges"],
-                    "current_checkpoint": data["current_checkpoint"]})
+        _emit_json(data)
         return
+    from rich.markup import escape
+
     from app.cli_display import render_ascii_tree, print_header, print_info
 
     print_header()
-    print_info(f"Thread: {thread} ({len(data['nodes'])} nodes)")
+    if not data["nodes"]:
+        _only_debates(thread)
+        return
+    print_info(f"Thread: {escape(thread)} ({len(data['nodes'])} nodes)")
     console.print()
     render_ascii_tree(data["nodes"], data["edges"], data["current_checkpoint"])
 
 
-async def _thread_tree(thread_id: str, checkpoint_id: Optional[str] = None):
-    from app.services import history
-    from app.services.arena import open_graph
+def _only_debates(thread_id: str) -> None:
+    from app.core import database as db
+    from app.cli_display import print_info
 
-    async with open_graph() as graph_app:
-        data = await history.thread_tree(graph_app, thread_id, checkpoint_id)
-    if not data["nodes"]:
-        raise ValueError(f"Thread {thread_id} not found.")
-    return data
+    sessions = db.list_debate_sessions(thread_id)
+    ids = ", ".join(s["session_id"] for s in sessions)
+    print_info(f"Thread {thread_id} holds only debates so far ({ids}): crucible debates show <id>")
 
 
 @app.command()
@@ -896,20 +1030,29 @@ def messages(
         from app.services import history
         from app.services.arena import open_graph
 
-        if not at:
-            return (await _thread_tree(thread))["messages"]
         async with open_graph() as graph_app:
-            return await history.path_at(graph_app, thread, at)
+            if at:
+                return await history.path_at(graph_app, thread, at)
+            data = await history.thread_tree(graph_app, thread)
+            if not data["nodes"]:
+                await history.compact_tree(graph_app, thread)  # raises for an unknown thread
+            return data["messages"]
 
     msgs = _run(read(), as_json)
     if as_json:
         _emit_json({"thread_id": thread, "checkpoint_id": at, "messages": msgs})
         return
+    if not msgs:
+        _only_debates(thread)
+        return
     from rich.markdown import Markdown
+    from rich.markup import escape
 
     for m in msgs:
         who = "You" if m.get("role") == "user" else (m.get("model_name") or m.get("model") or "Assistant")
-        console.rule(f"{who}  [dim]{m.get('checkpoint_id') or ''}[/dim]")
+        if m.get("kind") == "synthesis":
+            who = f"Synthesis · {who}"
+        console.rule(f"{escape(who)}  [dim]{m.get('checkpoint_id') or ''}[/dim]")
         console.print(Markdown(m.get("content") or ""))
 
 
@@ -922,6 +1065,8 @@ def search(
     """Find messages on any branch of a thread."""
     as_json = _check_format(format_output)
     _load_env()
+    if len(query.strip()) < 2:
+        raise typer.BadParameter("search for at least two characters", param_hint="QUERY")
 
     async def go():
         from app.services import history
@@ -934,11 +1079,15 @@ def search(
     if as_json:
         _emit_json({"thread_id": thread, "query": query, "results": results})
         return
+    from rich.text import Text
+
     if not results:
         console.print("[dim]No matches.[/dim]")
     for r in results:
-        console.print(f"[dim]{r['checkpoint_id']}[/dim]  {r['role']}{' · ' + r['model'] if r['model'] else ''}")
-        console.print(f"  {r['excerpt']}")
+        line = Text(r["checkpoint_id"] or "", style="dim")
+        line.append(f"  {r['role']}{' · ' + r['model'] if r['model'] else ''}")
+        console.print(line)
+        console.print(Text(f"  {r['excerpt']}"))
 
 
 @app.command("delete-branch")
@@ -951,7 +1100,7 @@ def delete_branch(
     """Delete a node of the conversation tree and every branch below it."""
     as_json = _check_format(format_output)
     _load_env()
-    if not yes and not typer.confirm(f"Delete {checkpoint} and everything below it? This cannot be undone."):
+    if not yes and not typer.confirm(f"Delete {checkpoint} and everything below it? This cannot be undone.", err=True):
         return
 
     async def go():
@@ -974,20 +1123,35 @@ def delete_branch(
 
 @app.command()
 def upload(
-    files: List[str] = typer.Argument(..., help="Files to upload (.pdf .txt .md .csv)."),
+    files: Optional[List[str]] = typer.Argument(None, help="Files to upload (.pdf .txt .md .csv)."),
     thread: str = typer.Option(..., "--thread", "-t", help="Thread whose --rag searches these files."),
+    list_files: bool = typer.Option(False, "--list", help="List the files kept for this thread instead."),
     format_output: str = _opt_format(),
 ):
-    """Upload files to a thread for retrieval: turns run with --rag search them."""
+    """Upload files to a thread for retrieval: turns run with --rag search them.
+    Uploading a file again replaces it."""
     as_json = _check_format(format_output)
     _load_env()
+    from app.core import database as db
+    from app.core.database import ThreadDocumentStore
+
+    db.init_db()
+    if list_files:
+        names = list(ThreadDocumentStore().load(thread))
+        if as_json:
+            _emit_json({"thread_id": thread, "files": names})
+        else:
+            console.print("\n".join(names) or "[dim]No files kept for this thread.[/dim]")
+        return
+    if not files:
+        raise typer.BadParameter("name a file to upload, or --list", param_hint="FILES")
     from app.services import rag
     from app.services.uploads import upload_file
 
     done = []
     for path in files:
         try:
-            done.append(upload_file(thread, path, rag.index_document))
+            done.append(upload_file(thread, path, rag.index_document, ThreadDocumentStore()))
         except ValueError as e:
             _fail(str(e), as_json)
     if as_json:
@@ -1010,35 +1174,46 @@ def threads(
     format_output: str = _opt_format(),
 ):
     """
-    [bold]🧪 Threads[/bold] — List, rename, or delete experiments.
+    [bold]🧪 Threads[/bold] — List, rename, or delete threads.
     """
     as_json = _check_format(format_output)
     _load_env()
-    from app.core import database as db
-    from app.cli_display import (
-        render_threads_table,
-        print_success,
-        print_header,
-    )
+    from app.services import threads as threads_svc
+    from app.cli_display import render_threads_table, print_success, print_header
 
-    db.init_db()
+    if rename and delete:
+        raise typer.BadParameter("pass --rename or --delete, not both")
+    if title and not rename:
+        raise typer.BadParameter("--title goes with --rename", param_hint="--title")
     if rename:
         if not title:
             raise typer.BadParameter("--rename needs --title")
-        db.rename_thread(rename, title)
-        print_success(f"Renamed {rename} → {title}")
+        try:
+            threads_svc.rename_thread(rename, title)
+        except ValueError as e:
+            _fail(str(e), as_json)
+        if as_json:
+            _emit_json({"thread_id": rename, "title": title.strip()})
+        else:
+            print_success(f"Renamed {rename} → {title.strip()}")
         return
 
     if delete:
-        if not yes and not typer.confirm(f"Delete thread {delete}? This cannot be undone."):
+        if not yes and not typer.confirm(f"Delete thread {delete}? This cannot be undone.", err=True):
             return
         from app.services.threads import default_thread_deleter
 
-        default_thread_deleter()(delete)
-        print_success(f"Deleted {delete}")
+        try:
+            threads_svc.delete_thread(delete, default_thread_deleter())
+        except ValueError as e:
+            _fail(str(e), as_json)
+        if as_json:
+            _emit_json({"deleted": delete})
+        else:
+            print_success(f"Deleted {delete}")
         return
 
-    thread_list = db.list_threads()
+    thread_list = threads_svc.list_threads()
     if as_json:
         _emit_json({"threads": thread_list})
         return
@@ -1071,8 +1246,11 @@ def models(
     table.add_column("ID", no_wrap=True)
     table.add_column("Name")
     table.add_column("Key", justify="center")
+    table.add_column("Web search", justify="center")
     for m in rows:
-        table.add_row(m["id"], m["name"], "✓" if m["key_available"] else "[dim]–[/dim]")
+        name = m["name"] + (" [dim](legacy)[/dim]" if m["legacy"] else "")
+        table.add_row(m["id"], name, "✓" if m["key_available"] else "[dim]–[/dim]",
+                      "✓" if m.get("native_search") else "[dim]–[/dim]")
     console.print(table)
 
 

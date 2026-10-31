@@ -1,7 +1,11 @@
+import asyncio
+
 from fastapi import APIRouter, UploadFile, File, Form, BackgroundTasks, HTTPException
 
+from app.core.database import ThreadDocumentStore
+
 from app.services import rag as rag_service
-from app.services.uploads import UPLOAD_DIR, check_size, checked_filename, save_upload
+from app.services.uploads import UPLOAD_DIR, check_size, checked_filename, keep_upload, save_upload
 
 router = APIRouter(tags=["upload"])
 
@@ -22,12 +26,16 @@ async def upload_file(
         while chunk := await file.read(1024 * 1024):
             contents.extend(chunk)
             check_size(len(contents))
-        doc = save_upload(thread_id, file.filename, bytes(contents), _UPLOAD_DIR)
+        # Off the loop: writing the file and extracting a PDF's text block.
+        doc = await asyncio.to_thread(save_upload, thread_id, file.filename, bytes(contents), _UPLOAD_DIR)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Asynchronously index the document into ChromaDB
-    background_tasks.add_task(rag_service.index_document, doc.text, doc.filename, thread_id)
+    # Kept before answering: the next frame may name the file. Indexing
+    # loads the embedding model, so it runs after the response.
+    store = ThreadDocumentStore()
+    await asyncio.to_thread(store.save, thread_id, {doc.filename: doc.text})
+    background_tasks.add_task(keep_upload, thread_id, doc, rag_service.index_document, store)
 
     return {
         "filename": doc.filename,

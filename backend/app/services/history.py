@@ -65,30 +65,31 @@ async def delete_branch(graph_app, thread_id: str, checkpoint_id: str) -> int:
     """Delete a node of the tree and everything below it; returns how many
     checkpoints were removed (0 when the checkpoint doesn't exist).
 
-    The tree shows one node for checkpoints with the same parent and content
-    (LangGraph writes several per turn), so all of those go too.
+    Any checkpoint of the node counts as the node (a reply's last checkpoint,
+    as older clients were given, deletes the reply, not just what follows
+    it), and the tree shows one node for checkpoints with the same parent and
+    content, so all of those go too. The root can't be deleted this way: that
+    is deleting the thread.
     """
-    raw_graph = db.get_thread_checkpoint_graph(thread_id)
-    child_map: Dict[str, List[str]] = {}
-    parent_map: Dict[str, str] = {}
-    for cid, pid in raw_graph:
-        if pid:
-            child_map.setdefault(pid, []).append(cid)
-            parent_map[cid] = pid
+    from app.services.chat import node_checkpoint, thread_state_map
 
-    target_state = await graph_app.aget_state(thread_config(thread_id, checkpoint_id))
-    if not target_state or not target_state.values:
+    states = await thread_state_map(graph_app, thread_id)
+    if checkpoint_id not in states:
         return 0
+    node = node_checkpoint(states[checkpoint_id], states)
+    if not states[node].parent_config:
+        raise ValueError(f"{checkpoint_id} is the start of thread {thread_id}; delete the thread instead.")
 
-    target_key = get_content_key(target_state)
-    target_parent = parent_map.get(checkpoint_id)
-    to_delete = {checkpoint_id}
-    for cid, pid in raw_graph:
-        if pid == target_parent and cid != checkpoint_id:
-            sibling = await graph_app.aget_state(thread_config(thread_id, cid))
-            if sibling and sibling.values and get_content_key(sibling) == target_key:
-                to_delete.add(cid)
+    child_map: Dict[str, List[str]] = {}
+    for cid, snapshot in states.items():
+        if snapshot.parent_config:
+            child_map.setdefault(snapshot.parent_config["configurable"]["checkpoint_id"], []).append(cid)
 
+    target_key = get_content_key(states[node])
+    target_parent = states[node].parent_config["configurable"]["checkpoint_id"]
+    to_delete = {node} | {
+        cid for cid in child_map.get(target_parent, []) if get_content_key(states[cid]) == target_key
+    }
     queue = deque(to_delete)
     while queue:
         for child in child_map.get(queue.popleft(), []):
@@ -101,6 +102,36 @@ async def delete_branch(graph_app, thread_id: str, checkpoint_id: str) -> int:
     return len(to_delete)
 
 
+async def compact_tree(graph_app, thread_id: str, excerpt_chars: int = 300) -> Dict[str, Any]:
+    """The conversation tree for a reader that isn't a canvas (the CLI's
+    JSON, MCP): one entry per node with its checkpoint id, parent, role,
+    model, kind, turn, time and the start of its text as written.
+
+    A thread that so far holds only debates has no nodes; its debates are
+    listed. Raises ValueError for a thread that doesn't exist."""
+    data = await thread_tree(graph_app, thread_id)
+    debates = [s["session_id"] for s in await asyncio.to_thread(db.list_debate_sessions, thread_id)]
+    if not data["nodes"] and not debates and not await asyncio.to_thread(db.thread_exists, thread_id):
+        raise ValueError(f"Thread {thread_id} not found.")
+    parents = {e["target"]: e["source"] for e in data["edges"]}
+    nodes = []
+    for n in data["nodes"]:
+        meta = n.get("metadata", {})
+        is_reply = meta.get("role") == "ai"
+        nodes.append({
+            "checkpoint_id": n["id"],
+            "parent": parents.get(n["id"]),
+            "role": "assistant" if is_reply else meta.get("role"),
+            "model": meta.get("active_peer") if is_reply else None,
+            "model_name": meta.get("model_name") if is_reply else None,
+            "kind": meta.get("kind"),
+            "turn_id": meta.get("turn_id"),
+            "created_at": meta.get("created_at"),
+            "excerpt": (meta.get("excerpt") or "")[:excerpt_chars],
+        })
+    return {"thread_id": thread_id, "current_checkpoint": data["current_checkpoint"], "nodes": nodes, "debates": debates}
+
+
 async def search_thread(graph_app, thread_id: str, query: str, limit: int = SEARCH_LIMIT) -> List[Dict[str, Any]]:
     """Messages on any branch of the thread containing ``query`` (case
     insensitive, at least two characters), each with an excerpt and the
@@ -110,7 +141,9 @@ async def search_thread(graph_app, thread_id: str, query: str, limit: int = SEAR
     per turn); the result is the first, which is the tree's node for it, so
     deleting it removes the whole turn."""
     if not query or len(query.strip()) < 2:
-        return []
+        raise ValueError("Search for at least two characters.")
+    if not await asyncio.to_thread(db.thread_exists, thread_id):
+        raise ValueError(f"Thread {thread_id} not found.")
     needle = query.lower()
 
     results: List[Dict[str, Any]] = []

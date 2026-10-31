@@ -12,7 +12,9 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from app.core.schema import SUMMARY_FLAG, SUMMARY_MARKER, is_summary_message, summary_message, summary_text
 from app.llm import CallableModelFactory
 from app.services import graph as graph_mod
-from app.services.message_format import format_chat_messages
+from types import SimpleNamespace
+
+from app.services.tree import format_messages
 
 QUOTE = f"My notes say '{SUMMARY_MARKER} the plan failed'. Is that right?"
 
@@ -127,8 +129,21 @@ def test_the_flag_survives_a_checkpoint_round_trip():
     assert is_summary_message(restored)
 
 
+def _path(messages):
+    """A checkpoint per message, each one's parent the one before."""
+    states = {}
+    for i in range(len(messages)):
+        states[f"c{i}"] = SimpleNamespace(
+            values={"messages": messages[: i + 1]},
+            metadata={},
+            parent_config={"configurable": {"checkpoint_id": f"c{i - 1}"}} if i else None,
+            config={"configurable": {"checkpoint_id": f"c{i}"}},
+        )
+    return f"c{len(messages) - 1}", states
+
+
 def test_the_chat_view_shows_a_user_message_quoting_the_marker():
     raw = _history() + [HumanMessage(content=QUOTE), summary_message("gist")]
-    shown = [m["content"] for m in format_chat_messages(raw, "gpt-6-luna")]
+    shown = [m["content"] for m in format_messages(*_path(raw))]
     assert QUOTE in shown
     assert not any("gist" == c or c.startswith(SUMMARY_MARKER) for c in shown)

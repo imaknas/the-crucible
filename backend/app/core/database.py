@@ -42,7 +42,7 @@ def init_db():
             participants TEXT NOT NULL,
             thread_ids TEXT NOT NULL,
             current_round INTEGER DEFAULT 0,
-            status TEXT DEFAULT 'running',
+            status TEXT DEFAULT 'pending',
             termination_policy TEXT NOT NULL,
             auto_synthesize INTEGER DEFAULT 0,
             synthesizer_model TEXT,
@@ -66,6 +66,13 @@ def init_db():
     # turn after it continues from the same point. NULL: started from nothing.
     if "parent_checkpoint_id" not in existing:
         conn.execute("ALTER TABLE debate_sessions ADD COLUMN parent_checkpoint_id TEXT")
+    # Migration: the question each stretch of rounds answered ([{round, prompt}];
+    # a redirect starts a new one), what the person injected ([{round,
+    # message}]) and the start's run settings, which continuing reuses.
+    # Older sessions have none: their question is recovered from the lanes.
+    for column in ("questions", "injected", "settings"):
+        if column not in existing:
+            conn.execute(f"ALTER TABLE debate_sessions ADD COLUMN {column} TEXT")
 
     # Added later: documents attached to a thread, once per (thread, filename),
     # instead of in the graph state of every checkpoint.
@@ -143,7 +150,7 @@ def create_debate_session(session: dict[str, Any]) -> None:
                 json.dumps(session["participants"]),
                 json.dumps(session["thread_ids"]),
                 session.get("current_round", 0),
-                session.get("status", "running"),
+                session.get("status", "pending"),
                 json.dumps(session["termination_policy"]),
                 int(session.get("auto_synthesize", False)),
                 session.get("synthesizer_model"),
@@ -161,6 +168,21 @@ def create_debate_session(session: dict[str, Any]) -> None:
         conn.close()
 
 
+def _decode_session(cols, row) -> dict[str, Any]:
+    data = dict(zip(cols, row))
+    data["participants"] = json.loads(data["participants"])
+    data["thread_ids"] = json.loads(data["thread_ids"])
+    data["termination_policy"] = json.loads(data["termination_policy"])
+    data["auto_synthesize"] = bool(data["auto_synthesize"])
+    data["round_scores"] = _decode_round_scores(data.get("round_scores"))
+    for column, empty in (("questions", []), ("injected", []), ("settings", {})):
+        try:
+            data[column] = json.loads(data.get(column) or "null") or empty
+        except ValueError:
+            data[column] = empty
+    return data
+
+
 def get_debate_session(session_id: str) -> dict[str, Any] | None:
     conn = get_db_connection()
     try:
@@ -169,14 +191,41 @@ def get_debate_session(session_id: str) -> dict[str, Any] | None:
         row = cursor.fetchone()
         if not row:
             return None
-        cols = [d[0] for d in cursor.description]
-        data = dict(zip(cols, row))
-        data["participants"] = json.loads(data["participants"])
-        data["thread_ids"] = json.loads(data["thread_ids"])
-        data["termination_policy"] = json.loads(data["termination_policy"])
-        data["auto_synthesize"] = bool(data["auto_synthesize"])
-        data["round_scores"] = _decode_round_scores(data.get("round_scores"))
-        return data
+        return _decode_session([d[0] for d in cursor.description], row)
+    finally:
+        conn.close()
+
+
+def claim_debate_session(session_id: str, force: bool = False) -> bool:
+    """Mark the session running unless another run already has it; True if
+    this caller now runs it. One conditional UPDATE, so two clients can't
+    both claim it. ``force`` takes a session left marked running by a
+    process that died."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.execute(
+            "UPDATE debate_sessions SET status = 'running' WHERE session_id = ? AND (status != 'running' OR ?)",
+            (session_id, int(force)),
+        )
+        conn.commit()
+        return cursor.rowcount == 1
+    finally:
+        conn.close()
+
+
+def append_debate_entry(session_id: str, column: str, entry: dict[str, Any]) -> None:
+    """Add an entry to a session's `questions` or `injected` list."""
+    if column not in ("questions", "injected"):
+        raise ValueError(column)
+    conn = get_db_connection()
+    try:
+        row = conn.execute(f"SELECT {column} FROM debate_sessions WHERE session_id = ?", (session_id,)).fetchone()
+        if not row:
+            return
+        entries = json.loads(row[0] or "[]")
+        entries.append(entry)
+        conn.execute(f"UPDATE debate_sessions SET {column} = ? WHERE session_id = ?", (json.dumps(entries), session_id))
+        conn.commit()
     finally:
         conn.close()
 
@@ -185,7 +234,7 @@ def update_debate_session(session_id: str, **kwargs: Any) -> None:
     """Update any subset of debate session fields."""
     allowed = {
         "current_round", "status", "auto_synthesize", "synthesizer_model", "termination_policy",
-        "parent_checkpoint_id",
+        "parent_checkpoint_id", "settings",
     }
     updates = {k: v for k, v in kwargs.items() if k in allowed}
     if not updates:
@@ -193,7 +242,7 @@ def update_debate_session(session_id: str, **kwargs: Any) -> None:
     conn = get_db_connection()
     try:
         for key, value in updates.items():
-            if key in ("termination_policy",):
+            if key in ("termination_policy", "settings"):
                 value = json.dumps(value)
             conn.execute(
                 f"UPDATE debate_sessions SET {key} = ? WHERE session_id = ?",
@@ -216,16 +265,7 @@ def list_debate_sessions(parent_thread_id: str | None = None) -> list[dict[str, 
         else:
             cursor.execute("SELECT * FROM debate_sessions ORDER BY created_at DESC")
         cols = [d[0] for d in cursor.description]
-        rows = []
-        for row in cursor.fetchall():
-            data = dict(zip(cols, row))
-            data["participants"] = json.loads(data["participants"])
-            data["thread_ids"] = json.loads(data["thread_ids"])
-            data["termination_policy"] = json.loads(data["termination_policy"])
-            data["auto_synthesize"] = bool(data["auto_synthesize"])
-            data["round_scores"] = _decode_round_scores(data.get("round_scores"))
-            rows.append(data)
-        return rows
+        return [_decode_session(cols, row) for row in cursor.fetchall()]
     finally:
         conn.close()
 
@@ -417,6 +457,12 @@ def list_threads():
     """
     conn = get_db_connection()
     try:
+        try:
+            conn.execute("SELECT 1 FROM checkpoints LIMIT 1")
+        except sqlite3.OperationalError:
+            # LangGraph creates its tables on the first run: nothing yet.
+            conn.close()
+            return []
         last_checkpoint = conn.execute("""
             SELECT CASE WHEN instr(thread_id, '::') > 0
                         THEN substr(thread_id, 1, instr(thread_id, '::') - 1)
@@ -442,7 +488,40 @@ def list_threads():
     for parent, created_at in last_debate.items():
         activity[parent] = max(activity.get(parent, 0.0), _sqlite_time(created_at))
     ordered = sorted(listed, key=lambda t: (activity.get(t, 0.0), t), reverse=True)
-    return [{"id": t, "title": titles.get(t) or t} for t in ordered]
+    return [
+        {"id": t, "title": titles.get(t) or t, "updated_at": _iso(activity.get(t))}
+        for t in ordered
+    ]
+
+
+def _iso(timestamp: Optional[float]) -> Optional[str]:
+    if not timestamp:
+        return None
+    from datetime import datetime, timezone
+
+    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat(timespec="seconds")
+
+
+def thread_exists(thread_id: str) -> bool:
+    """Whether a thread has anything: checkpoints, a title row or a debate.
+    Debate sub-threads ({thread}::…) are not threads of their own."""
+    if "::" in thread_id:
+        return False
+    conn = get_db_connection()
+    try:
+        for query in (
+            "SELECT 1 FROM thread_metadata WHERE thread_id = ? LIMIT 1",
+            "SELECT 1 FROM debate_sessions WHERE parent_thread_id = ? LIMIT 1",
+            "SELECT 1 FROM checkpoints WHERE thread_id = ? LIMIT 1",
+        ):
+            try:
+                if conn.execute(query, (thread_id,)).fetchone():
+                    return True
+            except sqlite3.OperationalError:  # LangGraph's tables don't exist yet
+                continue
+        return False
+    finally:
+        conn.close()
 
 
 def get_thread_title(thread_id):

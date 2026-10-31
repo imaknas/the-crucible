@@ -151,7 +151,7 @@ async def test_a_debate_from_a_checkpoint_sees_the_conversation_up_to_it():
         ]
         assert events[-1]["status"] == "completed", events
         tree = await debate_api.get_debate_tree(session["session_id"], graph_app=graph_app)
-        recovered = await debate_svc._original_question(graph_app, session)
+        recovered = await debate_svc._first_prompt(graph_app, session)
         history = await get_history(session["thread_ids"][B], graph_app=graph_app)
 
     for model in (A, B):
@@ -219,7 +219,7 @@ async def test_a_participant_that_never_replied_has_no_latest_response():
         session = debate_svc.create_session("t-conv4", [A, B], dict(POLICY))
         await debate_svc.seed_from_parent(graph_app, "t-conv4", fork, list(session["thread_ids"].values()))
         assert await debate_svc.debate_rounds(graph_app, session) == {}
-        assert await debate_svc._original_question(graph_app, session) == ""
+        assert await debate_svc._first_prompt(graph_app, session) == ""
 
 
 # ─── Anonymous peers, against the real graph ─────────────────────

@@ -15,11 +15,11 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from app.registry import DEFAULT_ARENA_MODELS, FAMILY_META, MODEL_REGISTRY, display_name
 from app.core import database as db
 from app.llm import has_credentials
-from app.services.chat import stream_turn
+from app.services.chat import node_checkpoint, stream_turn, thread_state_map
 from app.services.graph import workflow
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.synthesis import INDEPENDENT, build_synthesis_prompt
-from app.services.runs import SYNTHESIS_TURN, fork_point, thread_config
+from app.services.runs import SYNTHESIS_TURN, TURN_ID_KEY, fork_point, new_turn_id, thread_config
 from app.utils.helpers import extract_text
 
 # Overall budget for one arena turn; models still running after it are
@@ -60,9 +60,10 @@ def resolve_models(models: Optional[List[str]] = None) -> List[str]:
     if models:
         unknown = [m for m in models if m not in MODEL_REGISTRY]
         if unknown:
+            current = [m for m, cfg in MODEL_REGISTRY.items() if cfg.get("desc") != "Legacy"]
             raise ValueError(
                 f"Invalid model(s): {', '.join(unknown)}. "
-                f"Available: {', '.join(MODEL_REGISTRY)}"
+                f"Available: {', '.join(current)} (list them with `crucible models` / list_models)."
             )
         keyless = [m for m in models if not key_available(m)]
         if keyless:
@@ -81,6 +82,15 @@ def resolve_models(models: Optional[List[str]] = None) -> List[str]:
 
 
 def list_models() -> List[Dict[str, Any]]:
+    """Every registered model: id, name, family, whether it is kept only for
+    old threads (legacy), whether its key is set, whether it can search the
+    web, and its context window as the provider reports it."""
+    from app.catalog import load_catalog
+
+    try:
+        catalog = load_catalog()
+    except Exception:
+        catalog = None
     return [
         {
             "id": model_id,
@@ -88,9 +98,16 @@ def list_models() -> List[Dict[str, Any]]:
             "family": cfg.get("family"),
             "legacy": cfg.get("desc") == "Legacy",
             "key_available": key_available(model_id),
+            "native_search": bool(cfg.get("native_search")),
+            "context_window": _context_window(catalog, model_id),
         }
         for model_id, cfg in MODEL_REGISTRY.items()
     ]
+
+
+def _context_window(catalog, model_id: str) -> Optional[int]:
+    entry = catalog.get(model_id.lower()) if catalog is not None else None
+    return entry.input_limit if entry is not None else None
 
 
 # ─── One model's turn ────────────────────────────────────────────
@@ -106,11 +123,14 @@ async def model_turn(
     context: ContextSettings = DEFAULT_CONTEXT,
     *,
     documents: Optional[Mapping[str, str]] = None,
+    document_names: Optional[Sequence[str]] = None,
     is_deliberation: bool = False,
     turn_kind: Optional[str] = None,
+    turn_id: Optional[str] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """chat.stream_turn as model-tagged events: ``token`` {model, token}, then
-    ``end`` {model, content, checkpoint_id, error}. Raises on failure."""
+    ``end`` {model, content, checkpoint_id, error, turn_id,
+    attached_documents, retrieved, notices}. Raises on failure."""
     async for event in stream_turn(
         graph_app,
         thread_id,
@@ -119,31 +139,48 @@ async def model_turn(
         model=model,
         toggles=toggles,
         documents=documents,
+        document_names=document_names,
         is_deliberation=is_deliberation,
         context=context,
         turn_kind=turn_kind,
+        turn_id=turn_id,
+        with_path=False,
     ):
         if event["type"] == "token":
             yield {"type": "token", "model": model, "token": event["token"]}
-        else:
-            yield {
-                "type": "end",
-                "model": model,
-                "content": event["content"],
-                "checkpoint_id": event["checkpoint_id"],
-                "error": None,
-            }
+        elif event["type"] == "end":
+            yield {**event, "model": model, "error": None}
 
 
-async def turn_parent(
+class TurnStart:
+    """Where each model's turn forks from.
+
+    ``parents`` names a checkpoint per model; any other model forks from
+    ``default``. ``new_thread`` says the thread had no checkpoints."""
+
+    def __init__(self, default: str, parents: Optional[Mapping[str, str]] = None, new_thread: bool = False):
+        self.default = default
+        self.parents = dict(parents or {})
+        self.new_thread = new_thread
+
+    def parent_for(self, model: str) -> str:
+        return self.parents.get(model, self.default)
+
+
+async def turn_start(
     graph_app,
     thread_id: str,
     checkpoint_id: Optional[str] = None,
     after_debate: Optional[str] = None,
-):
-    """Where a turn forks from, and whether the thread was empty: the given
-    checkpoint, the record of a finished debate on this thread
-    (debate.continue_from_debate), or the thread head."""
+) -> TurnStart:
+    """Where a turn forks from:
+    - ``checkpoint_id``: every model from there (it must exist);
+    - ``after_debate``: the record of that finished debate on this thread
+      (debate.continue_from_debate), or the newest turn after it;
+    - neither: each model from its own reply in the latest turn, so models
+      that answered side by side keep their own conversations; a model with
+      no reply there (newly added, or it failed) from the latest answer.
+    """
     if after_debate:
         if checkpoint_id:
             raise ValueError("Pass a checkpoint or a debate to continue, not both.")
@@ -154,8 +191,58 @@ async def turn_parent(
             raise ValueError(f"Debate session {after_debate} not found.")
         if session["parent_thread_id"] != thread_id:
             raise ValueError(f"Debate session {after_debate} belongs to thread {session['parent_thread_id']}, not {thread_id}.")
-        return await continue_from_debate(graph_app, after_debate), False
-    return await fork_point(graph_app, thread_id, checkpoint_id)
+        record = await continue_from_debate(graph_app, after_debate)
+        return TurnStart(await _latest_below(graph_app, thread_id, record))
+    if checkpoint_id:
+        parent, new_thread = await fork_point(graph_app, thread_id, checkpoint_id)
+        return TurnStart(parent, new_thread=new_thread)
+    head, new_thread = await fork_point(graph_app, thread_id, None)
+    if new_thread:
+        return TurnStart(head, new_thread=True)
+    states = await thread_state_map(graph_app, thread_id)
+    # The tree's id for the head, like every other id handed out.
+    head = node_checkpoint(states[head], states) if head in states else head
+    return TurnStart(head, await _latest_turn_replies(graph_app, thread_id, head))
+
+
+async def _latest_turn_replies(graph_app, thread_id: str, head: str) -> Dict[str, str]:
+    """{model: its reply's checkpoint} for the turn the head belongs to.
+    Threads written before turns were tagged have no turn: empty."""
+    from app.services.tree import is_synthesis_reply
+
+    states = await thread_state_map(graph_app, thread_id)
+    head_state = states.get(head)
+    turn = (getattr(head_state, "metadata", None) or {}).get(TURN_ID_KEY)
+    if not turn:
+        return {}
+    newest: Dict[str, Any] = {}
+    for snapshot in states.values():
+        if (snapshot.metadata or {}).get(TURN_ID_KEY) != turn or snapshot.next:
+            continue
+        messages = (snapshot.values or {}).get("messages", [])
+        if not messages or getattr(messages[-1], "type", "") != "ai" or is_synthesis_reply(snapshot):
+            continue
+        model = snapshot.values.get("active_peer")
+        if model and (model not in newest or (snapshot.created_at or "") > (newest[model].created_at or "")):
+            newest[model] = snapshot
+    # In the order the models first answered, so "the first answer" is stable.
+    ordered = sorted(newest.items(), key=lambda item: item[1].created_at or "")
+    return {model: node_checkpoint(snapshot, states) for model, snapshot in ordered}
+
+
+async def _latest_below(graph_app, thread_id: str, checkpoint_id: str) -> str:
+    """The thread head if it descends from ``checkpoint_id``, else the
+    checkpoint itself: a second turn "after the debate" follows the first
+    instead of branching beside it."""
+    head, _ = await fork_point(graph_app, thread_id, None)
+    states = await thread_state_map(graph_app, thread_id)
+    current = states.get(head)
+    while current is not None:
+        if current.config["configurable"]["checkpoint_id"] == checkpoint_id:
+            return node_checkpoint(states[head], states)
+        parent = current.parent_config
+        current = states.get(parent["configurable"]["checkpoint_id"]) if parent else None
+    return checkpoint_id
 
 
 # ─── Arena ───────────────────────────────────────────────────────
@@ -180,39 +267,48 @@ async def run_arena(
     parent_checkpoint_id: Optional[str] = None,
     after_debate: Optional[str] = None,
     documents: Optional[Mapping[str, str]] = None,
+    document_names: Optional[Sequence[str]] = None,
     is_deliberation: bool = False,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Ask every model the same question in parallel, then optionally synthesize.
 
     Events:
-      start            {models, thread_id, parent_checkpoint_id, new_thread}
+      start            {models, thread_id, parent_checkpoint_id, parents, new_thread, turn_id}
       token            {model, token}
-      end              {model, content, checkpoint_id, error}
+      end              {model, content, checkpoint_id, error, attached_documents, retrieved, notices}
       synthesis_start  {model}
       synthesis_token  {model, token}
       synthesis        {model, content, checkpoint_id, error}
 
-    All answers fork from one checkpoint (see services/runs.py): the thread
-    head, ``parent_checkpoint_id``, or the record of the debate
-    ``after_debate``. ``is_deliberation`` makes it a Deliberation turn: each
-    model critically reviews the conversation. The synthesis is a separate,
-    explicit model call over the answers, written as another branch from the
-    same checkpoint; it runs only when ``synthesizer`` is set and at least two
+    Where each model forks is turn_start(): ``parent_checkpoint_id``, the
+    debate ``after_debate``, or each model's own latest reply.
+    ``is_deliberation`` makes it a Deliberation turn: each model critically
+    reviews the conversation, so it needs one. The synthesis is a separate,
+    explicit model call over the answers, hung from the question they
+    answered; it runs only when ``synthesizer`` is set and at least two
     models answered.
     """
     models = resolve_models(models)
     if synthesizer:
         resolve_models([synthesizer])
 
-    parent, new_thread = await turn_parent(graph_app, thread_id, parent_checkpoint_id, after_debate)
-    yield {"type": "start", "models": models, "thread_id": thread_id, "parent_checkpoint_id": parent, "new_thread": new_thread}
+    start = await turn_start(graph_app, thread_id, parent_checkpoint_id, after_debate)
+    if is_deliberation and start.new_thread:
+        raise ValueError("Deliberation reviews a conversation; this thread has none yet.")
+    turn_id = new_turn_id()
+    parents = {m: start.parent_for(m) for m in models}
+    yield {
+        "type": "start", "models": models, "thread_id": thread_id, "parent_checkpoint_id": start.default,
+        "parents": parents, "new_thread": start.new_thread, "turn_id": turn_id,
+    }
 
     queue: asyncio.Queue = asyncio.Queue()
 
     async def _produce(model: str):
         try:
-            async for event in model_turn(graph_app, thread_id, parent, model, prompt, toggles, context,
-                                          documents=documents, is_deliberation=is_deliberation):
+            async for event in model_turn(graph_app, thread_id, parents[model], model, prompt, toggles, context,
+                                          documents=documents, document_names=document_names,
+                                          is_deliberation=is_deliberation, turn_id=turn_id):
                 await queue.put(event)
         except Exception as e:
             await queue.put({"type": "end", "model": model, "content": "", "checkpoint_id": None, "error": str(e)})
@@ -373,44 +469,62 @@ async def synthesis_request(graph_app, thread_id: str, checkpoint_ids: Sequence[
     return _independent_synthesis_prompt(answers[0]["question"] or "(see the answers below)", answers)
 
 
+async def latest_turn_answers(graph_app, thread_id: str) -> List[Dict[str, Any]]:
+    """The answers to the thread's latest question: every model's reply in
+    the turn the latest answer belongs to, syntheses left out. Threads
+    written before turns were tagged: the latest answer on every branch that
+    isn't a synthesis."""
+    from app.services.tree import is_synthesis_reply
+
+    head, new_thread = await fork_point(graph_app, thread_id, None)
+    if new_thread:
+        return []
+    states = await thread_state_map(graph_app, thread_id)
+    replies = await _latest_turn_replies(graph_app, thread_id, head)
+    if replies:
+        return [await answer_at(graph_app, thread_id, cid) for cid in replies.values()]
+    return [
+        a for a in await latest_branch_answers(graph_app, thread_id)
+        if a["checkpoint_id"] not in states or not is_synthesis_reply(states[a["checkpoint_id"]])
+    ]
+
+
 async def synthesize_thread(
     graph_app,
     thread_id: str,
-    synthesizer: str,
+    synthesizer: Optional[str] = None,
     toggles: Optional[Dict[str, Any]] = None,
     context: ContextSettings = DEFAULT_CONTEXT,
     *,
     checkpoint_ids: Optional[Sequence[str]] = None,
     parent_checkpoint_id: Optional[str] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
-    """Synthesize answers already on a thread.
-
-    By default the latest answer on every branch, written as a new turn from
-    the thread head. With ``checkpoint_ids``, exactly those replies (the web
-    UI's "Synthesize answers"), written beside them: from
-    ``parent_checkpoint_id``, else the question they answer (question_point).
-    Raises ValueError when there is nothing to synthesize.
+    """Synthesize answers already on a thread: exactly the replies at
+    ``checkpoint_ids`` (the web UI's "Synthesize answers"), by default the
+    answers to the latest question (latest_turn_answers). Written beside
+    them, from the question they answer (question_point), unless
+    ``parent_checkpoint_id`` says where. ``synthesizer`` defaults to the
+    first answer's model. Raises ValueError when there is nothing to
+    synthesize.
     """
-    resolve_models([synthesizer])
     if checkpoint_ids:
-        picked = [await answer_at(graph_app, thread_id, cid) for cid in dict.fromkeys(checkpoint_ids)]
-        if len(picked) < 2:
-            raise ValueError(f"Synthesis needs at least two answers; got {len(picked)}.")
-        answers = picked
-        question = picked[0]["question"] or "(see the answers below)"
-        parent, _ = await fork_point(
-            graph_app, thread_id,
-            parent_checkpoint_id or await question_point(graph_app, thread_id, picked[0]["checkpoint_id"]),
-        )
+        answers = [await answer_at(graph_app, thread_id, cid) for cid in dict.fromkeys(checkpoint_ids)]
     else:
-        answers = await latest_branch_answers(graph_app, thread_id)
-        if len(answers) < 2:
-            raise ValueError(
-                f"Thread {thread_id} has {len(answers)} branch answer(s); synthesis needs at least two."
-            )
-        question = await _latest_question(graph_app, thread_id)
-        parent, _ = await fork_point(graph_app, thread_id, parent_checkpoint_id)
-    yield {"type": "start", "models": [a["model"] for a in answers], "thread_id": thread_id, "parent_checkpoint_id": parent, "new_thread": False}
+        answers = await latest_turn_answers(graph_app, thread_id)
+    if len(answers) < 2:
+        raise ValueError(
+            f"Synthesis needs at least two answers; {'got' if checkpoint_ids else f'thread {thread_id} has'} "
+            f"{len(answers)}. Name them with their checkpoints."
+        )
+    synthesizer = synthesizer or answers[0]["model"]
+    resolve_models([synthesizer])
+    question = answers[0].get("question") or await _latest_question(graph_app, thread_id)
+    parent, _ = await fork_point(
+        graph_app, thread_id,
+        parent_checkpoint_id or await question_point(graph_app, thread_id, answers[0]["checkpoint_id"]),
+    )
+    yield {"type": "start", "models": [a["model"] for a in answers], "thread_id": thread_id,
+           "parent_checkpoint_id": parent, "parents": {}, "new_thread": False, "turn_id": None}
     for a in answers:
         yield {"type": "end", "model": a["model"], "content": a["content"], "checkpoint_id": a["checkpoint_id"], "error": None}
     async for event in _synthesize(graph_app, thread_id, parent, synthesizer, _independent_synthesis_prompt(question, answers), toggles, context):

@@ -23,9 +23,9 @@ _FORBIDDEN_CHARS = set('"\'\\`$')
 
 
 def mask(value: str) -> str:
-    if len(value) <= 8:
-        return "•" * len(value)
-    return "•" * (len(value) - 4) + value[-4:]
+    """Fixed width, so the mask doesn't give the key's length away; the last
+    four characters tell keys apart."""
+    return "••••" if len(value) <= 8 else "••••" + value[-4:]
 
 
 def key_status(environ: Mapping[str, str] = os.environ) -> Dict[str, Dict[str, object]]:
@@ -41,7 +41,7 @@ def check_names(names) -> None:
     """Raises ValueError unless every name is a provider key."""
     unknown = set(names) - KEY_NAMES
     if unknown:
-        raise ValueError(f"Unknown keys: {unknown}")
+        raise ValueError(f"Unknown key(s): {', '.join(sorted(unknown))}. Known: {', '.join(sorted(KEY_NAMES))}")
 
 
 def save_keys(

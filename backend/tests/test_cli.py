@@ -16,7 +16,8 @@ def test_threads_command():
 
 
 def test_threads_rename_command():
-    with patch("app.core.database.rename_thread") as mock_rename:
+    with patch("app.core.database.rename_thread") as mock_rename, \
+            patch("app.core.database.thread_exists", return_value=True):
         result = runner.invoke(
             app, ["threads", "--rename", "t1", "--title", "New Title"]
         )
@@ -30,6 +31,7 @@ def test_threads_delete_command():
     deleted = []
     with (
         patch("app.services.threads.default_thread_deleter", return_value=deleted.append),
+        patch("app.core.database.thread_exists", return_value=True),
         patch("typer.confirm", return_value=True),
     ):
         result = runner.invoke(app, ["threads", "--delete", "t1"])
