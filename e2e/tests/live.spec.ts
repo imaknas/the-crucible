@@ -241,6 +241,12 @@ test.describe("live flows (scripted models)", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText("Should we rewrite it in Rust?")).toBeVisible();
     await expect(dialog.getByText("Claude Sonnet 5.5")).toBeVisible();
+    // What each setting does is written out, not hidden in hover tooltips.
+    await expect(dialog.getByText(/this is stability, not agreement/)).toBeVisible();
+    await expect(dialog.getByText(/isn't evidence by itself/)).toBeVisible();
+    await expect(dialog.getByText(/It picks no winner/)).toBeVisible();
+    // ...and the dialog still fits a laptop screen without scrolling to Start.
+    await expect(dialog.getByRole("button", { name: "Start Debate" })).toBeInViewport();
     // Typing a two-digit count over the default must not be clamped mid-way.
     const rounds = dialog.getByLabel("Max rounds");
     await rounds.fill("");

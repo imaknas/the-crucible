@@ -76,4 +76,14 @@ describe("DebateConfigDialog", () => {
     expect(screen.getByLabelText("Auto-synthesize")).toBeInTheDocument();
     expect(screen.getByLabelText("Stop when answers stop changing")).toBeInTheDocument();
   });
+
+  it("explains each setting in visible text the control points to", () => {
+    setup();
+    expect(screen.getByText(/this is stability, not agreement/)).toBeVisible();
+    expect(screen.getByText(/Agreement reached by debating isn't evidence/)).toBeVisible();
+    expect(screen.getByText(/It picks no winner/)).toBeVisible();
+    expect(screen.getByText(/weighed by its argument/)).toBeVisible();
+    expect(screen.getByLabelText("Stop when answers stop changing")).toHaveAccessibleDescription(/stability, not agreement/);
+    expect(screen.getByLabelText("Auto-synthesize")).toHaveAccessibleDescription(/picks no winner/);
+  });
 });

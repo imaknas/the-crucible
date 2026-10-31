@@ -36,6 +36,23 @@ interface DebateConfigDialogProps {
   maxRounds?: number;
 }
 
+/**
+ * One setting: its label and control on a line, and what it does in a short
+ * line under them. The explanations used to live only in `title` tooltips,
+ * which keyboard and touch never see; the control points at its line with
+ * aria-describedby.
+ */
+function Setting({ help, helpId, children }: { help: string; helpId: string; children: React.ReactNode }) {
+  return (
+    <Box>
+      <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", columnGap: 2, rowGap: 0.5 }}>{children}</Box>
+      <Typography id={helpId} variant="caption" sx={{ display: "block", mt: 0.25, color: "text.secondary", lineHeight: 1.4 }}>
+        {help}
+      </Typography>
+    </Box>
+  );
+}
+
 export default function DebateConfigDialog({
   open,
   onClose,
@@ -79,8 +96,7 @@ export default function DebateConfigDialog({
     synthesize: config.auto_synthesize,
   });
 
-  const labelSx = { fontSize: "0.8rem", color: "text.secondary", minWidth: 140 };
-  const rowSx = { display: "flex", alignItems: "center", gap: 2 };
+  const labelSx = { fontSize: "0.8rem", color: "text.primary", fontWeight: 600, minWidth: 140 };
 
   return (
     <Dialog
@@ -117,7 +133,7 @@ export default function DebateConfigDialog({
       </DialogTitle>
 
       <DialogContent sx={{ pt: 2 }}>
-        <Stack spacing={2.5}>
+        <Stack spacing={1.75}>
           <Typography
             data-testid="debate-purpose"
             sx={{ fontSize: "0.8rem", color: "text.secondary", lineHeight: 1.5 }}
@@ -158,12 +174,13 @@ export default function DebateConfigDialog({
           </Box>
 
           {/* Max rounds */}
-          <Box sx={rowSx}>
+          <Setting help="Every participant answers once per round." helpId="debate-rounds-help">
             <Typography sx={labelSx}>Max rounds</Typography>
             <Box
               component="input"
               type="number"
               aria-label="Max rounds"
+              aria-describedby="debate-rounds-help"
               min={1}
               max={maxRounds}
               value={roundsText}
@@ -184,19 +201,19 @@ export default function DebateConfigDialog({
                 "&:focus": { borderColor: "primary.main" },
               }}
             />
-          </Box>
+          </Setting>
 
           {/* Stop on stability: answers stopped changing (not agreement) */}
-          <Box sx={rowSx}>
-            <Typography
-              sx={labelSx}
-              title="Stops once each model's answer is nearly the same as its own previous one. Models holding opposite positions also stop changing; use the agreement judge to stop on agreement."
-            >
-              Stop when answers stop changing
-            </Typography>
+          <Setting
+            help="Stops once each model's answer barely changes from its own last one. Opposed models stop changing too: this is stability, not agreement."
+            helpId="debate-stability-help"
+          >
+            <Typography sx={labelSx}>Stop when answers stop changing</Typography>
             <Switch
               size="small"
-              slotProps={{ input: { "aria-label": "Stop when answers stop changing" } }}
+              slotProps={{
+                input: { "aria-label": "Stop when answers stop changing", "aria-describedby": "debate-stability-help" },
+              }}
               checked={config.convergence_threshold !== null}
               onChange={() =>
                 setConfig((p) => ({
@@ -207,20 +224,22 @@ export default function DebateConfigDialog({
               sx={{ "& .MuiSwitch-track": { bgcolor: "rgba(139,92,246,0.4)" } }}
             />
             {config.convergence_threshold !== null && (
-              <Typography variant="caption" sx={{ color: "text.disabled" }}>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 similarity {config.convergence_threshold}
               </Typography>
             )}
-          </Box>
+          </Setting>
 
           {/* LLM Judge */}
-          <Box sx={rowSx}>
-            <Typography sx={labelSx} title="A model that reads every answer each round (by participant label, not model name) and stops the debate once the models now agree. That agreement came from debating, so it is not evidence by itself.">
-              Agreement judge
-            </Typography>
+          <Setting
+            help="A model reads each round's answers by participant label and stops the debate once they agree. Agreement reached by debating isn't evidence by itself."
+            helpId="debate-judge-help"
+          >
+            <Typography sx={labelSx}>Agreement judge</Typography>
             <Select
               size="small"
               inputProps={{ "aria-label": "Agreement judge" }}
+              SelectDisplayProps={{ "aria-describedby": "debate-judge-help" } as React.HTMLAttributes<HTMLDivElement>}
               value={config.llm_judge ?? "__none__"}
               onChange={(e) =>
                 setConfig((p) => ({
@@ -241,15 +260,16 @@ export default function DebateConfigDialog({
                 </MenuItem>
               ))}
             </Select>
-          </Box>
+          </Setting>
 
           {/* How the two stop conditions combine; meaningless with only one */}
           {config.convergence_threshold !== null && config.llm_judge && (
-            <Box sx={rowSx}>
+            <Setting help="Any: either condition ends the debate. All: both must hold at once." helpId="debate-mode-help">
               <Typography sx={labelSx}>Stop when</Typography>
               <Select
                 size="small"
                 inputProps={{ "aria-label": "Stop when" }}
+                SelectDisplayProps={{ "aria-describedby": "debate-mode-help" } as React.HTMLAttributes<HTMLDivElement>}
                 value={config.mode}
                 onChange={(e) =>
                   setConfig((p) => ({ ...p, mode: e.target.value as "any" | "all" }))
@@ -263,21 +283,20 @@ export default function DebateConfigDialog({
                   <Typography variant="caption">All conditions met</Typography>
                 </MenuItem>
               </Select>
-            </Box>
+            </Setting>
           )}
 
           {/* How debaters see each other */}
-          <Box sx={rowSx}>
-            <Typography
-              sx={labelSx}
-              title="Anonymous: models see each other as Participant A, B… so a reply is judged by its argument, not by which model wrote it. Named: models see each other's model names. The banner always shows you who is who."
-            >
-              Models see each other
-            </Typography>
+          <Setting
+            help="Anonymous, a reply is weighed by its argument, not by which model wrote it. The banner always shows you who is who."
+            helpId="debate-peers-help"
+          >
+            <Typography sx={labelSx}>Models see each other</Typography>
             <Select
               size="small"
               value={config.peer_labels}
               inputProps={{ "aria-label": "How models see each other" }}
+              SelectDisplayProps={{ "aria-describedby": "debate-peers-help" } as React.HTMLAttributes<HTMLDivElement>}
               onChange={(e) =>
                 setConfig((p) => ({ ...p, peer_labels: e.target.value as PeerLabels }))
               }
@@ -290,33 +309,32 @@ export default function DebateConfigDialog({
                 <Typography variant="caption">By model name</Typography>
               </MenuItem>
             </Select>
-          </Box>
+          </Setting>
 
           {/* Auto-synthesize */}
-          <Box sx={rowSx}>
-            <Typography
-              sx={labelSx}
-              title="When the debate ends, map its arguments: the positions, their strongest arguments, who changed position and why, and what is still unresolved. It doesn't pick a winner."
-            >
-              Auto-synthesize
-            </Typography>
+          <Setting
+            help="When it ends, map the arguments: the positions, their best evidence, who changed and why, what is unresolved. It picks no winner."
+            helpId="debate-synthesis-help"
+          >
+            <Typography sx={labelSx}>Auto-synthesize</Typography>
             <Switch
               size="small"
-              slotProps={{ input: { "aria-label": "Auto-synthesize" } }}
+              slotProps={{ input: { "aria-label": "Auto-synthesize", "aria-describedby": "debate-synthesis-help" } }}
               checked={config.auto_synthesize}
               onChange={() =>
                 setConfig((p) => ({ ...p, auto_synthesize: !p.auto_synthesize }))
               }
             />
-          </Box>
+          </Setting>
 
           {/* Synthesizer model */}
           {config.auto_synthesize && (
-            <Box sx={rowSx}>
+            <Setting help="The model that writes the map." helpId="debate-synthesizer-help">
               <Typography sx={labelSx}>Synthesizer</Typography>
               <Select
                 size="small"
                 inputProps={{ "aria-label": "Synthesizer" }}
+                SelectDisplayProps={{ "aria-describedby": "debate-synthesizer-help" } as React.HTMLAttributes<HTMLDivElement>}
                 value={config.synthesizer_model ?? "__none__"}
                 onChange={(e) =>
                   setConfig((p) => ({
@@ -338,7 +356,7 @@ export default function DebateConfigDialog({
                   </MenuItem>
                 ))}
               </Select>
-            </Box>
+            </Setting>
           )}
           <Typography data-testid="debate-cost" variant="caption" sx={{ color: "text.secondary" }}>
             Up to {estimate.calls} model calls ({estimate.breakdown}); stopping early makes fewer.
