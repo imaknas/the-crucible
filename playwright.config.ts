@@ -59,15 +59,23 @@ export default defineConfig({
       },
     },
     {
-      command: `npx next dev --port ${FRONTEND_PORT}`,
+      // A production build: `next dev` compiled each route on its first
+      // visit, so the first test to open a page waited on the compiler (and
+      // sometimes timed out). E2E_DEV=1 uses the dev server, for debugging.
+      // The build goes to its own directory so it never collides with a dev
+      // server in the same checkout.
+      command: process.env.E2E_DEV
+        ? `npx next dev --port ${FRONTEND_PORT}`
+        : `npx next build && npx next start --port ${FRONTEND_PORT}`,
       cwd: path.join(ROOT, "frontend"),
       port: FRONTEND_PORT,
       reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
+      timeout: 300_000,
       stdout: "pipe",
       stderr: "pipe",
       env: {
         NEXT_PUBLIC_API_URL: `http://127.0.0.1:${BACKEND_PORT}`,
+        NEXT_DIST_DIR: ".next-e2e",
       },
     },
   ],

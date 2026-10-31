@@ -18,7 +18,7 @@ The Crucible is a multi-model AI arena: a full-stack app where users can run sim
 cd backend
 uv sync                           # install dependencies
 uv run python -m app.main         # start FastAPI server (reload enabled)
-uv run pytest tests/ -v           # run all tests
+uv run pytest tests/ -q -n 4      # run all tests, 4 workers (pytest-xdist; ~10 s, serial ~16 s)
 uv run pytest tests/test_graph.py -v   # run a single test file
 uv run ruff check .               # lint
 uv run crucible arena "prompt"    # CLI: run multi-model arena
@@ -37,12 +37,14 @@ npm run format   # Prettier
 
 ### E2E (Playwright)
 ```bash
-npm run test:e2e          # re-seeds the fixture DB, then runs the suite
+npm run test:e2e          # re-seeds the fixture DB, then runs the suite against a production build
+E2E_DEV=1 npm run test:e2e   # against `next dev` instead (debugging)
 npm run e2e:seed          # rebuild e2e/.fixtures/e2e.sqlite only
 npx playwright test --repeat-each=3   # flake check
 npx playwright show-report e2e/.report
 E2E_BACKEND_PORT=8124 E2E_FRONTEND_PORT=3124 npm run test:e2e   # if 8123/3123 are taken
 ```
+The frontend is built (`next build` + `next start`) into `frontend/.next-e2e` (`NEXT_DIST_DIR`), so a dev server in the same checkout is untouched; `next dev` compiled each route on its first visit, which made the first test to open a page slow or time out. `agenthub merge-branch` runs the project's test command from the platform registry (ruff, pytest `-n 4`, tsc, eslint, jest; not e2e).
 `e2e/seed_db.py` builds a deterministic fixture by running the **real** LangGraph
 workflow with a canned-response `ModelFactory` injected via `use_model_factory` — the checkpoints
 have to be genuine because the tree endpoints walk LangGraph's own parent/child

@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  // The e2e suite builds into its own directory (playwright.config.ts).
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // @ts-ignore - Turbopack root configuration moved to top-level in recent versions
   turbopack: {
     root: path.resolve(__dirname, ".."),
