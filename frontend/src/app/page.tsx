@@ -136,14 +136,15 @@ export default function Home() {
     [setChosen, fetchHistory],
   );
 
-  // An upload is searchable at once: document search turns on with it.
+  // An attachment's whole text goes with the next message; searching it as
+  // well would put it in that turn twice. Later turns reach it through
+  // "Search my documents", which stays the person's choice.
   const handleUploaded = useCallback(
     (filename: string) => {
       if (toggles.use_rag) return;
-      setToggles((prev) => ({ ...prev, use_rag: true }));
-      pushToast(`${filename} is attached, and "Search my documents" is now on for later turns.`, "info");
+      pushToast(`${filename} goes with your next message. To use it in later turns, turn on "Search my documents".`, "info");
     },
-    [toggles.use_rag, setToggles, pushToast],
+    [toggles.use_rag, pushToast],
   );
   const documents = useDocuments({ threadId, pushToast, onUploaded: handleUploaded });
 

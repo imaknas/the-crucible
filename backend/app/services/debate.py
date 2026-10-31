@@ -474,6 +474,7 @@ async def _run_rounds(
     # Track per-model responses per round for convergence detection
     prev_round_responses: dict[str, str] = dict(previous)
     curr_round_responses: dict[str, str] = {}
+    single_answer = False
 
     for round_num in range(start_round, start_round + rounds):
         if control.paused:
@@ -520,13 +521,15 @@ async def _run_rounds(
 
         answered = [m for m in participants if curr_round_responses.get(m)]
         if round_num == question_round and len(answered) < 2:
-            # One answer has nothing to debate; the later rounds would only
-            # have that model answer itself.
+            # One answer has nothing to debate: later rounds would only have
+            # that model answer itself, and a map of one position maps nothing.
             failed = [m for m in participants if m not in answered]
             yield {"type": "debate_round_end", "session_id": session_id, "round": round_num}
-            yield _error(session_id, f"Only {len(answered)} participant(s) answered ({', '.join(failed)} failed), "
-                                     "so there is nothing to debate. Fix the failing model and continue the debate.")
-            return
+            if start_round + rounds > round_num + 1 or session.get("auto_synthesize"):
+                yield _error(session_id, f"Only {len(answered)} participant(s) answered ({', '.join(failed)} failed), "
+                                         "so the debate stops here. Fix the failing model and continue the debate.")
+            single_answer = True
+            break
 
         # Check stopping conditions after a question's first round (need a
         # prior round to compare). Done before the round_end event so a
@@ -570,7 +573,7 @@ async def _run_rounds(
         yield _error(session_id, "The debate ended before your injected message could be used: " + " / ".join(unused))
 
     # Auto-synthesize if configured
-    if session.get("auto_synthesize"):
+    if session.get("auto_synthesize") and not single_answer:
         async for event in _stream_synthesis(
             graph_app=graph_app,
             session_id=session_id,

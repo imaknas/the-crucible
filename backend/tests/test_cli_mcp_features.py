@@ -314,7 +314,8 @@ def test_a_failed_participant_stops_round_one_and_a_failed_map_says_so():
     assert result.exit_code == 1
     out = json.loads(result.stdout)
     assert [r["round"] for r in out["rounds"]] == [0]
-    assert out["failed"] == {B: [0]} and any("nothing to debate" in e for e in out["errors"])
+    assert out["failed"] == {B: [0]} and any("stops here" in e for e in out["errors"])
+    assert out["synthesis"] is None and out["status"] == "completed"
     FAIL.clear()
     FAIL.add(A)
     debate = _json(["debate", "Topic", "-m", B, "-m", "gemini-3.1-pro-preview", "-r", "1", "--no-synthesize"])

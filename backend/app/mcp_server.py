@@ -333,14 +333,6 @@ async def _collect_debate(events, session: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
-DEBATE_RESULT = (
-    "{session_id, thread_id, labels: {model: 'Participant A'}, rounds: [{round, responses: {model: text}, "
-    "errors: {model: message}, convergence_score, verdict: {method, reached, score, reason} | null}], "
-    "converged: {round, score, reason, method} | null, synthesis: answer | null, failed: {model: [rounds]}, "
-    "errors: [message], status}"
-)
-
-
 @mcp.tool()
 @_quiet
 async def run_debate(
