@@ -171,7 +171,11 @@ def render_ascii_tree(
             style = color
             marker = f" [{model}]" if model else ""
 
-        branch = parent_tree.add(Text(f"{label}{marker}", style=style))
+        # The checkpoint id is what --from, delete-branch and synthesize
+        # --answers take.
+        text = Text(f"{label}{marker}", style=style)
+        text.append(f"  {node_id}", style="dim")
+        branch = parent_tree.add(text)
 
         for child_id in child_map.get(node_id, []):
             _add_node(branch, child_id)

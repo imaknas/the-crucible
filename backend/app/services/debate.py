@@ -212,8 +212,6 @@ async def run_debate(
     thread_ids = session["thread_ids"]
     policy = session["termination_policy"]
     max_rounds = min(policy.get("max_rounds", DEFAULT_ROUNDS), MAX_ROUNDS)
-    peers = session_peers(session)
-    convergence = build_convergence_check(policy, peers=peers)
 
     # A debate started from a fresh session writes only to its sub-threads, so
     # the parent has no checkpoints; without a title row list_threads never
@@ -230,6 +228,12 @@ async def run_debate(
     }
 
     if parent_checkpoint_id:
+        parent = await graph_app.aget_state(thread_config(parent_thread_id, parent_checkpoint_id))
+        if parent is None or parent.created_at is None:
+            # Seeding from it would quietly start the debate from nothing.
+            yield {"type": "error", "session_id": session_id,
+                   "message": f"Checkpoint {parent_checkpoint_id} not found on thread {parent_thread_id}."}
+            return
         await seed_from_parent(
             graph_app, parent_thread_id, parent_checkpoint_id,
             [thread_ids[m] for m in participants],
@@ -241,13 +245,103 @@ async def run_debate(
     # name the files and read them from there.
     document_names = await attach_documents(context.apply(thread_config(parent_thread_id)), documents)
 
+    control = control or DebateControl()
+    async for event in _run_rounds(
+        graph_app, session, prompt, toggles, document_names, control, context,
+        start_round=0, rounds=max_rounds, previous={},
+    ):
+        yield event
+
+
+async def continue_debate(
+    graph_app,
+    session_id: str,
+    rounds: int = 1,
+    inject: Sequence[str] = (),
+    toggles: Optional[dict[str, Any]] = None,
+    control: Optional[DebateControl] = None,
+    context: ContextSettings = DEFAULT_CONTEXT,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """Run ``rounds`` more rounds of a debate that stopped (finished, stopped
+    early, paused by ending the run, or interrupted), with ``inject`` added to
+    the first new round's prompts. Same events as run_debate.
+
+    This is how a client without a live connection pauses (run fewer
+    rounds), resumes and injects: every round reads the previous one from the
+    sub-threads, so nothing about a running debate needs to stay in memory.
+    The question and attached documents are the debate's own; system prompt
+    and summarizer come from ``context``, as on any run.
+    """
+    session = db.get_debate_session(session_id)
+    if not session:
+        yield {"type": "error", "message": f"Session {session_id} not found"}
+        return
+    done = await debate_rounds(graph_app, session)
+    if not done:
+        yield {"type": "error", "session_id": session_id, "message": "This debate has no rounds yet; start it first."}
+        return
+    previous = {m: replies[-1] for m, replies in done.items() if replies}
+    start = max(len(replies) for replies in done.values())
+    control = control or DebateControl()
+    for message in inject:
+        if message.strip():
+            control.inject(message.strip())
+
+    yield {
+        "type": "debate_session_created",
+        "session_id": session_id,
+        "participants": list(dict.fromkeys(session["participants"])),
+        "thread_ids": session["thread_ids"],
+    }
+    async for event in _run_rounds(
+        graph_app, session, await _original_question(graph_app, session), toggles or {},
+        await _debate_documents(graph_app, session), control, context,
+        start_round=start, rounds=max(1, min(rounds, MAX_ROUNDS)), previous=previous,
+    ):
+        yield event
+
+
+async def _debate_documents(graph_app, session: Mapping[str, Any]) -> list[str]:
+    """The attached documents a debate's rounds name (stored for the parent)."""
+    for model_id in session["participants"]:
+        thread_id = session["thread_ids"].get(model_id)
+        if not thread_id:
+            continue
+        state = await graph_app.aget_state(thread_config(thread_id))
+        names = (state.values or {}).get("attached_documents") if state else None
+        if names:
+            return list(names)
+    return []
+
+
+async def _run_rounds(
+    graph_app,
+    session: dict[str, Any],
+    prompt: str,
+    toggles: dict[str, Any],
+    document_names: Sequence[str],
+    control: DebateControl,
+    context: ContextSettings,
+    *,
+    start_round: int,
+    rounds: int,
+    previous: dict[str, str],
+) -> AsyncGenerator[dict[str, Any], None]:
+    """Rounds ``start_round`` to ``start_round + rounds - 1``, then the
+    auto-synthesis if configured; ``previous`` is the round before
+    ``start_round`` (empty for round 0)."""
+    session_id = session["session_id"]
+    participants = list(dict.fromkeys(session["participants"]))
+    thread_ids = session["thread_ids"]
+    peers = session_peers(session)
+    convergence = build_convergence_check(session["termination_policy"], peers=peers)
+    parent_thread_id = session["parent_thread_id"]
+
     # Track per-model responses per round for convergence detection
-    prev_round_responses: dict[str, str] = {}
+    prev_round_responses: dict[str, str] = dict(previous)
     curr_round_responses: dict[str, str] = {}
 
-    control = control or DebateControl()
-
-    for round_num in range(max_rounds):
+    for round_num in range(start_round, start_round + rounds):
         if control.paused:
             await asyncio.to_thread(db.update_debate_session, session_id, status="paused")
             yield {"type": "debate_session_status", "session_id": session_id, "status": "paused"}
@@ -649,6 +743,32 @@ def debate_record_text(session: Mapping[str, Any], rounds: Mapping[str, Sequence
     return "\n\n".join(parts)
 
 
+async def synthesis_text(graph_app, session: Mapping[str, Any]) -> str:
+    """The debate's latest synthesis (argument map), "" if none was written."""
+    state = await graph_app.aget_state(thread_config(db.synthesis_thread_id(dict(session))))
+    msgs = (state.values or {}).get("messages", []) if state else []
+    last = msgs[-1] if msgs else None
+    return extract_text(last.content) if last is not None and last.type == "ai" else ""
+
+
+async def session_record(graph_app, session_id: str) -> dict[str, Any]:
+    """Everything a debate said: {session, question, labels, rounds, synthesis}.
+
+    ``rounds`` is each participant's replies by round (debate_rounds) and
+    ``labels`` the name each was shown under ("Participant A"). Raises
+    ValueError for an unknown session."""
+    session = db.get_debate_session(session_id)
+    if not session:
+        raise ValueError(f"Debate session {session_id} not found.")
+    return {
+        "session": session,
+        "question": await _original_question(graph_app, session),
+        "labels": peer_legend(session),
+        "rounds": await debate_rounds(graph_app, session),
+        "synthesis": await synthesis_text(graph_app, session),
+    }
+
+
 async def continue_from_debate(graph_app, session_id: str) -> str:
     """The parent-thread checkpoint a chat turn after this debate forks from.
 
@@ -670,10 +790,7 @@ async def continue_from_debate(graph_app, session_id: str) -> str:
 
     question = await _original_question(graph_app, session)
     rounds = await debate_rounds(graph_app, session)
-    synthesis_state = await graph_app.aget_state(thread_config(db.synthesis_thread_id(session)))
-    synthesis_msgs = (synthesis_state.values or {}).get("messages", []) if synthesis_state else []
-    last = synthesis_msgs[-1] if synthesis_msgs else None
-    synthesis = extract_text(last.content) if last is not None and last.type == "ai" else ""
+    synthesis = await synthesis_text(graph_app, session)
 
     config = thread_config(parent_thread_id, session.get("parent_checkpoint_id"))
     config["metadata"] = {DEBATE_RECORD_KEY: session_id}

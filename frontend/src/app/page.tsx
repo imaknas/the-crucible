@@ -153,7 +153,6 @@ export default function Home() {
     setActiveCheckpoint,
     setErrorModals,
     showConfirm,
-    modelLabel,
     onThreadsChanged: fetchThreads,
   });
 

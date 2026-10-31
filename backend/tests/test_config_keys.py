@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api import config as config_api
+from app.services import keys as keys_svc
 from app.main import server as app
 
 
@@ -11,7 +12,7 @@ def env_file(tmp_path, monkeypatch):
     path.write_text('OTHER="keep"\n')
     monkeypatch.setattr(config_api, "_ENV_PATH", str(path))
     monkeypatch.delenv("CRUCIBLE_ALLOW_REMOTE_CONFIG", raising=False)
-    for k in config_api._ALLOWED_KEYS:
+    for k in keys_svc.KEY_NAMES:
         monkeypatch.delenv(k, raising=False)
     return path
 
@@ -48,7 +49,7 @@ def test_env_injection_rejected(env_file, value):
 
 
 def test_mask_reveals_only_last_four():
-    assert config_api._mask("sk-abcdefghijkl") == "•" * 11 + "ijkl"
+    assert keys_svc.mask("sk-abcdefghijkl") == "•" * 11 + "ijkl"
 
 
 def test_cors_rejects_foreign_origin():

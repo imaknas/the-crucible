@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from app.main import server as app
 
 
@@ -198,7 +198,7 @@ def test_get_node_path(client, mock_graph_app):
 
     mock_graph_app.aget_state_history = mock_history
 
-    with patch("app.services.tree.format_messages", return_value=[{"text": "msg"}]):
+    with patch("app.services.chat.path_messages", AsyncMock(return_value=[{"text": "msg"}])):
         response = client.get("/graph/t1/path/cp1")
         assert response.status_code == 200
         assert response.json()["messages"][0]["text"] == "msg"

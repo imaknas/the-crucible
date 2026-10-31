@@ -107,3 +107,49 @@ def test_ws_synthesis_frame_tags_the_turn(tmp_path, monkeypatch):
 
     node = next(n for n in history["nodes"] if n["id"] == history["current_checkpoint"])
     assert node.get("type") == "synthesis"
+
+
+def test_ws_synthesis_of_named_answers_uses_the_backend_prompt(tmp_path, monkeypatch):
+    """The web UI names the answers; the prompt is the one the CLI and MCP
+    synthesis write, flagged so every reader hides it."""
+    from fastapi.testclient import TestClient
+
+    from app.core import database as db
+    from app.main import server
+
+    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "ws.sqlite"))
+    seen = []
+
+    class Recorder(FakeListChatModel):
+        def _call(self, messages, *a, **kw):
+            seen.append("\n".join(str(m.content) for m in messages))
+            return super()._call(messages, *a, **kw)
+
+        def _stream(self, messages, *a, **kw):
+            seen.append("\n".join(str(m.content) for m in messages))
+            yield from super()._stream(messages, *a, **kw)
+
+    factory = CallableModelFactory(lambda model_id, _t: Recorder(responses=[f"reply from {model_id}"]))
+
+    def finish(ws):
+        while (msg := ws.receive_json())["type"] != "stream_end":
+            assert msg["type"] != "error", msg
+        return msg
+
+    with (
+        use_model_factory(factory),
+        patch.dict(os.environ, KEYS),
+        TestClient(server) as client,
+        client.websocket_connect("/ws/named") as ws,
+    ):
+        for model in ("gpt-5.4", "claude-sonnet-5"):
+            ws.send_json({"message": "Which is larger?", "model": model})
+        answers = [finish(ws)["checkpoint_id"], finish(ws)["checkpoint_id"]]
+        seen.clear()
+        ws.send_json({"type": "synthesis", "model": "gpt-5.4", "answer_checkpoint_ids": answers})
+        end = finish(ws)
+
+    assert "Independent answers from 2 models" in seen[-1]
+    assert "Original question: Which is larger?" in seen[-1]
+    assert [m["kind"] for m in end["messages"] if m["role"] == "assistant"][-1] == "synthesis"
+    assert not any("Independent answers" in m["content"] for m in end["messages"])

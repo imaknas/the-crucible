@@ -17,9 +17,11 @@ from app.services.chat import auto_title, build_turn_input
 from app.services.chat import stream_turn
 from app.services.message_format import format_chat_messages
 from app.services.context import ContextSettings
+from app.services.arena import synthesis_request
 from app.services.debate import continue_from_debate
 from app.services.documents import attach_documents
 from app.services.runs import (
+    SYNTHESIS_TURN,
     final_state_of_run,
     resolve_fork_point,
     resolve_fork_point_ex,
@@ -81,8 +83,10 @@ class ChatConnection:
 
     Client frames:  {message, model, toggles, documents, parent_checkpoint_id,
                      is_deliberation, type?}  — one per model (type "synthesis"
-                     tags a synthesis turn; debate_session_id, without a
-                     parent, continues that finished debate); or {type: "stop"}.
+                     tags a synthesis turn, and with answer_checkpoint_ids in
+                     place of a message synthesizes those replies;
+                     debate_session_id, without a parent, continues that
+                     finished debate); or {type: "stop"}.
     Server frames:  stream_start, stream_token, stream_end, title_update, error.
                     stream_start and a model's error carry parent_checkpoint_id.
 
@@ -179,12 +183,17 @@ class ChatConnection:
             await self.send({"type": "error", "message": problem, "model": model, "parent_checkpoint_id": parent})
             return
         try:
+            message = frame.get("message")
+            if frame.get("type") == SYNTHESIS_TURN and frame.get("answer_checkpoint_ids"):
+                # The answers to synthesize, by checkpoint: the prompt is the
+                # backend's, the same one the CLI and MCP synthesis writes.
+                message = await synthesis_request(self.graph_app, self.thread_id, frame["answer_checkpoint_ids"])
             await self.send({"type": "stream_start", "model": model, "parent_checkpoint_id": parent})
             async for event in stream_turn(
                 self.graph_app,
                 self.thread_id,
                 parent,
-                message=frame.get("message"),
+                message=message,
                 model=model,
                 toggles=frame.get("toggles", {}),
                 documents=frame.get("documents", {}),

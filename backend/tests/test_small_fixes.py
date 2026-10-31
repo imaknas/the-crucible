@@ -68,7 +68,7 @@ def test_upload_over_limit_rejected(tmp_path, monkeypatch):
     from app.main import server
 
     monkeypatch.setattr(upload_api, "_UPLOAD_DIR", str(tmp_path))
-    monkeypatch.setattr(upload_api, "_MAX_FILE_BYTES", 10)
+    monkeypatch.setattr("app.services.uploads.MAX_FILE_BYTES", 10)
     with TestClient(server, headers=CLIENT) as client:
         res = client.post("/upload", data={"thread_id": "A"}, files={"file": ("big.txt", b"x" * 50, "text/plain")})
     assert res.status_code == 400

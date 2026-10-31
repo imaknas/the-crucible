@@ -101,6 +101,22 @@ async def resolve_fork_point_ex(graph_app, thread_id: str) -> Tuple[str, bool]:
     return seeded["configurable"]["checkpoint_id"], True
 
 
+async def fork_point(graph_app, thread_id: str, checkpoint_id: Optional[str]) -> Tuple[str, bool]:
+    """The checkpoint a turn forks from: ``checkpoint_id`` when given (it must
+    exist on the thread), otherwise the head (resolve_fork_point_ex). Also
+    reports whether the thread was empty.
+
+    A checkpoint id the thread doesn't have would read back as an empty
+    state, and the turn would quietly start a conversation from nothing.
+    """
+    if not checkpoint_id:
+        return await resolve_fork_point_ex(graph_app, thread_id)
+    state = await graph_app.aget_state(thread_config(thread_id, checkpoint_id))
+    if state is None or state.created_at is None:
+        raise ValueError(f"Checkpoint {checkpoint_id} not found on thread {thread_id}.")
+    return checkpoint_id, False
+
+
 async def seed_thread(graph_app, thread_id: str, values: Dict[str, Any]) -> str:
     """Write ``values`` as a checkpoint marked as seed; returns its id.
 

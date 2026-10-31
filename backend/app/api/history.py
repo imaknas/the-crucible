@@ -1,13 +1,10 @@
 import asyncio
-from collections import deque
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 
 from app.core import database as db
-from app.core.schema import is_summary_message
-from app.services.runs import answered_head
-from app.services.tree import build_history_tree, load_thread_states
+from app.services import history
 from app.api.deps import get_graph_app
 
 router = APIRouter(prefix="/history", tags=["history"])
@@ -23,30 +20,7 @@ class PositionUpdate(BaseModel):
 async def get_history(
     thread_id: str, checkpoint_id: Optional[str] = None, graph_app=Depends(get_graph_app)
 ):
-    # One saver pass for the whole thread, with an individual-fetch fallback
-    # for parallel branches outside the main lineage.
-    all_states = await load_thread_states(graph_app, thread_id)
-
-    if not all_states:
-        return {"nodes": [], "edges": [], "current_checkpoint": None}
-
-    # Identify the specific state the user is viewing
-    active_config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-    if checkpoint_id:
-        active_config["configurable"]["checkpoint_id"] = checkpoint_id
-        active_state = await graph_app.aget_state(active_config)
-    else:
-        # The composer replies to this: never an unanswered, abandoned turn.
-        active_state = await answered_head(graph_app, thread_id)
-
-    tree_data = build_history_tree(thread_id, all_states, active_state)
-
-    return {
-        "nodes": tree_data["nodes"],
-        "edges": tree_data["edges"],
-        "current_checkpoint": tree_data["current_checkpoint"],
-        "messages": tree_data["messages"],
-    }
+    return await history.thread_tree(graph_app, thread_id, checkpoint_id)
 
 
 @router.post("/{thread_id}/positions")
@@ -61,67 +35,7 @@ async def save_positions(thread_id: str, updates: List[PositionUpdate]):
 @router.delete("/{thread_id}/checkpoints/{checkpoint_id}")
 async def delete_checkpoint(thread_id: str, checkpoint_id: str, graph_app=Depends(get_graph_app)):
     try:
-        # Use a global SQL scan to build a complete parent->child map for the thread
-        raw_graph = db.get_thread_checkpoint_graph(thread_id)
-
-        child_map: dict[str, list[str]] = {}
-        parent_map: dict[str, str] = {}
-        for cid, pid in raw_graph:
-            if pid:
-                child_map.setdefault(pid, []).append(cid)
-                parent_map[cid] = pid
-
-        # 1. Identify "Sibling Clones" of the target node
-        # We need to find nodes with the same parent and same content key
-        target_state = await graph_app.aget_state(
-            {
-                "configurable": {
-                    "thread_id": thread_id,
-                    "checkpoint_id": checkpoint_id,
-                    "checkpoint_ns": "",
-                }
-            }
-        )
-        if not target_state or not target_state.values:
-            return {"status": "ok", "deleted_count": 0}
-
-        from app.services.tree import get_content_key
-
-        target_ckey = get_content_key(target_state)
-        target_parent = parent_map.get(checkpoint_id)
-
-        to_delete = {checkpoint_id}
-
-        # Find all raw nodes that would be visually merged into this one
-        for cid, pid in raw_graph:
-            if pid == target_parent and cid != checkpoint_id:
-                s_state = await graph_app.aget_state(
-                    {
-                        "configurable": {
-                            "thread_id": thread_id,
-                            "checkpoint_id": cid,
-                            "checkpoint_ns": "",
-                        }
-                    }
-                )
-                if (
-                    s_state
-                    and s_state.values
-                    and get_content_key(s_state) == target_ckey
-                ):
-                    to_delete.add(cid)
-
-        # 2. Recursively find all descendants of all clones
-        queue = deque(to_delete)
-        while queue:
-            curr = queue.popleft()
-            for child in child_map.get(curr, []):
-                if child not in to_delete:
-                    to_delete.add(child)
-                    queue.append(child)
-
-        await asyncio.to_thread(db.delete_checkpoint_data, thread_id, to_delete)
-        return {"status": "ok", "deleted_count": len(to_delete)}
+        return {"status": "ok", "deleted_count": await history.delete_branch(graph_app, thread_id, checkpoint_id)}
     except Exception as e:
         import traceback
 
@@ -131,85 +45,4 @@ async def delete_checkpoint(thread_id: str, checkpoint_id: str, graph_app=Depend
 
 @router.get("/{thread_id}/search")
 async def search_history(thread_id: str, q: str, graph_app=Depends(get_graph_app)):
-    if not q or len(q.strip()) < 2:
-        return {"results": []}
-
-    query = q.lower()
-
-    from app.utils.helpers import extract_text
-    from app.services.tree import get_checkpoint_role
-
-    states = [
-        (s.config.get("configurable", {}).get("checkpoint_id"), s)
-        for s in await load_thread_states(graph_app, thread_id)
-    ]
-
-    results = []
-    seen_content = set()  # Deduplicate within search results
-
-    for cid, state in states:
-        if not state or not state.values or "messages" not in state.values:
-            continue
-
-        m_list = state.values["messages"]
-        if not m_list:
-            continue
-
-        last_msg = m_list[-1]
-
-        # Extract content
-        content = (
-            getattr(last_msg, "content", "")
-            if hasattr(last_msg, "content")
-            else (
-                last_msg.get("content", "")
-                if isinstance(last_msg, dict)
-                else str(last_msg)
-            )
-        )
-        content_str = str(content)
-
-        # Filter technical markers (summaries, synthesis prompts, remove operations)
-        if (
-            is_summary_message(last_msg)
-            or "Please act as the Crucible Lead" in content_str
-            or getattr(last_msg, "type", "") == "remove"
-        ):
-            continue
-
-        text = extract_text(content)
-        if not text.strip():
-            continue
-
-        # Match query
-        if query in text.lower():
-            # Deduplicate by (role, content_prefix) to avoid showing identical LangGraph intermediate steps
-            role = get_checkpoint_role(state)
-            dedup_key = (role, text[:200])
-            if dedup_key in seen_content:
-                continue
-            seen_content.add(dedup_key)
-
-            # Extract excerpt
-            idx = text.lower().find(query)
-            start = max(0, idx - 40)
-            end = min(len(text), idx + len(q) + 60)
-            excerpt = (
-                ("..." if start > 0 else "")
-                + text[start:end]
-                + ("..." if end < len(text) else "")
-            )
-
-            results.append(
-                {
-                    "checkpoint_id": cid,
-                    "role": role,
-                    "model": getattr(last_msg, "name", None)
-                    or (last_msg.get("name") if isinstance(last_msg, dict) else None),
-                    "excerpt": excerpt,
-                    "timestamp": getattr(state, "created_at", None),
-                }
-            )
-
-    # Limit to top 20 results for performance
-    return {"results": results[:20]}
+    return {"results": await history.search_thread(graph_app, thread_id, q)}

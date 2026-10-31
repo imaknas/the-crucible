@@ -8,7 +8,8 @@ from app.api.models import display_name
 from app.services.runs import DEBATE_RECORD_KEY, SYNTHESIS_TURN, TURN_KIND_KEY, is_seed
 from app.utils.helpers import extract_text, get_preview_text
 
-# The frontend's chat synthesis prompt starts its instructions with this.
+# Chat synthesis prompts written before they were flagged (by the frontend)
+# contain this sentence.
 SYNTHESIS_PROMPT_MARKER = "Please act as the Crucible Lead. Synthesize these viewpoints"
 
 
@@ -50,10 +51,24 @@ def is_debate_record(state_obj) -> bool:
     m_list = state_obj.values.get("messages", [])
     if not m_list or get_checkpoint_role(state_obj) != "assistant":
         return False
-    extra = getattr(m_list[-1], "additional_kwargs", None)
-    if extra is None and isinstance(m_list[-1], dict):
-        extra = m_list[-1].get("additional_kwargs")
-    return isinstance(extra, dict) and bool(extra.get(DEBATE_RECORD_KEY))
+    return bool(_extra_of(m_list[-1]).get(DEBATE_RECORD_KEY))
+
+
+def _extra_of(msg) -> dict:
+    extra = getattr(msg, "additional_kwargs", None)
+    if extra is None and isinstance(msg, dict):
+        extra = msg.get("additional_kwargs")
+    return extra if isinstance(extra, dict) else {}
+
+
+def is_synthesis_prompt(msg) -> bool:
+    """Whether a message is a synthesis turn's prompt, which readers hide.
+
+    chat.build_turn_input flags it; older threads are recognised by the
+    sentence the frontend's prompt contained."""
+    if _extra_of(msg).get(TURN_KIND_KEY) == SYNTHESIS_TURN:
+        return True
+    return getattr(msg, "type", None) != "ai" and SYNTHESIS_PROMPT_MARKER in _content_of(msg)
 
 
 def is_synthesis_reply(state_obj) -> bool:
@@ -68,7 +83,7 @@ def is_synthesis_reply(state_obj) -> bool:
     if isinstance(meta, dict) and meta.get(TURN_KIND_KEY) == SYNTHESIS_TURN:
         return True
     m_list = state_obj.values.get("messages", [])
-    return len(m_list) >= 2 and SYNTHESIS_PROMPT_MARKER in _content_of(m_list[-2])
+    return len(m_list) >= 2 and is_synthesis_prompt(m_list[-2])
 
 
 def get_content_key(state_obj) -> str:
@@ -236,20 +251,8 @@ def deduplicate_checkpoints(
     for vis_id in significant_ids:
         state = state_map[vis_id]
         m_list = state.values.get("messages", [])
-        if m_list:
-            last = m_list[-1]
-            content = ""
-            if hasattr(last, "content"):
-                content = last.content
-            elif isinstance(last, dict):
-                content = last.get("content", "")
-
-            if (
-                content
-                and "Please act as the Crucible Lead. Synthesize these viewpoints"
-                in content
-            ):
-                synthesis_ids.add(vis_id)
+        if m_list and is_synthesis_prompt(m_list[-1]):
+            synthesis_ids.add(vis_id)
 
     significant_ids = significant_ids - synthesis_ids
 
@@ -431,7 +434,8 @@ def build_graph_layout(
         visual_role = "ai" if role == "assistant" else role
         content, _raw, has_thoughts = _node_content(state)
 
-        if content and "Please act as the Crucible Lead. Synthesize these viewpoints" in content:
+        m_list = state.values.get("messages", [])
+        if m_list and is_synthesis_prompt(m_list[-1]):
             display_label = "Consensus Convergence"
         else:
             display_label = get_preview_text(content, max_length=40)
@@ -523,7 +527,7 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
             # 3. Filter technical markers
             is_technical = (
                 is_summary_message(msg)
-                or "Please act as the Crucible Lead" in content_str
+                or is_synthesis_prompt(msg)
                 or getattr(msg, "type", "") == "remove"
             )
 

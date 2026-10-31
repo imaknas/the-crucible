@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import * as api from "@/lib/api";
 import { Message, ModelError, Toggles } from "@/lib/types";
 import { isOpen, useSocketFactory } from "@/lib/transport";
-import { buildSynthesisPrompt, lastReply, type SynthesisAnswer } from "@/lib/synthesis";
 import { contextFields } from "@/lib/runContext";
 
 export function useChatWebSocket({
@@ -19,7 +18,6 @@ export function useChatWebSocket({
   setActiveCheckpoint,
   setErrorModals,
   showConfirm,
-  modelLabel = (id: string) => id,
   onThreadsChanged,
 }: {
   threadId: string | null;
@@ -43,8 +41,6 @@ export function useChatWebSocket({
   setActiveCheckpoint: (cpId: string | null) => void;
   setErrorModals: React.Dispatch<React.SetStateAction<any[]>>;
   showConfirm: (title: string, message: string) => Promise<boolean>;
-  /** Display name for a model ID. */
-  modelLabel?: (id: string) => string;
   /**
    * The sidebar's thread list may be stale: a turn finished (a new thread now
    * exists) or the backend titled the thread.
@@ -87,11 +83,6 @@ export function useChatWebSocket({
   useEffect(() => {
     onThreadsChangedRef.current = onThreadsChanged;
   }, [onThreadsChanged]);
-
-  const modelLabelRef = useRef(modelLabel);
-  useEffect(() => {
-    modelLabelRef.current = modelLabel;
-  }, [modelLabel]);
 
   const setActiveCheckpointRef = useRef(setActiveCheckpoint);
   useEffect(() => {
@@ -383,16 +374,18 @@ export function useChatWebSocket({
     setModelErrors((prev) => prev.filter((e) => e.id !== errorId));
 
   /**
-   * Merge sibling answers into one, written by `model` (default: the first
-   * selected model). The turn is sent as type "synthesis", which the backend
-   * tags so the reply shows as a synthesis in the tree and the transcript.
+   * Merge the replies at these checkpoints into one, written by `model`
+   * (default: the first selected model) from `parentId`. The backend reads
+   * the full replies and writes the prompt, the same synthesis `crucible
+   * synthesize --answers` and MCP `synthesize_answers` run, and tags the
+   * turn so the reply shows as a synthesis in the tree and the transcript.
    */
-  const synthesizeConsensus = async (
-    answers: SynthesisAnswer[],
+  const synthesizeBranches = async (
+    checkpointIds: string[],
     parentId: string | null,
     model?: string | null,
   ) => {
-    if (isLoading) return;
+    if (!threadId || isLoading || checkpointIds.length < 2) return;
     const synthesizer = model || selectedModels[0];
     if (!synthesizer || !isOpen(wsRef.current)) return;
     setIsLoading(true);
@@ -402,7 +395,7 @@ export function useChatWebSocket({
     setModelErrors([]);
 
     sendFrame({
-      message: buildSynthesisPrompt(answers),
+      answer_checkpoint_ids: checkpointIds,
       model: synthesizer,
       toggles: toggles,
       ...contextFields({ summarizer, systemPrompt }),
@@ -411,43 +404,6 @@ export function useChatWebSocket({
       type: "synthesis",
     });
     clearDocuments();
-  };
-
-  /**
-   * Synthesize the answers at these checkpoints. Each branch's full reply is
-   * read from the server: only the branch on screen is in `messages`, and the
-   * tree nodes carry 40-character labels.
-   */
-  const synthesizeBranches = async (
-    checkpointIds: string[],
-    parentId: string | null,
-    model?: string | null,
-  ) => {
-    if (!threadId || isLoading) return;
-    const label = modelLabelRef.current;
-    const answers = (
-      await Promise.all(
-        checkpointIds.map((id) =>
-          api
-            .fetchHistory(threadId, id)
-            .then((data) => lastReply(data.messages ?? [], label))
-            .catch(() => null),
-        ),
-      )
-    ).filter((a): a is SynthesisAnswer => !!a);
-    if (answers.length < 2) {
-      setErrorModals((prev) => [
-        ...prev,
-        {
-          id: Math.random().toString(36).substring(7),
-          title: "Couldn't synthesize",
-          details: "Fewer than two answers could be loaded from the server.",
-          suggestion: "Check the connection to the backend and try again.",
-        },
-      ]);
-      return;
-    }
-    await synthesizeConsensus(answers, parentId, model);
   };
 
   const stopStreaming = useCallback(() => {
@@ -470,7 +426,6 @@ export function useChatWebSocket({
     setMessages,
     isLoading,
     sendInteractiveMessage,
-    synthesizeConsensus,
     synthesizeBranches,
     stopStreaming,
     modelErrors,

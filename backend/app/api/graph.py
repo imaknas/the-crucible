@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Dict, Any
 from pydantic import BaseModel
-from langchain_core.runnables import RunnableConfig
 
 from app.core import database as db
 from app.api.deps import get_graph_app
+from app.services import history
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
@@ -69,31 +69,9 @@ async def get_node_path(thread_id: str, checkpoint_id: str, graph_app=Depends(ge
     Returns the complete message history from the root to a specific checkpoint.
     """
     try:
-        config: RunnableConfig = {
-            "configurable": {"thread_id": thread_id, "checkpoint_id": checkpoint_id}
-        }
-        state = await graph_app.aget_state(config)
-
-        if not state.values:
-            raise HTTPException(status_code=404, detail="Checkpoint not found")
-
-        from app.services.tree import format_messages
-
-        history_states = []
-        async for s in graph_app.aget_state_history(config):
-            history_states.append(s)
-
-        state_map = {
-            s.config["configurable"]["checkpoint_id"]: s for s in history_states
-        }
-        formatted = format_messages(checkpoint_id, state_map)
-        return {
-            "thread_id": thread_id,
-            "checkpoint_id": checkpoint_id,
-            "messages": formatted,
-        }
-
-    except HTTPException:
-        raise
+        messages = await history.path_at(graph_app, thread_id, checkpoint_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Checkpoint not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    return {"thread_id": thread_id, "checkpoint_id": checkpoint_id, "messages": messages}

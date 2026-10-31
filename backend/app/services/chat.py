@@ -8,10 +8,12 @@ their own branches.
 
 from typing import Any, AsyncIterator, Dict, Mapping, Optional, Sequence
 
+from langchain_core.messages import HumanMessage
+
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.documents import attach_documents
 from app.services.recall import INTERNAL_TAG
-from app.services.runs import final_state_of_run, tag_run, tag_turn_kind, thread_config
+from app.services.runs import TURN_KIND_KEY, TURN_KINDS, final_state_of_run, tag_run, tag_turn_kind, thread_config
 from app.utils.helpers import clean_string, extract_text
 
 MAX_PROMPT_CHARS = 100_000
@@ -26,8 +28,13 @@ def build_turn_input(
     toggles: Optional[Mapping[str, bool]] = None,
     document_names: Sequence[str] = (),
     is_deliberation: bool = False,
+    turn_kind: Optional[str] = None,
 ) -> Dict[str, Any]:
     """The graph input for one model's turn, given the parent's state values.
+
+    A special turn's prompt (a synthesis request) carries its kind in the
+    message itself, so every reader of the path can hide it
+    (tree.is_synthesis_prompt), not only readers of checkpoint metadata.
 
     The turn's attached documents are named, not included: their content is
     saved per thread (services/documents.py). Exactly the named ones are in
@@ -47,13 +54,18 @@ def build_turn_input(
     else:
         prompt = "Please continue."
 
+    message = (
+        HumanMessage(content=prompt, additional_kwargs={TURN_KIND_KEY: turn_kind})
+        if turn_kind in TURN_KINDS
+        else ("user", prompt)
+    )
     return {
         "active_peer": model,
         "toggles": {**state_values.get("toggles", {}), **(toggles or {})},
         "is_deliberation": is_deliberation,
         "attached_documents": list(document_names),
         "documents": {},
-        "messages": [("user", prompt)],
+        "messages": [message],
     }
 
 
@@ -106,7 +118,8 @@ async def stream_turn(
     turn_kind: Optional[str] = None,
 ) -> AsyncIterator[Dict[str, Any]]:
     """Run one model's turn. Yields ``token`` events, then one ``end`` event
-    carrying the new checkpoint id and the path's messages. Raises on failure.
+    carrying the new checkpoint id, the reply's text and the path's messages.
+    Raises on failure.
 
     ``turn_kind="synthesis"`` tags the turn's checkpoints, so the tree and the
     transcript can show the reply as a synthesis rather than another answer."""
@@ -129,6 +142,7 @@ async def stream_turn(
         toggles=toggles,
         document_names=document_names,
         is_deliberation=is_deliberation,
+        turn_kind=turn_kind,
     )
 
     async for event in graph_app.astream_events(turn_input, config, version="v2", exclude_tags=[INTERNAL_TAG]):
@@ -149,5 +163,13 @@ async def stream_turn(
     yield {
         "type": "end",
         "checkpoint_id": final.config["configurable"]["checkpoint_id"],
+        "content": reply_text(final),
         "messages": await path_messages(graph_app, final),
     }
+
+
+def reply_text(state) -> str:
+    """The text of the last reply in a checkpoint's messages ("" if none)."""
+    messages = (state.values or {}).get("messages", []) if state else []
+    last_ai = next((m for m in reversed(messages) if getattr(m, "type", "") == "ai"), None)
+    return extract_text(last_ai.content) if last_ai is not None else ""
