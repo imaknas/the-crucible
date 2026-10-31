@@ -10,7 +10,7 @@ import type { ConnectionTone } from "@/hooks/useBackendStatus";
  * real connection/key status, the selected models, the Tree/Arena view switch
  * and the theme toggle.
  */
-export default function AppHeader({
+function AppHeader({
   connection,
   selectedModels,
   showTree,
@@ -297,3 +297,10 @@ export default function AppHeader({
     </Box>
   );
 }
+
+/**
+ * Memoised: the page re-renders on every composer keystroke and streamed
+ * token, and the header has nothing to redraw then. The page passes stable
+ * handlers for that reason.
+ */
+export default React.memo(AppHeader);

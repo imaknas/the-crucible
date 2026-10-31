@@ -356,6 +356,9 @@ export default function Home() {
   const { setOpen: setPanelOpen } = layout.panel;
   const closeSidebar = useCallback(() => setSidebarOpen(false), [setSidebarOpen]);
   const closePanel = useCallback(() => setPanelOpen(false), [setPanelOpen]);
+  const openSidebar = useCallback(() => setSidebarOpen(true), [setSidebarOpen]);
+  const openPanel = useCallback(() => setPanelOpen(true), [setPanelOpen]);
+  const goHome = useCallback(() => switchThread(""), [switchThread]);
   const { reset: resetReply } = reply;
   const switchDebate = useCallback(
     (id: string) => {
@@ -422,11 +425,11 @@ export default function Home() {
           selectedModels={reply.responders}
           showTree={showTree}
           onShowTreeChange={setShowTree}
-          onHome={() => switchThread("")}
+          onHome={goHome}
           modelLabel={modelLabel}
           modelColor={modelColor}
-          onOpenSessions={layout.compact ? () => layout.sidebar.setOpen(true) : undefined}
-          onOpenSettings={layout.compact ? () => layout.panel.setOpen(true) : undefined}
+          onOpenSessions={layout.compact ? openSidebar : undefined}
+          onOpenSettings={layout.compact ? openPanel : undefined}
         />
 
         <div className="flex-1 relative flex flex-col min-h-0 w-full h-full">

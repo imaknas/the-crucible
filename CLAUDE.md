@@ -240,7 +240,7 @@ Composition only: calls the hooks below, keeps the few pieces of UI state that b
 - `DebateConfigDialog.tsx`: per-session debate config overlay (overrides ControlPanel defaults for a single run)
 - `SynthesisTreeNode.tsx`: purple gradient React Flow node (220px) for debate synthesis and tagged chat synthesis replies; in chat trees it has the same hover actions as `CustomTreeNode` (Branch from here, delete)
 - `LandingView.tsx`: initial welcome screen before any thread is active
-- `AppHeader.tsx`: title (returns to landing), connection/key status, selected models (display names), Tree/Arena switch, theme toggle; on narrow screens the drawer buttons
+- `AppHeader.tsx`: title (returns to landing), connection/key status, selected models (display names), Tree/Arena switch, theme toggle; on narrow screens the drawer buttons. Memoised like the other panels: the page passes it stable handlers (`goHome`, `openSidebar`, `openPanel`), since the page re-renders on every keystroke and streamed token.
 
 **Branching / Arena flow**
 Multi-model Arena: `useChatWebSocket` sends one WS message per selected model simultaneously. Branching: `chosen` (a tree node id) is passed as `parent_checkpoint_id`; null (the composer chip's "Continuing the latest turn") lets the backend continue each model from its own reply in the latest turn. The compare cards group replies by `metadata.turn_id` (`lib/arenaCompare.turnSiblings`; same parent for threads without turns), since turn-mates now sit on different branches.
