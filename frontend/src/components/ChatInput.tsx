@@ -12,7 +12,10 @@ interface ChatInputProps {
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   documents: Record<string, any>;
   setDocuments: (docs: Record<string, any>) => void;
+  /** The Control Panel's selection: a debate's participants. */
   selectedModels: string[];
+  /** Who answers Send and Deliberate (lib/replyTarget); default: the selection. */
+  respondingModels?: string[];
   messages: Message[];
   onEditAndRebranch: () => void;
   showEditButton: boolean;
@@ -94,6 +97,7 @@ export const ChatInput = React.memo(
     documents,
     setDocuments,
     selectedModels,
+    respondingModels = selectedModels,
     messages,
     onEditAndRebranch,
     showEditButton,
@@ -123,12 +127,13 @@ export const ChatInput = React.memo(
 
     const state = {
       isLoading,
-      modelCount: selectedModels.length,
+      modelCount: respondingModels.length,
       hasHistory: messages.length > 0,
       hasText: !!localInput.trim(),
     };
     const deliberate = deliberateAction(state);
-    const debate = debateAction(state);
+    // A debate is between the selected models, whichever reply is continued.
+    const debate = debateAction({ ...state, modelCount: selectedModels.length });
     // Injecting goes to the debate, whichever models are selected.
     const send: ComposerAction = onDebateInject
       ? { enabled: state.hasText && !isLoading, hint: "Add to the debate's next round" }

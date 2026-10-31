@@ -5,12 +5,14 @@ import {
   addModel,
   currentThreadId,
   debateStatus,
+  ensureDetailZoom,
   newSession,
   nodes,
   openApp,
   send,
   showTree,
   startDebate,
+  waitForCanvasIdle,
 } from "./helpers";
 
 /**
@@ -85,6 +87,58 @@ test.describe("live flows (scripted models)", () => {
         return [GPT, CLAUDE].map((id) => labels.filter((l) => answerFrom(id).test(l)).length);
       })
       .toEqual([2, 2]);
+  });
+
+  test("continuing a clicked reply asks its model alone, and the selection stays as set", async ({ page }) => {
+    const sent: { model?: string; message?: string }[] = [];
+    page.on("websocket", (ws) => {
+      if (!/\/ws\/thread/.test(ws.url())) return;
+      ws.on("framesent", (f) => {
+        try {
+          sent.push(JSON.parse(String(f.payload)));
+        } catch {}
+      });
+    });
+    // The chat socket opened in beforeEach; a fresh session opens one we observe.
+    await newSession(page);
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    const idle = () => expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+    const askedWith = (message: string) =>
+      sent.filter((f) => f.message === message).map((f) => f.model).sort();
+
+    await send(page, "First question");
+    await expect(page.getByText(answerFrom(CLAUDE)).first()).toBeVisible();
+    await idle();
+
+    await showTree(page);
+    await waitForCanvasIdle(page);
+    await ensureDetailZoom(page);
+    const reply = nodes(page).filter({ hasText: answerFrom(CLAUDE) }).first();
+    await reply.hover();
+    await reply.getByRole("button", { name: "Branch from here" }).click();
+
+    const chip = page.getByTestId("branch-chip");
+    const askAll = chip.getByRole("button", { name: "Ask all 2 selected models instead" });
+    await expect(askAll).toHaveText(/Only Claude Sonnet 5\.5/);
+    await send(page, "Go on");
+    await expect.poll(() => askedWith("Go on")).toEqual([CLAUDE]);
+    await idle();
+
+    // Still continuing Claude's thread; now every selected model answers from it.
+    await askAll.click();
+    await expect(chip.getByRole("button", { name: "Ask only Claude Sonnet 5.5 instead" })).toHaveText("All 2 answer");
+    await send(page, "Everyone, go on");
+    await expect.poll(() => askedWith("Everyone, go on")).toEqual([CLAUDE, GPT].sort());
+    await idle();
+
+    // The click never touched the Control Panel's selection, which is what a reload keeps.
+    expect(JSON.parse((await page.evaluate(() => localStorage.getItem("crucible_selected_models")))!)).toEqual([
+      GPT,
+      CLAUDE,
+    ]);
+    await page.reload();
+    await expect(page.getByText("2 models", { exact: true })).toBeVisible();
   });
 
   test("a new session appears in the sidebar under its title without a reload", async ({ page }) => {

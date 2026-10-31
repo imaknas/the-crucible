@@ -53,4 +53,18 @@ describe("ChatInput", () => {
     render(<ChatInput {...baseProps} messages={[{ id: "m", role: "user", content: "Hi" }]} />);
     expect(screen.getByRole("button", { name: "Deliberate" })).toBeDisabled();
   });
+
+  it("deliberates with a clicked reply's model while the debate keeps the selection", () => {
+    render(
+      <ChatInput
+        {...baseProps}
+        respondingModels={["claude-sonnet-5-5"]}
+        messages={[{ id: "m", role: "user", content: "Hi" }]}
+        onDebateOpen={jest.fn()}
+      />,
+    );
+    fireEvent.change(composer(), { target: { value: "Go on" } });
+    expect(screen.getByRole("button", { name: "Deliberate" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Start debate/i })).toBeEnabled();
+  });
 });

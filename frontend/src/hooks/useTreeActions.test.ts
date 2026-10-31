@@ -33,26 +33,26 @@ function setup() {
     setShowTree: jest.fn(),
     confirm: jest.fn().mockResolvedValue(true),
     pushToast: jest.fn(),
-    setSelectedModels: jest.fn(),
+    continueFrom: jest.fn(),
   };
   const { result } = renderHook(() => useTreeActions(props));
   return { props, result };
 }
 
 describe("useTreeActions.selectCheckpoint", () => {
-  it("selects the model that wrote a clicked reply", () => {
+  it("opens a clicked reply and continues from it", () => {
     const { props, result } = setup();
     act(() => result.current.selectCheckpoint("a1"));
     expect(props.setActiveCheckpoint).toHaveBeenCalledWith("a1");
-    expect(props.setSelectedModels).toHaveBeenCalledWith(["claude-sonnet-5-5"]);
+    expect(props.continueFrom).toHaveBeenCalledWith(nodes[1]);
     expect(props.fetchHistory).toHaveBeenCalledWith("thread_1", "a1");
   });
 
-  it("leaves the selection alone for a user message", () => {
+  it("continues from a clicked user message too", () => {
     const { props, result } = setup();
     act(() => result.current.selectCheckpoint("u1"));
     expect(props.setActiveCheckpoint).toHaveBeenCalledWith("u1");
-    expect(props.setSelectedModels).not.toHaveBeenCalled();
+    expect(props.continueFrom).toHaveBeenCalledWith(nodes[0]);
   });
 });
 
@@ -72,7 +72,7 @@ describe("useTreeActions branching", () => {
 });
 
 describe("useTreeActions.resetToLatest", () => {
-  it("returns to the newest message without collapsing the model selection", () => {
+  it("returns to the newest message without changing who answers", () => {
     // Checkpoint ids are time-ordered: "2-a" is newer than "1-u".
     const ordered = [
       { ...nodes[0], id: "1-u" },
@@ -92,13 +92,13 @@ describe("useTreeActions.resetToLatest", () => {
       setShowTree: jest.fn(),
       confirm: jest.fn().mockResolvedValue(true),
       pushToast: jest.fn(),
-      setSelectedModels: jest.fn(),
+      continueFrom: jest.fn(),
     };
     const { result } = renderHook(() => useTreeActions(props));
     expect(result.current.branch?.isLatest).toBe(false);
     act(() => result.current.resetToLatest());
     expect(props.setActiveCheckpoint).toHaveBeenCalledWith("2-a");
-    expect(props.setSelectedModels).not.toHaveBeenCalled();
+    expect(props.continueFrom).not.toHaveBeenCalled();
   });
 });
 

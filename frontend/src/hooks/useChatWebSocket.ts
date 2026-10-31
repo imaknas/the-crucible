@@ -9,6 +9,7 @@ export function useChatWebSocket({
   threadId,
   activeCheckpoint,
   selectedModels,
+  respondingModels = selectedModels,
   toggles,
   summarizer = null,
   systemPrompt = null,
@@ -23,7 +24,10 @@ export function useChatWebSocket({
 }: {
   threadId: string | null;
   activeCheckpoint: string | null;
+  /** The Control Panel's selection; its first model writes a synthesis by default. */
   selectedModels: string[];
+  /** Who answers the next message (lib/replyTarget); default: the selection. */
+  respondingModels?: string[];
   toggles: Toggles;
   /** Model that summarizes long history; null = the backend's default. */
   summarizer?: string | null;
@@ -329,12 +333,12 @@ export function useChatWebSocket({
     }
 
     setIsLoading(true);
-    expectedModelsCountRef.current = selectedModels.length;
+    expectedModelsCountRef.current = respondingModels.length;
     finishedModelsCountRef.current = 0;
 
     setModelErrors([]);
     sentFramesRef.current = {};
-    selectedModels.forEach((model) => {
+    respondingModels.forEach((model) => {
       sendFrame({
         message: userMessage,
         model: model,

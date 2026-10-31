@@ -17,8 +17,8 @@ interface Options {
   setShowTree: (tree: boolean) => void;
   confirm: (title: string, message: string) => Promise<boolean>;
   pushToast: (message: string) => void;
-  /** Clicking a model's reply selects that model for the next message. */
-  setSelectedModels: (models: string[]) => void;
+  /** A node was clicked: it decides who answers next (useReplyTarget). */
+  continueFrom: (node: TreeNode | undefined) => void;
 }
 
 /** What the conversation tree lets you do to its checkpoints. */
@@ -36,7 +36,7 @@ export function useTreeActions({
   setShowTree,
   confirm,
   pushToast,
-  setSelectedModels,
+  continueFrom,
 }: Options) {
   const activeCheckpointNode = useMemo(
     () => nodes.find((n) => n.id === activeCheckpoint),
@@ -48,13 +48,7 @@ export function useTreeActions({
     [edges],
   );
 
-  /**
-   * Open a checkpoint: it becomes the branch point for the next message, and
-   * clicking a model's reply selects that model. Only an explicit click does
-   * this — the refresh after every turn and opening a thread used to collapse
-   * a multi-model selection to whichever model wrote the newest node.
-   */
-  /** Make a checkpoint the branch point without touching the model selection. */
+  /** Make a checkpoint the branch point without touching who answers. */
   const openCheckpoint = useCallback(
     (id: string) => {
       setActiveCheckpoint(id);
@@ -63,21 +57,27 @@ export function useTreeActions({
     [threadId, fetchHistory, setActiveCheckpoint],
   );
 
+  /**
+   * Open a checkpoint: it becomes the branch point for the next message, and
+   * a model's reply is continued with that model; any other node goes back
+   * to the selected models. Only an explicit click does this — the refresh
+   * after every turn and opening a thread used to collapse a multi-model
+   * selection to whichever model wrote the newest node.
+   */
   const selectCheckpoint = useCallback(
     (id: string) => {
-      const model = nodes.find((n) => n.id === id)?.metadata?.active_peer;
-      if (model) setSelectedModels([model]);
+      continueFrom(nodes.find((n) => n.id === id));
       openCheckpoint(id);
     },
-    [nodes, openCheckpoint, setSelectedModels],
+    [nodes, continueFrom, openCheckpoint],
   );
 
   /** What the composer's "Replying from" chip shows. */
   const branch = useMemo(() => branchPoint(nodes, activeCheckpoint), [nodes, activeCheckpoint]);
 
   /**
-   * Back to replying to the newest message. Not a node click: a multi-model
-   * selection stays as it is.
+   * Back to replying to the newest message. Not a node click: who answers
+   * stays as it is.
    */
   const resetToLatest = useCallback(() => {
     if (branch && !branch.isLatest) openCheckpoint(branch.latestId);

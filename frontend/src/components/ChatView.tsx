@@ -18,7 +18,7 @@ import DebateBanner, { type DebateBannerProps } from "./DebateBanner";
 import { MessageBubble, getModelColor } from "./MessageBubble";
 import { Message, ModelError } from "@/lib/types";
 import ModelErrorBubble from "./ModelErrorBubble";
-import BranchChip from "./BranchChip";
+import BranchChip, { type AnswerChoice } from "./BranchChip";
 import type { BranchPoint } from "@/lib/branching";
 import { cardExcerpt, orderSiblings } from "@/lib/arenaCompare";
 
@@ -47,6 +47,8 @@ interface ChatViewProps {
   showEditButton: boolean;
   threadId: string | null;
   selectedModels: string[];
+  /** Who answers the next message; default: the selection. */
+  respondingModels?: string[];
   onDebateOpen?: (prompt: string) => void;
   onDebateInject?: (message: string) => void;
   onDebateRedirect?: (message: string) => void;
@@ -63,6 +65,8 @@ interface ChatViewProps {
   /** The checkpoint the next message branches from (chat only). */
   branchPoint?: BranchPoint | null;
   onResetBranch?: () => void;
+  /** Who answers a clicked reply, switchable on the branch chip. */
+  answerChoice?: AnswerChoice | null;
 }
 
 
@@ -88,6 +92,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   showEditButton,
   threadId,
   selectedModels,
+  respondingModels,
   stopStreaming,
   onDebateOpen,
   onDebateInject,
@@ -100,6 +105,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onDismissModelError,
   branchPoint,
   onResetBranch,
+  answerChoice = null,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerContentRef = useRef<HTMLDivElement>(null);
@@ -1041,6 +1047,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         documents={documents}
         setDocuments={setDocuments}
         selectedModels={selectedModels}
+        respondingModels={respondingModels}
         messages={messages}
         onEditAndRebranch={onEditAndRebranch}
         showEditButton={showEditButton}
@@ -1052,7 +1059,12 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         clearSignal={composerClearSignal}
         header={
           branchPoint && !debateBanner ? (
-            <BranchChip point={branchPoint} onReset={() => onResetBranch?.()} modelLabel={modelLabel} />
+            <BranchChip
+              point={branchPoint}
+              onReset={() => onResetBranch?.()}
+              modelLabel={modelLabel}
+              answer={answerChoice}
+            />
           ) : undefined
         }
         debateOnScreen={!!debateBanner}

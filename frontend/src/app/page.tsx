@@ -30,6 +30,7 @@ import { useSystemPrompt } from "@/hooks/useSystemPrompt";
 import { useDebateDefaults } from "@/hooks/useDebateDefaults";
 import { useToggles } from "@/hooks/useToggles";
 import { useTreeActions } from "@/hooks/useTreeActions";
+import { useReplyTarget } from "@/hooks/useReplyTarget";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
 
 /**
@@ -120,6 +121,13 @@ export default function Home() {
     renameThread,
   } = useThreads(handleThreadDeleted, fetchHistory, showConfirm);
 
+  // A clicked reply is continued with its model; the selection stays as set.
+  const reply = useReplyTarget(
+    threadId,
+    selectedModels,
+    nodes.find((n) => n.id === activeCheckpoint),
+  );
+
   const clearDocuments = useCallback(() => setDocuments({}), []);
   const {
     messages,
@@ -135,6 +143,7 @@ export default function Home() {
     threadId,
     activeCheckpoint,
     selectedModels,
+    respondingModels: reply.responders,
     toggles,
     summarizer,
     systemPrompt,
@@ -227,7 +236,7 @@ export default function Home() {
     setShowTree,
     confirm: showConfirm,
     pushToast,
-    setSelectedModels,
+    continueFrom: reply.continueFrom,
   });
 
   // Deliberately does not call setShowTree. Sending used to yank you out of the
@@ -281,7 +290,10 @@ export default function Home() {
         activeDebateStatus={inDebate ? debate.status : null}
         modelLabel={modelLabel}
         onDeleteDebateSession={debate.remove}
-        onSwitchDebateSession={debate.switchTo}
+        onSwitchDebateSession={(id) => {
+          reply.reset();
+          return debate.switchTo(id);
+        }}
         mode={layout.sidebar.mode}
         open={layout.sidebar.open}
         onClose={() => layout.sidebar.setOpen(false)}
@@ -310,7 +322,7 @@ export default function Home() {
       >
         <AppHeader
           connection={connection}
-          selectedModels={selectedModels}
+          selectedModels={reply.responders}
           showTree={showTree}
           onShowTreeChange={setShowTree}
           onHome={() => switchThread("")}
@@ -404,6 +416,7 @@ export default function Home() {
                   showEditButton={!inDebate && activeCheckpointNode?.metadata?.role === "user"}
                   threadId={threadId}
                   selectedModels={selectedModels}
+                  respondingModels={reply.responders}
                   onDebateOpen={debate.openDialog}
                   onDebateInject={inDebate && debate.controls.inject ? debate.inject : undefined}
                   onDebateRedirect={inDebate && debate.controls.redirect ? debate.redirect : undefined}
@@ -415,6 +428,16 @@ export default function Home() {
                   onDismissModelError={dismissModelError}
                   branchPoint={inDebate ? null : branch}
                   onResetBranch={resetToLatest}
+                  answerChoice={
+                    reply.replyModel && reply.canAskAll
+                      ? {
+                          replyModel: reply.replyModel,
+                          askAll: reply.askAll,
+                          selected: selectedModels,
+                          onChange: reply.setAskAll,
+                        }
+                      : null
+                  }
                 />
               </motion.div>
             )}
@@ -450,16 +473,18 @@ export default function Home() {
       <DebateConfigDialog
         open={debate.dialogOpen}
         onClose={debate.closeDialog}
-        onStart={(config) =>
-          debate.start(config, {
+        onStart={(config) => {
+          // Turns after the debate continue it with its participants, not a reply clicked before.
+          reply.reset();
+          return debate.start(config, {
             participants: selectedModels,
             toggles,
             documents,
             parentCheckpointId: activeCheckpoint,
             summarizer,
             systemPrompt,
-          })
-        }
+          });
+        }}
         defaults={debateDefaults}
         availableModels={allModelIds.length ? allModelIds : selectedModels}
         modelLabel={modelLabel}
