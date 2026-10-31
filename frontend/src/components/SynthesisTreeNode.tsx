@@ -88,11 +88,12 @@ export default function SynthesisTreeNode({
               whiteSpace: selected ? "pre-wrap" : "normal",
             }}
           >
-            {(selected && data.metadata?.preview) || data.label || (isPending ? "Pending…" : "Consensus")}
+            {(selected && data.metadata?.preview) || data.label || (isPending ? "Pending…" : "Synthesis")}
           </div>
         </div>
       </div>
-      {hovered && (data.onDelete || data.onBranch) && (
+      {/* On hover and when selected, so keyboard and touch reach them too. */}
+      {(hovered || selected) && (data.onDelete || data.onBranch) && (
         <div style={{ position: "absolute", top: -8, right: -8, display: "flex", gap: 4, zIndex: 200 }}>
             {data.onBranch && (
               <button
@@ -131,8 +132,8 @@ export default function SynthesisTreeNode({
             e.stopPropagation();
             data.onDelete?.(id);
           }}
-          title="Delete this node and everything below it"
-          aria-label="Delete node"
+          title="Delete this synthesis and everything below it"
+          aria-label="Delete message"
           style={{
             width: 24,
             height: 24,

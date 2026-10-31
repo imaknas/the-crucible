@@ -359,7 +359,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
               </List>
             </Box>
           ) : (
-            <List sx={{ flex: 1, overflow: "auto", px: 1.5, py: 1.5, "&::-webkit-scrollbar": { display: "none" } }}>
+            <List sx={{ flex: 1, overflow: "auto", px: 1.5, py: 1.5, scrollbarWidth: "thin" }}>
               <AnimatePresence mode="popLayout">
                 {threads.length === 0 ? (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import * as api from "@/lib/api";
 
 export type ConnectionTone = "ok" | "warn" | "error";
@@ -11,15 +11,21 @@ export function useBackendStatus() {
   const [reachable, setReachable] = useState<boolean | null>(null);
   const [keyCount, setKeyCount] = useState(0);
 
+  const load = useCallback(
+    () =>
+      api
+        .fetchKeyStatus()
+        .then((status) => {
+          setKeyCount(Object.values(status).filter((v) => v.set).length);
+          setReachable(true);
+        })
+        .catch(() => setReachable(false)),
+    [],
+  );
+
   useEffect(() => {
-    api
-      .fetchKeyStatus()
-      .then((status) => {
-        setKeyCount(Object.values(status).filter((v) => v.set).length);
-        setReachable(true);
-      })
-      .catch(() => setReachable(false));
-  }, []);
+    load();
+  }, [load]);
 
   const connection = useMemo((): { tone: ConnectionTone; label: string } => {
     if (reachable === null) return { tone: "warn", label: "Connecting…" };
@@ -32,5 +38,6 @@ export function useBackendStatus() {
   // view should only nag when the backend positively reports none.
   const hasAnyKey = reachable === null ? null : !reachable || keyCount > 0;
 
-  return { connection, hasAnyKey };
+  /** Read the key status again, e.g. after a key was saved (the header kept the old count). */
+  return { connection, hasAnyKey, refreshStatus: load };
 }

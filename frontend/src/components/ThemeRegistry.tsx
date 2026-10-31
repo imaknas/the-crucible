@@ -46,12 +46,27 @@ export default function ThemeRegistry({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
+    let saved: string | null = null;
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved !== null) {
-        setIsDark(JSON.parse(saved));
-      }
+      saved = localStorage.getItem(STORAGE_KEY);
     } catch {}
+    if (saved !== null) {
+      setIsDark(JSON.parse(saved));
+      return;
+    }
+    // No choice made here yet: follow the system's light/dark setting, and
+    // keep following it until the person picks one with the toggle.
+    const query = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!query) return;
+    setIsDark(query.matches);
+    const follow = (e: MediaQueryListEvent) => {
+      try {
+        if (localStorage.getItem(STORAGE_KEY) !== null) return;
+      } catch {}
+      setIsDark(e.matches);
+    };
+    query.addEventListener?.("change", follow);
+    return () => query.removeEventListener?.("change", follow);
   }, []);
 
   const toggleMode = useCallback(() => {

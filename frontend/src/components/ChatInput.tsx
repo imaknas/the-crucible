@@ -36,12 +36,18 @@ interface ChatInputProps {
   header?: React.ReactNode;
   /** The backend's message limit (GET /models `limits.max_prompt_chars`). */
   maxChars?: number;
+  /** Display names, to say who answers next where the composer is (the header hides it on phones). */
+  modelLabel?: (id: string) => string;
+  /** What else goes with the message: "System prompt", "Web search", "Document search". */
+  contextNotes?: string[];
 }
 
 /**
  * A labelled secondary action (Deliberate, Debate, Redirect). The label hides
  * on phones, where the tooltip and aria-label still name it; the tooltip says
- * why it is disabled when it is.
+ * why it is unavailable when it is. Unavailable is `aria-disabled`, not
+ * `disabled`: a disabled button can't take focus, so its "why" was
+ * mouse-only. The click handlers check the action themselves.
  */
 function ComposerButton({
   action,
@@ -59,14 +65,14 @@ function ComposerButton({
   onClick: () => void;
 }) {
   return (
-    <Tooltip title={action.hint} placement="top" arrow>
-      {/* A span so the tooltip still opens on a disabled button. */}
+    <Tooltip title={action.hint} placement="top" arrow describeChild>
       <span>
         <ButtonBase
-          onClick={onClick}
-          disabled={!action.enabled}
+          onClick={action.enabled ? onClick : undefined}
+          aria-disabled={!action.enabled}
           aria-label={ariaLabel}
           sx={{
+            cursor: action.enabled ? "pointer" : "not-allowed",
             display: "flex",
             alignItems: "center",
             gap: 0.75,
@@ -117,6 +123,8 @@ export const ChatInput = React.memo(
     debateOnScreen = false,
     header,
     maxChars,
+    modelLabel = (id: string) => id,
+    contextNotes = [],
   }: ChatInputProps) => {
     const localInput = value;
     const fileRef = React.useRef<HTMLInputElement>(null);
@@ -171,13 +179,22 @@ export const ChatInput = React.memo(
       onDebateOpen?.(localInput);
     };
 
+    const who =
+      respondingModels.length === 1
+        ? `${modelLabel(respondingModels[0])} answers`
+        : `${respondingModels.length} models answer`;
     const statusText = isLoading
       ? "Processing…"
       : onDebateInject
         ? "Debate · Send adds your message to the next round"
         : debateOnScreen
-          ? "Debate over · Send starts a regular chat turn"
-          : "Ready";
+          ? `Debate over · Send starts a regular chat turn · ${who}`
+          : [who, ...contextNotes].join(" · ");
+    const statusTitle = onDebateInject
+      ? statusText
+      : `${respondingModels.map(modelLabel).join(", ")} ${respondingModels.length === 1 ? "answers" : "answer"}${
+          contextNotes.length ? `, with ${contextNotes.join(", ").toLowerCase()}` : ""
+        }`;
     const sendColor = onDebateInject ? "#7c3aed" : undefined;
 
     return (
@@ -326,7 +343,7 @@ export const ChatInput = React.memo(
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                   }}
-                  title={statusText}
+                  title={statusTitle}
                 >
                   {statusText}
                 </Typography>
@@ -398,13 +415,14 @@ export const ChatInput = React.memo(
                   </ButtonBase>
                 </Tooltip>
               ) : (
-                <Tooltip title={send.hint} placement="top" arrow>
+                <Tooltip title={send.hint} placement="top" arrow describeChild>
                   <span>
                     <ButtonBase
                       onClick={handleSend}
                       aria-label={onDebateInject ? "Inject into debate" : "Send"}
-                      disabled={!send.enabled}
+                      aria-disabled={!send.enabled}
                       sx={{
+                        cursor: send.enabled ? "pointer" : "not-allowed",
                         display: "flex",
                         alignItems: "center",
                         gap: 0.75,
@@ -418,8 +436,7 @@ export const ChatInput = React.memo(
                         opacity: send.enabled ? 1 : 0.45,
                         boxShadow: send.enabled ? "0 4px 12px rgba(37,99,235,0.3)" : "none",
                         transition: "opacity .15s, background-color .15s",
-                        "&:hover": { bgcolor: sendColor ? "#6d28d9" : "primary.dark" },
-                        "&.Mui-disabled": { color: "white" },
+                        "&:hover": send.enabled ? { bgcolor: sendColor ? "#6d28d9" : "primary.dark" } : {},
                       }}
                     >
                       <Send width={16} height={16} />

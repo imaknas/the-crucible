@@ -15,7 +15,7 @@ test.describe("application shell", () => {
 
   test("uses plain labels rather than themed vocabulary", async ({ page }) => {
     await openThread(page, MAIN_THREAD_TITLE);
-    await expect(page.getByText("Models in this arena")).toBeVisible();
+    await expect(page.getByText("Selected models")).toBeVisible();
     await expect(page.getByText("Available models")).toBeVisible();
     await expect(page.getByText("Search my documents")).toBeVisible();
     for (const gone of ["Active Council", "Council Members", "Deep Knowledge Search"]) {
@@ -165,7 +165,9 @@ test.describe("application shell", () => {
   test("explains an empty canvas instead of rendering a void", async ({ page }) => {
     await page.getByRole("button", { name: "New Session" }).click();
     await showTree(page);
-    await expect(page.getByText("No checkpoints yet")).toBeVisible();
+    await expect(page.getByText("No messages yet")).toBeVisible();
+    // The tree has no composer, so it says where the first message is written.
+    await expect(page.getByText(/Switch to Arena/)).toBeVisible();
   });
 
   test("lists the verified model catalogue", async ({ page }) => {

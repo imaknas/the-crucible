@@ -51,7 +51,7 @@ export default function ModelPickerSection({
       {status === "loading" && (
         <Typography
           variant="caption"
-          sx={{ color: "text.disabled", px: 1 }}
+          sx={{ color: "text.secondary", px: 1 }}
         >
           Loading models…
         </Typography>
@@ -66,17 +66,12 @@ export default function ModelPickerSection({
           >
             Failed to load models.
           </Typography>
-          <Typography
-            variant="caption"
-            sx={{
-              color: "primary.main",
-              cursor: "pointer",
-              fontWeight: 700,
-            }}
+          <ButtonBase
             onClick={onRetry}
+            sx={{ fontSize: "0.75rem", color: "primary.main", fontWeight: 700, px: 0.5, borderRadius: 1 }}
           >
             Retry
-          </Typography>
+          </ButtonBase>
         </Box>
       )}
       <Stack spacing={1.5}>
@@ -90,6 +85,7 @@ export default function ModelPickerSection({
               {/* Family Header — click to expand */}
               <ButtonBase
                 onClick={() => toggleFamily(family.key)}
+                aria-expanded={isExpanded}
                 sx={{
                   width: "100%",
                   display: "flex",
@@ -141,7 +137,7 @@ export default function ModelPickerSection({
                     </Typography>
                     <Typography
                       variant="caption"
-                      sx={{ fontSize: "0.7rem", color: "text.disabled" }}
+                      sx={{ fontSize: "0.7rem", color: "text.secondary" }}
                     >
                       {family.models.length} models
                       {!family.available && " · No API key"}
@@ -185,6 +181,8 @@ export default function ModelPickerSection({
                         key={model.id}
                         onClick={() => handleModelToggle(model.id)}
                         disabled={!family.available}
+                        aria-pressed={isActive}
+                        title={family.available ? undefined : `Add a ${family.label} API key to use this model`}
                         sx={{
                           width: "100%",
                           display: "flex",
@@ -250,7 +248,7 @@ export default function ModelPickerSection({
                               variant="caption"
                               sx={{
                                 fontSize: "0.6875rem",
-                                color: "text.disabled",
+                                color: "text.secondary",
                                 fontWeight: 600,
                                 textTransform: "uppercase",
                                 letterSpacing: "0.05em",

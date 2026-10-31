@@ -53,7 +53,7 @@ export default function Home() {
 
   const { toasts, pushToast, dismissToast } = useToasts();
   const { confirm: showConfirm, request: confirmRequest, answer: answerConfirm } = useConfirm();
-  const { connection, hasAnyKey } = useBackendStatus();
+  const { connection, hasAnyKey, refreshStatus } = useBackendStatus();
   const {
     families,
     status: modelsStatus,
@@ -289,6 +289,21 @@ export default function Home() {
     [debateRedirect],
   );
 
+  const handleKeysSaved = useCallback(() => {
+    reloadModels();
+    refreshStatus();
+  }, [reloadModels, refreshStatus]);
+
+  // Shown beside the composer: what goes with the message besides its text.
+  const contextNotes = useMemo(
+    () =>
+      [
+        systemPrompt ? "System prompt" : null,
+        toggles.use_web_search ? "Web search" : null,
+        toggles.use_rag ? "Document search" : null,
+      ].filter((n): n is string => !!n),
+    [systemPrompt, toggles.use_web_search, toggles.use_rag],
+  );
   const answerChoice = useMemo(
     () =>
       reply.replyModel && reply.canAskAll
@@ -477,6 +492,7 @@ export default function Home() {
                   answerChoice={answerChoice}
                   replyTexts={replyTexts}
                   maxPromptChars={limits.max_prompt_chars}
+                  contextNotes={contextNotes}
                   liveTurn={liveTurn}
                 />
               </motion.div>
@@ -491,7 +507,9 @@ export default function Home() {
         families={families}
         modelsStatus={modelsStatus}
         onReloadModels={reloadModels}
+        onKeysSaved={handleKeysSaved}
         selectedModels={selectedModels}
+        respondingModels={reply.responders}
         setSelectedModels={setSelectedModels}
         messagesCount={nodes.length}
         activeCheckpointLabel={chosen === null ? "Latest turn" : anchorNode?.data?.label || "Start"}

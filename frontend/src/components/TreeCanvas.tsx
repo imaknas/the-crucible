@@ -451,7 +451,7 @@ function TreeViewInner({
         >
           <GitBranch size={28} strokeWidth={1.5} />
           <div style={{ fontSize: 13, fontWeight: 600 }}>
-            {debateMode ? "No debate rounds recorded yet" : "No checkpoints yet"}
+            {debateMode ? "No debate rounds recorded yet" : "No messages yet"}
           </div>
           <div style={{ fontSize: 11, opacity: 0.8 }}>
             {debateMode

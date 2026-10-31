@@ -260,7 +260,10 @@ const CustomTreeNode = React.memo(
         )}
 
         {/* Hover actions: branch from here, delete */}
-        {isHovered && (data.onDelete || data.onBranch) && (
+        {/* Shown on hover and on the selected node: a keyboard (Tab, then
+            Enter) or a touch screen has no hover, and used to have no way to
+            branch or delete. */}
+        {(isHovered || selected) && (data.onDelete || data.onBranch) && (
           <div
             style={{
               position: "absolute",
@@ -324,8 +327,8 @@ const CustomTreeNode = React.memo(
                 boxShadow: "0 2px 8px rgba(239, 68, 68, 0.4)",
                 transition: "all 0.2s",
               }}
-              title="Delete this node and everything below it"
-              aria-label="Delete node"
+              title="Delete this message and everything below it"
+              aria-label="Delete message"
             >
               <Trash2 size={12} />
             </button>

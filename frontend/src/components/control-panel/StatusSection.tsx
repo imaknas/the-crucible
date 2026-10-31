@@ -3,17 +3,20 @@ import { Box, Stack, Typography } from "@mui/material";
 import type { ModelFamily } from "@/lib/api";
 import { SectionHeader, StatusRow, getModelMetaFromId } from "./primitives";
 
-/** Read-only summary: selected models, open checkpoint, checkpoint count. */
+/** Read-only summary: who answers next, the selection, the branch point, checkpoint count. */
 export default function StatusSection({
   isDark,
   families,
   selectedModels,
+  respondingModels = selectedModels,
   activeCheckpointLabel,
   messagesCount,
 }: {
   isDark: boolean;
   families: ModelFamily[];
   selectedModels: string[];
+  /** Who answers the next message: a clicked reply's model, or the selection. */
+  respondingModels?: string[];
   activeCheckpointLabel: string;
   messagesCount: number;
 }) {
@@ -30,7 +33,17 @@ export default function StatusSection({
         }}
       >
         <Stack spacing={2}>
-          <StatusRow label="Models in this arena">
+          {respondingModels.join() !== selectedModels.join() && (
+            <StatusRow label="Answers next">
+              <Typography variant="caption" sx={{ color: "text.primary", fontWeight: 700 }}>
+                {respondingModels.map((m) => getModelMetaFromId(m, families, isDark).label).join(", ")}
+              </Typography>
+              <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>
+                You are continuing a reply; the branch chip above the composer switches back to every selected model.
+              </Typography>
+            </StatusRow>
+          )}
+          <StatusRow label="Selected models">
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
               {selectedModels.map((m) => {
                 const meta = getModelMetaFromId(m, families, isDark);
@@ -73,7 +86,7 @@ export default function StatusSection({
             </Box>
           </StatusRow>
 
-          <StatusRow label="Checkpoint">
+          <StatusRow label="Continuing from">
             <Typography
               variant="caption"
               title={activeCheckpointLabel}
@@ -112,7 +125,7 @@ export default function StatusSection({
                 color: "text.secondary",
               }}
             >
-              Checkpoints
+              Conversation tree
             </Typography>
             <Box
               sx={{

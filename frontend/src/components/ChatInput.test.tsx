@@ -73,7 +73,7 @@ describe("ChatInput", () => {
 
   it("disables Deliberate with more than one model selected", () => {
     render(<Controlled {...baseProps} messages={[{ id: "m", role: "user", content: "Hi" }]} />);
-    expect(screen.getByRole("button", { name: "Deliberate" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Deliberate" })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("deliberates with a clicked reply's model while the debate keeps the selection", () => {
@@ -86,8 +86,8 @@ describe("ChatInput", () => {
       />,
     );
     fireEvent.change(composer(), { target: { value: "Go on" } });
-    expect(screen.getByRole("button", { name: "Deliberate" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /Start debate/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Deliberate" })).toHaveAttribute("aria-disabled", "false");
+    expect(screen.getByRole("button", { name: /Start debate/i })).toHaveAttribute("aria-disabled", "false");
   });
 
   it("says attachments go with one message, shows an upload in progress, and takes the same file twice", () => {
@@ -111,9 +111,9 @@ describe("ChatInput", () => {
     render(<Controlled {...baseProps} maxChars={20} />);
     fireEvent.change(composer(), { target: { value: "x".repeat(19) } });
     expect(screen.getByTestId("chars-left")).toHaveTextContent("1 characters left");
-    expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send" })).toHaveAttribute("aria-disabled", "false");
     fireEvent.change(composer(), { target: { value: "x".repeat(25) } });
     expect(screen.getByTestId("chars-left")).toHaveTextContent("5 over the limit");
-    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Send" })).toHaveAttribute("aria-disabled", "true");
   });
 });

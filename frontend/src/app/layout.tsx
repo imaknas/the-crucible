@@ -17,7 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The Crucible — Multi-Model Consensus Engine",
+  title: "The Crucible — Multi-Model Arena",
   description:
     "Ask several AI models at once, compare and branch their answers, and let them debate.",
 };

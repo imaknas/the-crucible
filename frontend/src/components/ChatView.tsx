@@ -73,6 +73,8 @@ interface ChatViewProps {
   answerChoice?: AnswerChoice | null;
   /** The backend's message limit. */
   maxPromptChars?: number;
+  /** What else goes with each message (system prompt, web search, document search). */
+  contextNotes?: string[];
   /** Full text of replies streamed in this tab, by tree node id. */
   replyTexts?: Record<string, string>;
   /** The replies of the turn that just streamed: their cards open in full. */
@@ -131,6 +133,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onResetBranch,
   answerChoice = null,
   maxPromptChars,
+  contextNotes,
   replyTexts = EMPTY_TEXTS,
   liveTurn = EMPTY_TURN,
 }) => {
@@ -934,8 +937,10 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
           </Box>
         </Box>
 
-        {/* Scroll Navigation Markers (ScrollMap) */}
+        {/* Scroll map: one marker per message, buttons so a keyboard can jump too. */}
         <Box
+          component="nav"
+          aria-label="Jump to a message"
           sx={{
             position: "absolute",
             right: 2,
@@ -959,12 +964,16 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
           >
             {markerPositions.map((marker) => (
               <Box
+                component="button"
                 key={marker.id}
-                onClick={(e) => {
+                aria-label={`${marker.isUser ? "Your message" : "Reply"} ${marker.id + 1} of ${messages.length}`}
+                onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
                   scrollToMessage(marker.id);
                 }}
                 sx={{
+                  border: "none",
+                  p: 0,
                   position: "absolute",
                   top: `${marker.top}%`,
                   left: 4,
@@ -979,7 +988,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       ? "rgba(255,255,255,0.2)"
                       : "rgba(0,0,0,0.15)",
                   transition: "all 0.2s",
-                  "&:hover": {
+                  "&:hover, &:focus-visible": {
                     width: 10,
                     left: 0,
                     bgcolor: marker.isUser
@@ -989,7 +998,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                         : "rgba(0,0,0,0.3)",
                   },
                 }}
-                title={marker.isUser ? "User Prompt" : "AI Response"}
+                title={marker.isUser ? "Your message" : "Reply"}
               />
             ))}
           </Box>
@@ -1029,6 +1038,8 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         }
         debateOnScreen={!!debateBanner}
         maxChars={maxPromptChars}
+        modelLabel={modelLabel}
+        contextNotes={contextNotes}
       />
     </Box>
   );

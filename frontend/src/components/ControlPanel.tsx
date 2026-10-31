@@ -21,7 +21,11 @@ interface ControlPanelProps {
   families: ModelFamily[];
   modelsStatus: CatalogStatus;
   onReloadModels: () => void;
+  /** A key was saved: the catalogue and the header's key status are stale. */
+  onKeysSaved: () => void;
   selectedModels: string[];
+  /** Who answers the next message (useReplyTarget); shown when it differs from the selection. */
+  respondingModels?: string[];
   setSelectedModels: (models: string[]) => void;
   messagesCount: number;
   activeCheckpointLabel: string;
@@ -59,7 +63,9 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
     families,
     modelsStatus,
     onReloadModels,
+    onKeysSaved,
     selectedModels,
+    respondingModels,
     setSelectedModels,
     messagesCount,
     activeCheckpointLabel,
@@ -187,7 +193,9 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             overflow: "auto",
             px: 3,
             py: 3,
-            "&::-webkit-scrollbar": { display: "none" },
+            // A thin scrollbar rather than none: hidden, nothing said the
+            // panel continues below the fold.
+            scrollbarWidth: "thin",
           }}
           spacing={4}
         >
@@ -195,6 +203,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             isDark={isDark}
             families={families}
             selectedModels={selectedModels}
+            respondingModels={respondingModels}
             activeCheckpointLabel={activeCheckpointLabel}
             messagesCount={messagesCount}
           />
@@ -221,7 +230,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             setDebateDefaults={setDebateDefaults}
             maxRounds={limits.max_debate_rounds}
           />
-          <ApiKeysSection families={families} isDark={isDark} onSaved={onReloadModels} />
+          <ApiKeysSection families={families} isDark={isDark} onSaved={onKeysSaved} />
         </Stack>
       </>
     );
