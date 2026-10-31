@@ -110,6 +110,31 @@ describe("useThreads", () => {
     expect(opts.pushToast).toHaveBeenCalledWith("Title too long", "error");
   });
 
+  it("reopens the stored thread without waiting for the thread list", async () => {
+    localStorage.setItem("crucible_thread_id", "thread_saved");
+    // The list never answers: the history request must not depend on it.
+    (api.listThreads as jest.Mock).mockReturnValue(new Promise(() => {}));
+    const opts = options();
+    const { result } = renderHook(() => useThreads(opts));
+    expect(opts.onThreadSwitch).toHaveBeenCalledWith("thread_saved");
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.threadId).toBe("thread_saved");
+    expect(result.current.resolved).toBe(true);
+  });
+
+  it("is unresolved until it knows whether a thread is reopened", async () => {
+    const { result } = renderHook(() => useThreads(options()));
+    // threadId null here means "not known yet": the page shows no landing view.
+    expect(result.current.resolved).toBe(false);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.resolved).toBe(true);
+    expect(result.current.threadId).toBeNull();
+  });
+
   it("opens the thread named in ?thread= and clears it from the URL", async () => {
     localStorage.setItem("crucible_thread_id", "thread_old");
     window.history.replaceState(null, "", "/?thread=cli-abc123");

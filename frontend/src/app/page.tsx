@@ -110,6 +110,7 @@ export default function Home() {
 
   const {
     threadId,
+    resolved: threadResolved,
     threads,
     fetchThreads,
     startNewExperiment,
@@ -425,7 +426,12 @@ export default function Home() {
         />
 
         <div className="flex-1 relative flex flex-col min-h-0 w-full h-full">
-          <AnimatePresence mode="wait">
+          {/* Nothing until the thread to reopen is known: a restored session
+              used to open on the landing view, then wait out its exit
+              animation (mode="wait") before the tree could mount. The first
+              view appears without an enter animation; later switches animate. */}
+          {threadResolved && (
+          <AnimatePresence mode="wait" initial={false}>
             {!threadId ? (
               <motion.div
                 key="landing"
@@ -461,6 +467,7 @@ export default function Home() {
                         activeNodeId={debate.activeNode || undefined}
                         onNodeClick={debate.setActiveNode}
                         onReadNode={debate.readNode}
+                        loading={debate.tree.loading}
                       />
                       <DebateReplyDialog
                         reading={debate.reading}
@@ -481,6 +488,7 @@ export default function Home() {
                     onDeleteNode={deleteNode}
                     onBranchNode={branchFrom}
                     answering={isLoading}
+                    loading={isHistoryLoading}
                   />
                 )}
               </motion.div>
@@ -535,6 +543,7 @@ export default function Home() {
               </motion.div>
             )}
           </AnimatePresence>
+          )}
         </div>
       </Box>
 

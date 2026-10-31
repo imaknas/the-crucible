@@ -4,13 +4,11 @@ import { errorMessage } from "@/lib/errors";
 import type { Confirm } from "@/hooks/useConfirm";
 import type { PushToast } from "@/hooks/useToasts";
 import { writeStoredValue } from "@/hooks/useStoredValue";
+import type { Thread } from "@/lib/types";
+
+export type { Thread };
 
 export const THREAD_STORAGE_KEY = "crucible_thread_id";
-
-export interface Thread {
-  id: string;
-  title: string;
-}
 
 interface Options {
   /** The open thread is gone or replaced by a new one: drop its tree, messages and attachments. */
@@ -37,6 +35,10 @@ function readStoredThread(): string | null {
 
 export function useThreads({ onThreadClear, onThreadSwitch, confirm, pushToast, beforeLeave }: Options) {
   const [threadId, setThreadId] = useState<string | null>(null);
+  // False until the thread to reopen (?thread=, else the stored one) has
+  // been read. Until then threadId null means "not known yet", not "none":
+  // the page shows neither the landing view nor an empty tree.
+  const [resolved, setResolved] = useState(false);
   const [threads, setThreads] = useState<Thread[]>([]);
   // Read at call time: the page builds the guard from state that changes
   // every render, and the actions below are memoised.
@@ -120,39 +122,42 @@ export function useThreads({ onThreadClear, onThreadSwitch, confirm, pushToast, 
   );
 
   useEffect(() => {
-    // The list is set from the response callback, not synchronously in the
-    // effect body (react-hooks/set-state-in-effect).
+    // State is set from callbacks, not synchronously in the effect body
+    // (react-hooks/set-state-in-effect).
     api
       .listThreads()
       .then((data) => setThreads(data.threads || []))
-      .catch((error) => console.error("[threads] list failed:", error))
-      .then(() => {
-        // ?thread=<id> (e.g. from `crucible tree --open`) wins over the last
-        // thread opened here, and is then dropped from the URL so a reload
-        // doesn't keep forcing it.
-        const params = new URLSearchParams(window.location.search);
-        const linked = params.get("thread");
-        if (linked) {
-          params.delete("thread");
-          const query = params.toString();
-          window.history.replaceState(
-            null,
-            "",
-            `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
-          );
-          writeStoredValue(THREAD_STORAGE_KEY, linked);
-        }
-        const saved = linked ?? readStoredThread();
-        if (saved) {
-          setThreadId(saved);
-          onThreadSwitch(saved);
-        }
-      });
+      .catch((error) => console.error("[threads] list failed:", error));
+    // ?thread=<id> (e.g. from `crucible tree --open`) wins over the last
+    // thread opened here, and is then dropped from the URL so a reload
+    // doesn't keep forcing it.
+    const params = new URLSearchParams(window.location.search);
+    const linked = params.get("thread");
+    if (linked) {
+      params.delete("thread");
+      const query = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+      );
+      writeStoredValue(THREAD_STORAGE_KEY, linked);
+    }
+    const saved = linked ?? readStoredThread();
+    // The thread to reopen does not wait for the list: it used to, so every
+    // restored session fetched its history one round trip late. Its history
+    // request goes out now, alongside the list's.
+    if (saved) onThreadSwitch(saved);
+    void Promise.resolve().then(() => {
+      if (saved) setThreadId(saved);
+      setResolved(true);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {
     threadId,
+    resolved,
     threads,
     fetchThreads,
     startNewExperiment,

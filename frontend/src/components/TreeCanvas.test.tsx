@@ -247,3 +247,22 @@ describe("TreeCanvas auto-fit", () => {
     expect(mockFitView.mock.calls[0][0]).not.toHaveProperty("nodes");
   });
 });
+
+describe("TreeCanvas empty state", () => {
+  it("says the tree is loading while it is fetched, not that there are no messages", () => {
+    const { rerenderCanvas } = renderCanvas({ nodes: [], edges: [], loading: true });
+    expect(screen.getByRole("status")).toHaveTextContent("Loading the conversation");
+    expect(screen.queryByText("No messages yet")).not.toBeInTheDocument();
+
+    // Loaded and still empty: now it is a thread with no messages.
+    rerenderCanvas({ nodes: [], edges: [], loading: false });
+    expect(screen.getByText("No messages yet")).toBeInTheDocument();
+    expect(screen.queryByText(/Loading the conversation/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the nodes on screen during a refetch", () => {
+    const nodes = twoNodes();
+    renderCanvas({ nodes, edges: edgesFor(nodes), loading: true });
+    expect(screen.queryByText(/Loading the conversation/)).not.toBeInTheDocument();
+  });
+});

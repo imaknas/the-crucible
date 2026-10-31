@@ -22,7 +22,7 @@ import CustomTreeNode, { LOD_THRESHOLD } from "./CustomTreeNode";
 import { shouldFitWholeTree } from "@/lib/treeFit";
 import SynthesisTreeNode from "./SynthesisTreeNode";
 import { DebateLaneHeaders, DebateRoundBands } from "./tree/DebateOverlays";
-import { Target, Wand2, GitBranch } from "lucide-react";
+import { Target, Wand2, GitBranch, Loader2 } from "lucide-react";
 import type { DebateLane } from "@/lib/types";
 import { FAMILY_COLORS, NEUTRAL_COLOR, modelFamilyColor, modelPalette } from "@/lib/colors";
 import dagre from "dagre";
@@ -63,6 +63,8 @@ interface TreeCanvasProps {
   maxRound?: number;
   /** Models are answering: the tree gets their nodes once they finish, so say so meanwhile. */
   answering?: boolean;
+  /** The tree is being fetched: an empty canvas is "not loaded yet", not "no messages". */
+  loading?: boolean;
 }
 
 const selector = (s: any) => ({
@@ -173,6 +175,7 @@ function TreeViewInner({
   roundScores = {},
   maxRound = 0,
   answering = false,
+  loading = false,
 }: TreeCanvasProps) {
   const isDark = useTheme().palette.mode === "dark";
   const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]);
@@ -443,8 +446,30 @@ function TreeViewInner({
       {debateMode && lanes.length > 0 && (
         <DebateLaneHeaders lanes={lanes} transform={transform} />
       )}
-      {/* An empty canvas used to render as a blank void with no explanation. */}
-      {externalNodes.length === 0 && (
+      {/* An empty canvas used to render as a blank void with no explanation,
+          and while the tree was still loading it said "No messages yet". */}
+      {externalNodes.length === 0 && loading && (
+        <div
+          role="status"
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            pointerEvents: "none",
+            zIndex: 5,
+            fontSize: 13,
+            fontWeight: 600,
+            color: isDark ? "#94a3b8" : "#64748b",
+          }}
+        >
+          <Loader2 size={18} strokeWidth={2} className="animate-spin" aria-hidden />
+          {debateMode ? "Loading the debate…" : "Loading the conversation…"}
+        </div>
+      )}
+      {externalNodes.length === 0 && !loading && (
         <div
           style={{
             position: "absolute",
