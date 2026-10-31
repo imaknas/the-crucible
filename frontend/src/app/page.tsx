@@ -15,6 +15,7 @@ import AppHeader from "@/components/AppHeader";
 import DebateBanner, { type DebateBannerProps } from "@/components/DebateBanner";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import * as api from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
 import type { Message } from "@/lib/types";
 import { useLayoutPanels } from "@/hooks/useLayoutPanels";
 import { useThreads } from "@/hooks/useThreads";
@@ -43,8 +44,6 @@ import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
  */
 export default function Home() {
   const [input, setInput] = useState("");
-  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState("");
   const [documents, setDocuments] = useState<Record<string, string>>({});
   const { toggles, setToggles } = useToggles();
   const [errorModals, setErrorModals] = useState<
@@ -101,15 +100,11 @@ export default function Home() {
     clearTree,
   } = useHistoryTree(handleMessagesLoaded);
 
-  const handleThreadDeleted = useCallback(
-    (deleted?: boolean) => {
-      clearTree();
-      setMessagesRef.current?.([]);
-      setDocuments({});
-      if (deleted) pushToast("Session deleted");
-    },
-    [clearTree, pushToast],
-  );
+  const handleThreadCleared = useCallback(() => {
+    clearTree();
+    setMessagesRef.current?.([]);
+    setDocuments({});
+  }, [clearTree]);
 
   const {
     threadId,
@@ -119,7 +114,12 @@ export default function Home() {
     switchThread,
     deleteThread,
     renameThread,
-  } = useThreads(handleThreadDeleted, fetchHistory, showConfirm);
+  } = useThreads({
+    onThreadClear: handleThreadCleared,
+    onThreadSwitch: fetchHistory,
+    confirm: showConfirm,
+    pushToast,
+  });
 
   // A clicked reply is continued with its model; the selection stays as set.
   const reply = useReplyTarget(
@@ -152,7 +152,7 @@ export default function Home() {
     onHistoryRefreshNeeded: fetchHistory,
     setActiveCheckpoint,
     setErrorModals,
-    showConfirm,
+    pushToast,
     onThreadsChanged: fetchThreads,
   });
 
@@ -206,8 +206,7 @@ export default function Home() {
       const data = await api.uploadDocument(file, threadId);
       setDocuments((prev) => ({ ...prev, [data.filename]: data.full_content }));
     } catch (error) {
-      console.error("Upload error:", error);
-      pushToast("Upload failed.");
+      pushToast(errorMessage(error, "Couldn't upload the file"), "error", "Upload failed");
     }
   };
 
@@ -275,14 +274,10 @@ export default function Home() {
       <Sidebar
         threads={threads}
         threadId={threadId}
-        editingThreadId={editingThreadId}
-        editingTitle={editingTitle}
         onStartNewExperiment={startNewExperiment}
         onSwitchThread={switchThread}
         onDeleteThread={deleteThread}
         onRenameThread={renameThread}
-        setEditingThreadId={setEditingThreadId}
-        setEditingTitle={setEditingTitle}
         onSwitchCheckpoint={selectCheckpoint}
         debateSessions={debate.sessions}
         activeDebateSessionId={debate.activeSessionId}

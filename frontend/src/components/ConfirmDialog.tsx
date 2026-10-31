@@ -10,7 +10,7 @@ import {
 import { useThemeMode } from "@/components/ThemeRegistry";
 import type { ConfirmRequest } from "@/hooks/useConfirm";
 
-/** Destructive-action confirmation, driven by useConfirm(). */
+/** A question before an action, driven by useConfirm(); the confirm button names the action. */
 export default function ConfirmDialog({
   request,
   onAnswer,
@@ -59,7 +59,7 @@ export default function ConfirmDialog({
           onClick={() => onAnswer(true)}
           variant="contained"
           size="small"
-          color="error"
+          color={request?.destructive === false ? "primary" : "error"}
           sx={{
             textTransform: "none",
             fontWeight: 700,
@@ -69,7 +69,7 @@ export default function ConfirmDialog({
             "&:hover": { boxShadow: "none" },
           }}
         >
-          Confirm
+          {request?.confirmLabel ?? "Confirm"}
         </Button>
       </DialogActions>
     </Dialog>

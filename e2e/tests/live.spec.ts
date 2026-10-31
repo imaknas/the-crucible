@@ -476,7 +476,7 @@ test.describe("live flows (scripted models)", () => {
       has: page.getByRole("button", { name: "Delete debate" }),
     });
     await activeRow.getByRole("button", { name: "Delete debate" }).click();
-    await page.getByRole("button", { name: "Confirm" }).click();
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
 
     await expect(activeRow).toHaveCount(0);
     await expect(page.getByText(/DEBATE · ROUND/)).toHaveCount(0);

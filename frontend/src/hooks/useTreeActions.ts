@@ -1,7 +1,10 @@
 import { useCallback, useMemo } from "react";
 import * as api from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
 import type { TreeEdge, TreeNode } from "@/lib/types";
 import { branchPoint } from "@/lib/branching";
+import type { Confirm } from "@/hooks/useConfirm";
+import type { PushToast } from "@/hooks/useToasts";
 
 interface Options {
   threadId: string | null;
@@ -15,8 +18,8 @@ interface Options {
   clearChatMessages: () => void;
   setInput: (text: string) => void;
   setShowTree: (tree: boolean) => void;
-  confirm: (title: string, message: string) => Promise<boolean>;
-  pushToast: (message: string) => void;
+  confirm: Confirm;
+  pushToast: PushToast;
   /** A node was clicked: it decides who answers next (useReplyTarget). */
   continueFrom: (node: TreeNode | undefined) => void;
 }
@@ -101,8 +104,9 @@ export function useTreeActions({
       const targetId = nodeId || activeCheckpoint;
       if (!targetId || !threadId) return;
       const ok = await confirm(
-        "Delete Node",
-        "This will remove this checkpoint and all its descendants. This action cannot be undone.",
+        "Delete message",
+        "This removes this message and everything that branches from it. This can't be undone.",
+        { confirmLabel: "Delete" },
       );
       if (!ok) return;
       try {
@@ -118,8 +122,7 @@ export function useTreeActions({
         }
         fetchThreads();
       } catch (error) {
-        console.error("Node deletion failed:", error);
-        pushToast("Couldn't delete the node.");
+        pushToast(errorMessage(error, "Couldn't delete the message"), "error");
       }
     },
     [activeCheckpoint, threadId, confirm, parentOf, clearChatMessages, setActiveCheckpoint, fetchHistory, fetchThreads, pushToast],
@@ -145,7 +148,7 @@ export function useTreeActions({
       setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, position: { ...position } } : n)));
       api
         .saveNodePositions(threadId, [{ node_id: nodeId, x: position.x, y: position.y }])
-        .catch(() => pushToast("Couldn't save the node position."));
+        .catch((e) => pushToast(errorMessage(e, "Couldn't save the node position"), "error"));
     },
     [threadId, setNodes, pushToast],
   );
@@ -161,7 +164,7 @@ export function useTreeActions({
           return u ? { ...n, position: { x: u.x, y: u.y } } : n;
         }),
       );
-      api.saveNodePositions(threadId, updates).catch(() => pushToast("Couldn't save the new layout."));
+      api.saveNodePositions(threadId, updates).catch((e) => pushToast(errorMessage(e, "Couldn't save the new layout"), "error"));
     },
     [threadId, setNodes, pushToast],
   );

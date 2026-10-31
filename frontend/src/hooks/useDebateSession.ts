@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import * as api from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
 import { modelFamilyColor } from "@/lib/colors";
 import {
   EMPTY_TRANSCRIPT,
@@ -15,6 +16,8 @@ import { useDebateTree } from "@/hooks/useDebateTree";
 import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
 import { isOpen, useSocketFactory } from "@/lib/transport";
 import { contextFields, type RunContext } from "@/lib/runContext";
+import type { Confirm } from "@/hooks/useConfirm";
+import type { PushToast } from "@/hooks/useToasts";
 
 const STORAGE_KEY = "crucible_active_debate";
 
@@ -37,8 +40,8 @@ interface Options {
   setShowTree: (tree: boolean) => void;
   /** Called when a debate completes, so post-debate chat starts clean. */
   clearChatMessages: () => void;
-  pushToast: (message: string, model?: string) => void;
-  confirm: (title: string, message: string) => Promise<boolean>;
+  pushToast: PushToast;
+  confirm: Confirm;
   modelLabel: (modelId: string) => string;
 }
 
@@ -247,7 +250,7 @@ export function useDebateSession({
           } else if (msg.status === "pausing" || msg.status === "paused" || msg.status === "running") {
             setStatus(msg.status);
           } else if (msg.status === "inject_queued") {
-            pushToast("Added — the models will see it in the next round.");
+            pushToast("Added. The models will see it in the next round.", "success");
           }
           break;
 
@@ -257,7 +260,11 @@ export function useDebateSession({
           flushTokens();
           transcriptEvent(msg);
           if (msg.model) resolvePendingNode(msg.model, sessionId, msg.round ?? 0);
-          pushToast(msg.message ?? "Debate error", msg.model ? modelLabel(msg.model) : undefined);
+          pushToast(
+            msg.message ?? "The debate reported an error.",
+            "error",
+            msg.model ? `${modelLabel(msg.model)} failed` : undefined,
+          );
           break;
       }
     },
@@ -396,7 +403,7 @@ export function useDebateSession({
   // ─── Actions ─────────────────────────────────────────────────
   const socketOpen = useCallback(() => {
     if (isOpen(wsRef.current)) return true;
-    pushToast("This debate is no longer connected. Start a new debate to continue.");
+    pushToast("This debate is no longer connected to this tab.", "error");
     return false;
   }, [pushToast]);
 
@@ -462,8 +469,7 @@ export function useDebateSession({
           () => startPolling(session.session_id),
         );
       } catch (e) {
-        console.error("Failed to create debate session:", e);
-        pushToast("Couldn't start the debate.");
+        pushToast(errorMessage(e, "Couldn't start the debate"), "error");
       }
     },
     [threadId, closeSocket, fetchTree, refreshSessions, setShowTree, connect, startPolling, pushToast],
@@ -540,16 +546,17 @@ export function useDebateSession({
   const remove = useCallback(
     async (sessionId: string) => {
       const ok = await confirm(
-        "Delete Debate",
-        "This removes the debate and every model's responses in it. This action cannot be undone.",
+        "Delete debate",
+        "This removes the debate and every model's responses in it. This can't be undone.",
+        { confirmLabel: "Delete" },
       );
       if (!ok) return;
       try {
         await api.deleteDebateSession(sessionId);
         if (sessionId === activeSessionId) clear();
         setSessions((prev) => prev.filter((d) => d.session_id !== sessionId));
-      } catch {
-        pushToast("Couldn't delete the debate.");
+      } catch (e) {
+        pushToast(errorMessage(e, "Couldn't delete the debate"), "error");
       }
     },
     [confirm, activeSessionId, clear, pushToast],

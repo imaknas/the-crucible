@@ -1,8 +1,8 @@
 import { renderHook, act } from "@testing-library/react";
 import { useThreads } from "./useThreads";
 import * as api from "@/lib/api";
+import { ApiError } from "@/lib/errors";
 
-// Mock the API library
 jest.mock("@/lib/api", () => ({
   listThreads: jest.fn(),
   deleteThread: jest.fn(),
@@ -10,9 +10,12 @@ jest.mock("@/lib/api", () => ({
 }));
 
 describe("useThreads", () => {
-  const mockOnThreadClear = jest.fn();
-  const mockOnThreadSwitch = jest.fn();
-  const mockShowConfirm = jest.fn().mockResolvedValue(true);
+  const options = () => ({
+    onThreadClear: jest.fn(),
+    onThreadSwitch: jest.fn(),
+    confirm: jest.fn().mockResolvedValue(true),
+    pushToast: jest.fn(),
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -23,87 +26,100 @@ describe("useThreads", () => {
   });
 
   it("fetches threads on mount and sets threadId to null to show landing page", async () => {
-    const { result } = renderHook(() =>
-      useThreads(mockOnThreadClear, mockOnThreadSwitch, mockShowConfirm),
-    );
-
+    const { result } = renderHook(() => useThreads(options()));
     expect(result.current.threadId).toBeNull();
-
-    // Wait for the async fetch to settle
     await act(async () => {
       await Promise.resolve();
     });
-
     expect(api.listThreads).toHaveBeenCalledTimes(1);
-    expect(result.current.threads).toEqual([
-      { id: "thread_1", title: "Test Thread" },
-    ]);
+    expect(result.current.threads).toEqual([{ id: "thread_1", title: "Test Thread" }]);
   });
 
   it("starts a new experiment and clears thread state", async () => {
-    const { result } = renderHook(() =>
-      useThreads(mockOnThreadClear, mockOnThreadSwitch, mockShowConfirm),
-    );
-
+    const opts = options();
+    const { result } = renderHook(() => useThreads(opts));
     await act(async () => {
-      result.current.startNewExperiment();
+      await result.current.startNewExperiment();
     });
-
     expect(result.current.threadId).toMatch(/^thread_/);
-    expect(localStorage.getItem("crucible_thread_id")).toBe(
-      result.current.threadId,
-    );
-    expect(mockOnThreadClear).toHaveBeenCalled();
-    expect(api.listThreads).toHaveBeenCalled(); // Should refetch
+    expect(localStorage.getItem("crucible_thread_id")).toBe(result.current.threadId);
+    expect(opts.onThreadClear).toHaveBeenCalled();
+    expect(api.listThreads).toHaveBeenCalled();
   });
 
-  it("switches thread and calls onThreadSwitch callback", () => {
-    const { result } = renderHook(() =>
-      useThreads(mockOnThreadClear, mockOnThreadSwitch, mockShowConfirm),
-    );
-
-    act(() => {
-      result.current.switchThread("thread_2");
+  it("switches thread and calls onThreadSwitch callback", async () => {
+    const opts = options();
+    const { result } = renderHook(() => useThreads(opts));
+    await act(async () => {
+      await result.current.switchThread("thread_2");
     });
-
     expect(result.current.threadId).toBe("thread_2");
     expect(localStorage.getItem("crucible_thread_id")).toBe("thread_2");
-    expect(mockOnThreadSwitch).toHaveBeenCalledWith("thread_2");
+    expect(opts.onThreadSwitch).toHaveBeenCalledWith("thread_2");
   });
 
-  it("deletes a thread successfully after confirmation", async () => {
-    const { result } = renderHook(() =>
-      useThreads(mockOnThreadClear, mockOnThreadSwitch, mockShowConfirm),
-    );
-
-    // Fake event
-    const mockEvent = {
-      stopPropagation: jest.fn(),
-    } as unknown as React.MouseEvent;
-
+  it("stays on the thread when leaving is declined", async () => {
+    const opts = { ...options(), beforeLeave: jest.fn().mockResolvedValue(false) };
+    const { result } = renderHook(() => useThreads(opts));
     await act(async () => {
-      await result.current.deleteThread(mockEvent, "thread_1");
+      await result.current.switchThread("thread_2");
+      await result.current.startNewExperiment();
     });
+    expect(result.current.threadId).toBeNull();
+    expect(opts.onThreadSwitch).not.toHaveBeenCalled();
+    expect(opts.onThreadClear).not.toHaveBeenCalled();
+  });
 
-    expect(mockEvent.stopPropagation).toHaveBeenCalled();
-    expect(mockShowConfirm).toHaveBeenCalled();
+  it("deletes a thread after confirmation and says so", async () => {
+    const opts = options();
+    const { result } = renderHook(() => useThreads(opts));
+    await act(async () => {
+      await result.current.deleteThread("thread_1");
+    });
+    expect(opts.confirm).toHaveBeenCalledWith(expect.any(String), expect.any(String), { confirmLabel: "Delete" });
     expect(api.deleteThread).toHaveBeenCalledWith("thread_1");
+    expect(opts.pushToast).toHaveBeenCalledWith("Session deleted.", "success");
     expect(api.listThreads).toHaveBeenCalled();
+  });
+
+  it("reports a failed delete with the backend's reason", async () => {
+    (api.deleteThread as jest.Mock).mockRejectedValue(new ApiError("Thread is busy", 409));
+    const opts = options();
+    const { result } = renderHook(() => useThreads(opts));
+    await act(async () => {
+      await result.current.deleteThread("thread_1");
+    });
+    expect(opts.pushToast).toHaveBeenCalledWith("Thread is busy", "error");
+  });
+
+  it("resolves a rename true on success and false (with a notice) on failure", async () => {
+    const opts = options();
+    const { result } = renderHook(() => useThreads(opts));
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.renameThread("thread_1", "  New  ");
+    });
+    expect(ok).toBe(true);
+    expect(api.renameThread).toHaveBeenCalledWith("thread_1", "New");
+
+    (api.renameThread as jest.Mock).mockRejectedValue(new ApiError("Title too long", 422));
+    await act(async () => {
+      ok = await result.current.renameThread("thread_1", "x");
+    });
+    expect(ok).toBe(false);
+    expect(opts.pushToast).toHaveBeenCalledWith("Title too long", "error");
   });
 
   it("opens the thread named in ?thread= and clears it from the URL", async () => {
     localStorage.setItem("crucible_thread_id", "thread_old");
     window.history.replaceState(null, "", "/?thread=cli-abc123");
-
-    const { result } = renderHook(() =>
-      useThreads(mockOnThreadClear, mockOnThreadSwitch, mockShowConfirm),
-    );
+    const opts = options();
+    const { result } = renderHook(() => useThreads(opts));
     await act(async () => {
       await Promise.resolve();
     });
-
     expect(result.current.threadId).toBe("cli-abc123");
-    expect(mockOnThreadSwitch).toHaveBeenCalledWith("cli-abc123");
+    expect(opts.onThreadSwitch).toHaveBeenCalledWith("cli-abc123");
     expect(window.location.search).toBe("");
     expect(localStorage.getItem("crucible_thread_id")).toBe("cli-abc123");
   });

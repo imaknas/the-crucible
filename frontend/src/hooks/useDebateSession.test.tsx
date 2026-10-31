@@ -176,7 +176,7 @@ describe("useDebateSession", () => {
       sockets[0].emit({ type: "error", model: "b", round: 0, message: "timed out" });
     });
     expect(result.current.messages.at(-1)).toMatchObject({ streaming: false, content: "_(no response: timed out)_" });
-    expect(opts.pushToast).toHaveBeenCalledWith("timed out", "B");
+    expect(opts.pushToast).toHaveBeenCalledWith("timed out", "error", "B failed");
   });
 
   it("a dropped socket marks the debate interrupted", async () => {

@@ -39,7 +39,7 @@ describe("useChatWebSocket", () => {
     onHistoryRefreshNeeded: jest.fn(),
     setActiveCheckpoint: jest.fn(),
     setErrorModals: jest.fn(),
-    showConfirm: jest.fn().mockResolvedValue(true),
+    pushToast: jest.fn(),
   };
 
   let globalWs: any;
@@ -201,7 +201,7 @@ describe("useChatWebSocket", () => {
 
     expect(result.current.messages).toEqual([]);
     expect(result.current.isLoading).toBe(false);
-    expect(mockProps.showConfirm).toHaveBeenCalled();
+    expect(mockProps.pushToast).toHaveBeenCalledWith(expect.any(String), "error", "Not sent");
   });
 
   it("reconnects after an unexpected close", () => {

@@ -3,6 +3,9 @@ import * as api from "@/lib/api";
 import { Message, ModelError, Toggles } from "@/lib/types";
 import { isOpen, useSocketFactory } from "@/lib/transport";
 import { contextFields } from "@/lib/runContext";
+import type { PushToast } from "@/hooks/useToasts";
+
+const NOT_CONNECTED = "Not connected to the backend. It reconnects by itself; try again in a moment.";
 
 export function useChatWebSocket({
   threadId,
@@ -17,7 +20,7 @@ export function useChatWebSocket({
   onHistoryRefreshNeeded,
   setActiveCheckpoint,
   setErrorModals,
-  showConfirm,
+  pushToast,
   onThreadsChanged,
 }: {
   threadId: string | null;
@@ -40,7 +43,8 @@ export function useChatWebSocket({
   ) => void;
   setActiveCheckpoint: (cpId: string | null) => void;
   setErrorModals: React.Dispatch<React.SetStateAction<any[]>>;
-  showConfirm: (title: string, message: string) => Promise<boolean>;
+  /** Notices, e.g. that a message couldn't be sent. */
+  pushToast: PushToast;
   /**
    * The sidebar's thread list may be stale: a turn finished (a new thread now
    * exists) or the backend titled the thread.
@@ -304,10 +308,7 @@ export function useChatWebSocket({
     // Check the socket before echoing the message, or a failed send leaves a
     // user bubble that was never delivered.
     if (!isOpen(wsRef.current)) {
-      showConfirm(
-        "Connection Lost",
-        "Not connected to the backend. It will reconnect automatically; try again in a moment.",
-      );
+      pushToast(NOT_CONNECTED, "error", "Not sent");
       return false;
     }
 
@@ -356,10 +357,7 @@ export function useChatWebSocket({
     const error = modelErrors.find((e) => e.id === errorId);
     if (!error || isLoading) return;
     if (!isOpen(wsRef.current)) {
-      showConfirm(
-        "Connection Lost",
-        "Not connected to the backend. It will reconnect automatically; try again in a moment.",
-      );
+      pushToast(NOT_CONNECTED, "error", "Not sent");
       return;
     }
     setModelErrors((prev) => prev.filter((e) => e.id !== errorId));

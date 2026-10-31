@@ -1,6 +1,9 @@
+import { ensureOk } from "@/lib/errors";
+
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export const WS_BASE = API_BASE.replace(/^http/, "ws");
+
 
 // ─── Thread CRUD ────────────────────────────────────────────────
 
@@ -8,13 +11,13 @@ export async function listThreads(): Promise<{
   threads: { id: string; title: string }[];
 }> {
   const res = await fetch(`${API_BASE}/threads`);
-  if (!res.ok) throw new Error("Failed to list threads");
+  await ensureOk(res, "Failed to list threads");
   return res.json();
 }
 
 export async function deleteThread(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/threads/${encodeURIComponent(id)}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("Failed to delete thread");
+  await ensureOk(res, "Failed to delete thread");
 }
 
 export async function renameThread(id: string, title: string): Promise<void> {
@@ -23,7 +26,7 @@ export async function renameThread(id: string, title: string): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
   });
-  if (!res.ok) throw new Error("Failed to rename thread");
+  await ensureOk(res, "Failed to rename thread");
 }
 
 // ─── History & Tree ─────────────────────────────────────────────
@@ -43,7 +46,7 @@ export async function fetchHistory(
     ? `${API_BASE}/history/${encodeURIComponent(threadId)}?checkpoint_id=${encodeURIComponent(checkpointId)}`
     : `${API_BASE}/history/${encodeURIComponent(threadId)}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error("Failed to fetch history");
+  await ensureOk(res, "Failed to fetch history");
   return res.json();
 }
 
@@ -61,7 +64,7 @@ export async function searchHistory(
   const res = await fetch(
     `${API_BASE}/history/${encodeURIComponent(threadId)}/search?q=${encodeURIComponent(query)}`,
   );
-  if (!res.ok) throw new Error("Search failed");
+  await ensureOk(res, "Search failed");
   return res.json();
 }
 
@@ -74,7 +77,7 @@ export async function saveNodePositions(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(positions),
   });
-  if (!res.ok) throw new Error("Failed to save node positions");
+  await ensureOk(res, "Failed to save node positions");
 }
 
 export async function deleteCheckpoint(
@@ -87,7 +90,7 @@ export async function deleteCheckpoint(
       method: "DELETE",
     },
   );
-  if (!res.ok) throw new Error("Failed to delete checkpoint");
+  await ensureOk(res, "Failed to delete checkpoint");
 }
 
 // ─── File Upload ────────────────────────────────────────────────
@@ -110,7 +113,7 @@ export async function uploadDocument(
     headers: CLIENT_HEADERS,
     body: formData,
   });
-  if (!res.ok) throw new Error("Upload failed");
+  await ensureOk(res, "Upload failed");
   return res.json();
 }
 
@@ -143,7 +146,7 @@ export async function fetchModels(): Promise<{
   default_summarizer?: string;
 }> {
   const res = await fetch(`${API_BASE}/models`);
-  if (!res.ok) throw new Error("Failed to fetch models");
+  await ensureOk(res, "Failed to fetch models");
   return res.json();
 }
 
@@ -170,7 +173,7 @@ export async function createDebateSession(params: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   });
-  if (!res.ok) throw new Error("Failed to create debate session");
+  await ensureOk(res, "Failed to create debate session");
   return res.json();
 }
 
@@ -178,7 +181,7 @@ export async function fetchDebateSession(
   sessionId: string,
 ): Promise<DebateSession> {
   const res = await fetch(`${API_BASE}/debate/sessions/${encodeURIComponent(sessionId)}`);
-  if (!res.ok) throw new Error("Failed to fetch debate session");
+  await ensureOk(res, "Failed to fetch debate session");
   return res.json();
 }
 
@@ -189,7 +192,7 @@ export async function listDebateSessions(
     ? `${API_BASE}/debate/sessions?parent_thread_id=${encodeURIComponent(parentThreadId)}`
     : `${API_BASE}/debate/sessions`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error("Failed to list debate sessions");
+  await ensureOk(res, "Failed to list debate sessions");
   return res.json();
 }
 
@@ -273,14 +276,14 @@ export async function deleteDebateSession(sessionId: string): Promise<void> {
   const res = await fetch(`${API_BASE}/debate/sessions/${encodeURIComponent(sessionId)}`, {
     method: "DELETE",
   });
-  if (!res.ok) throw new Error("Failed to delete debate session");
+  await ensureOk(res, "Failed to delete debate session");
 }
 
 export async function fetchDebateTree(
   sessionId: string,
 ): Promise<DebateTreeResponse> {
   const res = await fetch(`${API_BASE}/debate/sessions/${encodeURIComponent(sessionId)}/tree`);
-  if (!res.ok) throw new Error("Failed to fetch debate tree");
+  await ensureOk(res, "Failed to fetch debate tree");
   return res.json();
 }
 
@@ -297,7 +300,7 @@ export interface KeyInfo {
 
 export async function fetchKeyStatus(): Promise<Record<string, KeyInfo>> {
   const res = await fetch(`${API_BASE}/config/keys`);
-  if (!res.ok) throw new Error("Failed to fetch key status");
+  await ensureOk(res, "Failed to fetch key status");
   return res.json();
 }
 
@@ -307,12 +310,6 @@ export async function saveApiKeys(keys: Record<string, string>): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ keys }),
   });
-  if (!res.ok) {
-    // The backend explains rejections (e.g. localhost-only, invalid characters).
-    const detail = await res
-      .json()
-      .then((b) => (typeof b?.detail === "string" ? b.detail : null))
-      .catch(() => null);
-    throw new Error(detail ?? `Failed to save API keys (HTTP ${res.status})`);
-  }
+  // The backend explains rejections (e.g. localhost-only, invalid characters).
+  await ensureOk(res, "Failed to save API keys");
 }

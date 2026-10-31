@@ -43,14 +43,11 @@ interface Thread {
 interface SidebarProps {
   threads: Thread[];
   threadId: string | null;
-  editingThreadId: string | null;
-  editingTitle: string;
   onStartNewExperiment: () => void;
   onSwitchThread: (id: string) => void;
-  onDeleteThread: (e: React.MouseEvent, id: string) => void;
-  onRenameThread: (id: string, newTitle: string) => void;
-  setEditingThreadId: (id: string | null) => void;
-  setEditingTitle: (title: string) => void;
+  onDeleteThread: (id: string) => void;
+  /** Resolves true once the title is saved; the row leaves edit mode then. */
+  onRenameThread: (id: string, newTitle: string) => Promise<boolean>;
   onSwitchCheckpoint: (id: string) => void;
   debateSessions?: DebateSession[];
   activeDebateSessionId?: string | null;
@@ -76,14 +73,10 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
   ({
     threads,
     threadId,
-    editingThreadId,
-    editingTitle,
     onStartNewExperiment,
     onSwitchThread,
     onDeleteThread,
     onRenameThread,
-    setEditingThreadId,
-    setEditingTitle,
     onSwitchCheckpoint,
     debateSessions = [],
     activeDebateSessionId,
@@ -102,6 +95,13 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
       if (mode === "overlay") onClose?.();
     };
     const isDark = useTheme().palette.mode === "dark";
+    // Which row is being renamed, and its draft title. Kept here: nothing
+    // outside the sidebar needs it.
+    const [editingThreadId, setEditingThreadId] = React.useState<string | null>(null);
+    const [editingTitle, setEditingTitle] = React.useState("");
+    const commitRename = async (id: string) => {
+      if (await onRenameThread(id, editingTitle)) setEditingThreadId(null);
+    };
     const [expandedDebateThreads, setExpandedDebateThreads] = React.useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = React.useState("");
     const [searchResults, setSearchResults] = React.useState<any[]>([]);
@@ -256,7 +256,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
             fullWidth
             size="small"
             disabled={!threadId}
-            placeholder={threadId ? "Search history..." : "Open a session to search"}
+            placeholder={threadId ? "Search this session…" : "Open a session to search"}
             inputProps={{ "aria-label": "Search this session's history" }}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -387,15 +387,16 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1, p: 0.5, borderRadius: 3, border: "1px solid", borderColor: "divider", bgcolor: isDark ? "rgba(0,0,0,0.2)" : "background.default" }}>
                             <TextField
                               autoFocus fullWidth variant="standard" size="small"
+                              inputProps={{ "aria-label": "Session name" }}
                               value={editingTitle}
                               onChange={(e) => setEditingTitle(e.target.value)}
                               onKeyDown={(e) => {
-                                if (e.key === "Enter") onRenameThread(t.id, editingTitle);
+                                if (e.key === "Enter") commitRename(t.id);
                                 if (e.key === "Escape") setEditingThreadId(null);
                               }}
                               InputProps={{ disableUnderline: true, sx: { fontSize: "0.875rem", fontWeight: 600, px: 1 } }}
                             />
-                            <IconButton size="small" aria-label="Save name" onClick={() => onRenameThread(t.id, editingTitle)} sx={{ color: "success.main" }}>
+                            <IconButton size="small" aria-label="Save name" onClick={() => commitRename(t.id)} sx={{ color: "success.main" }}>
                               <Check width={14} height={14} />
                             </IconButton>
                             <IconButton size="small" aria-label="Cancel rename" onClick={() => setEditingThreadId(null)} sx={{ color: "error.main" }}>
@@ -466,7 +467,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                                 <IconButton size="small" aria-label="Rename session" onClick={(e) => { e.stopPropagation(); setEditingThreadId(t.id); setEditingTitle(t.title); }}>
                                   <Edit3 width={14} height={14} />
                                 </IconButton>
-                                <IconButton size="small" aria-label="Delete session" onClick={(e) => onDeleteThread(e, t.id)} sx={{ "&:hover": { color: "error.main" } }}>
+                                <IconButton size="small" aria-label="Delete session" onClick={() => onDeleteThread(t.id)} sx={{ "&:hover": { color: "error.main" } }}>
                                   <Trash2 width={14} height={14} />
                                 </IconButton>
                               </Box>
