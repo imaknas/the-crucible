@@ -6,6 +6,7 @@ it via api.deps.get_graph_app), wires the browser guards (api/security.py)
 and mounts the routers.
 """
 
+import asyncio
 import logging
 import os
 from collections.abc import Sequence
@@ -64,6 +65,8 @@ def _configure_logging() -> None:
 async def lifespan(app: FastAPI):
     _configure_logging()
     db.init_db()
+    # Not in init_db: the CLI runs that too, while a server may be mid-debate.
+    await asyncio.to_thread(db.interrupt_running_debates)
     _report_configuration()
     async with AsyncSqliteSaver.from_conn_string(db.DB_PATH) as checkpointer:
         # Create LangGraph's tables now rather than on first write, so reads of

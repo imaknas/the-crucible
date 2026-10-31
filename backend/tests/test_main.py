@@ -119,26 +119,21 @@ class TestGraphNodes:
         # Should return delta as empty list (<= 5 messages buffer)
         assert result == {"messages": []}
 
-    def test_should_summarize_under_threshold(self):
-        from app.services.graph import should_summarize
-        from langchain_core.messages import HumanMessage
+    def test_the_drafting_note_uses_the_runs_clock(self):
+        import datetime
 
-        # Provide an active peer and some tokens well under 100k
-        state = {"messages": [HumanMessage(content="x")] * 10, "active_peer": "gpt-4o"}
-        assert should_summarize(state) == "draft"
+        from langchain_core.messages import AIMessage, HumanMessage
 
-    def test_should_summarize_over_threshold(self):
-        from app.services.graph import should_summarize
-        from langchain_core.messages import HumanMessage
+        from app.services.graph import drafting_node
 
-        # Each "word " is ~1 token. Let's create a message with 30,000 words.
-        # With 4 of these, it's ~120k tokens -> over GPT-4o's 100k limit.
-        long_content = "word " * 30000
-        state = {
-            "messages": [HumanMessage(content=long_content)] * 4,
-            "active_peer": "gpt-4o",
-        }
-        # But wait, should_summarize also requires len(messages) > 5 as a safety buffer
-        state["messages"].extend([HumanMessage(content="short")] * 2)
+        seen = []
 
-        assert should_summarize(state) == "draft"
+        class Model:
+            def invoke(self, messages, *a, **k):
+                seen.append("\n".join(str(m.content) for m in messages))
+                return AIMessage(content="ok")
+
+        fixed = datetime.datetime(2031, 5, 4, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        config = {"configurable": {"model_factory": CallableModelFactory(lambda *_: Model()), "clock": lambda: fixed}}
+        drafting_node({"active_peer": "gpt-5.4", "toggles": {}, "messages": [HumanMessage(content="hi")]}, config)
+        assert "2031-05-04 12:00:00" in seen[0]

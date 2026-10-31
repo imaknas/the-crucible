@@ -74,7 +74,8 @@ class ProviderModelFactory:
             raise ValueError(f"{env_key} is not set in environment or .env file.")
 
         provider = self._providers[family]
-        llm = provider.create(config["id"])
+        # The key this factory checked, not whatever the SDK finds in os.environ.
+        llm = provider.create(config["id"], api_key=self._env.get(FAMILY_META[family]["env_key"]))
         if (toggles or {}).get("use_web_search") and config.get("native_search"):
             return provider.with_web_search(llm)
         return llm

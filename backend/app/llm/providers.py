@@ -8,7 +8,7 @@ Nothing else in the app branches on the provider.
 """
 
 import functools
-from typing import Any, Protocol
+from typing import Optional, Any, Protocol
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import Runnable
@@ -17,8 +17,9 @@ from langchain_core.runnables import Runnable
 class ChatProvider(Protocol):
     """Builds chat models for one provider family."""
 
-    def create(self, model_id: str) -> BaseChatModel:
-        """A client for `model_id` (the provider's own model name)."""
+    def create(self, model_id: str, api_key: Optional[str] = None) -> BaseChatModel:
+        """A client for `model_id` (the provider's own model name), using
+        `api_key` (None: the SDK reads its environment variable)."""
         ...
 
     def with_web_search(self, llm: BaseChatModel) -> Runnable:
@@ -113,17 +114,21 @@ def _caching_chat_openai():
     return CachingChatOpenAI
 
 
+def _key(name: str, api_key: Optional[str]) -> dict:
+    return {name: api_key} if api_key else {}
+
+
 class OpenAIProvider:
-    def create(self, model_id: str) -> BaseChatModel:
-        return _caching_chat_openai()(model=model_id)
+    def create(self, model_id: str, api_key: Optional[str] = None) -> BaseChatModel:
+        return _caching_chat_openai()(model=model_id, **_key("api_key", api_key))
 
     def with_web_search(self, llm: Any) -> Runnable:
         return llm.bind_tools([{"type": "web_search_preview"}])
 
 
 class AnthropicProvider:
-    def create(self, model_id: str) -> BaseChatModel:
-        return _caching_chat_anthropic()(model=model_id)
+    def create(self, model_id: str, api_key: Optional[str] = None) -> BaseChatModel:
+        return _caching_chat_anthropic()(model=model_id, **_key("api_key", api_key))
 
     def with_web_search(self, llm: Any) -> Runnable:
         # Models without code execution (e.g. Haiku 4.5) reject the dynamic-
@@ -162,8 +167,8 @@ def _chat_google():
 
 
 class GoogleProvider:
-    def create(self, model_id: str) -> BaseChatModel:
-        return _chat_google()(model=model_id)
+    def create(self, model_id: str, api_key: Optional[str] = None) -> BaseChatModel:
+        return _chat_google()(model=model_id, **_key("google_api_key", api_key))
 
     def with_web_search(self, llm: Any) -> Runnable:
         return llm.bind_tools([{"google_search": {}}])

@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import datetime
 import functools
 import os
 from typing import List, Mapping, Optional
@@ -522,9 +523,8 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     # Time context rides with the latest request (see _with_request_notes):
     # at the top of the system prompt it changed every call and defeated
     # provider prompt caching for the whole history behind it.
-    import datetime
-
-    now = datetime.datetime.now()
+    # The run's clock (`config["configurable"]["clock"]`), else the system's.
+    now = (config.get("configurable", {}).get("clock") or datetime.datetime.now)()
     time_note = f"[Current System Time: {now.strftime('%Y-%m-%d %H:%M:%S')} ({now.astimezone().tzname()})]"
 
     # No system message at all unless something needs one: an empty one would
@@ -599,16 +599,6 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
 
     # Reset deliberation flag after use
     return {"messages": [response], "is_deliberation": False}
-
-
-def branching_node(state: CrucibleState):
-    """
-    Branching logic: This node is a conceptual point where the user
-    can switch models or start a new thread based on a checkpoint.
-    """
-    # In LangGraph, branching is often handled by external thread management.
-    # Here we just update the active peer if needed.
-    return state
 
 
 def synthesis_node(state: CrucibleState, config: RunnableConfig):
@@ -719,14 +709,6 @@ def summarize_history(state: CrucibleState, config: RunnableConfig):
                                             "trimmed to fit if it was too long."]}
 
 
-def should_summarize(state: CrucibleState):
-    """
-    OBSOLETE: Decision logic is now inside summarize_history node
-    to simplify graph traversal and prevent accidental infinite loops.
-    """
-    return "draft"
-
-
 def metadata_node(state: CrucibleState, config: RunnableConfig):
     """Pass-through, kept so existing checkpoints that point at it still replay.
 
@@ -742,7 +724,6 @@ def metadata_node(state: CrucibleState, config: RunnableConfig):
 workflow = StateGraph(CrucibleState)
 
 workflow.add_node("draft", drafting_node)
-workflow.add_node("branch", branching_node)
 workflow.add_node("summarize", summarize_history)
 workflow.add_node("metadata", metadata_node)
 workflow.add_node("synthesis", synthesis_node)
@@ -766,6 +747,5 @@ workflow.add_edge("grade_retrieval", "draft")
 
 # Post-processing flow
 workflow.add_edge("draft", "metadata")
-workflow.add_edge("branch", "metadata")
 workflow.add_edge("metadata", "synthesis")
 workflow.add_edge("synthesis", END)

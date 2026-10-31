@@ -50,6 +50,25 @@ async def thread_tree(graph_app, thread_id: str, checkpoint_id: Optional[str] = 
     }
 
 
+def topology(thread_id: str) -> Dict[str, Any]:
+    """Every raw checkpoint of a thread and its parent link: {nodes: [{id,
+    label, metadata}], edges: [{source, target}]}. Read from the checkpoint
+    tables, so it includes the pass-through checkpoints the tree collapses.
+    `metadata` is empty: it used to carry a self-reported confidence and a
+    keyword "conflict" flag, which models are no longer asked for."""
+    nodes: List[Dict[str, Any]] = []
+    edges: List[Dict[str, str]] = []
+    seen = set()
+    for cid, parent in db.get_thread_checkpoint_graph(thread_id):
+        for node in (cid, parent):
+            if node and node not in seen:
+                seen.add(node)
+                nodes.append({"id": node, "label": f"Node {node[:8]}", "metadata": {}})
+        if parent:
+            edges.append({"source": parent, "target": cid})
+    return {"nodes": nodes, "edges": edges}
+
+
 async def path_at(graph_app, thread_id: str, checkpoint_id: str) -> List[Dict[str, Any]]:
     """The messages from the root to ``checkpoint_id``, as the transcript shows
     them. Raises ValueError when the thread has no such checkpoint."""

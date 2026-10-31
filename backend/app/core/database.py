@@ -196,6 +196,20 @@ def get_debate_session(session_id: str) -> dict[str, Any] | None:
         conn.close()
 
 
+def interrupt_running_debates() -> int:
+    """Mark every debate still recorded as running (or paused) interrupted;
+    returns how many. For server startup only: a debate can't outlive the
+    process that ran it, so at startup none is running, and a stale mark
+    would make every later run refuse the session as taken."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.execute("UPDATE debate_sessions SET status = 'interrupted' WHERE status IN ('running', 'paused')")
+        conn.commit()
+        return cursor.rowcount
+    finally:
+        conn.close()
+
+
 def claim_debate_session(session_id: str, force: bool = False) -> bool:
     """Mark the session running unless another run already has it; True if
     this caller now runs it. One conditional UPDATE, so two clients can't

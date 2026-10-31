@@ -19,10 +19,12 @@ class _RecordingProvider:
 
     def __init__(self):
         self.created = []
+        self.keys = []
         self.searched = []
 
-    def create(self, model_id):
+    def create(self, model_id, api_key=None):
         self.created.append(model_id)
+        self.keys.append(api_key)
         return f"client:{model_id}"
 
     def with_web_search(self, llm):
@@ -51,6 +53,8 @@ class TestProviderModelFactory:
         factory, providers = _factory({env_key: "k"})
         assert factory.chat(model_id) == f"client:{model_id}"
         assert providers[family].created == [model_id]
+        # The key the factory checked is the one the client gets.
+        assert providers[family].keys == ["k"]
         assert all(not p.created for f, p in providers.items() if f != family)
 
     @pytest.mark.parametrize(

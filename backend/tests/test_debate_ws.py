@@ -164,3 +164,15 @@ def test_a_summarizer_without_a_key_is_refused_before_the_debate_starts(ws_env, 
         ws.send_json({"type": "debate_start", "prompt": "Q", "summarizer": "gpt-6-luna"})
         assert "No API key" in _recv_until(ws, "error")["message"]
     assert not state.get("contexts")
+
+
+def test_server_startup_releases_debates_left_running():
+    """A debate can't outlive the process that ran it; one still marked
+    running at startup would be refused by every later run as taken."""
+    from app.core import database as db
+    from app.services import debate as debate_svc
+
+    session = debate_svc.create_session("t-stale", ["gpt-5.4", "claude-sonnet-5"], {"max_rounds": 1})
+    db.update_debate_session(session["session_id"], status="running")
+    with TestClient(app):
+        assert db.get_debate_session(session["session_id"])["status"] == "interrupted"
