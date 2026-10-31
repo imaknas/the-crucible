@@ -26,7 +26,7 @@ The Crucible is a full-stack research interface for putting the same question to
 | **🧠 Context management** | When a thread outgrows a model's budget, older history is summarized (keeping who said what) instead of being cut off — and the summary is never the only copy: for each new question a small model picks which original messages it is about and shows them again. Choose the summarizer in **Control Panel → Summarizer**, or leave it on Automatic. |
 | **🔬 Compaction research tools** | Measure what summarization loses on your own models (`crucible compaction-eval`), and re-check that every piece of context machinery still beats going without it whenever models change (`crucible scaffold-audit`). See [Research](#-research-what-survives-compaction). |
 | **📐 LaTeX** | `$inline$` and `$$block$$` math rendered with KaTeX. |
-| **⌨️ CLI & 🤖 MCP** | Run arenas, debates and syntheses from the terminal or from another agent, against the same database as the web UI. |
+| **⌨️ CLI & 🤖 MCP** | Everything the web UI does to a conversation — arenas, debates, syntheses, branching, search, uploads — from the terminal or from another agent, against the same database as the web UI. |
 
 ---
 
@@ -91,7 +91,9 @@ Frontend on http://localhost:3000, API on http://localhost:8000. Both are publis
 | `HOST` | No | Backend bind address (default `127.0.0.1`) |
 | `CORS_ORIGINS` | No | Extra browser origins, comma-separated. `localhost` / `127.0.0.1` on any port are always allowed. Also governs which pages may open the WebSockets |
 | `ALLOWED_HOSTS` | No | Extra hostnames the API may be reached as, comma-separated (`*` allows any). `localhost`, `127.0.0.1` and `::1` are always allowed; other `Host` headers get a 400, which blocks DNS rebinding |
+| `PORT` | No | Backend port (default `8000`) |
 | `DATABASE_PATH` | No | SQLite file for threads and checkpoints (default `backend/checkpoints.sqlite`) |
+| `UPLOAD_DIR` | No | Where uploaded files are kept (default `backend/uploads`) |
 | `CHROMA_DIR` | No | Vector store directory (default `backend/chroma_db`) |
 | `CRUCIBLE_ALLOW_REMOTE_CONFIG` | No | Let non-loopback clients use the API-key endpoint. Docker Compose sets it, since it publishes on `127.0.0.1` only |
 
@@ -105,21 +107,59 @@ Frontend on http://localhost:3000, API on http://localhost:8000. Both are publis
 
 ## ⌨️ CLI
 
-The backend installs a `crucible` command. Run it from `backend/` with `uv run`, and repeat `-m` once per model.
+The backend installs a `crucible` command that can do everything the web UI does to a conversation. Run it from `backend/` with `uv run`, repeat list options once per value (`-m a -m b`), and see `uv run crucible <command> --help` for every option.
+
+**Setup**
 
 ```bash
-uv run crucible models                                    # model IDs and which have keys
-uv run crucible arena "Is P = NP?" -m gpt-5.4 -m claude-sonnet-5
-uv run crucible deliberate "Topic" -m gpt-5.4 -m claude-sonnet-5 --rounds 3 --threshold 0.92   # --peers named shows model ids
-uv run crucible synthesize --thread <thread_id>           # or --debate <session_id>
-uv run crucible chat "Follow-up" -m gpt-5.4 --thread <thread_id>
-uv run crucible tree --thread <thread_id> [--open]        # --open shows it in the web UI
-uv run crucible threads
+uv run crucible models                     # model IDs, which have a key, web search and price (--all adds legacy ones)
+uv run crucible keys                       # which provider keys are set (masked)
+uv run crucible keys --set OPENAI_API_KEY  # asks for the value without echoing; --unset removes one
 ```
 
-`arena` also takes `--summarizer <model>` to choose who summarizes long history. `arena`, `chat`, `deliberate` and `synthesize` take `--system "<prompt>"` to send every model (and the synthesizer) a system prompt (none by default).
+**Turns**
 
-`arena`, `deliberate`, `synthesize`, `chat`, `threads` and `models` accept `--format json`: stdout then carries only the JSON document, and failures exit non-zero with the message on stderr. Everything the CLI creates appears in the web UI.
+```bash
+uv run crucible arena "Is P = NP?" -m gpt-6.1-sol -m claude-sonnet-5-5 -m gemini-3.1-pro-preview
+uv run crucible chat "Follow-up" -m gpt-6.1-sol --thread <thread_id>
+echo "question" | uv run crucible chat -m gpt-6.1-sol              # the prompt can come from stdin
+uv run crucible arena "Rephrased question" -m gpt-6.1-sol -m claude-sonnet-5-5 --thread <thread_id> --from <checkpoint>
+uv run crucible chat --deliberate -m claude-sonnet-5-5 --thread <thread_id>   # critically review the thread so far
+uv run crucible synthesize --thread <thread_id>                    # combine the answers to the latest question
+```
+
+`arena` answers in parallel, each model on its own branch, then the first model (or `--judge`) synthesizes them; `--no-synthesize` skips that. Without `--from`, each model continues its own latest reply; `--from <checkpoint>` branches from any node of `crucible tree` (to edit a message, branch from the checkpoint before it with the new text), and `--after-debate <session>` continues from a finished debate. `chat` and `arena` also take:
+
+- `--attach <file>` to put a file's text in this turn (`.pdf .txt .md .csv`), `--rag` to search the files uploaded to the thread, `-w` for web search;
+- `--system "<prompt>"` to send every model a system prompt (none by default; `debate` and `synthesize` take it too);
+- `--summarizer <model>` to choose who summarizes long history (default: the first summarizer model with a key).
+
+**Debates**
+
+```bash
+uv run crucible debate "Topic" -m gpt-6.1-sol -m claude-sonnet-5-5 --rounds 3 --threshold 0.92
+uv run crucible debates list                                       # newest first; --thread <id> for one thread
+uv run crucible debates show <session_id>                          # every round of every participant, and the argument map
+uv run crucible debates continue <session_id> --rounds 1 --inject "Consider the cost too"
+uv run crucible debates redirect <session_id> "A new question"
+uv run crucible synthesize --debate <session_id>                   # (re)write the argument map
+uv run crucible debates delete <session_id>
+```
+
+Participants see each other as *Participant A, B…*; `--peers named` shows them model ids instead. `--threshold` stops once answers stop changing, `--convergence-judge <model>` once a judge finds the models agree (`--mode all|any` combines both). `--thread` and `--from` start a debate from an existing conversation. Ctrl-C stops a debate; to pause, run fewer rounds and `debates continue` later.
+
+**Threads and history**
+
+```bash
+uv run crucible threads                                            # --rename <id> --title "…", --delete <id>
+uv run crucible tree --thread <thread_id>                          # each node's checkpoint id; --open shows it in the web UI
+uv run crucible messages --thread <thread_id> --at <checkpoint>    # one path, as the chat view shows it
+uv run crucible search "keyword" --thread <thread_id>              # every branch
+uv run crucible delete-branch <checkpoint> --thread <thread_id>    # a node and everything below it
+uv run crucible upload notes.pdf --thread <thread_id>              # for --rag; --list shows what is kept
+```
+
+Every command accepts `--format json`: stdout then carries only the JSON document, errors exit 1 with the message on stderr, and option combinations that can't work exit 2 before anything runs. `crucible -v <command>` shows the backend's diagnostics on stderr. Everything the CLI creates appears in the web UI.
 
 ### Measuring context management
 
@@ -166,16 +206,32 @@ The Crucible can act as a tool for other agents over the [Model Context Protocol
 }
 ```
 
-All tools return structured JSON and raise an MCP error on failure:
+Everything the web UI does to a conversation is a tool, except writing API keys (a key passed to a tool would go through the calling model's context; use `crucible keys` or the environment). All tools return structured JSON and raise an MCP error on failure. An answer always has the same shape (`model`, `model_name`, `content`, `checkpoint_id`, `error`), and every checkpoint id is a node of the conversation tree, so an id from any tool works with every other.
 
 | Tool | Purpose |
 |---|---|
-| `list_models` | Model IDs and whether each has an API key configured |
-| `invoke_arena` | Ask several models the same question in parallel (optionally under your own `system_prompt`); returns each answer (with its checkpoint id) and an optional synthesis |
-| `run_debate` | Multi-round debate between two or more models (anonymous to each other unless `peer_labels="named"`), with optional early stopping (stability or a judge's agreement) and a final argument map. Accepts a `system_prompt` for every participant. |
-| `list_threads`, `get_thread_status`, `get_thread_summary` | Find threads and read their latest model, latest answer and context summary |
-| `get_thread_messages` | Read one path of a thread; pass a `checkpoint_id` from `invoke_arena` to read one model's branch |
+| **Turns & synthesis** | |
+| `invoke_arena` | Ask one or more models the same message in parallel: a chat turn (one model, `synthesize=false`), an arena turn with a synthesis, or a Deliberation (`deliberation=true`). Continues a thread (`thread_id`), branches from a node (`parent_checkpoint_id`) or from a finished debate (`after_debate_session_id`); takes `attachments` (local files), `use_rag`, `use_web_search`, `system_prompt` and `summarizer` |
+| `synthesize_answers` | Combine answers already on a thread into one: by default every model's answer to the latest question, or exactly the `checkpoint_ids` given |
+| **Debates** | |
+| `run_debate` | Multi-round debate between two or more models (anonymous to each other unless `peer_labels="named"`), with optional early stopping (stability or a judge's agreement) and a final argument map. Can start from a node of an existing thread (`parent_checkpoint_id`); takes `attachments`, `use_rag`, `use_web_search`, `system_prompt` and `summarizer` |
+| `continue_debate` | More rounds of a stopped debate, optionally injecting messages into the next round |
+| `redirect_debate` | Put a new question to a debate; each model keeps what it said |
+| `synthesize_debate` | Write (or rewrite) a debate's argument map from every round |
+| `list_debates`, `get_debate` | Find debates, and read one aligned by round (`rounds_from` and `max_chars` keep it short) |
+| `delete_debate` | Delete a debate and its lanes |
+| **Threads & history** | |
+| `list_threads`, `rename_thread`, `delete_thread` | Find, rename or delete threads |
+| `get_thread_tree` | The conversation tree: every node with its checkpoint id, parent, model, kind and turn |
+| `get_thread_messages` | Read one path of a thread; pass a `checkpoint_id` to read one model's branch |
+| `search_thread` | Find messages on every branch of a thread |
+| `delete_branch` | Delete a node and everything below it |
 | `get_branch_answers` | The latest answer on every branch of a thread |
+| `get_thread_status`, `get_thread_summary` | A thread's title, latest model and message count, latest answer and context summary |
+| **Documents** | |
+| `upload_document` | Upload a local file to a thread for `use_rag` searches |
+| **Models** | |
+| `list_models` | Model IDs, whether each has an API key, web-search support, context window and today's price |
 
 The conversation tree's topology (checkpoints and their parent links) is also available over REST: `GET /graph/{thread_id}/topology`.
 
@@ -186,16 +242,18 @@ The conversation tree's topology (checkpoints and their parent links) is also av
 ```
 the-crucible/
 ├── backend/                 FastAPI + LangGraph + SQLite
-│   └── app/
-│       ├── main.py          App assembly only (lifespan, CORS, routers)
-│       ├── api/             HTTP & WebSocket routes — transport only
-│       ├── services/        Behaviour: chat turns, debates, convergence, tree, RAG
-│       ├── llm/             Model providers and the ModelFactory
-│       ├── catalog/         Model facts and prices from the providers' own sources
-│       ├── compaction/      When to summarize, what to keep, what to recall (no app imports)
-│       ├── core/            SQLite persistence and the graph state schema
-│       ├── cli.py           `crucible` command
-│       └── mcp_server.py    MCP tools
+│   ├── app/
+│   │   ├── main.py          App assembly only (lifespan, CORS, routers)
+│   │   ├── api/             HTTP & WebSocket routes — transport only
+│   │   ├── services/        Behaviour: chat turns, arena, debates, synthesis, history, uploads, RAG
+│   │   ├── llm/             Model providers and the ModelFactory
+│   │   ├── registry.py      Which models the app offers, and the defaults
+│   │   ├── catalog/         Model facts and prices from the providers' own sources
+│   │   ├── compaction/      When to summarize, what to keep, what to recall (no app imports)
+│   │   ├── core/            SQLite persistence, storage locations and the graph state schema
+│   │   ├── cli.py           `crucible` command
+│   │   └── mcp_server.py    MCP tools
+│   ├── tests/               pytest suite
 │   └── experiments/         Compaction lab notes, raw results, scaffold-audit history
 ├── frontend/                Next.js + MUI + React Flow
 │   └── src/
@@ -208,7 +266,7 @@ the-crucible/
 ```
 
 - **One LangGraph workflow** handles every turn: summarize if needed → optional retrieval and grading → draft (with recalled originals when history was pruned). State lives in SQLite checkpoints, which is what makes branching from any node possible.
-- **Parallel models fork from one checkpoint.** Every model in a turn is pinned to the same parent, so answers land on sibling branches instead of reading each other's half-finished turn.
+- **Every model in a turn is pinned to its own fork point.** By default each continues its own reply in the latest turn, so models that answered side by side keep separate conversations; branching from a node pins them all there. Pinning keeps parallel answers on their own branches instead of reading each other's half-finished turn.
 - **Models come from a factory.** Each provider is a small strategy class in `backend/app/llm/providers.py`; nothing else in the code branches on the provider, and tests inject scripted models instead of patching globals.
 - **Debates run per model.** Each participant gets its own sub-thread, all stream concurrently each round, and early-stop checks (stability, agreement) and how peers are presented to each other (anonymous or named) are interchangeable strategies.
 
@@ -219,7 +277,7 @@ the-crucible/
 | Layer | Stack |
 |---|---|
 | **Frontend** | Next.js 16, React 19, MUI 7, React Flow, Framer Motion, react-markdown, KaTeX |
-| **Backend** | FastAPI, LangGraph, LangChain, SQLite, ChromaDB, tiktoken |
+| **Backend** | FastAPI, LangGraph, LangChain, SQLite, ChromaDB, tiktoken, Typer (CLI), FastMCP |
 | **Embeddings** | Local HuggingFace `all-MiniLM-L6-v2` |
 | **Providers** | OpenAI, Anthropic, Google (via `langchain-*`) |
 
@@ -228,14 +286,16 @@ the-crucible/
 ## 🧪 Testing
 
 ```bash
-(cd backend && uv run pytest tests/ -q)     # backend unit + integration
-(cd frontend && npm test)                   # frontend unit (Jest)
+(cd backend && uv run pytest tests/ -q -n 4)   # backend unit + integration, on 4 workers
+(cd backend && uv run ruff check .)            # backend lint
+(cd frontend && npm test)                      # frontend unit (Jest)
+(cd frontend && npm run lint)                  # frontend lint
 
 npm install && npx playwright install chromium   # once, at the repo root
 npm run test:e2e                                 # end-to-end (Playwright)
 ```
 
-The end-to-end suite builds its own fixture database (`e2e/seed_db.py`) and starts both servers against it with **scripted models** (`CRUCIBLE_FAKE_LLM=1`): replies stream like a real provider's, so it can send messages and run whole debates without network access or cost, and it never touches your real data. If ports 8123/3123 are taken, set `E2E_BACKEND_PORT` / `E2E_FRONTEND_PORT`.
+The end-to-end suite builds its own fixture database (`e2e/seed_db.py`) and starts both servers against it with **scripted models** (`CRUCIBLE_FAKE_LLM=1`): replies stream like a real provider's, so it can send messages and run whole debates without network access or cost, and it never touches your real data. The frontend runs as a production build (`next build` into `frontend/.next-e2e`, so a dev server in the same checkout is untouched); `E2E_DEV=1 npm run test:e2e` runs it against `next dev` instead, for debugging. If ports 8123/3123 are taken, set `E2E_BACKEND_PORT` / `E2E_FRONTEND_PORT`.
 
 <details>
 <summary>Re-recording the demo</summary>
