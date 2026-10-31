@@ -1,8 +1,8 @@
+import logging
 import asyncio
 import functools
 import os
 from typing import List, Mapping, Optional
-from dotenv import load_dotenv
 import tiktoken
 
 from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
@@ -10,7 +10,7 @@ from langgraph.graph import StateGraph, END
 from app.core.schema import CrucibleState, is_summary_message, summary_message
 # Re-exported: the eval harness and tests read the marker from here.
 from app.core.schema import SUMMARY_MARKER as SUMMARY_MARKER
-from app.api.models import MODEL_REGISTRY
+from app.registry import MODEL_REGISTRY
 from langchain_core.runnables import RunnableConfig
 
 from app.utils.helpers import extract_text
@@ -20,6 +20,8 @@ from app.llm.providers import REQUEST_NOTES_HEADER
 from app.services.documents import documents_for_run
 from app.services.recall import INTERNAL_TAG
 from app.compaction import ContextSnapshot, DetailedBrief, EarlierMessage, KeepRecent, ModelBudget, ThresholdPolicy
+
+log = logging.getLogger(__name__)
 
 # Messages kept verbatim after a summary: left out of the summary when it is
 # written, and shown as-is before everything newer on every later turn.
@@ -118,7 +120,6 @@ def context_snapshot(messages: list) -> ContextSnapshot:
         summary_tokens=count_tokens([messages[last]]) if last != -1 else 0,
     )
 
-load_dotenv()
 
 
 def sanitize_messages(
@@ -186,7 +187,7 @@ def sanitize_messages(
                 summary_index = i
 
     if summary_index != -1:
-        print(
+        log.info(
             f"[Sanitizer] Found summary at index {summary_index}. Pruning older history."
         )
         # 1. Keep original system messages (instructions)
@@ -215,7 +216,7 @@ def sanitize_messages(
         ]
         kept = (retention or _DEFAULT_RETENTION).keep(described)
         recovery = [earlier[i] for i in kept]
-        print(f"[Sanitizer] Kept {len(recovery)} verbatim messages before the summary")
+        log.info(f"[Sanitizer] Kept {len(recovery)} verbatim messages before the summary")
 
         # The run's HistoryRecall may bring back hidden messages relevant to
         # the latest request; they come back as a quoted excerpt, not as
@@ -230,7 +231,7 @@ def sanitize_messages(
                 chosen = [(hidden[j], text) for j, text in
                           recall.excerpts(query, [str(earlier[i]["content"]) for i in hidden], hint)]
             except Exception as e:  # recall is an extra; the turn goes on without it
-                print(f"[Sanitizer] Recall failed (non-fatal): {e}")
+                log.warning(f"[Sanitizer] Recall failed (non-fatal): {e}")
                 chosen = []
             if chosen:
                 lines = [f"[{'User' if earlier[i]['role'] == 'human' else earlier[i].get('name') or 'assistant'}]: {text}"
@@ -238,7 +239,7 @@ def sanitize_messages(
                 request_notes = list(request_notes or []) + [
                     "Earlier messages retrieved from the full conversation (oldest first):\n" + "\n".join(lines)
                 ]
-                print(f"[Sanitizer] Recalled {len(chosen)} hidden messages")
+                log.info(f"[Sanitizer] Recalled {len(chosen)} hidden messages")
 
         # Reassemble: System -> Summary (from tail) -> Recovered Human -> Rest of Tail
         # This ensures the human message the user JUST sent remains the latest human prompt.
@@ -263,7 +264,7 @@ def sanitize_messages(
     for p in others:
         if last_role == p["role"]:
             merged[-1]["content"] = f"{merged[-1]['content']}\n\n---\n\n{p['content']}"
-            print(f"[Sanitizer] Merged consecutive {p['role']}")
+            log.info(f"[Sanitizer] Merged consecutive {p['role']}")
         else:
             merged.append(p)
             last_role = p["role"]
@@ -278,7 +279,7 @@ def sanitize_messages(
     for m in reversed(content_history):
         m_len = len(str(m["content"]))
         if current_len + m_len > TOTAL_LIMIT:
-            print(
+            log.info(
                 f"[Sanitizer] Capacity reached. Trimming older history ({m_len} chars dropped)."
             )
             break
@@ -461,14 +462,14 @@ async def grade_retrieval_node(state: CrucibleState, config: RunnableConfig):
                 res = await model.ainvoke([HumanMessage(content=prompt)], config={"tags": [INTERNAL_TAG]})
                 return chunk if "yes" in extract_text(res.content).lower() else None
             except Exception as e:
-                print(f"[Grader] Error grading chunk: {e}")
+                log.warning(f"[Grader] Error grading chunk: {e}")
                 return None  # Fail closed to prevent untrusted content from passing on error
 
     tasks = [grade_chunk(c) for c in chunks]
     results = await asyncio.gather(*tasks)
     filtered = [r for r in results if r is not None]
 
-    print(f"[RAG] Graded {len(chunks)} chunks, kept {len(filtered)}")
+    log.info(f"[RAG] Graded {len(chunks)} chunks, kept {len(filtered)}")
     return {"retrieved_chunks": filtered}
 
 
@@ -554,7 +555,7 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
         context_snapshot(messages), model_budget(active_peer)
     )
     do_prune = decision.act
-    print(
+    log.info(
         f"[Selective Pruning] {'Active' if do_prune else 'High-fidelity mode'} for {active_peer} ({decision.reason})"
     )
 
@@ -569,15 +570,15 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     roles = {}
     for m in sanitized_messages:
         roles[m.type] = roles.get(m.type, 0) + 1
-    print(
+    log.info(
         f"\n[INVOKE] Model: {active_peer} | Delib: {is_delib} | Msgs: {len(sanitized_messages)} {roles} | Effective Tokens: {effective_tokens}"
     )
 
     try:
         response = model.invoke(sanitized_messages)
     except Exception as e:
-        print(f"[LLM Error] Node: drafting_node, Model: {active_peer}")
-        print(f"[LLM Error] Effective Tokens: {effective_tokens}")
+        log.warning(f"[LLM Error] Node: drafting_node, Model: {active_peer}")
+        log.warning(f"[LLM Error] Effective Tokens: {effective_tokens}")
         raise e
 
     # Tag the response with the model's name for future attribution
@@ -619,7 +620,7 @@ def default_summarizer(env: Mapping[str, str] = os.environ) -> str:
     """The model that writes summaries unless a run names another: the first
     of SUMMARIZER_MODELS that is offered and has an API key. Without any key
     (tests, the fake LLM) the first offered one."""
-    from app.api.models import SUMMARIZER_MODELS
+    from app.registry import SUMMARIZER_MODELS
     from app.llm.factory import first_offered_with_key
 
     offered = [m for m in SUMMARIZER_MODELS if m in MODEL_REGISTRY] or SUMMARIZER_MODELS[-1:]
@@ -629,7 +630,7 @@ def default_summarizer(env: Mapping[str, str] = os.environ) -> str:
 def default_grader(env: Mapping[str, str] = os.environ) -> Optional[str]:
     """The model that grades RAG chunks unless a run names another: the first
     of GRADER_MODELS that is offered and has an API key, or None."""
-    from app.api.models import GRADER_MODELS
+    from app.registry import GRADER_MODELS
     from app.llm.factory import first_offered_with_key
 
     return first_offered_with_key(GRADER_MODELS, env)
@@ -646,14 +647,14 @@ def summarize_history(state: CrucibleState, config: RunnableConfig):
     )
     if not decision.act:
         return {"messages": []}
-    print(f"[Summarize] {decision.reason}")
+    log.info(f"[Summarize] {decision.reason}")
 
     try:
         # Use a FAST model for summarization regardless of the active peer
         # This prevents Opus from stalling the user experience during a summary jump
         summarizer_id = ((config or {}).get("configurable") or {}).get(SUMMARIZER_CONFIG_KEY) or default_summarizer()
 
-        print(f"[Summarize] Using fast model: {summarizer_id} for history compression.")
+        log.info(f"[Summarize] Using fast model: {summarizer_id} for history compression.")
         model = model_factory_from(config).chat(summarizer_id, {})
 
         # Keep the last 5 messages as-is. Anything before the previous summary
@@ -719,7 +720,7 @@ def summarize_history(state: CrucibleState, config: RunnableConfig):
         # Small-context models will use sanitize_messages() to jump over the summary.
         return {"messages": [summary_msg]}
     except Exception as e:
-        print(f"[Summarize] failed (non-fatal): {e}")
+        log.warning(f"[Summarize] failed (non-fatal): {e}")
         return {"messages": []}
 
 

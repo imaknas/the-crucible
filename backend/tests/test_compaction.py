@@ -10,7 +10,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langgraph.checkpoint.memory import MemorySaver
 
-from app.api.models import SUMMARIZER_MODELS
+from app.registry import SUMMARIZER_MODELS
 from app.compaction import (
     DEFAULT_FACTS,
     ContextSnapshot,

@@ -15,41 +15,19 @@ from rich.table import Table
 from rich.spinner import Spinner
 from rich import box
 
+from app.registry import model_color
+
 console = Console()
 
-# ─── Color Mapping (matching Web UI) ────────────────────────────
-
-MODEL_COLORS: Dict[str, str] = {
-    "openai": "green",
-    "anthropic": "yellow",
-    "google": "magenta",
-}
-
-FAMILY_ICONS: Dict[str, str] = {
-    "openai": "🟢",
-    "anthropic": "🟡",
-    "google": "🟣",
-}
+# ─── Colours: the family's, as the web UI draws it ─────────────
 
 
 def get_model_color(model_id: str) -> str:
-    if "gpt" in model_id or "o1" in model_id or "o3" in model_id:
-        return MODEL_COLORS["openai"]
-    elif "claude" in model_id:
-        return MODEL_COLORS["anthropic"]
-    elif "gemini" in model_id:
-        return MODEL_COLORS["google"]
-    return "cyan"
+    return model_color(model_id, default="cyan")
 
 
 def get_model_icon(model_id: str) -> str:
-    if "gpt" in model_id or "o1" in model_id or "o3" in model_id:
-        return FAMILY_ICONS["openai"]
-    elif "claude" in model_id:
-        return FAMILY_ICONS["anthropic"]
-    elif "gemini" in model_id:
-        return FAMILY_ICONS["google"]
-    return "🔵"
+    return f"[{get_model_color(model_id)}]●[/]"
 
 
 # ─── Streaming Arena Display ───────────────────────────────────

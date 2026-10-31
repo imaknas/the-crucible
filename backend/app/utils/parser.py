@@ -1,5 +1,8 @@
+import logging
 import pymupdf
 import re
+
+log = logging.getLogger(__name__)
 
 
 def extract_text_from_pdf(file_path: str) -> str:
@@ -13,7 +16,7 @@ def extract_text_from_pdf(file_path: str) -> str:
                 text += str(page_text)
         doc.close()
     except Exception as e:
-        print(f"Error parsing PDF: {e}")
+        log.warning(f"Error parsing PDF: {e}")
         return f"Error parsing PDF: {e}"
 
     # Aggressive cleaning of control characters that might confuse LLM parsers

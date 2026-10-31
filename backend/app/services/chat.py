@@ -6,6 +6,7 @@ with a run id (see services/runs.py), so parallel models in one turn stay on
 their own branches.
 """
 
+import logging
 from typing import Any, AsyncIterator, Dict, Mapping, Optional, Sequence
 
 from langchain_core.messages import HumanMessage
@@ -15,6 +16,8 @@ from app.services.documents import attach_documents
 from app.services.recall import INTERNAL_TAG
 from app.services.runs import TURN_KIND_KEY, TURN_KINDS, final_state_of_run, tag_run, tag_turn_kind, thread_config
 from app.utils.helpers import clean_string, extract_text
+
+log = logging.getLogger(__name__)
 
 MAX_PROMPT_CHARS = 100_000
 TITLE_CHARS = 40
@@ -133,7 +136,7 @@ async def stream_turn(
     if current:
         from app.services.graph import count_tokens, get_token_limit
 
-        print(f"[Context] Current Tokens: {count_tokens(current)}, Limit: {get_token_limit(model)}")
+        log.info(f"[Context] Current Tokens: {count_tokens(current)}, Limit: {get_token_limit(model)}")
 
     turn_input = build_turn_input(
         state.values,

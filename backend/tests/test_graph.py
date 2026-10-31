@@ -73,7 +73,7 @@ class TestProviderModelFactory:
         assert providers["openai"].created == ["gpt-5.2"]
 
     def test_web_search_only_for_native_search_models(self):
-        from app.api.models import MODEL_REGISTRY
+        from app.registry import MODEL_REGISTRY
 
         searchable = next(m for m, c in MODEL_REGISTRY.items() if c.get("native_search") and c["family"] == "openai")
         plain = next((m for m, c in MODEL_REGISTRY.items() if not c.get("native_search") and c["family"] == "openai"), None)
@@ -404,7 +404,7 @@ def _grading_state(peer="claude-sonnet-5"):
 
 @pytest.mark.asyncio
 async def test_grading_uses_the_default_small_model_without_tools(monkeypatch):
-    from app.api.models import GRADER_MODELS
+    from app.registry import GRADER_MODELS
     from app.services.graph import grade_retrieval_node
     from app.services.recall import INTERNAL_TAG
 

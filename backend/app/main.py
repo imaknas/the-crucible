@@ -6,6 +6,7 @@ it via api.deps.get_graph_app), wires the browser guards (api/security.py)
 and mounts the routers.
 """
 
+import logging
 import os
 from collections.abc import Sequence
 from contextlib import asynccontextmanager
@@ -32,7 +33,7 @@ ROUTERS = (chat, threads, history, upload, models, graph, config, debate)
 
 
 def _report_configuration() -> None:
-    from app.api.models import FAMILY_META
+    from app.registry import FAMILY_META
     from app.llm import fake as fake_llm
 
     env_keys = [meta["env_key"] for meta in FAMILY_META.values()]
@@ -49,8 +50,19 @@ def _report_configuration() -> None:
         print("⚠️  CRUCIBLE_FAKE_LLM is set: every model is a scripted fake (tests only).")
 
 
+def _configure_logging() -> None:
+    """The server's own diagnostics ([INVOKE], [RAG], …) at INFO, on stderr."""
+    logger = logging.getLogger("app")
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _configure_logging()
     db.init_db()
     _report_configuration()
     async with AsyncSqliteSaver.from_conn_string(db.DB_PATH) as checkpointer:
@@ -95,6 +107,11 @@ server = create_app()
 
 if __name__ == "__main__":
     import uvicorn
+    from dotenv import load_dotenv
+
+    # The entry point reads backend/.env (the reloader's worker inherits the
+    # environment); importing app modules never does.
+    load_dotenv()
 
     # Loopback by default; the Docker image sets HOST=0.0.0.0 and compose
     # publishes the port on 127.0.0.1 only.

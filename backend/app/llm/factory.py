@@ -16,7 +16,7 @@ from typing import Any, Callable, Iterator, Mapping, Optional, Protocol, Sequenc
 
 from langchain_core.runnables import Runnable
 
-from app.api.models import FAMILY_META, MODEL_REGISTRY
+from app.registry import FAMILY_META, MODEL_REGISTRY
 from app.llm.providers import PROVIDERS, ChatProvider
 
 FACTORY_CONFIG_KEY = "model_factory"

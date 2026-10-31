@@ -6,28 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisco
 from pydantic import BaseModel
 
 from app.api.deps import get_graph_app
-from app.api.models import MODEL_REGISTRY, FAMILY_META
 from app.core import database as db
 from app.services import debate as debate_svc
 from app.services.context import ContextSettings
-from app.services.tree import build_debate_tree, load_thread_states
 
 router = APIRouter(prefix="/debate", tags=["debate"])
-
-
-# ─── Helper ──────────────────────────────────────────────────────────────────
-
-
-def _family_colors() -> dict[str, str]:
-    """Returns {model_id: hex_color} for all registered models."""
-    colors: dict[str, str] = {}
-    for model_id, cfg in MODEL_REGISTRY.items():
-        family = cfg.get("family", "")
-        color = FAMILY_META.get(family, {}).get("color", "#6366f1")
-        colors[model_id] = color
-    # Synthesis pseudo-model
-    colors["synthesis"] = "#8b5cf6"
-    return colors
 
 
 # ─── REST: Session CRUD ───────────────────────────────────────────────────────
@@ -94,32 +77,7 @@ async def get_debate_tree(session_id: str, graph_app=Depends(get_graph_app)):
     session = db.get_debate_session(session_id)
     if not session:
         raise HTTPException(404, f"Session {session_id} not found")
-
-    participants = session["participants"]
-    thread_ids = session["thread_ids"]
-    synthesis_thread_id = db.synthesis_thread_id(session)
-
-    all_thread_states: dict[str, list] = {}
-
-    async def _fetch(model_id: str):
-        tid = thread_ids.get(model_id)
-        if not tid:
-            return
-        all_thread_states[model_id] = await load_thread_states(graph_app, tid)
-
-    # Every lane plus the synthesis thread, one saver pass each, in parallel.
-    _, synthesis_states = await asyncio.gather(
-        asyncio.gather(*[_fetch(m) for m in participants]),
-        load_thread_states(graph_app, synthesis_thread_id),
-    )
-
-    return build_debate_tree(
-        session=session,
-        all_thread_states=all_thread_states,
-        synthesis_states=synthesis_states,
-        family_colors=_family_colors(),
-        peer_labels=debate_svc.peer_legend(session),
-    )
+    return await debate_svc.debate_tree(graph_app, session)
 
 
 # ─── WebSocket: Debate session ───────────────────────────────────────────────

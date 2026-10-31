@@ -13,10 +13,13 @@ run config, so a run that names none (experiments, tests) sees only what its
 own state carries.
 """
 
+import logging
 import asyncio
 from typing import Any, List, Mapping, MutableMapping, Optional
 
 from app.core.database import ThreadDocumentStore
+
+log = logging.getLogger(__name__)
 
 DOCUMENT_STORE_CONFIG_KEY = "document_store"
 # Which thread's documents a run reads and saves, when not its own: debate
@@ -71,5 +74,5 @@ def documents_for_run(state: Mapping[str, Any], config: Optional[Mapping[str, An
     if names and store is not None and thread_id:
         docs.update(store.load(thread_id, names))
     elif names:
-        print(f"[Documents] {len(names)} attached, but the run has no document store; left out")
+        log.warning(f"[Documents] {len(names)} attached, but the run has no document store; left out")
     return docs

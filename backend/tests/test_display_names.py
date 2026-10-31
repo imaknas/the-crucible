@@ -7,7 +7,7 @@ so the transcript showed the raw id.
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from app.api.models import MODEL_REGISTRY, display_name
+from app.registry import MODEL_REGISTRY, display_name
 from app.catalog.names import is_dated_snapshot, listed_id
 from app.catalog.prices import PriceBook, load_prices
 

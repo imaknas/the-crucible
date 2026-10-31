@@ -19,7 +19,7 @@ from uuid import uuid4
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from app.api.models import MODEL_REGISTRY, display_name
+from app.registry import MODEL_REGISTRY, display_name
 from app.core import database as db
 from app.services.convergence import build_convergence_check
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
@@ -752,6 +752,30 @@ def debate_record_text(session: Mapping[str, Any], rounds: Mapping[str, Sequence
     if synthesis:
         parts.append(f"Synthesis by {display_name(db.session_synthesizer(dict(session)))}:\n{synthesis}")
     return "\n\n".join(parts)
+
+
+async def debate_tree(graph_app, session: Mapping[str, Any]) -> dict[str, Any]:
+    """The debate as one React Flow graph: a lane per participant, the shared
+    question, the synthesis (tree.build_debate_tree)."""
+    from app.services.tree import build_debate_tree, load_thread_states
+
+    thread_ids = session["thread_ids"]
+
+    async def lane(model_id: str):
+        tid = thread_ids.get(model_id)
+        return model_id, (await load_thread_states(graph_app, tid) if tid else [])
+
+    # Every lane plus the synthesis thread, one saver pass each, in parallel.
+    lanes, synthesis_states = await asyncio.gather(
+        asyncio.gather(*[lane(m) for m in session["participants"]]),
+        load_thread_states(graph_app, db.synthesis_thread_id(dict(session))),
+    )
+    return build_debate_tree(
+        session=dict(session),
+        all_thread_states={m: states for m, states in lanes if states},
+        synthesis_states=synthesis_states,
+        peer_labels=peer_legend(session),
+    )
 
 
 async def synthesis_text(graph_app, session: Mapping[str, Any]) -> str:

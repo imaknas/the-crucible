@@ -1,3 +1,4 @@
+import logging
 import os
 import threading
 from typing import List
@@ -9,6 +10,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
+
+log = logging.getLogger(__name__)
 
 # Persistence directory for ChromaDB (backend/chroma_db unless CHROMA_DIR is set,
 # which the e2e suite does so it never touches the real store).
@@ -135,7 +138,7 @@ def index_document(text: str, filename: str, thread_id: str) -> int:
 
     vs = get_vector_store()
     vs.add_documents(chunks)
-    print(f"[RAG] Indexed {len(chunks)} chunks (thread {thread_id})")
+    log.info(f"[RAG] Indexed {len(chunks)} chunks (thread {thread_id})")
 
     return len(chunks)
 
@@ -158,10 +161,10 @@ def retrieve_context(query: str, thread_id: str, k: int = 5) -> List[Document]:
         docs_and_scores = vs.similarity_search_with_score(
             query, k=k, filter=filter_dict
         )
-        print(f"[RAG] Retrieved {len(docs_and_scores)} chunks (thread {thread_id})")
+        log.info(f"[RAG] Retrieved {len(docs_and_scores)} chunks (thread {thread_id})")
 
         # Unpack just the Document objects
         return [doc for doc, score in docs_and_scores]
     except Exception as e:
-        print(f"[RAG] Retrieval error: {e}")
+        log.warning(f"[RAG] Retrieval error: {e}")
         return []

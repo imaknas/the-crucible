@@ -56,7 +56,7 @@ class ModelRewriter:
 
 def default_recall_model(env: Mapping[str, str] = os.environ) -> Optional[str]:
     """The first of RECALL_MODELS that is offered and has an API key."""
-    from app.api.models import RECALL_MODELS
+    from app.registry import RECALL_MODELS
     from app.llm.factory import first_offered_with_key
 
     return first_offered_with_key(RECALL_MODELS, env)

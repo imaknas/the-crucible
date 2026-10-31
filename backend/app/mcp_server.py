@@ -12,16 +12,17 @@ Run with:  uv run python -m app.mcp_server   (stdio transport)
 """
 
 import asyncio
+import logging
+import sys
 import functools
 import inspect
 from typing import Any, Dict, List, Literal, Optional
 from uuid import uuid4
 
-from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
-from app.api.models import DEFAULT_MODEL
+from app.registry import DEFAULT_MODEL
 from app.core import database as db
 from app.core.schema import is_summary_message, summary_text
 from app.services import arena as arena_svc
@@ -31,7 +32,6 @@ from app.services.context import ContextSettings
 from app.services.uploads import read_documents
 from app.utils.helpers import extract_text
 
-load_dotenv()
 
 mcp = FastMCP("The Crucible")
 
@@ -654,4 +654,9 @@ async def get_thread_status(thread_id: str) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+
+    # The entry point reads backend/.env; importing this module (tests) doesn't.
+    load_dotenv()
+    logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
     mcp.run()

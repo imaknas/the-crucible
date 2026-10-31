@@ -1,6 +1,6 @@
 """The registry (policy) may only offer models the catalog (facts) has verified."""
 
-from app.api.models import MODEL_REGISTRY
+from app.registry import MODEL_REGISTRY
 from app.catalog import load_catalog
 
 CATALOG = load_catalog()

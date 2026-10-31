@@ -29,7 +29,7 @@ from uuid import uuid4
 import typer
 from rich.console import Console
 
-from app.api.models import DEFAULT_MODEL
+from app.registry import DEFAULT_MODEL
 
 app = typer.Typer(
     name="crucible",
@@ -39,6 +39,16 @@ app = typer.Typer(
 )
 debates_app = typer.Typer(help="List, read, continue, redirect or delete debates.", no_args_is_help=True)
 app.add_typer(debates_app, name="debates")
+
+
+@app.callback()
+def _main(
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show the backend's diagnostics ([INVOKE], [RAG], …) on stderr."),
+):
+    import logging
+
+    logging.basicConfig(level=logging.WARNING, stream=sys.stderr, format="%(message)s")
+    logging.getLogger("app").setLevel(logging.INFO if verbose else logging.WARNING)
 
 console = Console()
 
@@ -1310,7 +1320,7 @@ def compaction_eval(
 def _cheapest_models() -> List[str]:
     from datetime import date
 
-    from app.api.models import MODEL_REGISTRY
+    from app.registry import MODEL_REGISTRY
     from app.catalog import PriceBook, load_catalog, load_prices
     from app.services.compaction_eval import cheapest_models
 
@@ -1759,7 +1769,7 @@ async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_
                                   scenarios=scenarios)
     # The recall the app itself attaches, built through the same function.
     recall = default_history_recall(factory)
-    from app.api.models import SUMMARIZER_MODELS
+    from app.registry import SUMMARIZER_MODELS
     from app.llm.factory import has_credentials
 
     others = [m for m in SUMMARIZER_MODELS if m != default_summarizer() and has_credentials(m)]

@@ -4,7 +4,7 @@ from typing import List, Dict, Optional, Any, Set, Tuple
 from app.core import database as db
 from app.core.database import load_node_positions
 from app.core.schema import is_summary_message
-from app.api.models import display_name
+from app.registry import SYNTHESIS_COLOR, display_name, model_color
 from app.services.runs import DEBATE_RECORD_KEY, SYNTHESIS_TURN, TURN_KIND_KEY, is_seed
 from app.utils.helpers import extract_text, get_preview_text
 
@@ -728,7 +728,7 @@ def build_debate_tree(
     session: Dict[str, Any],
     all_thread_states: Dict[str, List[Any]],
     synthesis_states: List[Any],
-    family_colors: Dict[str, str],
+    family_colors: Optional[Dict[str, str]] = None,
     peer_labels: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
@@ -751,7 +751,7 @@ def build_debate_tree(
     last_node_per_model: Dict[str, str] = {}
 
     for lane_idx, model_id in enumerate(participants):
-        color = family_colors.get(model_id, "#6366f1")
+        color = (family_colors or {}).get(model_id) or model_color(model_id)
         nodes, edges, prompt_text = build_single_thread_for_debate(
             model_id, all_thread_states.get(model_id, []), lane_idx, color
         )
@@ -806,7 +806,7 @@ def build_debate_tree(
 
     if synthesis_states:
         syn_model = db.session_synthesizer(session)
-        syn_color = family_colors.get(syn_model, "#8b5cf6")
+        syn_color = (family_colors or {}).get(syn_model) or model_color(syn_model, default=SYNTHESIS_COLOR)
         syn_nodes, syn_edges, _ = build_single_thread_for_debate(
             "synthesis", synthesis_states, lane_index=0, model_color=syn_color
         )

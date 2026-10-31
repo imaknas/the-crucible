@@ -3,6 +3,7 @@
 Only delivery lives here; what a turn does is services/chat.py.
 """
 
+import logging
 import asyncio
 import json
 from typing import Dict, Optional, Set
@@ -11,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisco
 from pydantic import BaseModel
 
 from app.api.deps import get_graph_app
-from app.api.models import DEFAULT_MODEL
+from app.registry import DEFAULT_MODEL
 from app.core import database as db
 from app.services.chat import auto_title, build_turn_input
 from app.services.chat import stream_turn
@@ -28,6 +29,8 @@ from app.services.runs import (
     tag_run,
     thread_config,
 )
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["chat"])
 
@@ -136,7 +139,7 @@ class ChatConnection:
                 try:
                     frame = json.loads(raw)
                 except json.JSONDecodeError:
-                    print(f"[WS] Malformed frame from {self.thread_id}, skipping.")
+                    log.warning(f"[WS] Malformed frame from {self.thread_id}, skipping.")
                     continue
                 if frame.get("type") == "stop":
                     self._cancel_all()
@@ -240,4 +243,4 @@ class ChatConnection:
             await asyncio.to_thread(db.rename_thread, self.thread_id, title)
             await self.send({"type": "title_update", "thread_id": self.thread_id, "title": title})
         except Exception as e:
-            print(f"[Auto-title] failed: {e}")
+            log.warning(f"[Auto-title] failed: {e}")

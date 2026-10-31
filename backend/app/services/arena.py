@@ -12,7 +12,7 @@ from typing import Any, AsyncGenerator, Dict, List, Mapping, Optional, Sequence
 
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
-from app.api.models import DEFAULT_ARENA_MODELS, FAMILY_META, MODEL_REGISTRY, display_name
+from app.registry import DEFAULT_ARENA_MODELS, FAMILY_META, MODEL_REGISTRY, display_name
 from app.core import database as db
 from app.llm import has_credentials
 from app.services.chat import stream_turn

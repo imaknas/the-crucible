@@ -1,4 +1,6 @@
-"""The graph's diagnostics never print conversation text, only counts and ids."""
+"""The graph's diagnostics never log conversation text, only counts and ids."""
+
+import logging
 
 from langchain_core.messages import AIMessage, HumanMessage
 
@@ -14,7 +16,8 @@ class _Model:
         return AIMessage(content="noted")
 
 
-def test_drafting_logs_no_message_text(capsys):
+def test_drafting_logs_no_message_text(capsys, caplog):
+    caplog.set_level(logging.INFO, logger="app")
     state = {
         "active_peer": "gpt-6-luna",
         "toggles": {},
@@ -29,11 +32,12 @@ def test_drafting_logs_no_message_text(capsys):
     config = {"configurable": {"model_factory": CallableModelFactory(lambda *_: _Model()), "thread_id": "t-log"}}
     graph_mod.drafting_node(state, config)
     out = capsys.readouterr()
-    assert "[INVOKE] Model: gpt-6-luna" in out.out
-    assert "zebra-quartz" not in out.out + out.err
+    assert "[INVOKE] Model: gpt-6-luna" in caplog.text
+    assert "zebra-quartz" not in caplog.text + out.out + out.err
 
 
-def test_retrieval_logs_no_query(capsys, monkeypatch):
+def test_retrieval_logs_no_query(capsys, caplog, monkeypatch):
+    caplog.set_level(logging.INFO, logger="app")
     class _Store:
         def similarity_search_with_score(self, query, k, filter):
             return []
@@ -41,5 +45,5 @@ def test_retrieval_logs_no_query(capsys, monkeypatch):
     monkeypatch.setattr(rag, "get_vector_store", lambda: _Store())
     rag.retrieve_context(SECRET, "t-log")
     out = capsys.readouterr()
-    assert "[RAG] Retrieved 0 chunks" in out.out
-    assert "zebra-quartz" not in out.out + out.err
+    assert "[RAG] Retrieved 0 chunks" in caplog.text
+    assert "zebra-quartz" not in caplog.text + out.out + out.err

@@ -56,7 +56,7 @@ class ContextSettings:
                         f"the limit is {MAX_SYSTEM_PROMPT_CHARS:,}.")
         if self.summarizer is None:
             return None
-        from app.api.models import MODEL_REGISTRY, display_name
+        from app.registry import MODEL_REGISTRY, display_name
         from app.llm.factory import has_credentials
 
         if self.summarizer not in MODEL_REGISTRY:

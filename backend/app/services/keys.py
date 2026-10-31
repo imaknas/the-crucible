@@ -9,9 +9,12 @@ import os
 import re
 from typing import Dict, Mapping, MutableMapping, Optional
 
+from app.registry import provider_env_keys
+
 ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
-KEY_NAMES = frozenset({"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"})
+# Every family's key, so a new provider family needs no edit here.
+KEY_NAMES = provider_env_keys()
 
 # Printable ASCII without quotes, backslashes or whitespace. Real provider keys
 # fit this; anything else could break out of the quoted .env value.

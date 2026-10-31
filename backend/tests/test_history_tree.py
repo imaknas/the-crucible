@@ -164,7 +164,7 @@ class TestFormatMessages:
         assert result[0]["model"] == "gpt-5.2"
 
     def test_replies_carry_a_display_name(self):
-        from app.api.models import MODEL_REGISTRY
+        from app.registry import MODEL_REGISTRY
         from app.services.tree import format_messages
 
         model_id = next(iter(MODEL_REGISTRY))
