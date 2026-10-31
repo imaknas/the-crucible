@@ -32,6 +32,8 @@ interface DebateConfigDialogProps {
   /** The question the models will debate, shown so you know what you're starting. */
   question: string;
   participants: string[];
+  /** The backend's round limit (GET /models `limits.max_debate_rounds`). */
+  maxRounds?: number;
 }
 
 export default function DebateConfigDialog({
@@ -43,6 +45,7 @@ export default function DebateConfigDialog({
   modelLabel,
   question,
   participants,
+  maxRounds = MAX_DEBATE_ROUNDS,
 }: DebateConfigDialogProps) {
   const isDark = useTheme().palette.mode === "dark";
   const [config, setConfig] = useState<DebateDefaults>(defaults);
@@ -62,7 +65,7 @@ export default function DebateConfigDialog({
     // typing turned a cleared field into "3" and made two-digit counts
     // impossible to type. An empty or invalid field keeps the last value.
     const typed = Number.parseInt(roundsText.trim(), 10);
-    const max_rounds = Number.isFinite(typed) ? clampRounds(typed) : config.max_rounds;
+    const max_rounds = Number.isFinite(typed) ? clampRounds(typed, maxRounds) : config.max_rounds;
     setRoundsText(String(max_rounds));
     setConfig((p) => ({ ...p, max_rounds }));
     return max_rounds;
@@ -70,7 +73,7 @@ export default function DebateConfigDialog({
 
   const typedRounds = Number.parseInt(roundsText.trim(), 10);
   const estimate = debateCallEstimate({
-    rounds: Number.isFinite(typedRounds) ? clampRounds(typedRounds) : config.max_rounds,
+    rounds: Number.isFinite(typedRounds) ? clampRounds(typedRounds, maxRounds) : config.max_rounds,
     participants: participants.length,
     judge: !!config.llm_judge,
     synthesize: config.auto_synthesize,
@@ -162,7 +165,7 @@ export default function DebateConfigDialog({
               type="number"
               aria-label="Max rounds"
               min={1}
-              max={MAX_DEBATE_ROUNDS}
+              max={maxRounds}
               value={roundsText}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRoundsText(e.target.value)}
               onBlur={commitRounds}

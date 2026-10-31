@@ -2,7 +2,7 @@ import React from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { Swords } from "lucide-react";
 import type { DebateDefaults } from "@/lib/types";
-import { MAX_DEBATE_ROUNDS, clampRounds } from "@/hooks/useDebateDefaults";
+import { clampRounds } from "@/hooks/useDebateDefaults";
 import { SectionHeader, ToggleRow } from "./primitives";
 
 /** Defaults the debate dialog starts from (persisted by useDebateDefaults). */
@@ -10,11 +10,30 @@ export default function DebateDefaultsSection({
   isDark,
   debateDefaults,
   setDebateDefaults,
+  maxRounds,
 }: {
   isDark: boolean;
   debateDefaults: DebateDefaults;
   setDebateDefaults: (next: DebateDefaults | ((prev: DebateDefaults) => DebateDefaults)) => void;
+  /** The backend's round limit (GET /models `limits.max_debate_rounds`). */
+  maxRounds: number;
 }) {
+  // The field's raw text, committed on blur or Enter as the debate dialog
+  // does: clamping per keystroke turned a cleared field into "3" and made a
+  // two-digit count impossible to type.
+  const [roundsText, setRoundsText] = React.useState(String(debateDefaults.max_rounds));
+  const [seenRounds, setSeenRounds] = React.useState(debateDefaults.max_rounds);
+  if (seenRounds !== debateDefaults.max_rounds) {
+    setSeenRounds(debateDefaults.max_rounds);
+    setRoundsText(String(debateDefaults.max_rounds));
+  }
+  const commitRounds = () => {
+    const typed = Number.parseInt(roundsText.trim(), 10);
+    const max_rounds = Number.isFinite(typed) ? clampRounds(typed, maxRounds) : debateDefaults.max_rounds;
+    setRoundsText(String(max_rounds));
+    if (max_rounds !== debateDefaults.max_rounds) setDebateDefaults((prev) => ({ ...prev, max_rounds }));
+  };
+
   return (
     <Box>
       <SectionHeader label="Debate" />
@@ -26,21 +45,21 @@ export default function DebateDefaultsSection({
           </Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Typography variant="caption" sx={{ color: "text.secondary", minWidth: 80 }}>
+          <Typography component="label" htmlFor="default-max-rounds" variant="caption" sx={{ color: "text.secondary", minWidth: 80 }}>
             Max rounds
           </Typography>
           <Box
             component="input"
+            id="default-max-rounds"
             type="number"
             min={1}
-            max={MAX_DEBATE_ROUNDS}
-            value={debateDefaults.max_rounds}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setDebateDefaults((prev) => ({
-                ...prev,
-                max_rounds: clampRounds(parseInt(e.target.value)),
-              }))
-            }
+            max={maxRounds}
+            value={roundsText}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRoundsText(e.target.value)}
+            onBlur={commitRounds}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+              if (e.key === "Enter") commitRounds();
+            }}
             sx={{
               width: 56,
               px: 1,

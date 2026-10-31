@@ -129,12 +129,16 @@ export interface ModelInfo {
   id: string;
   name: string;
   desc: string;
+  /** The provider's own web search works for this model. */
+  native_search?: boolean;
 }
 
 export interface ModelFamily {
   key: string;
   label: string;
   color: string;
+  /** The API key this family needs, e.g. "ANTHROPIC_API_KEY". */
+  env_key?: string;
   available: boolean;
   models: ModelInfo[];
 }
@@ -144,6 +148,7 @@ export async function fetchModels(): Promise<{
   default_model?: string;
   default_arena_models?: string[];
   default_summarizer?: string;
+  limits?: Partial<import("@/lib/catalog").Limits>;
 }> {
   const res = await fetch(`${API_BASE}/models`);
   await ensureOk(res, "Failed to fetch models");

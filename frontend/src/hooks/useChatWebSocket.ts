@@ -157,6 +157,7 @@ export function useChatWebSocket({
             content: "",
             type: data.model === synthesisModelRef.current ? "synthesis" : "ai",
             model: data.model,
+            ...(data.model_color ? { model_color: data.model_color } : {}),
             streaming: true,
           },
         ]);

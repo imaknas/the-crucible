@@ -2,8 +2,6 @@ import { useCallback } from "react";
 import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
 
 const STORAGE_KEY = "crucible_system_prompt";
-/** Mirrors MAX_SYSTEM_PROMPT_CHARS in backend/app/services/context.py. */
-export const MAX_SYSTEM_PROMPT_CHARS = 8000;
 
 /**
  * The person's own system prompt, edited in the Control Panel and persisted.

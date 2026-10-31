@@ -21,6 +21,7 @@ import {
   vs,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Message } from "@/lib/types";
+import { FAMILY_COLORS, NEUTRAL_COLOR, modelFamilyColor, modelPalette, type ModelPalette } from "@/lib/colors";
 
 const thinkRegex =
   /<(?:think|thinking)>([\s\S]*?)(?:<\/(?:think|thinking)>|$)/i;
@@ -29,63 +30,16 @@ const thinkStreamingRegex = /<(?:think|thinking)>[\s\S]*$/gi;
 const confidenceCleanupRegex = /\n?\s*confidence:\s*\d+%\.?\s*$/i;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-// Extracted verbatim from ChatView.tsx — zero logic or style changes.
 
-export function getModelColor(model?: string): {
-  text: string;
-  bg: string;
-  border: string;
-  dot: string;
-  main: string;
-} {
-  if (!model)
-    return {
-      text: "text.secondary",
-      bg: "rgba(148, 163, 184, 0.1)",
-      border: "rgba(148, 163, 184, 0.2)",
-      dot: "#94a3b8",
-      main: "#94a3b8",
-    };
-  if (model === "synthesis")
-    return {
-      text: "#c4b5fd",
-      bg: "rgba(139, 92, 246, 0.12)",
-      border: "rgba(139, 92, 246, 0.3)",
-      dot: "#8b5cf6",
-      main: "#8b5cf6",
-    };
-  const m = model.toLowerCase();
-  if (m.includes("gpt"))
-    return {
-      text: "#34d399",
-      bg: "rgba(16, 185, 129, 0.1)",
-      border: "rgba(16, 185, 129, 0.25)",
-      dot: "#34d399",
-      main: "#10b981",
-    };
-  if (m.includes("claude"))
-    return {
-      text: "#fbbf24",
-      bg: "rgba(245, 158, 11, 0.1)",
-      border: "rgba(245, 158, 11, 0.25)",
-      dot: "#fbbf24",
-      main: "#f59e0b",
-    };
-  if (m.includes("gemini"))
-    return {
-      text: "#a78bfa",
-      bg: "rgba(139, 92, 246, 0.1)",
-      border: "rgba(139, 92, 246, 0.25)",
-      dot: "#a78bfa",
-      main: "#8b5cf6",
-    };
-  return {
-    text: "#60a5fa",
-    bg: "rgba(59, 130, 246, 0.1)",
-    border: "rgba(59, 130, 246, 0.25)",
-    dot: "#60a5fa",
-    main: "#3b82f6",
-  };
+/**
+ * A reply's colours: its family colour (the backend's `model_color`, guessed
+ * from the id before it arrives) through lib/colors, so the label stays
+ * readable on white too. A synthesis is violet; no model is neutral.
+ */
+export function getModelColor(model: string | undefined, isDark: boolean, modelColor?: string | null): ModelPalette {
+  if (!model) return modelPalette(NEUTRAL_COLOR, isDark);
+  if (model === "synthesis") return modelPalette(FAMILY_COLORS.synthesis, isDark);
+  return modelPalette(modelColor || modelFamilyColor(model), isDark);
 }
 
 /**
@@ -120,7 +74,7 @@ const identity = (id: string) => id;
 export const MessageBubble = React.memo(
   ({ msg, isUser, isDark, onMount, index, modelLabel = identity, variant }: MessageBubbleProps) => {
     const isSynthesis = variant === "synthesis";
-    const modelColor = getModelColor(isUser ? undefined : isSynthesis ? "synthesis" : msg.model);
+    const modelColor = getModelColor(isUser ? undefined : isSynthesis ? "synthesis" : msg.model, isDark, msg.model_color);
     const author = replyAuthor(msg, modelLabel);
 
     // Standardize content string extraction for the whole component
@@ -292,7 +246,7 @@ export const MessageBubble = React.memo(
                 <Accordion
                   elevation={0}
                   disableGutters
-                  defaultExpanded={true}
+                  defaultExpanded={false}
                   sx={{
                     mb: 2, // Changed from mt to mb
                     bgcolor: isDark

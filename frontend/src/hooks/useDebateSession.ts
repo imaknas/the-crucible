@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import * as api from "@/lib/api";
 import { errorMessage } from "@/lib/errors";
-import { modelFamilyColor } from "@/lib/colors";
 import {
   EMPTY_TRANSCRIPT,
   debateControls,
@@ -45,6 +44,8 @@ interface Options {
   pushToast: PushToast;
   confirm: Confirm;
   modelLabel: (modelId: string) => string;
+  /** A model's family colour, for the placeholder nodes drawn while it answers. */
+  modelColor: (modelId: string) => string;
 }
 
 /**
@@ -97,6 +98,7 @@ export function useDebateSession({
   pushToast,
   confirm,
   modelLabel,
+  modelColor,
 }: Options) {
   const openSocket = useSocketFactory();
   const tree = useDebateTree();
@@ -187,7 +189,7 @@ export function useDebateSession({
           setStatus("running");
           transcriptEvent(msg);
           participantsRef.current.forEach((modelId, i) =>
-            addPendingNode(modelId, r, i, modelFamilyColor(modelId), modelLabel(modelId)),
+            addPendingNode(modelId, r, i, modelColor(modelId), modelLabel(modelId)),
           );
           break;
         }
@@ -268,6 +270,7 @@ export function useDebateSession({
       transcriptEvent,
       addPendingNode,
       modelLabel,
+      modelColor,
       scheduleFlush,
       flushTokens,
       resolvePendingNode,

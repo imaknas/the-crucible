@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { Box, ButtonBase, IconButton, Typography } from "@mui/material";
 import { Layers, Menu, MessagesSquare, Moon, Settings2, Sun, Zap } from "lucide-react";
 import { useThemeMode } from "@/components/ThemeRegistry";
-import { modelFamilyColor } from "@/lib/colors";
 import type { ConnectionTone } from "@/hooks/useBackendStatus";
 
 /**
@@ -18,6 +17,7 @@ export default function AppHeader({
   onShowTreeChange,
   onHome,
   modelLabel,
+  modelColor,
   onOpenSessions,
   onOpenSettings,
 }: {
@@ -27,6 +27,8 @@ export default function AppHeader({
   onShowTreeChange: (tree: boolean) => void;
   onHome: () => void;
   modelLabel: (id: string) => string;
+  /** A model's family colour (useModelCatalog). */
+  modelColor: (id: string) => string;
   /** Narrow screens: the side panels are drawers opened from here. */
   onOpenSessions?: () => void;
   onOpenSettings?: () => void;
@@ -173,7 +175,7 @@ export default function AppHeader({
                   ml: i > 0 ? -0.75 : 0,
                   border: "2px solid",
                   borderColor: "background.paper",
-                  bgcolor: modelFamilyColor(m),
+                  bgcolor: modelColor(m),
                   boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                 }}
               />

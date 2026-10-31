@@ -5,7 +5,7 @@ import type { PanelMode } from "@/hooks/useLayoutPanels";
 import type { ModelFamily } from "@/lib/api";
 import type { DebateDefaults, Toggles } from "@/lib/types";
 import type { CatalogStatus } from "@/hooks/useModelCatalog";
-import { modelFamilyColor } from "@/lib/colors";
+import { catalogColor, type Limits } from "@/lib/catalog";
 import { modelDisplayName } from "@/lib/modelNames";
 import StatusSection from "./control-panel/StatusSection";
 import ModelPickerSection from "./control-panel/ModelPickerSection";
@@ -41,6 +41,8 @@ interface ControlPanelProps {
   /** The person's system prompt as typed ("" = none). */
   systemPrompt: string;
   onSystemPromptChange: (value: string) => void;
+  /** What the backend enforces (GET /models `limits`). */
+  limits: Limits;
 }
 
 /** Width of the collapsed rail. */
@@ -74,6 +76,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
     onSummarizerChange,
     systemPrompt,
     onSystemPromptChange,
+    limits,
   }) => {
     const isDark = useTheme().palette.mode === "dark";
 
@@ -124,7 +127,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
                     width: 9,
                     height: 9,
                     borderRadius: "50%",
-                    bgcolor: modelFamilyColor(m),
+                    bgcolor: catalogColor(m, families),
                   }}
                 />
               </Tooltip>
@@ -204,7 +207,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             setSelectedModels={setSelectedModels}
           />
           <ParametersSection isDark={isDark} toggles={toggles} setToggles={setToggles} />
-          <SystemPromptSection value={systemPrompt} onChange={onSystemPromptChange} />
+          <SystemPromptSection value={systemPrompt} onChange={onSystemPromptChange} maxChars={limits.max_system_prompt_chars} />
           <SummarizerSection
             families={families}
             choice={summarizerChoice}
@@ -216,6 +219,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             isDark={isDark}
             debateDefaults={debateDefaults}
             setDebateDefaults={setDebateDefaults}
+            maxRounds={limits.max_debate_rounds}
           />
           <ApiKeysSection families={families} isDark={isDark} onSaved={onReloadModels} />
         </Stack>

@@ -1,4 +1,4 @@
-import { debateAction, deliberateAction, sendAction, type ComposerState } from "./composer";
+import { charsLeft, debateAction, deliberateAction, sendAction, type ComposerState } from "./composer";
 
 const base: ComposerState = { isLoading: false, modelCount: 1, hasHistory: true, hasText: false };
 
@@ -29,5 +29,21 @@ describe("sendAction", () => {
       enabled: true,
       hint: "Send to all 3 selected models",
     });
+  });
+});
+
+describe("the prompt limit", () => {
+  const full = { isLoading: false, modelCount: 2, hasHistory: true, hasText: true };
+  it("disables sending and debating a message over the limit, saying why", () => {
+    expect(sendAction({ ...full, overLimit: 1000 })).toEqual({
+      enabled: false,
+      hint: "Your message is over the 1,000-character limit; shorten it first",
+    });
+    expect(debateAction({ ...full, overLimit: 1000 }).enabled).toBe(false);
+  });
+  it("counts down only near the limit", () => {
+    expect(charsLeft(100, 1000)).toBeNull();
+    expect(charsLeft(950, 1000)).toBe(50);
+    expect(charsLeft(1010, 1000)).toBe(-10);
   });
 });

@@ -106,4 +106,14 @@ describe("ChatInput", () => {
     expect(onAttach).toHaveBeenCalledWith(file);
     expect(input.value).toBe("");
   });
+
+  it("counts down near the backend's limit and refuses to send over it", () => {
+    render(<Controlled {...baseProps} maxChars={20} />);
+    fireEvent.change(composer(), { target: { value: "x".repeat(19) } });
+    expect(screen.getByTestId("chars-left")).toHaveTextContent("1 characters left");
+    expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
+    fireEvent.change(composer(), { target: { value: "x".repeat(25) } });
+    expect(screen.getByTestId("chars-left")).toHaveTextContent("5 over the limit");
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
 });

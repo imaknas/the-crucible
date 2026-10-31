@@ -33,7 +33,7 @@ export default function StatusSection({
           <StatusRow label="Models in this arena">
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
               {selectedModels.map((m) => {
-                const meta = getModelMetaFromId(m, families);
+                const meta = getModelMetaFromId(m, families, isDark);
                 return (
                   <Box
                     key={m}

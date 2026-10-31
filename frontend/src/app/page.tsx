@@ -63,11 +63,13 @@ export default function Home() {
     allModelIds,
     availableModelIds,
     modelLabel,
+    modelColor,
     defaultSummarizer,
+    limits,
   } = useModelCatalog();
   const { choice: summarizerChoice, summarizer, setChoice: setSummarizerChoice } = useSummarizerChoice(families);
   const { text: systemPromptText, systemPrompt, setText: setSystemPromptText } = useSystemPrompt();
-  const { debateDefaults, setDebateDefaults } = useDebateDefaults();
+  const { debateDefaults, setDebateDefaults } = useDebateDefaults(limits.max_debate_rounds);
 
   // ─── Conversation tree, threads, chat ───────────────────────────
   // useHistoryTree loads messages into the chat hook, which is created after
@@ -189,6 +191,7 @@ export default function Home() {
     pushToast,
     confirm: showConfirm,
     modelLabel,
+    modelColor,
   });
   const inDebate = !!debate.activeSessionId;
   const debateHasTranscript = debate.messages.length > 0;
@@ -369,6 +372,7 @@ export default function Home() {
           onShowTreeChange={setShowTree}
           onHome={() => switchThread("")}
           modelLabel={modelLabel}
+          modelColor={modelColor}
           onOpenSessions={layout.compact ? () => layout.sidebar.setOpen(true) : undefined}
           onOpenSettings={layout.compact ? () => layout.panel.setOpen(true) : undefined}
         />
@@ -472,6 +476,7 @@ export default function Home() {
                   onResetBranch={resetToLatest}
                   answerChoice={answerChoice}
                   replyTexts={replyTexts}
+                  maxPromptChars={limits.max_prompt_chars}
                   liveTurn={liveTurn}
                 />
               </motion.div>
@@ -503,6 +508,7 @@ export default function Home() {
         onSummarizerChange={setSummarizerChoice}
         systemPrompt={systemPromptText}
         onSystemPromptChange={setSystemPromptText}
+        limits={limits}
       />
 
       <DebateConfigDialog
@@ -530,6 +536,7 @@ export default function Home() {
         availableModels={allModelIds.length ? allModelIds : selectedModels}
         modelLabel={modelLabel}
         question={debate.dialogPrompt}
+        maxRounds={limits.max_debate_rounds}
         participants={selectedModels}
       />
 

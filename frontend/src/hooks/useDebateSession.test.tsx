@@ -62,6 +62,7 @@ function setup() {
     pushToast: jest.fn(),
     confirm: jest.fn().mockResolvedValue(true),
     modelLabel: (id: string) => id.toUpperCase(),
+    modelColor: () => "#123456",
   };
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <TransportProvider value={factory}>{children}</TransportProvider>

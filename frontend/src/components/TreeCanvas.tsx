@@ -24,6 +24,7 @@ import SynthesisTreeNode from "./SynthesisTreeNode";
 import { DebateLaneHeaders, DebateRoundBands } from "./tree/DebateOverlays";
 import { Target, Wand2, GitBranch } from "lucide-react";
 import type { DebateLane } from "@/lib/types";
+import { FAMILY_COLORS, NEUTRAL_COLOR, modelFamilyColor, modelPalette } from "@/lib/colors";
 import dagre from "dagre";
 import "reactflow/dist/style.css";
 
@@ -127,105 +128,32 @@ const getLayoutedElements = (
   };
 };
 
-function withAlpha(hex: string, alpha: string) {
-  return `${hex}${alpha}`;
-}
-
-function getNodeColors(
-  role: string,
-  model: string | undefined,
-  isDark: boolean,
-  modelColor?: string,
-) {
-  // The backend already resolves each model to its family colour; prefer it so
-  // lane headers, minimap dots and node bodies cannot drift apart.
-  if (modelColor && role !== "user") {
-    return {
-      bg: withAlpha(modelColor, isDark ? "14" : "0f"),
-      border: withAlpha(modelColor, isDark ? "40" : "33"),
-      text: modelColor,
-    };
-  }
-
-  // User or system
+function getNodeColors(role: string, model: string | undefined, isDark: boolean, modelColor?: string) {
+  // User messages are the app's blue; every reply uses its family colour (the
+  // backend's model_color, guessed from the id only before it arrives), so
+  // lane headers, minimap dots and node bodies share one palette.
   if (role === "user") {
     return isDark
-      ? {
-          bg: "rgba(59, 130, 246, 0.1)",
-          border: "rgba(59, 130, 246, 0.25)",
-          text: "#93c5fd",
-        }
-      : {
-          bg: "rgba(59, 130, 246, 0.06)",
-          border: "rgba(59, 130, 246, 0.2)",
-          text: "#2563eb",
-        };
+      ? { bg: "rgba(59, 130, 246, 0.1)", border: "rgba(59, 130, 246, 0.25)", text: "#93c5fd" }
+      : { bg: "rgba(59, 130, 246, 0.06)", border: "rgba(59, 130, 246, 0.2)", text: "#1d4ed8" };
   }
-
-  const m = (model || "").toLowerCase();
-  if (m.includes("gpt")) {
-    return isDark
-      ? {
-          bg: "rgba(16, 185, 129, 0.08)",
-          border: "rgba(16, 185, 129, 0.25)",
-          text: "#6ee7b7",
-        }
-      : {
-          bg: "rgba(16, 185, 129, 0.06)",
-          border: "rgba(16, 185, 129, 0.2)",
-          text: "#059669",
-        };
-  }
-  if (m.includes("claude")) {
-    return isDark
-      ? {
-          bg: "rgba(245, 158, 11, 0.08)",
-          border: "rgba(245, 158, 11, 0.25)",
-          text: "#fbbf24",
-        }
-      : {
-          bg: "rgba(245, 158, 11, 0.06)",
-          border: "rgba(245, 158, 11, 0.2)",
-          text: "#d97706",
-        };
-  }
-  if (m.includes("gemini")) {
-    return isDark
-      ? {
-          bg: "rgba(139, 92, 246, 0.08)",
-          border: "rgba(139, 92, 246, 0.25)",
-          text: "#a78bfa",
-        }
-      : {
-          bg: "rgba(139, 92, 246, 0.06)",
-          border: "rgba(139, 92, 246, 0.2)",
-          text: "#7c3aed",
-        };
-  }
-  if (role === "ai") {
-    return isDark
-      ? {
-          bg: "rgba(168, 85, 247, 0.1)",
-          border: "rgba(168, 85, 247, 0.25)",
-          text: "#c084fc",
-        }
-      : {
-          bg: "rgba(168, 85, 247, 0.06)",
-          border: "rgba(168, 85, 247, 0.2)",
-          text: "#9333ea",
-        };
+  const color = modelColor || (model ? modelFamilyColor(model) : role === "ai" ? FAMILY_COLORS.synthesis : null);
+  if (color) {
+    const p = modelPalette(color, isDark);
+    return { bg: p.bg, border: p.border, text: p.text };
   }
   return isDark
-    ? {
-        bg: "rgba(30, 41, 59, 0.5)",
-        border: "rgba(255, 255, 255, 0.06)",
-        text: "#e2e8f0",
-      }
-    : {
-        bg: "rgba(255, 255, 255, 0.9)",
-        border: "rgba(0, 0, 0, 0.06)",
-        text: "#1e293b",
-      };
+    ? { bg: "rgba(30, 41, 59, 0.5)", border: "rgba(255, 255, 255, 0.06)", text: "#e2e8f0" }
+    : { bg: "rgba(255, 255, 255, 0.9)", border: "rgba(0, 0, 0, 0.06)", text: "#1e293b" };
+}
+
+/** A node's dot on the minimap: the same colour as its body. */
+function miniMapColor(node: Node, isDark: boolean): string {
+  const meta = (node as CustomNode).metadata;
+  if (node.type === "synthesis") return FAMILY_COLORS.synthesis;
+  if (meta?.model_color) return meta.model_color;
+  if (meta?.active_peer) return modelFamilyColor(meta.active_peer);
+  return isDark ? "#475569" : NEUTRAL_COLOR;
 }
 
 function TreeViewInner({
@@ -610,16 +538,7 @@ function TreeViewInner({
                   borderRadius: "12px",
                 }}
                 maskColor={isDark ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
-                nodeColor={(node) => {
-                  const meta = (node as CustomNode).metadata;
-                  if (node.type === "synthesis") return "#8b5cf6";
-                  if (meta?.model_color) return meta.model_color;
-                  const model = meta?.active_peer || "";
-                  if (model.includes("gpt")) return "#10b981";
-                  if (model.includes("claude")) return "#f59e0b";
-                  if (model.includes("gemini")) return "#8b5cf6";
-                  return isDark ? "#475569" : "#94a3b8";
-                }}
+                nodeColor={(node) => miniMapColor(node, isDark)}
               />
             )}
           </>

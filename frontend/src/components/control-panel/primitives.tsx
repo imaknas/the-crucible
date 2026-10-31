@@ -1,46 +1,23 @@
 import React from "react";
-import { alpha, Box, Switch, Typography } from "@mui/material";
+import { Box, Switch, Typography } from "@mui/material";
 import type { ModelFamily } from "@/lib/api";
+import { NEUTRAL_COLOR, modelPalette } from "@/lib/colors";
 
 /** Shared building blocks for the Control Panel sections. */
 
-export function getFamilyColors(familyColor: string) {
-  return {
-    color: familyColor,
-    dotColor: familyColor,
-    activeBg: alpha(familyColor, 0.1),
-    activeBorder: alpha(familyColor, 0.3),
-  };
+/** A family's colours for the panel, from lib/colors (text readable in either theme). */
+export function getFamilyColors(familyColor: string, isDark: boolean) {
+  const p = modelPalette(familyColor, isDark);
+  return { color: p.text, dotColor: p.dot, activeBg: p.bg, activeBorder: p.border };
 }
 
-export function getModelMetaFromId(model: string, families: ModelFamily[]) {
+export function getModelMetaFromId(model: string, families: ModelFamily[], isDark: boolean) {
   for (const fam of families) {
     const found = fam.models.find((m) => m.id === model);
-    if (found) {
-      return {
-        label: found.name,
-        desc: found.desc,
-        ...getFamilyColors(fam.color),
-      };
-    }
+    if (found) return { label: found.name, desc: found.desc, ...getFamilyColors(fam.color, isDark) };
   }
-  // fallback for unknown models
-  return {
-    label: model,
-    desc: "Model",
-    color: "#60a5fa",
-    dotColor: "#60a5fa",
-    activeBg: "rgba(59,130,246,0.1)",
-    activeBorder: "rgba(59,130,246,0.3)",
-  };
+  return { label: model, desc: "Model", ...getFamilyColors(NEUTRAL_COLOR, isDark) };
 }
-
-/** Mirrors backend FAMILY_META env_key: which API key each family needs. */
-export const FAMILY_ENV_KEY: Record<string, string> = {
-  openai: "OPENAI_API_KEY",
-  anthropic: "ANTHROPIC_API_KEY",
-  google: "GOOGLE_API_KEY",
-};
 
 export function SectionHeader({ label }: { label: string }) {
   return (
@@ -149,7 +126,7 @@ export function ToggleRow({
             variant="caption"
             sx={{
               fontSize: "0.75rem",
-              color: "text.disabled",
+              color: "text.secondary",
               lineHeight: 1.3,
               display: "block",
             }}
@@ -163,6 +140,7 @@ export function ToggleRow({
         checked={checked}
         onClick={(e) => e.stopPropagation()}
         onChange={onChange}
+        slotProps={{ input: { "aria-label": label } }}
       />
     </Box>
   );

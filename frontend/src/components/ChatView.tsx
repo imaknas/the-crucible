@@ -71,6 +71,8 @@ interface ChatViewProps {
   onResetBranch?: () => void;
   /** Who answers a clicked reply, switchable on the branch chip. */
   answerChoice?: AnswerChoice | null;
+  /** The backend's message limit. */
+  maxPromptChars?: number;
   /** Full text of replies streamed in this tab, by tree node id. */
   replyTexts?: Record<string, string>;
   /** The replies of the turn that just streamed: their cards open in full. */
@@ -128,6 +130,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   branchPoint,
   onResetBranch,
   answerChoice = null,
+  maxPromptChars,
   replyTexts = EMPTY_TEXTS,
   liveTurn = EMPTY_TURN,
 }) => {
@@ -783,7 +786,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                   {siblings.map((sib) => {
                     const isActive = sib.id === shownCheckpoint;
                     const sibModel = sib.metadata?.active_peer || "assistant";
-                    const sibColor = getModelColor(sibModel);
+                    const sibColor = getModelColor(sibModel, isDark, sib.metadata?.model_color);
                     const sibLabel = sib.metadata?.model_name || modelLabel(sibModel);
                     const open = isCardOpen(sib.id);
                     const fullText = replyTexts[sib.id];
@@ -1025,6 +1028,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
           ) : undefined
         }
         debateOnScreen={!!debateBanner}
+        maxChars={maxPromptChars}
       />
     </Box>
   );

@@ -83,7 +83,7 @@ export default function ModelPickerSection({
         {families.map((family) => {
           const isExpanded = expandedFamilies.has(family.key);
           const count = selectedCount(family.key);
-          const fc = getFamilyColors(family.color);
+          const fc = getFamilyColors(family.color, isDark);
 
           return (
             <Box key={family.key}>

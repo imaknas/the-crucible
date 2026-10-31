@@ -1,14 +1,15 @@
 import { useCallback, useMemo } from "react";
 import type { DebateDefaults } from "@/lib/types";
 import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
+import { FALLBACK_LIMITS } from "@/lib/catalog";
 
 const STORAGE_KEY = "crucible_debate_defaults";
 
-/** The backend refuses more rounds than this (services/debate.py MAX_ROUNDS). */
-export const MAX_DEBATE_ROUNDS = 10;
+/** Before GET /models answers: the backend's own limit (`limits.max_debate_rounds`) replaces it. */
+export const MAX_DEBATE_ROUNDS = FALLBACK_LIMITS.max_debate_rounds;
 
-export function clampRounds(value: number): number {
-  return Math.max(1, Math.min(MAX_DEBATE_ROUNDS, Math.trunc(value) || 3));
+export function clampRounds(value: number, max: number = MAX_DEBATE_ROUNDS): number {
+  return Math.max(1, Math.min(max, Math.trunc(value) || 3));
 }
 
 export const DEFAULT_DEBATE_DEFAULTS: DebateDefaults = {
@@ -26,18 +27,18 @@ export const DEFAULT_DEBATE_DEFAULTS: DebateDefaults = {
  * copy is the source of truth, read through useSyncExternalStore rather than
  * hydrated with a mount effect.
  */
-export function useDebateDefaults() {
+export function useDebateDefaults(maxRounds: number = MAX_DEBATE_ROUNDS) {
   const stored = useStoredValue(STORAGE_KEY);
   const debateDefaults = useMemo<DebateDefaults>(() => {
     if (!stored) return DEFAULT_DEBATE_DEFAULTS;
     try {
       const merged = { ...DEFAULT_DEBATE_DEFAULTS, ...(JSON.parse(stored) as Partial<DebateDefaults>) };
       // A value saved while the limit was higher would be refused at start.
-      return { ...merged, max_rounds: clampRounds(merged.max_rounds) };
+      return { ...merged, max_rounds: clampRounds(merged.max_rounds, maxRounds) };
     } catch {
       return DEFAULT_DEBATE_DEFAULTS;
     }
-  }, [stored]);
+  }, [stored, maxRounds]);
 
   const setDebateDefaults = useCallback(
     (next: DebateDefaults | ((prev: DebateDefaults) => DebateDefaults)) => {

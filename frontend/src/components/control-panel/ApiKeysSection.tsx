@@ -2,10 +2,11 @@ import React, { useEffect, useState } from "react";
 import { alpha, Box, Button, ButtonBase, Collapse, IconButton, InputAdornment, Stack, TextField, Typography } from "@mui/material";
 import { ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { fetchKeyStatus, saveApiKeys, type KeyInfo, type ModelFamily } from "@/lib/api";
-import { FAMILY_ENV_KEY, SectionHeader, getFamilyColors } from "./primitives";
+import { SectionHeader, getFamilyColors } from "./primitives";
+import { familyEnvKey } from "@/lib/catalog";
 
 function familiesMissingKeys(families: ModelFamily[]): string[] {
-  return families.filter((f) => !f.available && FAMILY_ENV_KEY[f.key]).map((f) => f.key);
+  return families.filter((f) => !f.available).map((f) => f.key);
 }
 
 /** API key entry per provider family; keys are sent to the backend, never stored here. */
@@ -44,14 +45,14 @@ export default function ApiKeysSection({
     refreshKeyInfo();
   }, []);
 
-  const keyFamilies = families.filter((f) => FAMILY_ENV_KEY[f.key]);
+  const keyFamilies = families;
   const hasChanges = Object.values(keyInputs).some((v) => v.trim() !== "");
 
   const handleSave = async () => {
     const payload: Record<string, string> = {};
     for (const [familyKey, value] of Object.entries(keyInputs)) {
-      const envKey = FAMILY_ENV_KEY[familyKey];
-      if (envKey && value.trim()) payload[envKey] = value.trim();
+      const family = families.find((f) => f.key === familyKey);
+      if (family && value.trim()) payload[familyEnvKey(family)] = value.trim();
     }
     if (!Object.keys(payload).length) return;
     setKeySaving(true);
@@ -77,7 +78,7 @@ export default function ApiKeysSection({
       <SectionHeader label="API Keys" />
       <Stack spacing={1}>
         {keyFamilies.map((family) => {
-          const fc = getFamilyColors(family.color);
+          const fc = getFamilyColors(family.color, isDark);
           const isExpanded = expandedKeys.has(family.key);
           const inputVal = keyInputs[family.key] ?? "";
           const showVal = keyShowMap[family.key];
@@ -167,7 +168,7 @@ export default function ApiKeysSection({
 
               <Collapse in={isExpanded} timeout="auto">
                 <Box sx={{ mt: 0.75, ml: 1.5 }}>
-                  {keyInfo[FAMILY_ENV_KEY[family.key]]?.masked && !inputVal && (
+                  {keyInfo[familyEnvKey(family)]?.masked && !inputVal && (
                     <Typography
                       variant="caption"
                       sx={{
@@ -183,7 +184,7 @@ export default function ApiKeysSection({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {keyInfo[FAMILY_ENV_KEY[family.key]].masked}
+                      {keyInfo[familyEnvKey(family)].masked}
                     </Typography>
                   )}
                   <TextField

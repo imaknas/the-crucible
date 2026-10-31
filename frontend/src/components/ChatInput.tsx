@@ -2,7 +2,7 @@ import React from "react";
 import { Box, Paper, Typography, ButtonBase, TextField, IconButton, Tooltip, Chip, CircularProgress } from "@mui/material";
 import { Send, FileText, Edit3, Scale, X, StopCircle, Swords, CornerUpLeft, Paperclip } from "lucide-react";
 import { Message } from "@/lib/types";
-import { debateAction, deliberateAction, sendAction, type ComposerAction } from "@/lib/composer";
+import { charsLeft, debateAction, deliberateAction, sendAction, type ComposerAction } from "@/lib/composer";
 
 interface ChatInputProps {
   isLoading: boolean;
@@ -34,6 +34,8 @@ interface ChatInputProps {
   debateOnScreen?: boolean;
   /** Shown above the text box, e.g. which checkpoint the next message branches from. */
   header?: React.ReactNode;
+  /** The backend's message limit (GET /models `limits.max_prompt_chars`). */
+  maxChars?: number;
 }
 
 /**
@@ -114,25 +116,30 @@ export const ChatInput = React.memo(
     onDebateRedirect,
     debateOnScreen = false,
     header,
+    maxChars,
   }: ChatInputProps) => {
     const localInput = value;
     const fileRef = React.useRef<HTMLInputElement>(null);
 
+    const left = maxChars ? charsLeft(localInput.length, maxChars) : null;
     const state = {
       isLoading,
       modelCount: respondingModels.length,
       hasHistory: messages.length > 0,
       hasText: !!localInput.trim(),
+      overLimit: left !== null && left < 0 ? maxChars : null,
     };
     const deliberate = deliberateAction(state);
     // A debate is between the selected models, whichever reply is continued.
     const debate = debateAction({ ...state, modelCount: selectedModels.length });
     // Injecting goes to the debate, whichever models are selected.
     const send: ComposerAction = onDebateInject
-      ? { enabled: state.hasText && !isLoading, hint: "Add to the debate's next round" }
+      ? state.overLimit
+        ? sendAction(state)
+        : { enabled: state.hasText && !isLoading, hint: "Add to the debate's next round" }
       : sendAction(state);
     const redirect: ComposerAction = {
-      enabled: state.hasText && !isLoading,
+      enabled: state.hasText && !isLoading && !state.overLimit,
       hint: state.hasText ? "Change the topic and restart the debate" : "Type the new topic first",
     };
 
@@ -323,6 +330,14 @@ export const ChatInput = React.memo(
                 >
                   {statusText}
                 </Typography>
+                {left !== null && (
+                  <Typography
+                    data-testid="chars-left"
+                    sx={{ fontSize: "0.75rem", fontWeight: 700, flexShrink: 0, color: left < 0 ? "error.main" : "warning.main" }}
+                  >
+                    {left < 0 ? `${(-left).toLocaleString()} over the limit` : `${left.toLocaleString()} characters left`}
+                  </Typography>
+                )}
               </Box>
 
               {showEditButton && (
