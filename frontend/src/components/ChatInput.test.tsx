@@ -116,4 +116,11 @@ describe("ChatInput", () => {
     expect(screen.getByTestId("chars-left")).toHaveTextContent("5 over the limit");
     expect(screen.getByRole("button", { name: "Send" })).toHaveAttribute("aria-disabled", "true");
   });
+
+  it("names its actions in visible words, not icons alone", () => {
+    render(<Controlled {...baseProps} onDebateOpen={jest.fn()} onDebateRedirect={jest.fn()} />);
+    for (const label of ["Attach", "Deliberate", "Debate", "Redirect", "Send"]) {
+      expect(screen.getByText(label, { exact: true })).toBeInTheDocument();
+    }
+  });
 });

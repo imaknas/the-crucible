@@ -392,7 +392,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                   variant="caption"
                   sx={{
                     fontWeight: 600,
-                    color: "text.disabled",
+                    color: "text.secondary",
                     letterSpacing: "0.1em",
                     textTransform: "uppercase",
                     fontSize: "0.6875rem",
@@ -459,7 +459,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                     sx={{
                       maxWidth: 280,
                       display: "block",
-                      color: "text.disabled",
+                      color: "text.secondary",
                     }}
                   >
                     Every selected model answers on its own branch, so you

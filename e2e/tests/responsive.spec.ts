@@ -39,6 +39,18 @@ for (const viewport of [
       await page.getByRole("button", { name: "Close settings" }).click();
       await expect(page.getByText("Available models")).toBeHidden();
 
+      // The composer's actions say what they are in words, and fit the width.
+      const toolbar = page.getByTestId("composer-toolbar");
+      for (const label of ["Attach", "Deliberate", "Debate", "Send"]) {
+        await expect(toolbar.getByText(label, { exact: true })).toBeVisible();
+      }
+      const toolbarBox = (await toolbar.boundingBox())!;
+      for (const button of await toolbar.getByRole("button").all()) {
+        const b = (await button.boundingBox())!;
+        expect(b.x).toBeGreaterThanOrEqual(toolbarBox.x - 1);
+        expect(b.x + b.width).toBeLessThanOrEqual(toolbarBox.x + toolbarBox.width + 1);
+      }
+
       // Nothing scrolls sideways.
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       expect(overflow).toBeLessThanOrEqual(0);

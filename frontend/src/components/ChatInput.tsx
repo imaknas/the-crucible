@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Paper, Typography, ButtonBase, TextField, IconButton, Tooltip, Chip, CircularProgress } from "@mui/material";
+import { Box, Paper, Typography, ButtonBase, TextField, Tooltip, Chip, CircularProgress } from "@mui/material";
 import { Send, FileText, Edit3, Scale, X, StopCircle, Swords, CornerUpLeft, Paperclip } from "lucide-react";
 import { Message } from "@/lib/types";
 import { charsLeft, debateAction, deliberateAction, sendAction, type ComposerAction } from "@/lib/composer";
@@ -43,9 +43,10 @@ interface ChatInputProps {
 }
 
 /**
- * A labelled secondary action (Deliberate, Debate, Redirect). The label hides
- * on phones, where the tooltip and aria-label still name it; the tooltip says
- * why it is unavailable when it is. Unavailable is `aria-disabled`, not
+ * A labelled secondary action (Deliberate, Debate, Redirect). The label shows
+ * at every width (on phones the toolbar wraps instead of hiding it: an icon
+ * alone named nothing there); the tooltip says why it is unavailable when it
+ * is. Unavailable is `aria-disabled`, not
  * `disabled`: a disabled button can't take focus, so its "why" was
  * mouse-only. The click handlers check the action themselves.
  */
@@ -76,7 +77,7 @@ function ComposerButton({
             display: "flex",
             alignItems: "center",
             gap: 0.75,
-            px: 1.25,
+            px: { xs: 1, sm: 1.25 },
             py: 0.75,
             borderRadius: 2,
             fontSize: "0.8125rem",
@@ -90,9 +91,7 @@ function ComposerButton({
           }}
         >
           {icon}
-          <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-            {label}
-          </Box>
+          <Box component="span">{label}</Box>
         </ButtonBase>
       </span>
     </Tooltip>
@@ -286,10 +285,14 @@ export const ChatInput = React.memo(
               }}
             />
 
-            {/* Toolbar: attach and status on the left, actions on the right, Send last and primary. */}
+            {/* Toolbar: attach and status on the left, actions on the right, Send
+                last and primary. On a phone the status takes its own line and the
+                labelled actions wrap below it. */}
             <Box
+              data-testid="composer-toolbar"
               sx={{
                 display: "flex",
+                flexWrap: { xs: "wrap", sm: "nowrap" },
                 alignItems: "center",
                 gap: 1,
                 px: 1.25,
@@ -312,18 +315,42 @@ export const ChatInput = React.memo(
                 tabIndex={-1}
               />
               <Tooltip title="Attach a PDF or text file" placement="top" arrow>
-                <IconButton
-                  size="small"
-                  aria-label="Attach a document"
-                  disabled={!!uploading}
-                  onClick={() => fileRef.current?.click()}
-                  sx={{ color: "text.secondary" }}
-                >
-                  <Paperclip width={16} height={16} />
-                </IconButton>
+                <span>
+                  <ButtonBase
+                    aria-label="Attach a document"
+                    disabled={!!uploading}
+                    onClick={() => fileRef.current?.click()}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                      px: 1,
+                      py: 0.75,
+                      borderRadius: 2,
+                      fontSize: "0.8125rem",
+                      fontWeight: 700,
+                      color: "text.secondary",
+                      "&:hover": { bgcolor: "action.hover" },
+                      "&.Mui-disabled": { opacity: 0.5 },
+                    }}
+                  >
+                    <Paperclip width={15} height={15} />
+                    <Box component="span">Attach</Box>
+                  </ButtonBase>
+                </span>
               </Tooltip>
 
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1, minWidth: 0 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  flex: 1,
+                  minWidth: 0,
+                  order: { xs: -1, sm: 0 },
+                  flexBasis: { xs: "100%", sm: "auto" },
+                }}
+              >
                 <Box
                   sx={{
                     width: 6,
@@ -396,6 +423,8 @@ export const ChatInput = React.memo(
                 />
               )}
 
+              {/* Send (or Stop) keeps the right edge, also when the row wraps. */}
+              <Box sx={{ ml: "auto", flexShrink: 0 }}>
               {isLoading ? (
                 <Tooltip title="Stop generating" placement="top" arrow>
                   <ButtonBase
@@ -440,13 +469,12 @@ export const ChatInput = React.memo(
                       }}
                     >
                       <Send width={16} height={16} />
-                      <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                        {onDebateInject ? "Inject" : "Send"}
-                      </Box>
+                      <Box component="span">{onDebateInject ? "Inject" : "Send"}</Box>
                     </ButtonBase>
                   </span>
                 </Tooltip>
               )}
+              </Box>
             </Box>
           </Paper>
         </Box>
