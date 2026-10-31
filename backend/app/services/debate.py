@@ -14,6 +14,7 @@ Yields typed event dicts consumed by the WebSocket handler in api/debate.py.
 
 import asyncio
 import hashlib
+import logging
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Container, Mapping, Optional, Sequence
 from uuid import uuid4
@@ -40,6 +41,8 @@ from app.services.runs import (
     thread_config,
 )
 from app.utils.helpers import extract_text
+
+log = logging.getLogger(__name__)
 
 # ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -786,6 +789,23 @@ async def _debate_messages(graph_app, thread_id: str) -> list:
     return msgs[await seeded_message_count(graph_app, thread_id):]
 
 
+async def _read_lane(graph_app, thread_id: str, attempts: int = 3) -> list:
+    """A lane's messages. A read can fail while a cancelled run is still
+    being stopped (e.g. right after a reload); it is retried briefly, then
+    the error propagates. Skipping the lane left a transcript with the
+    question but none of that participant's rounds, and an argument map
+    written then silently left the participant out."""
+    for attempt in range(attempts):
+        try:
+            return await _debate_messages(graph_app, thread_id)
+        except Exception:
+            if attempt == attempts - 1:
+                raise
+            log.warning(f"[Debate] reading {thread_id} failed; retrying")
+            await asyncio.sleep(0.2 * (attempt + 1))
+    return []
+
+
 async def debate_rounds(graph_app, session: Mapping[str, Any]) -> dict[str, list[str]]:
     """Each participant's replies, round by round, read from its sub-thread.
 
@@ -800,10 +820,7 @@ async def debate_rounds(graph_app, session: Mapping[str, Any]) -> dict[str, list
         thread_id = session["thread_ids"].get(model_id)
         if not thread_id:
             continue
-        try:
-            msgs = await _debate_messages(graph_app, thread_id)
-        except Exception:
-            continue
+        msgs = await _read_lane(graph_app, thread_id)
         replies: list[str] = []
         for m in msgs:
             kind = getattr(m, "type", "")

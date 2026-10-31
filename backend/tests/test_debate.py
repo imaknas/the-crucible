@@ -204,3 +204,32 @@ async def test_run_debate_event_sequence(tmp_path, monkeypatch):
         assert kind in event_types
     assert events[-1] == {"type": "debate_session_status", "session_id": session_id, "status": "completed"}
     assert db.get_debate_session(session_id)["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_a_lane_that_fails_to_read_is_retried_then_reported_not_skipped():
+    """Skipping it left a transcript without that participant's rounds."""
+    from types import SimpleNamespace
+
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    from app.services import debate as debate_svc
+
+    class Flaky:
+        def __init__(self, failures):
+            self.failures = failures
+
+        async def aget_state(self, config):
+            if self.failures:
+                self.failures -= 1
+                raise RuntimeError("database is locked")
+            return SimpleNamespace(values={"messages": [HumanMessage(content="Q"), AIMessage(content="A")]})
+
+        async def aget_state_history(self, config, filter=None, limit=None):
+            return
+            yield
+
+    session = {"participants": ["m"], "thread_ids": {"m": "t::m"}}
+    assert await debate_svc.debate_rounds(Flaky(failures=2), session) == {"m": ["A"]}
+    with pytest.raises(RuntimeError, match="locked"):
+        await debate_svc.debate_rounds(Flaky(failures=5), session)
