@@ -32,10 +32,11 @@ export async function renameThread(id: string, title: string): Promise<void> {
 // ─── History & Tree ─────────────────────────────────────────────
 
 export interface HistoryResponse {
-  nodes: any[];
-  edges: any[];
-  messages: any[];
-  current_checkpoint?: string;
+  nodes: TreeNode[];
+  edges: TreeEdge[];
+  messages: Message[];
+  /** The node the returned path ends at; null for a thread with no checkpoints. */
+  current_checkpoint?: string | null;
 }
 
 export async function fetchHistory(
@@ -158,6 +159,9 @@ export async function fetchModels(): Promise<{
 // ─── Debate Sessions ────────────────────────────────────────────
 
 import type {
+  Message,
+  TreeEdge,
+  TreeNode,
   DebateSession,
   DebateTranscript,
   DebateTreeResponse,

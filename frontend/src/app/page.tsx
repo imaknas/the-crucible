@@ -199,24 +199,60 @@ export default function Home() {
   // it, continues that debate (a running one takes sends as injections).
   const { continuesDebate, markFollowedUp } = debate;
   // One banner for both views: its controls must be reachable from the tree too.
-  const debateBanner: DebateBannerProps | null = inDebate
-    ? {
-        state: {
-          round: debate.round,
-          maxRounds: debate.maxRounds,
-          status: debate.status,
-          convergenceScore: debate.convergenceScore,
-          legend: peerLegend(debate.tree.lanes),
-        },
-        onClose: debate.close,
-        onSynthesize: debate.controls.synthesize
-          ? () => debate.synthesize(debateDefaults.synthesizer_model, toggles, { summarizer, systemPrompt })
-          : undefined,
-        onPause: debate.controls.pause ? debate.pause : undefined,
-        onResume: debate.controls.resume ? debate.resume : undefined,
-        onContinue: debate.controls.continue ? () => debate.continueDebate() : undefined,
-      }
-    : null;
+  // Memoised: a new object every render re-rendered the whole transcript.
+  const {
+    round: debateRound,
+    maxRounds: debateMaxRounds,
+    status: debateStatus,
+    convergenceScore,
+    controls: debateCtl,
+    close: closeDebate,
+    synthesize: synthesizeDebate,
+    pause: pauseDebate,
+    resume: resumeDebate,
+    continueDebate,
+  } = debate;
+  const debateLanes = debate.tree.lanes;
+  const synthesizerModel = debateDefaults.synthesizer_model;
+  const debateBanner: DebateBannerProps | null = useMemo(
+    () =>
+      inDebate
+        ? {
+            state: {
+              round: debateRound,
+              maxRounds: debateMaxRounds,
+              status: debateStatus,
+              convergenceScore,
+              legend: peerLegend(debateLanes),
+            },
+            onClose: closeDebate,
+            onSynthesize: debateCtl.synthesize
+              ? () => synthesizeDebate(synthesizerModel, toggles, { summarizer, systemPrompt })
+              : undefined,
+            onPause: debateCtl.pause ? pauseDebate : undefined,
+            onResume: debateCtl.resume ? resumeDebate : undefined,
+            onContinue: debateCtl.continue ? () => continueDebate() : undefined,
+          }
+        : null,
+    [
+      inDebate,
+      debateRound,
+      debateMaxRounds,
+      debateStatus,
+      convergenceScore,
+      debateLanes,
+      closeDebate,
+      debateCtl,
+      synthesizeDebate,
+      synthesizerModel,
+      toggles,
+      summarizer,
+      systemPrompt,
+      pauseDebate,
+      resumeDebate,
+      continueDebate,
+    ],
+  );
 
   const { confirmLeave: confirmLeaveDebate } = debate;
   useEffect(() => {
