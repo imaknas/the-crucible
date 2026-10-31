@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import * as api from "@/lib/api";
 import { Message, ModelError, Toggles } from "@/lib/types";
-import { isOpen, useSocketFactory } from "@/lib/transport";
+import { isOpen, useSocketFactory, whenOpen } from "@/lib/transport";
 import { contextFields } from "@/lib/runContext";
 import { markStopped } from "@/lib/messages";
 import { startLiveTurn, stopLiveTurn, updateLiveReply, type LiveTurn } from "@/lib/turns";
@@ -68,6 +68,8 @@ export function useChatWebSocket({
   const [reconnectKey, setReconnectKey] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
+  // A send waiting for its socket to open; a second click meanwhile is ignored.
+  const waitingRef = useRef(false);
   const streamBufferRef = useRef<Record<string, string>>({});
   const rafRef = useRef<number | null>(null);
   const pendingModelsRef = useRef<Set<string>>(new Set());
@@ -361,13 +363,17 @@ export function useChatWebSocket({
     isDeliberation: boolean = false,
     continuesDebate: string | null = null,
   ): Promise<boolean> => {
-    if (isLoading) return false;
+    if (isLoading || waitingRef.current) return false;
     const userMessage = input.trim();
     if (!userMessage && !isDeliberation) return false; // nothing to do
 
     // Check the socket before echoing the message, or a failed send leaves a
     // user bubble that was never delivered.
-    if (!isOpen(wsRef.current)) {
+    waitingRef.current = true;
+    const open = await whenOpen(() => wsRef.current).finally(() => {
+      waitingRef.current = false;
+    });
+    if (!open) {
       pushToast(NOT_CONNECTED, "error", "Not sent");
       return false;
     }

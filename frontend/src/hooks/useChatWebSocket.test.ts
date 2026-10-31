@@ -322,6 +322,29 @@ describe("useChatWebSocket", () => {
     expect(mockProps.pushToast).toHaveBeenCalledWith(expect.any(String), "error", "Not sent");
   });
 
+  it("waits for a socket that is still connecting instead of refusing the message", async () => {
+    const { result } = renderHook(() => useChatWebSocket(mockProps));
+    const ws = MockWebSocket.instances[0];
+    ws.readyState = 0; // CONNECTING: the thread was opened a moment ago
+
+    let sent: Promise<boolean> = Promise.resolve(false);
+    act(() => {
+      sent = result.current.sendInteractiveMessage("Hello");
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(200);
+    });
+    expect(ws.send).not.toHaveBeenCalled();
+
+    ws.readyState = 1;
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(100);
+      expect(await sent).toBe(true);
+    });
+    expect(ws.send).toHaveBeenCalledTimes(1);
+    expect(mockProps.pushToast).not.toHaveBeenCalled();
+  });
+
   it("reconnects after an unexpected close", () => {
     renderHook(() => useChatWebSocket(mockProps));
     expect(MockWebSocket.instances).toHaveLength(1);

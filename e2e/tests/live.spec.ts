@@ -380,8 +380,12 @@ test.describe("live flows (scripted models)", () => {
   });
 
   test("a debate pauses between rounds, resumes, and completes", async ({ page }) => {
+    test.slow(); // two deliberately slow rounds
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
-    await startDebate(page, "Is a hot dog a sandwich?", 3);
+    // [[slow]] holds each round open for seconds, so Pause always lands while
+    // the first round is still streaming. Fast scripted rounds used to finish
+    // before the click, and the pause took effect a round later.
+    await startDebate(page, "Is a hot dog a sandwich? [[slow]]", 2);
 
     // The debated question heads the transcript.
     await expect(page.getByText("Is a hot dog a sandwich?").first()).toBeVisible();
@@ -392,10 +396,10 @@ test.describe("live flows (scripted models)", () => {
 
     await page.getByRole("button", { name: "Pause debate" }).click();
     await expect(debateStatus(page)).toHaveText("pausing after this round");
-    await expect(debateStatus(page)).toHaveText("paused");
+    await expect(debateStatus(page)).toHaveText("paused", { timeout: 30_000 });
     // Held: the next round does not start while paused.
     await page.waitForTimeout(1500);
-    await expect(page.getByText("DEBATE · ROUND 1/3")).toBeVisible();
+    await expect(page.getByText("DEBATE · ROUND 1/2")).toBeVisible();
     // The sidebar row reports the live status, not the server's "running".
     await expect(
       page.locator('[aria-current="true"]').getByText("paused", { exact: true }),
@@ -412,8 +416,8 @@ test.describe("live flows (scripted models)", () => {
     await page.getByRole("button", { name: "Arena", exact: true }).click();
 
     await page.getByRole("button", { name: "Resume debate" }).click();
-    await expect(page.getByText("DEBATE · ROUND 2/3")).toBeVisible();
-    await expect(debateStatus(page)).toHaveText("completed", { timeout: 30_000 });
+    await expect(page.getByText("DEBATE · ROUND 2/2")).toBeVisible();
+    await expect(debateStatus(page)).toHaveText("completed", { timeout: 40_000 });
     await expect(page.getByText(answerFrom(CLAUDE)).first()).toBeVisible();
   });
 

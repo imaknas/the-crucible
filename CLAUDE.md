@@ -327,6 +327,5 @@ These were bugs; the fixes are load-bearing.
 - **First paint is slow in dev.** The app needs several seconds before `threadId` resolves and the tree mounts; the canvas shows its empty state until then.
 - **Debate node selection is display-only.** Clicking expands the node's excerpt in place but there is no way to open the full response.
 - **The debate `stream_end.checkpoint_id` is not read by the frontend** (the chat `stream_end` one is).
-- **`e2e/tests/live.spec.ts` "a debate pauses between rounds" is racy**: when the scripted rounds finish before the Pause click lands, the pause takes effect a round later and the `ROUND 1/3` assertion fails (seen 2026-10-26 and 2026-10-31, not from the change under test).
 - Rounds are numbered from 0 in every JSON payload, event and argument (`round`, `rounds_from`); text shown to a person numbers them from 1.
 - Threads created before auto-titling still show their raw `thread_xxxxxxx` id in the sidebar (debate parents created with a placeholder title are now cleared to untitled by `init_db`, so the next debate names them).
