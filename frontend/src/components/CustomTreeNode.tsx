@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Handle, Position, NodeProps, useStore } from "reactflow";
-import { Trash2, Brain, GitBranch } from "lucide-react";
+import { Trash2, Brain, GitBranch, BookOpen } from "lucide-react";
 import { useTheme, Box, Typography } from "@mui/material";
 
 export type CustomNodeData = {
@@ -8,6 +8,8 @@ export type CustomNodeData = {
   onDelete?: (nodeId: string) => void;
   /** Chat trees: start the next message from this node. */
   onBranch?: (nodeId: string) => void;
+  /** Debate trees: open the reply in full (the node shows an excerpt). */
+  onRead?: (nodeId: string) => void;
   styling?: any;
   metadata?: {
     role?: string;
@@ -266,11 +268,11 @@ const CustomTreeNode = React.memo(
           </Box>
         )}
 
-        {/* Hover actions: branch from here, delete */}
+        {/* Hover actions: read in full, branch from here, delete */}
         {/* Shown on hover and on the selected node: a keyboard (Tab, then
             Enter) or a touch screen has no hover, and used to have no way to
             branch or delete. */}
-        {(isHovered || selected) && (data.onDelete || data.onBranch) && (
+        {(isHovered || selected) && (data.onDelete || data.onBranch || data.onRead) && (
           <div
             style={{
               position: "absolute",
@@ -281,6 +283,36 @@ const CustomTreeNode = React.memo(
               gap: 4,
             }}
           >
+            {data.onRead && (
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onRead?.(id);
+                }}
+                title="Read this reply in full"
+                aria-label="Read in full"
+                style={{
+                  background: "#0f766e",
+                  border: "none",
+                  borderRadius: 12,
+                  height: 24,
+                  padding: "0 8px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  color: "white",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  boxShadow: "0 2px 8px rgba(15, 118, 110, 0.4)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <BookOpen size={12} />
+                Read
+              </button>
+            )}
             {data.onBranch && (
               <button
                 onMouseDown={(e) => e.stopPropagation()}
@@ -380,6 +412,7 @@ const CustomTreeNode = React.memo(
       a.label === b.label &&
       a.onDelete === b.onDelete &&
       a.onBranch === b.onBranch &&
+      a.onRead === b.onRead &&
       a.styling === b.styling &&
       a.metadata === b.metadata
     );

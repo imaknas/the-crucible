@@ -12,6 +12,7 @@ import ErrorModal from "@/components/ErrorModal";
 import Toast from "@/components/Toast";
 import DebateConfigDialog from "@/components/DebateConfigDialog";
 import AppHeader from "@/components/AppHeader";
+import DebateReplyDialog from "@/components/DebateReplyDialog";
 import DebateBanner, { type DebateBannerProps } from "@/components/DebateBanner";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import type { Message } from "@/lib/types";
@@ -468,6 +469,12 @@ export default function Home() {
                         maxRound={debate.tree.sessionMeta?.max_round ?? debate.round}
                         activeNodeId={debate.activeNode || undefined}
                         onNodeClick={debate.setActiveNode}
+                        onReadNode={debate.readNode}
+                      />
+                      <DebateReplyDialog
+                        reading={debate.reading}
+                        lanes={debate.tree.lanes}
+                        onClose={debate.closeReading}
                       />
                     </div>
                   </div>

@@ -6,7 +6,7 @@
  * batching) and every side effect. Keeping the transformation pure is what
  * makes it testable without a socket or a page.
  */
-import type { DebateLane, DebateSession, DebateTranscript, DebateUiStatus, Message } from "@/lib/types";
+import type { DebateLane, DebateSession, DebateTranscript, DebateUiStatus, Message, TreeNode } from "@/lib/types";
 
 export interface Transcript {
   messages: Message[];
@@ -22,7 +22,7 @@ const SYNTHESIS_KEY = "__synthesis__";
 export type TranscriptEvent =
   | { type: "debate_round_start"; round?: number }
   | { type: "stream_start"; model: string; round?: number }
-  | { type: "stream_end"; model: string; content?: string }
+  | { type: "stream_end"; model: string; content?: string; checkpoint_id?: string }
   | { type: "debate_synthesis_start"; model?: string }
   | { type: "debate_synthesis_end"; model?: string; content?: string }
   | { type: "error"; model?: string; message?: string };
@@ -103,6 +103,7 @@ export function transcriptMessages(t: DebateTranscript, participants: string[]):
         role: "assistant",
         model,
         type: "ai",
+        round: r.round,
         content: text ? (error ? `${text}\n\n_(stopped: ${error})_` : text) : `_(no response: ${error})_`,
       });
     }
@@ -118,6 +119,39 @@ export function transcriptMessages(t: DebateTranscript, participants: string[]):
     });
   }
   return out;
+}
+
+/**
+ * The transcript reply a debate tree node stands for, so the node can be read
+ * in full (the node shows a 400-character excerpt at most). A lane node is
+ * `{model}::{checkpoint}`: the reply whose stream_end named that checkpoint,
+ * else the model's reply in the node's round (restored replies carry no
+ * checkpoint). The synthesis node is the latest synthesis. Null while nothing
+ * matches, e.g. a reply still to be read back after a reload.
+ */
+export function debateReplyFor(node: TreeNode | undefined, messages: Message[]): Message | null {
+  if (!node || node.metadata?.pending) return null;
+  const replies = messages.filter((m) => m.role === "assistant");
+  if (node.metadata?.role === "synthesis" || node.type === "synthesis") {
+    return replies.filter((m) => m.type === "synthesis").at(-1) ?? null;
+  }
+  const model = node.metadata?.active_peer;
+  if (!model) return null;
+  const byId = replies.find((m) => m.checkpoint_id && `${model}::${m.checkpoint_id}` === node.id);
+  if (byId) return byId;
+  const round = node.metadata?.round_num;
+  return replies.find((m) => m.model === model && m.type !== "synthesis" && m.round === round) ?? null;
+}
+
+/** The heading of a node's reply read in full: who wrote it, and in which round. */
+export function debateReplyTitle(node: TreeNode, lanes: DebateLane[] | undefined): string {
+  const name = node.metadata?.model_name || node.metadata?.active_peer || "";
+  if (node.metadata?.role === "synthesis" || node.type === "synthesis") {
+    return name && name !== "synthesis" ? `Argument map · ${name}` : "Argument map";
+  }
+  const peer = (lanes ?? []).find((l) => l.model_id === node.metadata?.active_peer)?.peer_label;
+  const who = peer ? `${name} (${peer})` : name;
+  return `${who} · ${roundLabel(node.metadata?.round_num ?? 0)}`;
 }
 
 /**
@@ -232,8 +266,9 @@ function applyEvent(state: Transcript, event: TranscriptEvent, now: number): Tra
 
     case "stream_start": {
       const id = `debate-${event.model}-r${event.round ?? 0}-${now}`;
+      const bubble: Message = { id, role: "assistant", model: event.model, content: "", streaming: true, round: event.round ?? 0 };
       return {
-        messages: [...state.messages, { id, role: "assistant", model: event.model, content: "", streaming: true }],
+        messages: [...state.messages, bubble],
         streaming: { ...state.streaming, [event.model]: id },
       };
     }
@@ -242,7 +277,12 @@ function applyEvent(state: Transcript, event: TranscriptEvent, now: number): Tra
       const id = state.streaming[event.model];
       if (!id) return state;
       return {
-        messages: update(state.messages, id, (m) => ({ ...m, content: event.content ?? m.content, streaming: false })),
+        messages: update(state.messages, id, (m) => ({
+          ...m,
+          content: event.content ?? m.content,
+          streaming: false,
+          ...(event.checkpoint_id ? { checkpoint_id: event.checkpoint_id } : {}),
+        })),
         streaming: withoutKey(state.streaming, event.model),
       };
     }

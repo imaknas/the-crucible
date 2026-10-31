@@ -4,6 +4,7 @@ import { errorMessage } from "@/lib/errors";
 import {
   EMPTY_TRANSCRIPT,
   debateControls,
+  debateReplyFor,
   earlyStopStatus,
   leaveWarning,
   questionMessage,
@@ -105,7 +106,8 @@ export function useDebateSession({
 }: Options) {
   const openSocket = useSocketFactory();
   const tree = useDebateTree();
-  const { fetchTree, refreshSoon, clearTree, addPendingNode, resolvePendingNode, clearPendingNodes } = tree;
+  const { fetchTree, refreshSoon, clearTree, addPendingNode, settlePendingNode, resolvePendingNode, clearPendingNodes } =
+    tree;
   const { sessions, refreshSessions, forgetSession } = useDebateSessions(threadId);
   const [activeSessionId, setActiveSessionId] = usePersistedSession();
 
@@ -117,6 +119,8 @@ export function useDebateSession({
   const [convergenceScore, setConvergenceScore] = useState<number | undefined>();
   // Debate nodes are read-only, so selection just expands the node in place.
   const [activeNode, setActiveNode] = useState<string | null>(null);
+  // The node whose reply is open in full ("Read" on a node).
+  const [readingId, setReadingId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   // The question the open dialog is about to debate.
   const [dialogPrompt, setDialogPrompt] = useState("");
@@ -209,6 +213,7 @@ export function useDebateSession({
         case "stream_end":
           flushTokens();
           transcriptEvent(msg);
+          if (msg.checkpoint_id) settlePendingNode(msg.model, msg.round ?? 0, msg.checkpoint_id, msg.content ?? "");
           resolvePendingNode(msg.model, sessionId, msg.round ?? 0);
           break;
 
@@ -272,6 +277,7 @@ export function useDebateSession({
       refreshSessions,
       transcriptEvent,
       addPendingNode,
+      settlePendingNode,
       modelLabel,
       modelColor,
       scheduleFlush,
@@ -654,6 +660,13 @@ export function useDebateSession({
     [activeSessionId, confirmLeave, fetchTree, setShowTree, closeSocket, setActiveSessionId, adoptSession, pushToast],
   );
 
+  // A node from another debate (the tree was cleared or replaced) reads as closed.
+  const reading = useMemo(() => {
+    const node = readingId ? tree.nodes.find((n) => n.id === readingId) : undefined;
+    return node ? { node, reply: debateReplyFor(node, transcript.messages) } : null;
+  }, [readingId, tree.nodes, transcript.messages]);
+  const closeReading = useCallback(() => setReadingId(null), []);
+
   const hasTranscript = transcript.messages.length > 0;
   const controls = useMemo(() => {
     const c = debateControls(status, hasTranscript);
@@ -677,6 +690,9 @@ export function useDebateSession({
     tree,
     activeNode,
     setActiveNode,
+    reading,
+    readNode: setReadingId,
+    closeReading,
     messages: transcript.messages,
     round,
     maxRounds,

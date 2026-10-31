@@ -22,6 +22,8 @@ export interface Message {
   turn_id?: string | null;
   /** The model family's colour, from the backend. */
   model_color?: string | null;
+  /** Debate transcripts: the round this reply answered (0-based). */
+  round?: number;
 }
 
 /** One model's failed turn, shown inline with a Retry instead of a modal. */

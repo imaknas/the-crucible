@@ -15,6 +15,21 @@ export const ROUND_HEIGHT = 160;
 const pendingId = (modelId: string, roundNum: number) =>
   `${modelId}::pending-r${roundNum}`;
 
+/** The backend's excerpt (utils.helpers.get_preview_text): reasoning and
+ * markdown stripped, one line, cut at a word with an ellipsis. */
+export function excerpt(text: string, max: number): string {
+  const flat = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<think>[\s\S]*$/i, "")
+    .replace(/[#*`_~[\]()]/g, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .join(" ");
+  if (flat.length <= max) return flat;
+  const cut = flat.slice(0, max);
+  return `${cut.includes(" ") ? cut.slice(0, cut.lastIndexOf(" ")) : cut}...`;
+}
+
 export function useDebateTree() {
   const [serverNodes, setServerNodes] = useState<TreeNode[]>([]);
   const [edges, setEdges] = useState<TreeEdge[]>([]);
@@ -120,10 +135,36 @@ export function useDebateTree() {
           pending: true,
         },
       };
+      // A settled node of an earlier round stays until the server's copy lands.
       setPendingNodes((prev) => [
-        ...prev.filter((n) => n.metadata?.active_peer !== modelId),
+        ...prev.filter((n) => n.metadata?.active_peer !== modelId || !n.metadata?.pending),
         pendingNode,
       ]);
+    },
+    [],
+  );
+
+  /**
+   * A reply that finished: its placeholder becomes the node the server will
+   * draw, under the same id (`{model}::{checkpoint}`, the stream_end's
+   * checkpoint), so it reads and selects at once, and the refetch that
+   * follows replaces it without remounting it or dropping a selection.
+   */
+  const settlePendingNode = useCallback(
+    (modelId: string, roundNum: number, checkpointId: string, content: string) => {
+      const id = pendingId(modelId, roundNum);
+      setPendingNodes((prev) =>
+        prev.map((n) =>
+          n.id !== id
+            ? n
+            : {
+                ...n,
+                id: `${modelId}::${checkpointId}`,
+                data: { label: excerpt(content, 40) || "…" },
+                metadata: { ...n.metadata, pending: false, preview: excerpt(content, 400) },
+              },
+        ),
+      );
     },
     [],
   );
@@ -134,8 +175,9 @@ export function useDebateTree() {
   const resolvePendingNode = useCallback(
     async (modelId: string, sessionId: string, roundNum: number) => {
       await refreshSoon(sessionId);
-      const id = pendingId(modelId, roundNum);
-      setPendingNodes((prev) => prev.filter((n) => n.id !== id));
+      setPendingNodes((prev) =>
+        prev.filter((n) => n.metadata?.active_peer !== modelId || n.metadata?.round_num !== roundNum),
+      );
     },
     [refreshSoon],
   );
@@ -160,17 +202,20 @@ export function useDebateTree() {
     ];
   }, [serverNodes, pendingNodes]);
 
-  // Hang each pending node off its lane's previous round so it is not orphaned.
+  // Hang each pending node off its lane's latest earlier round so it is not
+  // orphaned (not round - 1: a round the model failed has no node).
   const allEdges = useMemo(() => {
     const extra: TreeEdge[] = [];
     for (const p of pendingNodes) {
       const round = p.metadata?.round_num ?? 0;
       if (round === 0) continue;
-      const parent = serverNodes.find(
-        (n) =>
-          n.metadata?.active_peer === p.metadata?.active_peer &&
-          n.metadata?.round_num === round - 1,
-      );
+      const parent = serverNodes
+        .filter(
+          (n) =>
+            n.metadata?.active_peer === p.metadata?.active_peer &&
+            (n.metadata?.round_num ?? 0) < round,
+        )
+        .sort((a, b) => (b.metadata?.round_num ?? 0) - (a.metadata?.round_num ?? 0))[0];
       if (parent) {
         extra.push({ id: `e-${parent.id}-${p.id}`, source: parent.id, target: p.id });
       }
@@ -182,6 +227,7 @@ export function useDebateTree() {
     () =>
       new Set(
         pendingNodes
+          .filter((n) => n.metadata?.pending)
           .map((n) => n.metadata?.active_peer)
           .filter((m): m is string => !!m),
       ),
@@ -199,6 +245,7 @@ export function useDebateTree() {
     refreshSoon,
     clearTree,
     addPendingNode,
+    settlePendingNode,
     resolvePendingNode,
     clearPendingNodes,
   };

@@ -630,10 +630,13 @@ def build_single_thread_for_debate(
     root_prompt = ""
 
     for forest_root in forest_roots:
-        # (vis_id, round_num, last emitted namespaced node id)
+        # (vis_id, round prompts seen so far, last emitted namespaced node id).
+        # A round begins with its prompt, so a reply's round is the prompts
+        # before it, less one: counting replies instead put every reply after
+        # a round the model failed one round early, unlike the transcript.
         stack: List[Tuple[str, int, Optional[str]]] = [(forest_root, 0, None)]
         while stack:
-            v_id, round_num, prev_node_id = stack.pop()
+            v_id, prompts, prev_node_id = stack.pop()
             state = state_map.get(v_id)
             if state is None:
                 continue
@@ -643,7 +646,7 @@ def build_single_thread_for_debate(
                 # and the run-input checkpoint that still ends on it): context
                 # for every round, not a round, and not the debate question.
                 for kid in reversed(children.get(v_id, [])):
-                    stack.append((kid, round_num, prev_node_id))
+                    stack.append((kid, prompts, prev_node_id))
                 continue
 
             role = get_checkpoint_role(state)
@@ -655,8 +658,10 @@ def build_single_thread_for_debate(
                 if not root_prompt and content:
                     root_prompt = content
                 for kid in reversed(children.get(v_id, [])):
-                    stack.append((kid, round_num, prev_node_id))
+                    stack.append((kid, prompts + 1, prev_node_id))
                 continue
+
+            round_num = max(prompts - 1, 0)
 
             namespaced_id = f"{model_id}::{v_id}"
             nodes.append(
@@ -688,7 +693,7 @@ def build_single_thread_for_debate(
                 )
 
             for kid in reversed(children.get(v_id, [])):
-                stack.append((kid, round_num + 1, namespaced_id))
+                stack.append((kid, prompts, namespaced_id))
 
     return nodes, edges, root_prompt
 
@@ -795,6 +800,9 @@ def build_debate_tree(
             n["position"]["y"] = synthesis_y + n["metadata"]["round_num"] * ROUND_HEIGHT
             n["type"] = "synthesis"
             n["metadata"]["role"] = "synthesis"
+            # Who wrote it, not the lane's name ("Synthesis").
+            n["metadata"]["active_peer"] = syn_model
+            n["metadata"]["model_name"] = display_name(syn_model)
         all_nodes.extend(syn_nodes)
         all_edges.extend(syn_edges)
 

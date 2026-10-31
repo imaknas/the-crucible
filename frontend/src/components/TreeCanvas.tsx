@@ -53,6 +53,8 @@ interface TreeCanvasProps {
   onDeleteNode?: (nodeId: string) => void;
   /** Chat trees: "Branch from here" on node hover. */
   onBranchNode?: (nodeId: string) => void;
+  /** Debate trees: open a reply in full. Not offered on a pending node. */
+  onReadNode?: (nodeId: string) => void;
   // Debate mode
   debateMode?: boolean;
   lanes?: DebateLane[];
@@ -165,6 +167,7 @@ function TreeViewInner({
   activeNodeId,
   onDeleteNode,
   onBranchNode,
+  onReadNode,
   debateMode = false,
   lanes = [],
   roundScores = {},
@@ -209,7 +212,13 @@ function TreeViewInner({
             x: isFinite(n.position.x) ? n.position.x : 0,
             y: isFinite(n.position.y) ? n.position.y : 0,
           },
-          data: { ...n.data, metadata: n.metadata, onDelete: onDeleteNode, onBranch: onBranchNode },
+          data: {
+            ...n.data,
+            metadata: n.metadata,
+            onDelete: onDeleteNode,
+            onBranch: onBranchNode,
+            onRead: isPending ? undefined : onReadNode,
+          },
           selected: isActive,
         };
       }
@@ -227,6 +236,7 @@ function TreeViewInner({
           onDelete: onDeleteNode,
           // Only message nodes can be replied from; the empty root can't.
           onBranch: role === "user" || role === "ai" ? onBranchNode : undefined,
+          onRead: role === "ai" && !isPending ? onReadNode : undefined,
           metadata: n.metadata,
           styling: {
             background: isActive ? (isDark ? "#2563eb" : "#3b82f6") : colors.bg,
@@ -247,7 +257,7 @@ function TreeViewInner({
         selected: isActive,
       };
     });
-  }, [externalNodes, activeNodeId, isDark, onDeleteNode, onBranchNode]);
+  }, [externalNodes, activeNodeId, isDark, onDeleteNode, onBranchNode, onReadNode]);
 
   const processedEdges = React.useMemo(() => {
     return externalEdges.map((e) => {

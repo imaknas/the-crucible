@@ -11,7 +11,7 @@ import {
   roundLabel,
   transcriptReducer,
   type Transcript,
-  type TranscriptAction, debateCallEstimate, transcriptIncomplete, leaveWarning, sessionAge, transcriptMessages } from "./debateTranscript";
+  type TranscriptAction, debateCallEstimate, debateReplyFor, debateReplyTitle, transcriptIncomplete, leaveWarning, sessionAge, transcriptMessages } from "./debateTranscript";
 
 const run = (actions: TranscriptAction[], start: Transcript = EMPTY_TRANSCRIPT) =>
   actions.reduce(transcriptReducer, start);
@@ -275,5 +275,52 @@ describe("transcriptIncomplete", () => {
     expect(transcriptIncomplete(t(1), { current_round: 1 })).toBe(false);
     expect(transcriptIncomplete(t(2), { current_round: 1 })).toBe(false);
     expect(transcriptIncomplete(t(0), { current_round: 0 })).toBe(false);
+  });
+});
+
+describe("reading a debate node in full", () => {
+  const node = (id: string, metadata: object, type?: string) =>
+    ({ id, data: { label: id }, position: { x: 0, y: 0 }, metadata, ...(type ? { type } : {}) }) as any;
+
+  it("live replies carry their round and, once ended, their node's checkpoint", () => {
+    const t = run([
+      ev({ type: "stream_start", model: "a", round: 2 }),
+      ev({ type: "stream_end", model: "a", content: "full text", checkpoint_id: "cp9" }),
+    ]);
+    expect(t.messages[0]).toMatchObject({ round: 2, checkpoint_id: "cp9", content: "full text" });
+  });
+
+  it("finds a reply by the node's checkpoint, else by model and round", () => {
+    const live = run([
+      ev({ type: "stream_start", model: "a", round: 0 }),
+      ev({ type: "stream_end", model: "a", content: "live", checkpoint_id: "cp1" }),
+    ]).messages;
+    expect(debateReplyFor(node("a::cp1", { active_peer: "a", round_num: 0 }), live)?.content).toBe("live");
+
+    const restored = transcriptMessages(
+      {
+        question: "Q",
+        rounds: [
+          { round: 0, question: "Q", responses: { a: "zero" }, errors: {} },
+          { round: 2, question: "Q", responses: { a: "two" }, errors: {} },
+        ],
+        synthesis: { model: "b", content: "map" },
+      } as unknown as DebateTranscript,
+      ["a"],
+    );
+    expect(debateReplyFor(node("a::cpX", { active_peer: "a", round_num: 2 }), restored)?.content).toBe("two");
+    expect(debateReplyFor(node("synthesis::cp", { role: "synthesis" }, "synthesis"), restored)?.content).toBe("map");
+    expect(debateReplyFor(node("a::pending-r3", { active_peer: "a", round_num: 3, pending: true }), restored)).toBeNull();
+    expect(debateReplyFor(node("a::cpY", { active_peer: "a", round_num: 1 }), restored)).toBeNull();
+  });
+
+  it("titles the reply with its model, participant label and round", () => {
+    const lanes = [{ model_id: "a", label: "Model A", peer_label: "Participant B", lane_index: 0, color: "#000" }];
+    expect(debateReplyTitle(node("a::cp", { active_peer: "a", model_name: "Model A", round_num: 0 }), lanes)).toBe(
+      "Model A (Participant B) · Round 1 · independent answers",
+    );
+    expect(debateReplyTitle(node("s", { role: "synthesis", model_name: "Model C" }, "synthesis"), lanes)).toBe(
+      "Argument map · Model C",
+    );
   });
 });

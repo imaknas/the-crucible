@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Handle, Position } from "reactflow";
-import { GitBranch, Sparkles, Trash2 } from "lucide-react";
+import { BookOpen, GitBranch, Sparkles, Trash2 } from "lucide-react";
 import { useTheme } from "@mui/material";
 
 interface SynthesisNodeData {
@@ -11,6 +11,8 @@ interface SynthesisNodeData {
   /** Chat trees only: debate synthesis nodes are read-only. */
   onDelete?: (nodeId: string) => void;
   onBranch?: (nodeId: string) => void;
+  /** Debate trees: open the argument map in full. */
+  onRead?: (nodeId: string) => void;
 }
 
 /**
@@ -93,8 +95,38 @@ export default function SynthesisTreeNode({
         </div>
       </div>
       {/* On hover and when selected, so keyboard and touch reach them too. */}
-      {(hovered || selected) && (data.onDelete || data.onBranch) && (
+      {(hovered || selected) && (data.onDelete || data.onBranch || data.onRead) && (
         <div style={{ position: "absolute", top: -8, right: -8, display: "flex", gap: 4, zIndex: 200 }}>
+            {data.onRead && (
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onRead?.(id);
+                }}
+                title="Read this synthesis in full"
+                aria-label="Read in full"
+                style={{
+                  background: "#0f766e",
+                  border: "none",
+                  borderRadius: 12,
+                  height: 24,
+                  padding: "0 8px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  color: "white",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  boxShadow: "0 2px 8px rgba(15, 118, 110, 0.4)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <BookOpen size={12} />
+                Read
+              </button>
+            )}
             {data.onBranch && (
               <button
                 onMouseDown={(e) => e.stopPropagation()}

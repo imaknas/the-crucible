@@ -83,3 +83,40 @@ describe("useDebateTree", () => {
     expect(result.current.nodes.map((n) => n.id)).toEqual(["new-node"]);
   });
 });
+
+describe("useDebateTree settling", () => {
+  beforeEach(() => fetchMock.mockReset());
+
+  it("turns a finished reply's placeholder into the server's node at once", async () => {
+    fetchMock.mockResolvedValue(tree("s1"));
+    const { result } = renderHook(() => useDebateTree());
+    await act(async () => {
+      await result.current.fetchTree("s1");
+    });
+    act(() => result.current.addPendingNode("gpt-5.4", 0, 0, "#000", "GPT-5.4"));
+    act(() => result.current.settlePendingNode("gpt-5.4", 0, "cp-1", "**Yes.** A hot dog is a sandwich because " + "x ".repeat(300)));
+
+    const node = result.current.nodes.find((n) => n.id === "gpt-5.4::cp-1");
+    expect(node?.metadata?.pending).toBe(false);
+    expect(node?.data.label.startsWith("Yes. A hot dog")).toBe(true);
+    expect((node?.metadata?.preview as string).length).toBeLessThanOrEqual(403);
+    expect(result.current.pendingModels.size).toBe(0);
+
+    // The next round's placeholder doesn't drop it before the server has it.
+    act(() => result.current.addPendingNode("gpt-5.4", 1, 0, "#000"));
+    expect(result.current.nodes.map((n) => n.id)).toEqual(["gpt-5.4::cp-1", "gpt-5.4::pending-r1"]);
+  });
+
+  it("hangs a placeholder after a failed round off the lane's latest earlier node", async () => {
+    fetchMock.mockResolvedValue({
+      ...tree("s1"),
+      nodes: [{ id: "m::cp0", data: { label: "r0" }, position: { x: 0, y: 0 }, metadata: { active_peer: "m", round_num: 0 } }],
+    });
+    const { result } = renderHook(() => useDebateTree());
+    await act(async () => {
+      await result.current.fetchTree("s1");
+    });
+    act(() => result.current.addPendingNode("m", 2, 0, "#000"));
+    expect(result.current.edges).toEqual([{ id: "e-m::cp0-m::pending-r2", source: "m::cp0", target: "m::pending-r2" }]);
+  });
+});

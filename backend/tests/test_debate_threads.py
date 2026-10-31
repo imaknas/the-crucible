@@ -13,6 +13,7 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from app.api import debate as debate_api
 from app.core import database as db
 from app.llm import CallableModelFactory, use_model_factory
+from app.registry import display_name
 from app.services import debate as debate_svc
 from app.api.history import get_history
 from app.services.arena import open_graph
@@ -270,8 +271,12 @@ async def test_a_manual_synthesis_records_which_model_wrote_it():
     async with open_graph() as graph_app:
         session = await _debate(graph_app, "t-manual", "Q?")
         events = [e async for e in debate_svc.synthesize_session(graph_app, session["session_id"], "", synthesizer=B)]
+        tree = await debate_api.get_debate_tree(session["session_id"], graph_app=graph_app)
     assert any(e["type"] == "debate_synthesis_end" for e in events), events
     assert db.get_debate_session(session["session_id"])["synthesizer_model"] == B
+    # The tree's synthesis node names its author, not the lane ("Synthesis").
+    node = next(n for n in tree["nodes"] if n.get("type") == "synthesis")
+    assert (node["metadata"]["active_peer"], node["metadata"]["model_name"]) == (B, display_name(B))
 
 
 @pytest.mark.asyncio
@@ -296,3 +301,35 @@ async def test_the_argument_map_reads_every_round_under_participant_labels():
             f"[{peers.label(model)}]:\nRound 1 (independent answer):\nMy position is yes."
             "\n\nRound 2:\nMy position is yes."
         ) in prompt
+
+
+@pytest.mark.asyncio
+async def test_tree_nodes_carry_the_debate_round_and_the_id_stream_end_reported():
+    """A participant that fails a round leaves a gap: its later replies stay
+    under their own round in the tree, as in the transcript, and the node id
+    is `{model}::{stream_end checkpoint_id}`, so a reader can go from a live
+    reply to its node and back."""
+    calls: dict[str, int] = {}
+
+    def flaky(model_id, _toggles):
+        class _Flaky(_Recorder):
+            def _stream(self, messages, *args, **kwargs):
+                calls[model_id] = calls.get(model_id, 0) + 1
+                if model_id == B and calls[model_id] == 2:
+                    raise RuntimeError("round 1 fails")
+                yield from super()._stream(messages, *args, **kwargs)
+
+        return _Flaky(responses=[f"reply {calls.get(model_id, 0)} from {model_id}"], model_id=model_id)
+
+    with use_model_factory(CallableModelFactory(flaky)):
+        async with open_graph() as graph_app:
+            session = debate_svc.create_session("t-gap", [A, B], {**POLICY, "max_rounds": 3})
+            events = [e async for e in debate_svc.run_debate(graph_app, session["session_id"], "Gap?", {}, {})]
+            tree = await debate_api.get_debate_tree(session["session_id"], graph_app=graph_app)
+
+    ends = [e for e in events if e["type"] == "stream_end"]
+    assert sorted((e["model"], e["round"]) for e in ends) == sorted(
+        [(A, 0), (A, 1), (A, 2), (B, 0), (B, 2)]
+    )
+    rounds = {n["id"]: n["metadata"]["round_num"] for n in tree["nodes"] if n["metadata"].get("role") == "ai"}
+    assert {f"{e['model']}::{e['checkpoint_id']}": e["round"] for e in ends} == rounds

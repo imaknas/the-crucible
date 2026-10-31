@@ -109,4 +109,21 @@ test.describe("debate tree", () => {
       .poll(async () => (await node.boundingBox())!.height)
       .toBeGreaterThan(before);
   });
+
+  test("a node's Read opens its reply in full, and the synthesis as the argument map", async ({ page }) => {
+    const lane = nodes(page).filter({ hasNotText: /synthesis/i }).filter({ hasNotText: /Round 0/ }).nth(1);
+    const label = ((await lane.innerText()).split("\n").pop() ?? "").replace(/\.\.\.$/, "").trim();
+    await lane.click();
+    await lane.getByRole("button", { name: "Read in full" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading")).toHaveText(/ · Round \d/);
+    await expect(dialog).toContainText(label.slice(0, 30));
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toBeHidden();
+
+    const synthesis = nodes(page).filter({ hasText: /synthesis/i }).first();
+    await synthesis.click();
+    await synthesis.getByRole("button", { name: "Read in full" }).click();
+    await expect(page.getByRole("dialog").getByRole("heading")).toHaveText(/^Argument map · /);
+  });
 });
