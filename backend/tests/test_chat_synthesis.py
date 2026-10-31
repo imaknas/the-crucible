@@ -17,13 +17,14 @@ from app.llm import CallableModelFactory, use_model_factory
 from app.services.chat import stream_turn
 from app.services.runs import SYNTHESIS_TURN, TURN_KIND_KEY, resolve_fork_point
 from app.services.tree import SYNTHESIS_PROMPT_MARKER, build_history_tree
+from tests.storage_helpers import point
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
 
 
 @pytest.fixture
 def graph_app(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.core.database.DB_PATH", str(tmp_path / "t.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "t.sqlite"))
     from app.core import database as db
 
     db.init_db()
@@ -89,10 +90,9 @@ async def test_unknown_turn_kinds_are_ignored(graph_app):
 def test_ws_synthesis_frame_tags_the_turn(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from app.core import database as db
     from app.main import server
 
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "ws.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "ws.sqlite"))
     factory = CallableModelFactory(lambda model_id, _t: FakeListChatModel(responses=[f"reply from {model_id}"]))
     with (
         use_model_factory(factory),
@@ -114,10 +114,9 @@ def test_ws_synthesis_of_named_answers_uses_the_backend_prompt(tmp_path, monkeyp
     synthesis write, flagged so every reader hides it."""
     from fastapi.testclient import TestClient
 
-    from app.core import database as db
     from app.main import server
 
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "ws.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "ws.sqlite"))
     seen = []
 
     class Recorder(FakeListChatModel):

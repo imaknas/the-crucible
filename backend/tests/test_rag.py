@@ -91,14 +91,15 @@ def test_retrieve_context(mock_get_vs):
 
 def test_vector_store_initialises_once_under_concurrency(monkeypatch):
     """Parallel models used to race two PersistentClient inits."""
+    import contextvars
     import threading
     import time
     from unittest.mock import MagicMock
 
     from app.services import rag
 
-    monkeypatch.setattr(rag, "_vector_store", None)
-    monkeypatch.setattr(rag, "_client", None)
+    monkeypatch.setattr(rag, "_vector_stores", {})
+    monkeypatch.setattr(rag, "_clients", {})
     monkeypatch.setattr(rag, "get_embeddings", lambda: MagicMock())
     created = []
 
@@ -111,7 +112,12 @@ def test_vector_store_initialises_once_under_concurrency(monkeypatch):
     monkeypatch.setattr(rag, "Chroma", lambda **kw: MagicMock())
 
     results = []
-    threads = [threading.Thread(target=lambda: results.append(rag.get_vector_store())) for _ in range(4)]
+    # Each thread runs in a copy of the test's context, as executor-run graph
+    # nodes do, so it sees the test's storage.
+    threads = [
+        threading.Thread(target=contextvars.copy_context().run, args=(lambda: results.append(rag.get_vector_store()),))
+        for _ in range(4)
+    ]
     for t in threads:
         t.start()
     for t in threads:

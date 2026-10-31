@@ -29,6 +29,8 @@ from app.services.documents import (
     with_default_documents,
 )
 from app.services.runs import resolve_fork_point, tag_run, thread_config, final_state_of_run
+from tests.storage_helpers import point
+from app.core.storage import current_storage
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
 DOC = {"paper.md": "The measured boiling point was 412 kelvin."}
@@ -49,7 +51,7 @@ class _Recorder(FakeListChatModel):
 
 @pytest.fixture
 def isolated_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "docs.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "docs.sqlite"))
     db.init_db()
     yield db
 
@@ -86,7 +88,7 @@ def test_saving_is_idempotent_and_a_new_version_replaces_the_old(isolated_db):
     store.save("t2", {"a.md": "other thread"})
     assert store.load("t1") == {"a.md": "one", "b.md": "two, revised"}
     assert list(store.load("t1")) == ["a.md", "b.md"]
-    conn = sqlite3.connect(db.DB_PATH)
+    conn = sqlite3.connect(current_storage().db_path)
     assert conn.execute("SELECT COUNT(*) FROM thread_documents").fetchone()[0] == 3
     conn.close()
 
@@ -97,14 +99,14 @@ def test_init_db_adds_the_table_to_an_existing_database(tmp_path, monkeypatch):
     conn.execute("CREATE TABLE thread_metadata (thread_id TEXT PRIMARY KEY, title TEXT)")
     conn.commit()
     conn.close()
-    monkeypatch.setattr(db, "DB_PATH", str(path))
+    point(monkeypatch, db_path=str(path))
     db.init_db()
     db.ThreadDocumentStore().save("t", DOC)
     assert db.ThreadDocumentStore().load("t") == DOC
 
 
 def test_deleting_a_thread_deletes_its_documents_and_its_sub_threads(isolated_db):
-    conn = sqlite3.connect(db.DB_PATH)  # LangGraph's tables, which its saver creates
+    conn = sqlite3.connect(current_storage().db_path)  # LangGraph's tables, which its saver creates
     conn.execute("CREATE TABLE checkpoints (thread_id TEXT, checkpoint_id TEXT)")
     conn.execute("CREATE TABLE writes (thread_id TEXT, checkpoint_id TEXT)")
     conn.commit()
@@ -191,7 +193,7 @@ async def test_a_removed_attachment_is_gone_from_the_next_turn(graph_app):
     SEEN.clear()
     await _turn(graph_app, "t-rm", second, "Once more?", DOC)
     assert any("412 kelvin" in s for s in _system_prompts())
-    conn = sqlite3.connect(db.DB_PATH)
+    conn = sqlite3.connect(current_storage().db_path)
     assert conn.execute("SELECT COUNT(*) FROM thread_documents WHERE thread_id = 't-rm'").fetchone()[0] == 1
     conn.close()
 
@@ -230,7 +232,7 @@ async def test_a_debate_stores_its_documents_once_and_every_round_sees_them(grap
     assert not [e for e in events if e["type"] == "error"], events
 
     # One stored copy, for the parent thread, not one per participant.
-    conn = sqlite3.connect(db.DB_PATH)
+    conn = sqlite3.connect(current_storage().db_path)
     rows = conn.execute("SELECT thread_id FROM thread_documents").fetchall()
     conn.close()
     assert rows == [("t-deb",)]

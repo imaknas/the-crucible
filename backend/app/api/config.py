@@ -8,7 +8,6 @@ from app.services import keys as keys_svc
 
 router = APIRouter(prefix="/config", tags=["config"])
 
-_ENV_PATH = keys_svc.ENV_PATH
 
 
 def _remote_config_allowed() -> bool:
@@ -45,7 +44,7 @@ class KeysPayload(BaseModel):
 def save_keys(payload: KeysPayload, request: Request):
     _require_local(request)
     try:
-        keys_svc.save_keys(payload.keys, _ENV_PATH)
+        keys_svc.save_keys(payload.keys)
     except ValueError as e:
         raise HTTPException(400, str(e))
     return {"status": "ok"}

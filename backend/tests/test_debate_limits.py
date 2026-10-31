@@ -17,6 +17,7 @@ from types import SimpleNamespace
 from langchain_core.messages import AIMessage
 
 from app.services.runs import SEED_KEY
+from tests.storage_helpers import point
 
 A, B = "gpt-5.4", "claude-sonnet-5"
 
@@ -74,7 +75,7 @@ def test_the_registry_is_injectable():
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "limits.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "limits.sqlite"))
     from app.main import server as app
 
     with TestClient(app) as c:

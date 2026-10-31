@@ -25,6 +25,7 @@ from app.llm import CallableModelFactory, use_model_factory
 from app.services import debate as debate_svc
 from app.services.arena import open_graph
 from app.services.chat import auto_title
+from tests.storage_helpers import point
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
 WRITES = {sqlite3.SQLITE_INSERT, sqlite3.SQLITE_UPDATE, sqlite3.SQLITE_DELETE}
@@ -37,7 +38,7 @@ def _model(model_id, _toggles):
 @pytest.fixture
 def db_path(tmp_path, monkeypatch):
     path = str(tmp_path / "t.sqlite")
-    monkeypatch.setattr(db, "DB_PATH", path)
+    point(monkeypatch, db_path=path)
     db.init_db()
     with sqlite3.connect(path) as conn:
         conn.execute("PRAGMA journal_mode=WAL")  # as AsyncSqliteSaver.setup() leaves it

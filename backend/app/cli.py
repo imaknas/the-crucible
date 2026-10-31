@@ -23,12 +23,14 @@ import asyncio
 import json
 import os
 import sys
+from dataclasses import replace
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 import typer
 from rich.console import Console
 
+from app.core.storage import current_storage, set_storage
 from app.registry import DEFAULT_MODEL
 
 app = typer.Typer(
@@ -49,6 +51,13 @@ def _main(
 
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr, format="%(message)s")
     logging.getLogger("app").setLevel(logging.INFO if verbose else logging.WARNING)
+    _load_env()
+    from app.core.storage import Storage, has_storage
+
+    # The app's locations, unless whoever runs the CLI already chose (tests,
+    # a program embedding it).
+    if not has_storage():
+        set_storage(Storage.from_env())
 
 console = Console()
 
@@ -1247,10 +1256,13 @@ def models(
     table.add_column("Name")
     table.add_column("Key", justify="center")
     table.add_column("Web search", justify="center")
+    table.add_column("$ / 1M in · out", justify="right")
     for m in rows:
         name = m["name"] + (" [dim](legacy)[/dim]" if m["legacy"] else "")
+        price = m.get("price_per_mtok")
+        cost = f"{price['input']:g} · {price['output']:g}" if price else "[dim]–[/dim]"
         table.add_row(m["id"], name, "✓" if m["key_available"] else "[dim]–[/dim]",
-                      "✓" if m.get("native_search") else "[dim]–[/dim]")
+                      "✓" if m.get("native_search") else "[dim]–[/dim]", cost)
     console.print(table)
 
 
@@ -1623,13 +1635,13 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
         ThresholdPolicy,
         fixed_tokens,
     )
-    from app.core import database as db
     from app.llm import default_model_factory
     from app.services import compaction_eval as ce
     from app.services.arena import open_graph
 
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    db.DB_PATH = db_path  # experiment threads never touch the app's database
+    # Experiment threads never touch the app's database.
+    set_storage(replace(current_storage(), db_path=db_path))
     scenarios = _eval_scenarios(options)
     conditions = [ce.Condition("never", NeverCompact())] if options["baseline"] else []
     all_facts = [f for sc in scenarios.values() for f in sc.facts]
@@ -1932,7 +1944,6 @@ async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_
     from pathlib import Path
 
     from app.catalog import PriceBook, load_prices
-    from app.core import database as db
     from app.llm import default_model_factory
     from app.services import compaction_eval as ce
     from app.services import scaffold_audit as sa
@@ -1941,7 +1952,7 @@ async def _run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_
     from app.services.recall import default_history_recall, default_recall_model
 
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    db.DB_PATH = db_path
+    set_storage(replace(current_storage(), db_path=db_path))
     scenarios = _audit_scenarios(seeds, questions)
     factory = ce.EvalModelFactory([f for sc in scenarios.values() for f in sc.facts], inner=default_model_factory(),
                                   scenarios=scenarios)

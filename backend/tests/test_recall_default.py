@@ -14,6 +14,7 @@ from app.llm import CallableModelFactory, use_model_factory
 from app.services.chat import stream_turn
 from app.services.recall import ModelRewriter, default_recall_model, with_default_recall
 from app.services.runs import resolve_fork_point
+from tests.storage_helpers import point
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
 MARKER = "REWRITERTERMS"
@@ -40,7 +41,7 @@ def test_the_default_is_attached_only_where_a_run_names_none():
 def compacting_graph(tmp_path, monkeypatch):
     """The real graph, a fake LLM, and a threshold low enough that a few
     turns summarize and prune, so the default recall runs."""
-    monkeypatch.setattr("app.core.database.DB_PATH", str(tmp_path / "t.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "t.sqlite"))
     monkeypatch.setattr(graph_mod, "_DEFAULT_POLICY", ThresholdPolicy(fixed_tokens(120)))
     from app.core import database as db
 

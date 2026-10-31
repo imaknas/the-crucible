@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.services.graph import sanitize_messages
+from tests.storage_helpers import point
 
 
 def test_trim_keeps_the_newest_human_not_the_oldest():
@@ -50,7 +51,7 @@ def test_concurrent_same_name_uploads_do_not_cross(tmp_path, monkeypatch):
     from app.api import upload as upload_api
     from app.main import server
 
-    monkeypatch.setattr(upload_api, "_UPLOAD_DIR", str(tmp_path))
+    point(monkeypatch, upload_dir=str(tmp_path))
     indexed = []
     monkeypatch.setattr(upload_api.rag_service, "index_document", lambda text, name, tid: indexed.append((tid, text)))
 
@@ -64,10 +65,9 @@ def test_concurrent_same_name_uploads_do_not_cross(tmp_path, monkeypatch):
 
 
 def test_upload_over_limit_rejected(tmp_path, monkeypatch):
-    from app.api import upload as upload_api
     from app.main import server
 
-    monkeypatch.setattr(upload_api, "_UPLOAD_DIR", str(tmp_path))
+    point(monkeypatch, upload_dir=str(tmp_path))
     monkeypatch.setattr("app.services.uploads.MAX_FILE_BYTES", 10)
     with TestClient(server, headers=CLIENT) as client:
         res = client.post("/upload", data={"thread_id": "A"}, files={"file": ("big.txt", b"x" * 50, "text/plain")})
@@ -98,7 +98,7 @@ def test_ws_first_turn_titles_the_thread(tmp_path, monkeypatch):
     from app.llm import CallableModelFactory, use_model_factory
     from app.main import server
 
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "title.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "title.sqlite"))
     fake = CallableModelFactory(lambda m, _t: FakeListChatModel(responses=["ok"]))
     with (
         use_model_factory(fake),

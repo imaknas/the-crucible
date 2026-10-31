@@ -14,6 +14,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from app.registry import DEFAULT_ARENA_MODELS, FAMILY_META, MODEL_REGISTRY, display_name
 from app.core import database as db
+from app.core.storage import current_storage
 from app.llm import has_credentials
 from app.services.chat import node_checkpoint, stream_turn, thread_state_map
 from app.services.graph import workflow
@@ -40,7 +41,7 @@ def stdout_to_stderr():
 async def open_graph():
     """A compiled graph on the shared SQLite checkpointer, closed on exit."""
     db.init_db()
-    async with AsyncSqliteSaver.from_conn_string(db.DB_PATH) as saver:
+    async with AsyncSqliteSaver.from_conn_string(current_storage().db_path) as saver:
         await saver.setup()
         yield workflow.compile(checkpointer=saver)
 
@@ -81,16 +82,21 @@ def resolve_models(models: Optional[List[str]] = None) -> List[str]:
     return chosen
 
 
-def list_models() -> List[Dict[str, Any]]:
+def list_models(day: Optional[str] = None) -> List[Dict[str, Any]]:
     """Every registered model: id, name, family, whether it is kept only for
     old threads (legacy), whether its key is set, whether it can search the
-    web, and its context window as the provider reports it."""
-    from app.catalog import load_catalog
+    web, its context window as the provider reports it, and its price in USD
+    per million tokens on ``day`` (default: today; from the providers'
+    pricing pages, catalog/prices.py; None for an unpriced model)."""
+    import datetime
+
+    from app.catalog import PriceBook, load_catalog, load_prices
 
     try:
         catalog = load_catalog()
     except Exception:
         catalog = None
+    prices = PriceBook(load_prices(), day or datetime.date.today().isoformat())
     return [
         {
             "id": model_id,
@@ -100,9 +106,15 @@ def list_models() -> List[Dict[str, Any]]:
             "key_available": key_available(model_id),
             "native_search": bool(cfg.get("native_search")),
             "context_window": _context_window(catalog, model_id),
+            "price_per_mtok": _price(prices, model_id),
         }
         for model_id, cfg in MODEL_REGISTRY.items()
     ]
+
+
+def _price(prices, model_id: str) -> Optional[Dict[str, Optional[float]]]:
+    price = prices.price(model_id)
+    return {"input": price.input, "output": price.output, "cached_input": price.cached_input} if price else None
 
 
 def _context_window(catalog, model_id: str) -> Optional[int]:

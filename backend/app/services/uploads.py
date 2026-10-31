@@ -14,19 +14,18 @@ import uuid
 from dataclasses import dataclass
 from typing import Optional
 
+from app.core.storage import current_storage
 from app.utils.parser import extract_text_from_pdf
 
-UPLOAD_DIR = os.getenv(
-    "UPLOAD_DIR",
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "uploads")),
-)
 
 
-def thread_upload_dir(thread_id: str, root: str = UPLOAD_DIR) -> str:
+def thread_upload_dir(thread_id: str, root: Optional[str] = None) -> str:
+    """The thread's directory under ``root`` (default: the run's upload directory)."""
+    root = root or current_storage().upload_dir
     return os.path.join(root, hashlib.sha256(thread_id.encode("utf-8")).hexdigest()[:32])
 
 
-def delete_thread_uploads(thread_id: str, root: str = UPLOAD_DIR) -> None:
+def delete_thread_uploads(thread_id: str, root: Optional[str] = None) -> None:
     """Remove every file uploaded to one thread (nothing to do if none was)."""
     path = thread_upload_dir(thread_id, root)
     if os.path.isdir(path):
@@ -79,7 +78,7 @@ def save_upload(thread_id: str, filename: str, data: bytes, root: Optional[str] 
     """
     name = checked_filename(filename)
     check_size(len(data))
-    thread_dir = thread_upload_dir(thread_id, root or UPLOAD_DIR)
+    thread_dir = thread_upload_dir(thread_id, root)
     os.makedirs(thread_dir, exist_ok=True)
     path = os.path.join(thread_dir, f"{uuid.uuid4().hex}_{name}")
     with open(path, "wb") as f:

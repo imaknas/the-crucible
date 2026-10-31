@@ -18,6 +18,7 @@ from typer.testing import CliRunner
 from app.llm import CallableModelFactory, use_model_factory
 from app.cli import app as cli_app
 from app.core import database as db
+from tests.storage_helpers import point
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
 A, B = "gpt-5.4", "claude-sonnet-5"
@@ -29,7 +30,7 @@ def _fake_model(model_id, *_a, **_kw):
 
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "cli.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "cli.sqlite"))
     monkeypatch.setattr("app.cli._load_env", lambda: None)
     with use_model_factory(CallableModelFactory(lambda model_id, _toggles: _fake_model(model_id))), patch.dict(os.environ, KEYS):
         yield

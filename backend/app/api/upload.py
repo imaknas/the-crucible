@@ -5,12 +5,10 @@ from fastapi import APIRouter, UploadFile, File, Form, BackgroundTasks, HTTPExce
 from app.core.database import ThreadDocumentStore
 
 from app.services import rag as rag_service
-from app.services.uploads import UPLOAD_DIR, check_size, checked_filename, keep_upload, save_upload
+from app.services.uploads import check_size, checked_filename, keep_upload, save_upload
 
 router = APIRouter(tags=["upload"])
 
-# backend/uploads unless UPLOAD_DIR is set; one directory per thread inside.
-_UPLOAD_DIR = UPLOAD_DIR
 
 
 @router.post("/upload")
@@ -27,7 +25,7 @@ async def upload_file(
             contents.extend(chunk)
             check_size(len(contents))
         # Off the loop: writing the file and extracting a PDF's text block.
-        doc = await asyncio.to_thread(save_upload, thread_id, file.filename, bytes(contents), _UPLOAD_DIR)
+        doc = await asyncio.to_thread(save_upload, thread_id, file.filename, bytes(contents))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

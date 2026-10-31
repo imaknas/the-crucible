@@ -1,18 +1,12 @@
 import sqlite3
 import json
-import os
 from typing import Any, Mapping, Optional, Sequence
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Default to backend/root (two levels up from app/core), but allow override for Docker/Prod
-DB_PATH = os.getenv(
-    "DATABASE_PATH",
-    os.path.abspath(os.path.join(BASE_DIR, "..", "..", "checkpoints.sqlite")),
-)
-
+from app.core.storage import current_storage
 
 def get_db_connection():
-    return sqlite3.connect(DB_PATH)
+    """A connection to the run's database (core/storage.py)."""
+    return sqlite3.connect(current_storage().db_path)
 
 
 def init_db():

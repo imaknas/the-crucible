@@ -24,6 +24,7 @@ from typer.testing import CliRunner
 from app.cli import app as cli_app
 from app.core import database as db
 from app.llm import CallableModelFactory, use_model_factory
+from tests.storage_helpers import point
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
 A, B = "gpt-5.4", "claude-sonnet-5"
@@ -384,7 +385,7 @@ def test_unknown_threads_are_errors_not_successes():
 
 def test_keys_set_and_status(tmp_path, monkeypatch):
     env = tmp_path / ".env"
-    monkeypatch.setattr("app.services.keys.ENV_PATH", str(env))
+    point(monkeypatch, env_path=str(env))
     out = _json(["keys", "--set", "OPENAI_API_KEY"], input="sk-new-value-1234\n")
     assert out["keys"]["OPENAI_API_KEY"] == {"set": True, "masked": "••••1234"}
     assert 'OPENAI_API_KEY="sk-new-value-1234"' in env.read_text()

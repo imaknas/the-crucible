@@ -5,12 +5,14 @@ Uses an isolated in-memory database for each test.
 
 import sqlite3
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
+from app.core.storage import current_storage
+from tests.storage_helpers import point
 
 
 @pytest.fixture(autouse=True)
-def isolated_db(tmp_path):
-    """Override db.DB_PATH to use a temp file for each test."""
+def isolated_db(tmp_path, monkeypatch):
+    """A temp database per test, with LangGraph's tables stubbed."""
     test_db = str(tmp_path / "test.sqlite")
 
     # Create required tables
@@ -54,11 +56,11 @@ def isolated_db(tmp_path):
     conn.commit()
     conn.close()
 
-    with patch("app.core.database.DB_PATH", test_db):
-        from app.core import database as db
+    point(monkeypatch, db_path=test_db)
+    from app.core import database as db
 
-        db.init_db()  # the app's own tables and migrations on top
-        yield test_db
+    db.init_db()  # the app's own tables and migrations on top
+    yield test_db
 
 
 class TestThreadMetadata:
@@ -68,7 +70,7 @@ class TestThreadMetadata:
         db.rename_thread("t1", "My Thread")
         # We can't test list_threads without checkpoints table data
         # But we can check rename worked
-        conn = sqlite3.connect(db.DB_PATH)
+        conn = sqlite3.connect(current_storage().db_path)
         row = conn.execute(
             "SELECT title FROM thread_metadata WHERE thread_id = ?", ("t1",)
         ).fetchone()
@@ -80,7 +82,7 @@ class TestThreadMetadata:
 
         db.rename_thread("t1", "First")
         db.rename_thread("t1", "Second")
-        conn = sqlite3.connect(db.DB_PATH)
+        conn = sqlite3.connect(current_storage().db_path)
         row = conn.execute(
             "SELECT title FROM thread_metadata WHERE thread_id = ?", ("t1",)
         ).fetchone()
@@ -131,7 +133,7 @@ class TestDeleteThread:
     def test_delete_cleans_all_tables(self):
         from app.core import database as db
 
-        conn = sqlite3.connect(db.DB_PATH)
+        conn = sqlite3.connect(current_storage().db_path)
         conn.execute("INSERT INTO checkpoints VALUES ('t1', 'cp1')")
         conn.execute("INSERT INTO writes VALUES ('t1', 'cp1')")
         conn.execute("INSERT INTO thread_metadata VALUES ('t1', 'title')")
@@ -141,7 +143,7 @@ class TestDeleteThread:
 
         db.delete_thread_data("t1")
 
-        conn = sqlite3.connect(db.DB_PATH)
+        conn = sqlite3.connect(current_storage().db_path)
         assert (
             conn.execute(
                 "SELECT COUNT(*) FROM checkpoints WHERE thread_id='t1'"
@@ -173,7 +175,7 @@ class TestDeleteCheckpoint:
     def test_delete_specific_checkpoints(self):
         from app.core import database as db
 
-        conn = sqlite3.connect(db.DB_PATH)
+        conn = sqlite3.connect(current_storage().db_path)
         conn.execute("INSERT INTO checkpoints VALUES ('t1', 'cp1')")
         conn.execute("INSERT INTO checkpoints VALUES ('t1', 'cp2')")
         conn.execute("INSERT INTO checkpoints VALUES ('t1', 'cp3')")
@@ -184,7 +186,7 @@ class TestDeleteCheckpoint:
 
         db.delete_checkpoint_data("t1", {"cp1", "cp2"})
 
-        conn = sqlite3.connect(db.DB_PATH)
+        conn = sqlite3.connect(current_storage().db_path)
         remaining = conn.execute(
             "SELECT checkpoint_id FROM checkpoints WHERE thread_id='t1'"
         ).fetchall()
@@ -197,7 +199,7 @@ class TestGetAllCheckpointIds:
     def test_returns_set(self):
         from app.core import database as db
 
-        conn = sqlite3.connect(db.DB_PATH)
+        conn = sqlite3.connect(current_storage().db_path)
         conn.execute("INSERT INTO checkpoints VALUES ('t1', 'cp1')")
         conn.execute("INSERT INTO checkpoints VALUES ('t1', 'cp2')")
         conn.commit()
@@ -232,7 +234,7 @@ class TestDebateCascadeDelete:
         }
         db.create_debate_session(session)
 
-        conn = sqlite3.connect(db.DB_PATH)
+        conn = sqlite3.connect(current_storage().db_path)
         for tid in ("t1", "t1::m1", "t1::m2", "t1::synthesis", "t2"):
             conn.execute("INSERT INTO checkpoints VALUES (?, 'cp1')", (tid,))
             conn.execute("INSERT INTO writes VALUES (?, 'cp1')", (tid,))
@@ -243,7 +245,7 @@ class TestDebateCascadeDelete:
 
     @staticmethod
     def _threads_left(db):
-        conn = sqlite3.connect(db.DB_PATH)
+        conn = sqlite3.connect(current_storage().db_path)
         rows = {r[0] for r in conn.execute("SELECT DISTINCT thread_id FROM checkpoints")}
         conn.close()
         return rows
@@ -257,7 +259,7 @@ class TestDebateCascadeDelete:
         # Unrelated threads survive; every "t1"-derived thread is gone.
         assert self._threads_left(db) == {"t2"}
 
-        conn = sqlite3.connect(db.DB_PATH)
+        conn = sqlite3.connect(current_storage().db_path)
         for table in ("writes", "node_positions", "thread_metadata"):
             remaining = {
                 r[0]
@@ -271,7 +273,7 @@ class TestDebateCascadeDelete:
         """Thread ids contain "_", a LIKE wildcard — prefix matching must be exact."""
         from app.core import database as db
 
-        conn = sqlite3.connect(db.DB_PATH)
+        conn = sqlite3.connect(current_storage().db_path)
         conn.execute("INSERT INTO checkpoints VALUES ('thread_a', 'cp1')")
         conn.execute("INSERT INTO checkpoints VALUES ('threadXa::m1', 'cp1')")
         conn.execute("INSERT INTO checkpoints VALUES ('thread_a::m1', 'cp1')")
@@ -303,7 +305,7 @@ class TestDebateCascadeDelete:
             "thread_ids": thread_ids,
             "termination_policy": {"max_rounds": 3},
         })
-        conn = sqlite3.connect(db.DB_PATH)
+        conn = sqlite3.connect(current_storage().db_path)
         for tid in thread_ids.values():
             conn.execute("INSERT INTO checkpoints VALUES (?, 'cp1')", (tid,))
         conn.commit()
@@ -370,25 +372,25 @@ class TestDebateParentTitle:
             "termination_policy": {"max_rounds": 1},
         }
 
-    def test_creating_a_session_lists_the_parent_without_a_placeholder_title(self, tmp_path):
+    def test_creating_a_session_lists_the_parent_without_a_placeholder_title(self, tmp_path, monkeypatch):
         from app.core import database as db
 
-        with patch.object(db, "DB_PATH", str(tmp_path / "fresh.sqlite")):
-            db.init_db()
-            # LangGraph owns this table; list_threads reads it.
-            with sqlite3.connect(db.DB_PATH) as conn:
-                conn.execute("CREATE TABLE checkpoints (thread_id TEXT, checkpoint_id TEXT)")
-            db.create_debate_session(self._session("thread_new"))
-            assert db.get_thread_title("thread_new") is None
-            assert {"id": "thread_new", "title": "thread_new"} in [{"id": t["id"], "title": t["title"]} for t in db.list_threads()]
+        point(monkeypatch, db_path=tmp_path / "fresh.sqlite")
+        db.init_db()
+        # LangGraph owns this table; list_threads reads it.
+        with sqlite3.connect(current_storage().db_path) as conn:
+            conn.execute("CREATE TABLE checkpoints (thread_id TEXT, checkpoint_id TEXT)")
+        db.create_debate_session(self._session("thread_new"))
+        assert db.get_thread_title("thread_new") is None
+        assert {"id": "thread_new", "title": "thread_new"} in [{"id": t["id"], "title": t["title"]} for t in db.list_threads()]
 
-    def test_init_clears_placeholder_titles(self, tmp_path):
+    def test_init_clears_placeholder_titles(self, tmp_path, monkeypatch):
         from app.core import database as db
 
-        with patch.object(db, "DB_PATH", str(tmp_path / "old.sqlite")):
-            db.init_db()
-            db.rename_thread("thread_old", "thread_old")
-            db.rename_thread("thread_named", "A real title")
-            db.init_db()
-            assert db.get_thread_title("thread_old") is None
-            assert db.get_thread_title("thread_named") == "A real title"
+        point(monkeypatch, db_path=tmp_path / "old.sqlite")
+        db.init_db()
+        db.rename_thread("thread_old", "thread_old")
+        db.rename_thread("thread_named", "A real title")
+        db.init_db()
+        assert db.get_thread_title("thread_old") is None
+        assert db.get_thread_title("thread_named") == "A real title"

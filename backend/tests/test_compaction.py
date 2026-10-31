@@ -25,6 +25,7 @@ from app.compaction import (
 from app.llm import CallableModelFactory
 from app.services import graph as graph_mod
 from app.utils.helpers import extract_text
+from tests.storage_helpers import point
 from app.services.compaction_eval import (
     AvailabilityOracle,
     Condition,
@@ -122,7 +123,7 @@ def test_scoring_normalizes():
 
 @pytest.fixture
 def eval_setup(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.core.database.DB_PATH", str(tmp_path / "eval.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "eval.sqlite"))
     app = graph_mod.workflow.compile(checkpointer=MemorySaver())
 
     def models(model_id, _toggles):

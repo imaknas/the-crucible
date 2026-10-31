@@ -25,7 +25,8 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 if DB_PATH.exists():
     DB_PATH.unlink()
 
-# Must be set before app modules import, so database.DB_PATH picks it up.
+# What the e2e server is started with too (playwright.config.ts), so
+# Storage.from_env() below names the same database.
 os.environ["DATABASE_PATH"] = str(DB_PATH)
 # The debate engine checks that each participant's family has a key; the fake
 # never reads them.
@@ -157,6 +158,9 @@ async def main():
 
 
 if __name__ == "__main__":
+    from app.core.storage import Storage, set_storage
+
+    set_storage(Storage.from_env())
     # Stub the LLM everywhere the graph reaches for one.
     with use_model_factory(CallableModelFactory(_fake_model)):
         asyncio.run(main())

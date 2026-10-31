@@ -13,11 +13,11 @@ import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from app.api.history import get_history
-from app.core import database as db
 from app.llm import CallableModelFactory, use_model_factory
 from app.services.arena import open_graph, turn_start
 from app.services.chat import stream_turn
 from app.services.runs import resolve_fork_point
+from tests.storage_helpers import point
 
 KEYS = {"OPENAI_API_KEY": "test-key"}
 MODEL = "gpt-5.4"
@@ -36,7 +36,7 @@ class _Model(FakeListChatModel):
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
     SEEN.clear()
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "abandoned.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "abandoned.sqlite"))
     factory = CallableModelFactory(lambda _m, _t: _Model(responses=["an answer"]))
     with use_model_factory(factory), patch.dict(os.environ, KEYS):
         yield

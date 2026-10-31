@@ -12,6 +12,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.api.security import OriginPolicy, allowed_hosts_from_env, is_simple_request
 from app.main import create_app
+from tests.storage_helpers import point
 
 EVIL = "https://evil.example"
 
@@ -161,7 +162,7 @@ def upload_dir(tmp_path, monkeypatch):
     from app.api import upload as upload_api
 
     indexed = []
-    monkeypatch.setattr(upload_api, "_UPLOAD_DIR", str(tmp_path))
+    point(monkeypatch, upload_dir=str(tmp_path))
     monkeypatch.setattr(upload_api.rag_service, "index_document", lambda text, name, tid: indexed.append(tid))
     return indexed
 
@@ -186,11 +187,10 @@ def test_untyped_json_body_is_refused(tmp_path, monkeypatch):
     """fetch(url, {method: "POST", body: new Blob([json])}) sends no Content-Type
     and no preflight, and FastAPI parses such a body as JSON. From the user's
     own browser it also passes /config/keys' loopback check."""
-    from app.api import config as config_api
 
     env_file = tmp_path / ".env"
     env_file.write_text('OPENAI_API_KEY="mine"\n')
-    monkeypatch.setattr(config_api, "_ENV_PATH", str(env_file))
+    point(monkeypatch, env_path=str(env_file))
     monkeypatch.setenv("OPENAI_API_KEY", "mine")
     client = _client()
     res = client.post("/config/keys", content=b'{"keys": {"OPENAI_API_KEY": "sk-attacker"}}')

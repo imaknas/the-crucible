@@ -1,16 +1,16 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api import config as config_api
 from app.services import keys as keys_svc
 from app.main import server as app
+from tests.storage_helpers import point
 
 
 @pytest.fixture
 def env_file(tmp_path, monkeypatch):
     path = tmp_path / ".env"
     path.write_text('OTHER="keep"\n')
-    monkeypatch.setattr(config_api, "_ENV_PATH", str(path))
+    point(monkeypatch, env_path=str(path))
     monkeypatch.delenv("CRUCIBLE_ALLOW_REMOTE_CONFIG", raising=False)
     for k in keys_svc.KEY_NAMES:
         monkeypatch.delenv(k, raising=False)

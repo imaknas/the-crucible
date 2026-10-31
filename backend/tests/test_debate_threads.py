@@ -18,6 +18,7 @@ from app.api.history import get_history
 from app.services.arena import open_graph
 from app.services.runs import final_state_of_run, tag_run, thread_config
 from app.utils.helpers import extract_text
+from tests.storage_helpers import point
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
 A, B = "gpt-5.4", "claude-sonnet-5"
@@ -49,7 +50,7 @@ def _model(model_id, _toggles):
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
     SEEN.clear()
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "debate.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "debate.sqlite"))
     with use_model_factory(CallableModelFactory(_model)), patch.dict(os.environ, KEYS):
         yield
 

@@ -7,6 +7,7 @@ import pytest
 from app.services.debate import _build_round_prompts, create_session, make_synthesis_thread_id, make_thread_id
 from app.services.peers import NamedPeers
 from app.services.convergence import _compute_sync, _cosine_similarity
+from tests.storage_helpers import point
 
 
 # ─── Pure function tests ──────────────────────────────────────────────────────
@@ -186,7 +187,7 @@ async def test_run_debate_event_sequence(tmp_path, monkeypatch):
     from app.services.arena import open_graph
     from app.services.debate import run_debate
 
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "seq.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "seq.sqlite"))
     factory = CallableModelFactory(lambda m, _t: FakeListChatModel(responses=[f"Hello from {m}"]))
     with use_model_factory(factory), patch.dict(os.environ, {"OPENAI_API_KEY": "k", "ANTHROPIC_API_KEY": "k"}):
         async with open_graph() as graph_app:

@@ -8,6 +8,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from app.catalog import ModelPrice, Price, PriceBook
 from app.compaction import NeverCompact, ThresholdPolicy, build_dense_scenario, fixed_tokens
 from app.services import graph as graph_mod
+from tests.storage_helpers import point
 from app.services.compaction_eval import (
     ORACLE,
     CallProfile,
@@ -61,7 +62,7 @@ def test_spend_prices_calls_and_reports_unpriced_ones():
 
 @pytest.fixture
 def graph_app(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.core.database.DB_PATH", str(tmp_path / "costs.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "costs.sqlite"))
     return graph_mod.workflow.compile(checkpointer=MemorySaver())
 
 

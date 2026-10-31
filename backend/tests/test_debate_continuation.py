@@ -18,6 +18,7 @@ from app.core import database as db
 from app.llm import CallableModelFactory, use_model_factory
 from app.main import server
 from app.services import debate as debate_svc
+from tests.storage_helpers import point
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
 A, B = "gpt-5.4", "claude-sonnet-5"
@@ -48,7 +49,7 @@ def _model(model_id, _toggles):
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     SEEN.clear()
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "continue.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "continue.sqlite"))
     with (
         use_model_factory(CallableModelFactory(_model)),
         patch.dict(os.environ, KEYS),

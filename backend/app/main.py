@@ -25,6 +25,7 @@ from app.api.security import (
     allowed_hosts_from_env,
 )
 from app.core import database as db
+from app.core.storage import Storage, current_storage, has_storage, reset_storage, set_storage
 from app.patches import apply_langchain_patches
 from app.services.graph import workflow
 
@@ -61,14 +62,44 @@ def _configure_logging() -> None:
     logger.setLevel(logging.INFO)
 
 
+class StorageMiddleware:
+    """Sets the app's storage (``app.state.storage``) for every request and
+    socket, and for whatever they start: handlers, background tasks and the
+    tasks a socket spawns all inherit it."""
+
+    def __init__(self, app, owner: FastAPI):
+        self.app = app
+        self.owner = owner
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+        token = set_storage(self.owner.state.storage)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            reset_storage(token)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _configure_logging()
+    token = set_storage(app.state.storage)
+    try:
+        async with _serving(app):
+            yield
+    finally:
+        reset_storage(token)
+
+
+@asynccontextmanager
+async def _serving(app: FastAPI):
     db.init_db()
     # Not in init_db: the CLI runs that too, while a server may be mid-debate.
     await asyncio.to_thread(db.interrupt_running_debates)
     _report_configuration()
-    async with AsyncSqliteSaver.from_conn_string(db.DB_PATH) as checkpointer:
+    async with AsyncSqliteSaver.from_conn_string(app.state.storage.db_path) as checkpointer:
         # Create LangGraph's tables now rather than on first write, so reads of
         # a fresh database (thread lists, topology) don't hit "no such table".
         await checkpointer.setup()
@@ -84,8 +115,10 @@ async def lifespan(app: FastAPI):
 def create_app(
     origin_policy: OriginPolicy | None = None,
     allowed_hosts: Sequence[str] | None = None,
+    storage: Storage | None = None,
 ) -> FastAPI:
-    """Build the app. Both default to the environment (CORS_ORIGINS, ALLOWED_HOSTS).
+    """Build the app. All three default to the environment (CORS_ORIGINS,
+    ALLOWED_HOSTS; DATABASE_PATH, UPLOAD_DIR, CHROMA_DIR via Storage.from_env).
 
     No wildcard origin: it let any web page the user visited drive the API,
     including /config/keys, from their browser.
@@ -94,12 +127,16 @@ def create_app(
     if allowed_hosts is None:
         allowed_hosts = allowed_hosts_from_env(os.environ)
     app = FastAPI(title="The Crucible API", lifespan=lifespan)
+    # The storage already in effect (a test, a program embedding the app),
+    # else the app's own locations.
+    app.state.storage = storage or (current_storage() if has_storage() else Storage.from_env())
     # add_middleware wraps: the last one added runs first. CORS sits outside
     # SimpleRequestGuard so preflights are answered before the header check.
     app.add_middleware(SimpleRequestGuard)
     app.add_middleware(WebSocketOriginGuard, policy=origin_policy)
     app.add_middleware(CORSMiddleware, **origin_policy.cors_options(), allow_methods=["*"], allow_headers=["*"])
     app.add_middleware(TrustedHostGuard, allowed_hosts=allowed_hosts)
+    app.add_middleware(StorageMiddleware, owner=app)
     for module in ROUTERS:
         app.include_router(module.router)
     return app

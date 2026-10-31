@@ -7,11 +7,12 @@ import pytest
 from app.core import database as db
 from app.services.arena import open_graph
 from app.services.runs import resolve_fork_point
+from tests.storage_helpers import point
 
 
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "order.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "order.sqlite"))
 
 
 def test_checkpoint_time_reads_the_uuid6_timestamp():

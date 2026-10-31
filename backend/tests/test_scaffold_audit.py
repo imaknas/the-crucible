@@ -9,6 +9,7 @@ from app.compaction import build_dense_scenario
 from app.services import graph as graph_mod
 from app.services import scaffold_audit as sa
 from app.services.compaction_eval import STRICT_ORACLE, EvalModelFactory, run_live_grid
+from tests.storage_helpers import point
 
 
 def test_verdicts_follow_the_claim():
@@ -97,7 +98,7 @@ def test_history_and_staleness(tmp_path):
 
 @pytest.fixture
 def graph_app(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.core.database.DB_PATH", str(tmp_path / "audit.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "audit.sqlite"))
     return graph_mod.workflow.compile(checkpointer=MemorySaver())
 
 

@@ -1,14 +1,14 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core import database as db
 from app.main import server
+from tests.storage_helpers import point
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     """The real app with its lifespan (compiled graph) on a throwaway database."""
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "graph.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "graph.sqlite"))
     with TestClient(server) as c:
         yield c
 

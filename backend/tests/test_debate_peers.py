@@ -7,6 +7,7 @@ import pytest
 from app.core import database as db
 from app.services import debate as debate_svc
 from app.services.debate import _build_round_prompts, check_session_config
+from tests.storage_helpers import point
 from app.services.peers import (
     PEER_PRESENTATIONS,
     AnonymousPeers,
@@ -140,7 +141,7 @@ def test_peer_labels_must_be_a_known_presentation():
 
 @pytest.fixture
 def tmp_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "peers.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "peers.sqlite"))
     db.init_db()
 
 

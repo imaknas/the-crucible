@@ -125,9 +125,11 @@ async def _require_thread(thread_id: str) -> None:
 @_quiet
 def list_models(include_legacy: bool = False) -> Dict[str, Any]:
     """The model ids the other tools take: {models: [{id, name, family,
-    legacy, key_available, native_search, context_window}]}. Only models with
+    legacy, key_available, native_search, context_window, price_per_mtok:
+    {input, output, cached_input} | null}]}. Only models with
     key_available=true can be called; native_search says which can use
-    use_web_search."""
+    use_web_search; prices are USD per million tokens today. Never assume a
+    model is cheap from its name."""
     models = [m for m in arena_svc.list_models() if include_legacy or not m["legacy"]]
     return {"models": models}
 
@@ -826,4 +828,7 @@ if __name__ == "__main__":
     # The entry point reads backend/.env; importing this module (tests) doesn't.
     load_dotenv()
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
+    from app.core.storage import Storage, set_storage
+
+    set_storage(Storage.from_env())
     mcp.run()

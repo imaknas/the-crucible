@@ -27,6 +27,7 @@ from app.services import arena as arena_svc
 from app.services import debate as debate_svc
 from app.services.context import MAX_SYSTEM_PROMPT_CHARS, ContextSettings
 from app.services.graph import SYSTEM_PROMPT_CONFIG_KEY
+from tests.storage_helpers import point
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
 A, B = "gpt-5.4", "claude-sonnet-5"
@@ -51,7 +52,7 @@ class _Recorder(FakeListChatModel):
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
     SEEN.clear()
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "system.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "system.sqlite"))
     monkeypatch.setattr("app.cli._load_env", lambda: None)
     db.init_db()
     factory = CallableModelFactory(lambda model_id, _t: _Recorder(responses=[f"reply from {model_id}"], model_id=model_id))

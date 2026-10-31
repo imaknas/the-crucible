@@ -22,12 +22,16 @@ def no_provider_keys(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def isolated_storage(tmp_path_factory, monkeypatch):
-    """Every test gets its own database and upload directory; tests that set
-    their own still win (their monkeypatch runs after this one)."""
+    """Every test gets its own database, upload, Chroma and .env locations,
+    set for the test and on the app (core/storage.py); storage_helpers.point
+    moves one of them."""
     from app.core import database as db
-    from app.services import uploads
+    from app.core.storage import Storage, reset_storage, set_storage
+    from app.main import server
 
-    root = tmp_path_factory.mktemp("storage")
-    monkeypatch.setattr(db, "DB_PATH", str(root / "test.sqlite"))
-    monkeypatch.setattr(uploads, "UPLOAD_DIR", str(root / "uploads"))
+    storage = Storage.from_env({}).under(str(tmp_path_factory.mktemp("storage")))
+    token = set_storage(storage)
+    monkeypatch.setattr(server.state, "storage", storage)
     db.init_db()
+    yield storage
+    reset_storage(token)

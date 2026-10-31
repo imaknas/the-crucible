@@ -1,5 +1,4 @@
 import logging
-import os
 import threading
 from typing import List
 
@@ -11,24 +10,17 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
+from app.core.storage import current_storage
+
 log = logging.getLogger(__name__)
 
-# Persistence directory for ChromaDB (backend/chroma_db unless CHROMA_DIR is set,
-# which the e2e suite does so it never touches the real store).
-DB_DIR = os.getenv(
-    "CHROMA_DIR",
-    os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "chroma_db",
-    ),
-)
 
 # Use a fast, local, lightweight embedding model
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 COLLECTION_NAME = "crucible_documents"
 _embeddings = None
-_client = None
-_vector_store = None
+_clients: dict = {}
+_vector_stores: dict = {}
 # Graph nodes are sync and run on executor threads, so parallel models reach
 # these lazy singletons at the same moment. Two concurrent PersistentClient
 # inits fail with "Could not connect to tenant default_tenant".
@@ -68,29 +60,28 @@ def get_embeddings() -> Embeddings:
 
 
 def _get_client():
-    """The persistent Chroma client, shared by the vector store and deletes."""
-    global _client
-    if _client is None:
+    """The persistent Chroma client for the run's Chroma directory
+    (core/storage.py), shared by the vector store and deletes; one per
+    directory, created once."""
+    path = current_storage().chroma_dir
+    if path not in _clients:
         with _init_lock:
-            if _client is None:
-                _client = chromadb.PersistentClient(
-                    path=DB_DIR, settings=Settings(anonymized_telemetry=False)
-                )
-    return _client
+            if path not in _clients:
+                _clients[path] = chromadb.PersistentClient(path=path, settings=Settings(anonymized_telemetry=False))
+    return _clients[path]
 
 
 def get_vector_store() -> Chroma:
-    global _vector_store
-
-    if _vector_store is None:
+    path = current_storage().chroma_dir
+    if path not in _vector_stores:
         with _init_lock:
-            if _vector_store is None:
-                _vector_store = Chroma(
+            if path not in _vector_stores:
+                _vector_stores[path] = Chroma(
                     client=_get_client(),
                     collection_name=COLLECTION_NAME,
                     embedding_function=get_embeddings(),
                 )
-    return _vector_store
+    return _vector_stores[path]
 
 
 def get_chunk_collection():

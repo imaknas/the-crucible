@@ -14,6 +14,8 @@ from app.core import database as db
 from app.services import rag
 from app.services.threads import ThreadDeleter
 from app.services.uploads import thread_upload_dir
+from tests.storage_helpers import point
+from app.core.storage import current_storage
 
 
 class _FakeCollection:
@@ -26,9 +28,9 @@ class _FakeCollection:
 
 @pytest.fixture
 def isolated_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "del.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "del.sqlite"))
     db.init_db()
-    conn = sqlite3.connect(db.DB_PATH)  # LangGraph's own tables
+    conn = sqlite3.connect(current_storage().db_path)  # LangGraph's own tables
     conn.execute("CREATE TABLE checkpoints (thread_id TEXT, checkpoint_id TEXT)")
     conn.execute("CREATE TABLE writes (thread_id TEXT, checkpoint_id TEXT)")
     for tid in ("t1", "t1::gpt-5.4", "t2"):
@@ -50,7 +52,7 @@ def _upload(root, thread_id, name="f.txt"):
 
 
 def _checkpoint_threads():
-    conn = sqlite3.connect(db.DB_PATH)
+    conn = sqlite3.connect(current_storage().db_path)
     rows = {r[0] for r in conn.execute("SELECT thread_id FROM checkpoints")}
     conn.close()
     return rows
@@ -103,7 +105,7 @@ def test_uploads_land_in_their_threads_directory(tmp_path, monkeypatch):
     from app.api import upload as upload_api
     from app.main import server
 
-    monkeypatch.setattr(upload_api, "_UPLOAD_DIR", str(tmp_path))
+    point(monkeypatch, upload_dir=str(tmp_path))
     monkeypatch.setattr(upload_api.rag_service, "index_document", lambda *a: 0)
     with TestClient(server) as client:
         res = client.post(

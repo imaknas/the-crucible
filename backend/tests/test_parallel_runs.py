@@ -14,6 +14,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 import app.services.graph as graph_mod
 from app.llm import CallableModelFactory, use_model_factory
+from tests.storage_helpers import point
 from app.services.runs import (
     final_state_of_run,
     resolve_fork_point,
@@ -38,7 +39,7 @@ def _fake_model(model_id, *_a, **_kw):
 
 @pytest.fixture
 def graph_app(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.core.database.DB_PATH", str(tmp_path / "t.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "t.sqlite"))
     from app.core import database as db
 
     db.init_db()
@@ -96,10 +97,9 @@ def test_ws_first_turn_arena_gives_each_model_its_own_branch(tmp_path, monkeypat
     """Two models sent together on a new thread over /ws, real sqlite checkpointer."""
     from fastapi.testclient import TestClient
 
-    from app.core import database as db
     from app.main import server
 
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "ws.sqlite"))
+    point(monkeypatch, db_path=str(tmp_path / "ws.sqlite"))
     with (
         use_model_factory(CallableModelFactory(lambda model_id, _toggles: _fake_model(model_id))),
         patch.dict(os.environ, KEYS),

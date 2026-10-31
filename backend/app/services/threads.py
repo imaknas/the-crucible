@@ -68,6 +68,6 @@ def delete_thread(thread_id: str, deleter: Callable[[str], None]) -> None:
 def default_thread_deleter() -> ThreadDeleter:
     """The app's stores: the Chroma collection and the upload directory."""
     from app.services import rag
-    from app.services.uploads import UPLOAD_DIR
+    from app.core.storage import current_storage
 
-    return ThreadDeleter(delete_chunks=rag.delete_thread_chunks, upload_root=UPLOAD_DIR)
+    return ThreadDeleter(delete_chunks=rag.delete_thread_chunks, upload_root=current_storage().upload_dir)

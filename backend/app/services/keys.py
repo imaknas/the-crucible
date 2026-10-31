@@ -9,9 +9,8 @@ import os
 import re
 from typing import Dict, Mapping, MutableMapping, Optional
 
+from app.core.storage import current_storage
 from app.registry import provider_env_keys
-
-ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
 # Every family's key, so a new provider family needs no edit here.
 KEY_NAMES = provider_env_keys()
@@ -62,7 +61,7 @@ def save_keys(
             raise ValueError(f"{name} contains characters an API key cannot have")
         cleaned[name] = value
 
-    env_path = env_path or ENV_PATH
+    env_path = env_path or current_storage().env_path
     lines: list[str] = []
     if os.path.exists(env_path):
         with open(env_path, "r") as f:
