@@ -68,6 +68,10 @@ or `backend/chroma_db`.
 ```bash
 docker compose up --build   # full stack; SQLite persisted in `crucible_data` volume
 ```
+- The frontend image builds from the repository root (`docker-compose.yml` sets the context; the root `.dockerignore` sends only the workspace manifests and `frontend/`): the frontend is an npm workspace and the lockfile is the root's. `NEXT_PUBLIC_API_URL` is a build argument, since Next inlines it at build time.
+- The backend image runs `uv run --no-sync` (otherwise every start installs the dev group from the network) with `CRUCIBLE_RELOAD=0`. On Linux, torch comes from PyTorch's CPU index (`[tool.uv.sources]` in `pyproject.toml`; it is declared only for that): the PyPI build carried ~4.5 GB of CUDA libraries, a 10.5 GB image instead of 2.8 GB.
+- `backend/.env` is bind-mounted (not `env_file`), so keys set in the Control Panel are written back to it; `load_dotenv` never overrides variables already in the environment, so an `env_file` copy would win over a key changed in the UI after the next start.
+- Verified end to end on 2026-11-01 (build, a three-model turn in the browser, an upload and a document search, data surviving a recreated container). This machine's Docker has no compose plugin; `docker run -v /var/run/docker.sock:/var/run/docker.sock docker:29-cli docker compose …` (with the checkout mounted at its own path) runs it.
 
 ### Environment
 Copy `.env.example` to `backend/.env` and set at least one of: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`. `NEXT_PUBLIC_API_URL` defaults to `http://localhost:8000`.
@@ -169,6 +173,7 @@ ChromaDB persistent vector store at `backend/chroma_db/`. Local HuggingFace embe
 **Tree reconstruction — `services/tree.py`**
 Walks LangGraph checkpoint parent-child links to build a deduplicated conversation tree for the React Flow canvas.
 - `load_thread_states()` pulls every checkpoint state for a thread in a single `aget_state_history` pass (with a per-checkpoint fallback for branches outside the main lineage). Use it instead of looping `aget_state` — LangGraph writes 4-6 checkpoints per turn, so the loop was hundreds of round trips per tree fetch.
+- `deduplicate_checkpoints()` merges sibling checkpoints with the same key (`get_content_key`): the person's question, written once per model's run, merges by its text; a reply's key is its message id, so two models that answer alike ("Red") stay two nodes. Keying replies by text dropped all but one of them from the tree, and from the compare cards after a reload.
 - `build_significant_forest()` collapses pass-through checkpoints (synthesis prompts, summarisation) so each significant node is re-parented onto its nearest significant ancestor.
 - `tidy_tree_layout()` is a Reingold-Tilford style layout: one column per leaf, each parent centred over its children, computed iteratively so deep threads can't blow the stack. Positions saved via `node_positions` override it per node without shifting siblings.
 

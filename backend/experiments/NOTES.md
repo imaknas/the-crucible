@@ -1506,6 +1506,13 @@ fixed harness before it is either confirmed or reversed. The default was
 not changed. Without recall the ranking stands as recorded (luna 42/96,
 3.8-flash 90/96 on dense).
 
+**Decided 2026-11-01: luna stays, without the re-test.** On dense the two
+are equal; on the goal switch 3.8-flash leads by 2 facts in 64 and the
+interval includes zero, so it does not detectably beat luna. A re-test
+could at best show 3.8-flash ahead by a few facts, which would not pay for
+17–30× the price per summary. Revisit only if prices change or a reader
+shows a real loss with luna's summaries.
+
 ### Second audit (scaffold-audit-20260928T113602, luna summarizing)
 
 | scaffold | model | recorded | lower / upper |
