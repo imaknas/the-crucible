@@ -500,10 +500,57 @@ def list_threads():
     for parent, created_at in last_debate.items():
         activity[parent] = max(activity.get(parent, 0.0), _sqlite_time(created_at))
     ordered = sorted(listed, key=lambda t: (activity.get(t, 0.0), t), reverse=True)
+    # An untitled thread's title is None here; services/threads names it.
     return [
-        {"id": t, "title": titles.get(t) or t, "updated_at": _iso(activity.get(t))}
+        {"id": t, "title": titles.get(t) or None, "updated_at": _iso(activity.get(t))}
         for t in ordered
     ]
+
+
+# How many of a thread's earliest checkpoints first_messages reads. A turn
+# starts with an empty root and the run's input checkpoint (no messages yet);
+# the next one holds the person's first message.
+_FIRST_MESSAGES_SCAN = 8
+
+
+def first_messages(thread_ids: Sequence[str]) -> dict[str, list]:
+    """The message list of each thread's earliest checkpoint that has one:
+    {thread_id: [messages]}, threads without any left out.
+
+    Reads at most a few rows per thread, in checkpoint id order (UUIDv6,
+    so the oldest first), and deserializes only until one holds messages.
+    The first turn's checkpoints are the smallest of a thread, so naming an
+    untitled thread costs a handful of small reads, not its whole history.
+    """
+    if not thread_ids:
+        return {}
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+    serde = JsonPlusSerializer()
+    found: dict[str, list] = {}
+    conn = get_db_connection()
+    try:
+        for thread_id in thread_ids:
+            try:
+                rows = conn.execute(
+                    "SELECT type, checkpoint FROM checkpoints WHERE thread_id = ? AND checkpoint_ns = '' "
+                    "ORDER BY checkpoint_id LIMIT ?",
+                    (thread_id, _FIRST_MESSAGES_SCAN),
+                )
+            except sqlite3.OperationalError:  # LangGraph's tables don't exist yet
+                return found
+            for kind, blob in rows:
+                try:
+                    checkpoint = serde.loads_typed((kind, blob))
+                except Exception:  # a checkpoint this version can't read: skip it
+                    continue
+                messages = (checkpoint.get("channel_values") or {}).get("messages")
+                if messages:
+                    found[thread_id] = list(messages)
+                    break
+    finally:
+        conn.close()
+    return found
 
 
 def _iso(timestamp: Optional[float]) -> Optional[str]:

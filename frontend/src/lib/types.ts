@@ -1,6 +1,19 @@
 // ─── Shared Types ───────────────────────────────────────────────────────────
 // Single source of truth for all shared data types across the frontend.
 
+/** A row of the session list (GET /threads). */
+export interface Thread {
+  id: string;
+  /** Never the raw id: the backend names an untitled thread. */
+  title: string;
+  /**
+   * Nobody titled the thread: `title` is its first message (or its debate's
+   * question), or "Untitled conversation". Shown as provisional; Rename sets a real one.
+   */
+  title_derived?: boolean;
+  updated_at?: string | null;
+}
+
 export interface Message {
   /** Stable client-side key: the tree node id once the server has one, so a refresh doesn't remount it. */
   id: string;

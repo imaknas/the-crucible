@@ -52,6 +52,22 @@ describe("Sidebar", () => {
     expect(screen.getByLabelText("Session name")).toHaveValue("Renamed");
   });
 
+  it("shows a derived title as provisional, and Rename starts from it", () => {
+    const props = {
+      ...mockProps(),
+      threads: [{ id: "thread_k3x9q2a", title: "Why did Paris become the capital of…", title_derived: true }],
+      threadId: null,
+    };
+    render(<Sidebar {...props} />);
+    const row = screen.getByText("Why did Paris become the capital of…");
+    expect(row).toHaveStyle({ fontStyle: "italic" });
+    expect(screen.getByTitle(/not named yet/)).toBeInTheDocument();
+    expect(screen.queryByText("thread_k3x9q2a")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("Rename session"));
+    expect(screen.getByLabelText("Session name")).toHaveValue("Why did Paris become the capital of…");
+  });
+
   it("deletes a session by id", () => {
     const props = mockProps();
     render(<Sidebar {...props} />);

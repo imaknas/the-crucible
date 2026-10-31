@@ -7,9 +7,7 @@ export const WS_BASE = API_BASE.replace(/^http/, "ws");
 
 // ─── Thread CRUD ────────────────────────────────────────────────
 
-export async function listThreads(): Promise<{
-  threads: { id: string; title: string }[];
-}> {
+export async function listThreads(): Promise<{ threads: Thread[] }> {
   const res = await fetch(`${API_BASE}/threads`);
   await ensureOk(res, "Failed to list threads");
   return res.json();
@@ -167,6 +165,7 @@ import type {
   DebateTreeResponse,
   PeerLabels,
   TerminationPolicy,
+  Thread,
 } from "@/lib/types";
 
 export async function createDebateSession(params: {

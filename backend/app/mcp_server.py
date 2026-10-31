@@ -617,7 +617,9 @@ def delete_debate(session_id: str) -> Dict[str, Any]:
 @_quiet
 def list_threads() -> Dict[str, Any]:
     """Conversation threads, most recently active first: {threads: [{id,
-    title, updated_at}]}."""
+    title, title_derived, updated_at}]}. title_derived is true when nobody
+    titled the thread: its title is then an excerpt of its first message
+    (or its debate's question), or "Untitled conversation"."""
     return {"threads": threads_svc.list_threads()}
 
 

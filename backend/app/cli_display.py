@@ -221,7 +221,10 @@ def render_threads_table(threads: List[Dict[str, str]]) -> None:
     for t in threads:
         # Text cells: a title like "list[int]" is not markup.
         updated = (t.get("updated_at") or "").replace("T", " ")[:16]
-        table.add_row(Text(t["id"]), Text(t.get("title") or t["id"]), updated)
+        # A derived title (nobody named the thread: services/threads names it
+        # from its first message) is set in italics. The id has its own column.
+        title = Text(t.get("title") or "", style="italic" if t.get("title_derived") else "")
+        table.add_row(Text(t["id"]), title, updated)
 
     console.print(table)
 

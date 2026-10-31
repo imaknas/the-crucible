@@ -31,14 +31,9 @@ import {
 } from "lucide-react";
 import type { PanelMode } from "@/hooks/useLayoutPanels";
 import { searchHistory } from "@/lib/api";
-import type { DebateSession, DebateUiStatus } from "@/lib/types";
+import type { DebateSession, DebateUiStatus, Thread } from "@/lib/types";
 import { sessionAge, sessionRowStatus } from "@/lib/debateTranscript";
 import { motion, AnimatePresence } from "framer-motion";
-
-interface Thread {
-  id: string;
-  title: string;
-}
 
 interface SidebarProps {
   threads: Thread[];
@@ -434,12 +429,22 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                                   closeOverlay();
                                 }}
                                 aria-current={isActive ? "page" : undefined}
-                                title={t.title}
+                                title={t.title_derived ? `${t.title} (not named yet: Rename gives it a title)` : t.title}
                                 sx={{ py: 1.5, pl: 2, pr: 1, flex: 1, minWidth: 0, borderRadius: 3, textAlign: "left" }}
                               >
+                                {/* A derived title (the backend named an untitled thread from
+                                    its first message) is set apart as provisional. */}
                                 <ListItemText
                                   primary={t.title}
-                                  primaryTypographyProps={{ variant: "body2", fontWeight: 600, noWrap: true, sx: { color: isActive ? "primary.main" : "text.primary" } }}
+                                  primaryTypographyProps={{
+                                    variant: "body2",
+                                    fontWeight: t.title_derived ? 500 : 600,
+                                    noWrap: true,
+                                    sx: {
+                                      color: isActive ? "primary.main" : t.title_derived ? "text.secondary" : "text.primary",
+                                      fontStyle: t.title_derived ? "italic" : undefined,
+                                    },
+                                  }}
                                 />
                               </ListItemButton>
                               {hasDebates && (

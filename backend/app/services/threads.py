@@ -32,10 +32,76 @@ class ThreadNotFound(ValueError):
     pass
 
 
+# What a thread with nothing to name it by is called. Never its id: people
+# read this list, and "thread_k3x9q2a" names nothing.
+UNTITLED = "Untitled conversation"
+
+
 def list_threads() -> list:
-    """Top-level threads, most recently active first: {id, title, updated_at}."""
+    """Top-level threads, most recently active first: {id, title,
+    title_derived, updated_at}.
+
+    A thread nobody titled (one from before auto-titling, or a debate's
+    parent) is named on the fly, the way auto-titling would have named it:
+    from its first message, else as its latest debate ("Debate: …"), else
+    UNTITLED. `title_derived` says the title is not stored, so clients can
+    show it as provisional; renaming stores a real one. Nothing is written:
+    this runs on every sidebar refresh.
+    """
     db.init_db()
-    return db.list_threads()
+    threads = db.list_threads()
+    untitled = [t["id"] for t in threads if not t["title"]]
+    derived = derived_titles(untitled)
+    for t in threads:
+        t["title_derived"] = not t["title"]
+        if not t["title"]:
+            t["title"] = derived.get(t["id"]) or UNTITLED
+    return threads
+
+
+def derived_titles(thread_ids: list[str]) -> dict[str, str]:
+    """A title for each of these untitled threads that has something to be
+    named by: {thread_id: title}. Blocking (SQLite)."""
+    from app.services.chat import thread_title
+
+    titles: dict[str, str] = {}
+    firsts = db.first_messages(thread_ids)
+    for thread_id in thread_ids:
+        title = thread_title(_first_prompt(firsts.get(thread_id, [])))
+        if not title:
+            question = _debate_question(thread_id)
+            title = thread_title(question, "debate") if question else None
+        if title:
+            titles[thread_id] = title
+    return titles
+
+
+def _first_prompt(messages: list) -> str:
+    """The text of the first message the person wrote, if any. These are the
+    thread's first turn, so never a synthesis prompt (that needs answers)."""
+    from app.utils.helpers import extract_text
+
+    for message in messages:
+        if getattr(message, "type", None) == "human":
+            return extract_text(message.content)
+    return ""
+
+
+def _debate_question(thread_id: str) -> str:
+    """The question the thread's latest debate started with. Sessions
+    from before questions were stored have it only as their lanes' first
+    message."""
+    for session in db.list_debate_sessions(thread_id):
+        questions = sorted(session.get("questions") or [], key=lambda q: q["round"])
+        if questions and questions[0].get("prompt"):
+            return questions[0]["prompt"]
+        lanes = [tid for key, tid in session["thread_ids"].items() if key != "synthesis"]
+        firsts = db.first_messages(lanes)
+        for lane in lanes:
+            prompt = _first_prompt(firsts.get(lane, []))
+            if prompt:
+                return prompt
+    return ""
 
 
 def _require(thread_id: str) -> None:
