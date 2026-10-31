@@ -12,8 +12,6 @@ import type {
 export const LANE_WIDTH = 300;
 export const ROUND_HEIGHT = 160;
 
-const TERMINAL_STATUSES = new Set(["completed", "failed", "interrupted"]);
-
 const pendingId = (modelId: string, roundNum: number) =>
   `${modelId}::pending-r${roundNum}`;
 
@@ -26,21 +24,13 @@ export function useDebateTree() {
   const [loading, setLoading] = useState(false);
   const [pendingNodes, setPendingNodes] = useState<TreeNode[]>([]);
 
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // The interval closure cannot read `sessionMeta` — it would capture the value
-  // from the render that created it (always null), which is why polling used to
-  // run forever. A ref is always current.
-  const statusRef = useRef<string | null>(null);
   // The session the canvas is showing. A response for any other session (a
-  // poll or refetch still in flight from the one we just left) is dropped.
+  // refetch still in flight from the one we just left) is dropped.
   const sessionRef = useRef<string | null>(null);
-
-  const stopPolling = useCallback(() => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-  }, []);
+  // One coalesced refetch for the replies that finish close together: each
+  // stream_end used to fetch the whole tree on its own, on top of a 3-second
+  // poll the socket's events made redundant.
+  const soonRef = useRef<{ timer: ReturnType<typeof setTimeout>; done: Promise<void> } | null>(null);
 
   const loadTree = useCallback(async (sessionId: string) => {
     try {
@@ -48,12 +38,11 @@ export function useDebateTree() {
       const data = await fetchDebateTree(sessionId);
       if (sessionRef.current !== sessionId) return;
       // Only the server-owned slice is replaced; pending nodes live separately
-      // so a poll landing mid-round can no longer wipe the "Thinking…" markers.
+      // so a refetch landing mid-round can't wipe the "Thinking…" markers.
       setServerNodes(data.nodes);
       setEdges(data.edges);
       setLanes(data.lanes);
       setSessionMeta(data.session_metadata);
-      statusRef.current = data.session_metadata?.status ?? null;
     } catch (e) {
       console.error("[useDebateTree] fetch failed:", e);
     } finally {
@@ -61,7 +50,7 @@ export function useDebateTree() {
     }
   }, []);
 
-  // An explicit fetch selects the session; polls only refresh the current one.
+  // An explicit fetch selects the session; refetches only refresh the current one.
   const fetchTree = useCallback(
     async (sessionId: string) => {
       if (sessionRef.current !== sessionId) {
@@ -73,38 +62,40 @@ export function useDebateTree() {
     [loadTree],
   );
 
+  const cancelSoon = useCallback(() => {
+    if (soonRef.current) clearTimeout(soonRef.current.timer);
+    soonRef.current = null;
+  }, []);
+
   const clearTree = useCallback(() => {
     setServerNodes([]);
     setEdges([]);
     setLanes([]);
     setSessionMeta(null);
     setPendingNodes([]);
-    statusRef.current = null;
     sessionRef.current = null;
-    stopPolling();
-  }, [stopPolling]);
+    cancelSoon();
+  }, [cancelSoon]);
 
-  // Polls until the session reports a terminal status.
-  const startPolling = useCallback(
-    (sessionId: string, intervalMs = 3000) => {
-      stopPolling();
-      sessionRef.current = sessionId;
-      pollIntervalRef.current = setInterval(async () => {
-        if (sessionRef.current !== sessionId) {
-          stopPolling();
-          return;
-        }
-        await loadTree(sessionId);
-        if (statusRef.current && TERMINAL_STATUSES.has(statusRef.current)) {
-          stopPolling();
-        }
-      }, intervalMs);
+  /** Refetch shortly, once for every caller within the window. */
+  const refreshSoon = useCallback(
+    (sessionId: string, delayMs = 400): Promise<void> => {
+      if (soonRef.current) return soonRef.current.done;
+      let timer: ReturnType<typeof setTimeout> = setTimeout(() => {}, 0);
+      const done = new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          soonRef.current = null;
+          loadTree(sessionId).then(resolve);
+        }, delayMs);
+      });
+      soonRef.current = { timer, done };
+      return done;
     },
-    [loadTree, stopPolling],
+    [loadTree],
   );
 
-  // Never leave an interval running past unmount.
-  useEffect(() => stopPolling, [stopPolling]);
+  // Never leave a timer running past unmount.
+  useEffect(() => cancelSoon, [cancelSoon]);
 
   // Optimistic: show a placeholder while a model streams its round.
   const addPendingNode = useCallback(
@@ -142,11 +133,11 @@ export function useDebateTree() {
   // flight, was deleted along with the old one.
   const resolvePendingNode = useCallback(
     async (modelId: string, sessionId: string, roundNum: number) => {
-      await fetchTree(sessionId);
+      await refreshSoon(sessionId);
       const id = pendingId(modelId, roundNum);
       setPendingNodes((prev) => prev.filter((n) => n.id !== id));
     },
-    [fetchTree],
+    [refreshSoon],
   );
 
   const clearPendingNodes = useCallback(() => setPendingNodes([]), []);
@@ -205,9 +196,8 @@ export function useDebateTree() {
     loading,
     pendingModels,
     fetchTree,
+    refreshSoon,
     clearTree,
-    startPolling,
-    stopPolling,
     addPendingNode,
     resolvePendingNode,
     clearPendingNodes,

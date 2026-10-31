@@ -9,7 +9,7 @@ jest.mock("@/lib/api", () => ({
   listDebateSessions: jest.fn().mockResolvedValue([]),
   createDebateSession: jest.fn(),
   fetchDebateSession: jest.fn(),
-  loadDebateMessages: jest.fn().mockResolvedValue([]),
+  fetchDebateTranscript: jest.fn().mockResolvedValue({ question: "", rounds: [], synthesis: null }),
   deleteDebateSession: jest.fn(),
   fetchDebateTree: jest.fn().mockResolvedValue({ nodes: [], edges: [], lanes: [], session_metadata: null }),
   createDebateWebSocketUrl: (id: string) => `ws://test/debate/${id}`,
@@ -54,7 +54,6 @@ function setup() {
   };
   const opts = {
     threadId: "t1",
-    threads: [],
     fetchThreads: jest.fn(),
     historyNodeCount: 0,
     isHistoryLoading: false,
@@ -220,7 +219,9 @@ describe("useDebateSession", () => {
       { type: "debate_control", action: "resume" },
     ]);
 
-    act(() => result.current.close());
+    await act(async () => {
+      await result.current.close();
+    });
     expect(sockets[0].sent.at(-1)).toEqual({ type: "debate_control", action: "stop" });
     expect(result.current.activeSessionId).toBeNull();
   });
@@ -249,5 +250,139 @@ describe("useDebateSession", () => {
     });
     expect(result.current.status).toBe("completed");
     expect(opts.clearChatMessages).toHaveBeenCalled();
+  });
+
+  it("asks before closing a running debate, and keeps it when the person declines", async () => {
+    const { result, sockets, opts } = setup();
+    await startDebate(result);
+    act(() => sockets[0].open());
+    opts.confirm.mockResolvedValueOnce(false);
+    await act(async () => {
+      await result.current.close();
+    });
+    expect(opts.confirm).toHaveBeenCalledWith("Leave the debate?", expect.stringMatching(/stops it/), {
+      confirmLabel: "Stop and leave",
+    });
+    expect(result.current.activeSessionId).toBe("s1");
+    expect(sockets[0].closed).toBe(false);
+  });
+
+  it("leaves a stopped debate without asking", async () => {
+    const { result, sockets, opts } = setup();
+    await startDebate(result);
+    act(() => {
+      sockets[0].open();
+      sockets[0].emit({ type: "debate_session_status", status: "completed" });
+    });
+    opts.confirm.mockClear();
+    await expect(result.current.confirmLeave()).resolves.toBe(true);
+    expect(opts.confirm).not.toHaveBeenCalled();
+  });
+
+  it("resumes an interrupted debate with the rounds it has left", async () => {
+    const { result, sockets } = setup();
+    await startDebate(result);
+    act(() => {
+      sockets[0].open();
+      sockets[0].emit({ type: "debate_round_start", round: 0 });
+      sockets[0].drop();
+    });
+    expect(result.current.status).toBe("interrupted");
+    expect(result.current.controls.continue).toBe(true);
+
+    act(() => result.current.continueDebate());
+    const ws = sockets[1];
+    act(() => ws.open());
+    // 3 rounds, round 1 of them done.
+    expect(ws.sent[0]).toEqual({ type: "debate_continue", rounds: 2 });
+    expect(result.current.status).toBe("running");
+  });
+
+  it("goes back to interrupted when the backend refuses a resume", async () => {
+    const { result, sockets, opts } = setup();
+    await startDebate(result);
+    act(() => {
+      sockets[0].open();
+      sockets[0].drop();
+    });
+    act(() => result.current.continueDebate());
+    act(() => {
+      sockets[1].open();
+      sockets[1].emit({ type: "error", message: "Another tab is running this debate." });
+    });
+    expect(result.current.status).toBe("interrupted");
+    expect(opts.pushToast).toHaveBeenCalledWith("Another tab is running this debate.", "error", undefined);
+  });
+
+  it("restores a debate from its transcript and synthesizes it with its question", async () => {
+    localStorage.setItem("crucible_active_debate", "s9");
+    (api.fetchDebateSession as jest.Mock).mockResolvedValue({
+      session_id: "s9",
+      parent_thread_id: "t1",
+      participants: ["a", "b"],
+      current_round: 1,
+      status: "running",
+      question: "Tabs or spaces?",
+      termination_policy: { max_rounds: 3 },
+    });
+    (api.fetchDebateTranscript as jest.Mock).mockResolvedValueOnce({
+      question: "Tabs or spaces?",
+      rounds: [{ round: 0, question: "Tabs or spaces?", responses: { a: "Tabs", b: "Spaces" } }],
+      synthesis: null,
+    });
+    const { result, sockets } = setup();
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    expect(result.current.status).toBe("interrupted");
+    expect(result.current.messages.map((m) => m.content)).toEqual([
+      "Tabs or spaces?",
+      "Round 1 · independent answers",
+      "Tabs",
+      "Spaces",
+    ]);
+
+    act(() => result.current.synthesize(null, { use_rag: false, use_web_search: false }));
+    act(() => sockets[0].open());
+    expect(sockets[0].sent[0]).toMatchObject({ type: "debate_synthesize", prompt: "Tabs or spaces?" });
+  });
+
+  it("does not reopen a debate-only thread's debate after it was closed", async () => {
+    (api.listDebateSessions as jest.Mock).mockResolvedValue([
+      { session_id: "s5", parent_thread_id: "t1", current_round: 2, status: "completed" },
+    ]);
+    (api.fetchDebateSession as jest.Mock).mockResolvedValue({
+      session_id: "s5",
+      parent_thread_id: "t1",
+      participants: ["a", "b"],
+      current_round: 2,
+      status: "completed",
+      termination_policy: { max_rounds: 2 },
+    });
+    const { result } = setup();
+    await waitFor(() => expect(result.current.activeSessionId).toBe("s5"));
+    await act(async () => {
+      await result.current.close();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.activeSessionId).toBeNull();
+    expect(api.fetchDebateSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("starting a debate is reported when the backend refuses it", async () => {
+    const { result, opts } = setup();
+    (api.createDebateSession as jest.Mock).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    let started = true;
+    await act(async () => {
+      result.current.openDialog("Q");
+      started = await result.current.start(DEFAULT_DEBATE_DEFAULTS, {
+        participants: ["a", "b"],
+        toggles: { use_rag: false, use_web_search: false },
+        documents: {},
+        parentCheckpointId: null,
+      });
+    });
+    expect(started).toBe(false);
+    expect(opts.pushToast).toHaveBeenCalledWith(expect.stringMatching(/unreachable/), "error");
   });
 });

@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, ButtonBase, Typography, useTheme } from "@mui/material";
-import { Pause, Play, Sparkles, Swords, X as XIcon } from "lucide-react";
+import { Pause, Play, RotateCw, Sparkles, Swords, X as XIcon } from "lucide-react";
 import type { DebateUiStatus } from "@/lib/types";
 import type { PeerLegendEntry } from "@/lib/debateTranscript";
 
@@ -25,15 +25,24 @@ const DEBATE_STATUS_STYLE: Record<DebateUiStatus, { bg: string; fg: string }> = 
 
 const STATUS_LABEL: Partial<Record<DebateUiStatus, string>> = {
   pausing: "pausing after this round",
+  interrupted: "interrupted",
   // Agreement reached by reading each other, which is not evidence by itself.
   converged: "models now agree (after debating)",
   stable: "answers stopped changing",
+};
+
+/** What a status means, where the label alone doesn't say. */
+const STATUS_NOTE: Partial<Record<DebateUiStatus, string>> = {
+  paused: "Paused while this tab stays open; leaving it stops the debate.",
+  interrupted: "Stopped when the tab running it closed or lost its connection.",
 };
 
 export interface DebateBannerProps {
   state: DebateBannerState;
   onPause?: () => void;
   onResume?: () => void;
+  /** Run more rounds of a debate that stopped (debate_continue). */
+  onContinue?: () => void;
   onSynthesize?: () => void;
   onClose?: () => void;
 }
@@ -47,9 +56,12 @@ export default function DebateBanner({
   state,
   onPause,
   onResume,
+  onContinue,
   onSynthesize,
   onClose,
 }: DebateBannerProps) {
+  const note = STATUS_NOTE[state.status];
+  const resumes = state.status === "interrupted";
   const isDark = useTheme().palette.mode === "dark";
   return (
     <Box
@@ -96,6 +108,11 @@ export default function DebateBanner({
       >
         {STATUS_LABEL[state.status] ?? state.status}
       </Box>
+      {note && (
+        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.75rem" }}>
+          {note}
+        </Typography>
+      )}
       {state.legend && state.legend.length > 0 && (
         <Box
           aria-label="Who each participant is"
@@ -119,7 +136,11 @@ export default function DebateBanner({
         <ButtonBase
           onClick={onPause ?? onResume}
           aria-label={onPause ? "Pause debate" : "Resume debate"}
-          title={onPause ? "Pause after the current round" : "Resume"}
+          title={
+            onPause
+              ? "Pause after the current round. It holds only while this tab stays open."
+              : "Resume the paused debate"
+          }
           sx={{
             display: "flex",
             alignItems: "center",
@@ -136,6 +157,29 @@ export default function DebateBanner({
         >
           {onPause ? <Pause width={11} height={11} /> : <Play width={11} height={11} />}
           {onPause ? "Pause" : "Resume"}
+        </ButtonBase>
+      )}
+      {onContinue && (
+        <ButtonBase
+          onClick={onContinue}
+          aria-label={resumes ? "Resume the interrupted debate" : "Run one more round"}
+          title={resumes ? "Run the rounds it has left, in this tab" : "Every participant answers once more"}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
+            px: 1.25,
+            py: 0.5,
+            borderRadius: 1.5,
+            fontSize: "0.6875rem",
+            fontWeight: 700,
+            color: "#10b981",
+            border: "1px solid rgba(16,185,129,0.35)",
+            "&:hover": { bgcolor: "rgba(16,185,129,0.12)" },
+          }}
+        >
+          <RotateCw width={11} height={11} />
+          {resumes ? "Resume" : "One more round"}
         </ButtonBase>
       )}
       {onSynthesize && (
@@ -164,7 +208,7 @@ export default function DebateBanner({
         <ButtonBase
           onClick={onClose}
           aria-label="Close debate"
-          title="Close debate (stops it if running)"
+          title="Close the debate (asks first if it is still running)"
           sx={{
             p: 0.5,
             borderRadius: 1,

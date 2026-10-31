@@ -32,7 +32,7 @@ import {
 import type { PanelMode } from "@/hooks/useLayoutPanels";
 import { searchHistory } from "@/lib/api";
 import type { DebateSession, DebateUiStatus } from "@/lib/types";
-import { sessionRowStatus } from "@/lib/debateTranscript";
+import { sessionAge, sessionRowStatus } from "@/lib/debateTranscript";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Thread {
@@ -104,6 +104,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
     };
     const [expandedDebateThreads, setExpandedDebateThreads] = React.useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = React.useState("");
+    // "5 min ago" is read at render; a minute's drift is fine for a sidebar.
+    const [now] = React.useState(() => Date.now());
     const [searchResults, setSearchResults] = React.useState<any[]>([]);
     const [isSearching, setIsSearching] = React.useState(false);
 
@@ -511,15 +513,23 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                                             <Box sx={{ width: "100%", minWidth: 0 }}>
                                               <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.2 }}>
                                                 <Swords width={11} height={11} color="#8b5cf6" style={{ flexShrink: 0 }} />
-                                                <Typography variant="caption" title={s.participants.join(" vs ")} sx={{ fontWeight: 700, color: isActiveDebate ? "#a78bfa" : "text.primary", fontSize: "0.75rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                                  {s.participants.map(modelLabel).join(" vs ")}
+                                                {/* The question tells debates on one thread apart; the
+                                                    participants alone made every row look the same. */}
+                                                <Typography variant="caption" title={s.question ?? undefined} sx={{ fontWeight: 700, color: isActiveDebate ? "#a78bfa" : "text.primary", fontSize: "0.75rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                  {s.question || s.participants.map(modelLabel).join(" vs ")}
                                                 </Typography>
                                                 <Box sx={{ px: 0.75, py: 0.1, borderRadius: 1, fontSize: "0.6875rem", fontWeight: 700, flexShrink: 0, bgcolor: statusColor ? `${statusColor}26` : "rgba(100,116,139,0.15)", color: statusColor ?? "text.secondary" }}>
                                                   {rowStatus}
                                                 </Box>
                                               </Box>
-                                              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.6875rem" }}>
-                                                {s.termination_policy.max_rounds} rounds
+                                              <Typography variant="caption" title={s.participants.join(", ")} sx={{ display: "block", color: "text.secondary", fontSize: "0.6875rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                {[
+                                                  s.question ? s.participants.map(modelLabel).join(" vs ") : null,
+                                                  `${s.termination_policy.max_rounds} rounds`,
+                                                  sessionAge(s.created_at, now),
+                                                ]
+                                                  .filter(Boolean)
+                                                  .join(" · ")}
                                               </Typography>
                                             </Box>
                                           </ListItemButton>

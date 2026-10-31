@@ -6,13 +6,16 @@ import {
   EMPTY_TRANSCRIPT,
   debateControls,
   earlyStopStatus,
+  leaveWarning,
   questionMessage,
   restoredDebateStatus,
+  transcriptMessages,
   transcriptReducer,
   type TranscriptEvent,
 } from "@/lib/debateTranscript";
 import type { DebateDefaults, DebateSession, DebateUiStatus, Toggles } from "@/lib/types";
 import { useDebateTree } from "@/hooks/useDebateTree";
+import { useDebateSessions } from "@/hooks/useDebateSessions";
 import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
 import { isOpen, useSocketFactory } from "@/lib/transport";
 import { contextFields, type RunContext } from "@/lib/runContext";
@@ -31,8 +34,6 @@ export interface DebateStartContext extends RunContext {
 
 interface Options {
   threadId: string | null;
-  /** The sidebar's thread list; the debate list is refreshed whenever it changes. */
-  threads: unknown[];
   fetchThreads: () => void;
   /** Regular-chat tree state, used to auto-open a debate-only thread's latest debate. */
   historyNodeCount: number;
@@ -46,9 +47,34 @@ interface Options {
 }
 
 /**
+ * The persisted active session: adopted during render once storage is
+ * readable, written on every later change. The write skips the mount run:
+ * writing the hydration-time null erased the stored session before it could
+ * be adopted.
+ */
+function usePersistedSession() {
+  const stored = useStoredValue(STORAGE_KEY);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [adopted, setAdopted] = useState(false);
+  if (!adopted && stored) {
+    setAdopted(true);
+    setActiveSessionId(stored);
+  }
+  const readyRef = useRef(false);
+  useEffect(() => {
+    if (!readyRef.current) {
+      readyRef.current = true;
+      return;
+    }
+    writeStoredValue(STORAGE_KEY, activeSessionId);
+  }, [activeSessionId]);
+  return [activeSessionId, setActiveSessionId] as const;
+}
+
+/**
  * Everything about the debate on screen: which session is active (persisted
  * across reloads), its transcript and status, the WebSocket that drives it,
- * the sidebar's session list and the debate tree.
+ * and the debate tree. The sidebar's list is useDebateSessions.
  *
  * Invariants (each was a bug):
  * - Anything that shows a different debate calls closeSocket() first, so the
@@ -56,13 +82,12 @@ interface Options {
  * - A socket's onclose only clears the ref if it is still the current socket.
  * - Code that loads a session itself marks restoredRef, so the restore effect
  *   doesn't replace a live stream with a server snapshot.
- * - The persisted session is adopted during render and its write skips the
- *   mount run; writing the hydration-time null erased it.
  * - A restored session is only honoured for the thread it belongs to.
+ * - A debate runs only while its socket is open, so leaving a live one asks
+ *   first (confirmLeave); an interrupted one can be resumed (debate_continue).
  */
 export function useDebateSession({
   threadId,
-  threads,
   fetchThreads,
   historyNodeCount,
   isHistoryLoading,
@@ -74,33 +99,9 @@ export function useDebateSession({
 }: Options) {
   const openSocket = useSocketFactory();
   const tree = useDebateTree();
-  const {
-    fetchTree,
-    clearTree,
-    startPolling,
-    stopPolling,
-    addPendingNode,
-    resolvePendingNode,
-    clearPendingNodes,
-  } = tree;
-
-  // ─── Active session (persisted) ──────────────────────────────
-  const storedSession = useStoredValue(STORAGE_KEY);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [adoptedStored, setAdoptedStored] = useState(false);
-  if (!adoptedStored && storedSession) {
-    setAdoptedStored(true);
-    setActiveSessionId(storedSession);
-  }
-
-  const persistReadyRef = useRef(false);
-  useEffect(() => {
-    if (!persistReadyRef.current) {
-      persistReadyRef.current = true;
-      return;
-    }
-    writeStoredValue(STORAGE_KEY, activeSessionId);
-  }, [activeSessionId]);
+  const { fetchTree, refreshSoon, clearTree, addPendingNode, resolvePendingNode, clearPendingNodes } = tree;
+  const { sessions, refreshSessions, forgetSession } = useDebateSessions(threadId);
+  const [activeSessionId, setActiveSessionId] = usePersistedSession();
 
   // ─── Debate state ────────────────────────────────────────────
   const [transcript, dispatch] = useReducer(transcriptReducer, EMPTY_TRANSCRIPT);
@@ -108,30 +109,26 @@ export function useDebateSession({
   const [maxRounds, setMaxRounds] = useState(3);
   const [status, setStatus] = useState<DebateUiStatus>("running");
   const [convergenceScore, setConvergenceScore] = useState<number | undefined>();
-  const [sessions, setSessions] = useState<DebateSession[]>([]);
   // Debate nodes are read-only, so selection just expands the node in place.
   const [activeNode, setActiveNode] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   // The question the open dialog is about to debate.
   const [dialogPrompt, setDialogPrompt] = useState("");
-  // Bumped once a debate has started, so the composer clears only then:
-  // cancelling the dialog keeps what you typed.
-  const [startCount, setStartCount] = useState(0);
+  // Whether this tab has a socket to the debate on screen (pause and leave
+  // warnings depend on it).
+  const [connected, setConnected] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const tokenBufferRef = useRef<Record<string, string>>({});
   const rafRef = useRef<number | null>(null);
+  // The question being debated now: what a synthesis or a redirect is about.
   const promptRef = useRef("");
+  // What the dialog was opened with; read by start() in the same tick.
+  const dialogPromptRef = useRef("");
   const participantsRef = useRef<string[]>([]);
   const restoredRef = useRef<string | null>(null);
-
-  const refreshSessions = useCallback(() => {
-    api.listDebateSessions().then(setSessions).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    refreshSessions();
-  }, [threads, refreshSessions]);
+  // Status before a Resume, restored if the backend refuses it.
+  const beforeResumeRef = useRef<DebateUiStatus | null>(null);
 
   // ─── Token batching ──────────────────────────────────────────
   const flushTokens = useCallback(() => {
@@ -152,18 +149,18 @@ export function useDebateSession({
   const closeSocket = useCallback(() => {
     const ws = wsRef.current;
     wsRef.current = null;
+    setConnected(false);
     if (ws) {
       ws.onmessage = null;
       ws.onclose = null;
       ws.close();
     }
-    stopPolling();
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
     tokenBufferRef.current = {};
-  }, [stopPolling]);
+  }, []);
 
   const transcriptEvent = useCallback(
     (event: TranscriptEvent) => dispatch({ kind: "event", event, now: Date.now() }),
@@ -172,11 +169,10 @@ export function useDebateSession({
 
   // ─── Incoming events ─────────────────────────────────────────
   const handleEvent = useCallback(
-     
     (msg: any, sessionId: string) => {
       switch (msg.type) {
         case "debate_session_created":
-          participantsRef.current = msg.participants ?? [];
+          participantsRef.current = msg.participants ?? participantsRef.current;
           // The backend has just titled the parent thread; list it (and the
           // debate) so a debate started from a new session is findable.
           fetchThreads();
@@ -185,6 +181,7 @@ export function useDebateSession({
 
         case "debate_round_start": {
           const r = msg.round ?? 0;
+          beforeResumeRef.current = null;
           setRound(r);
           setStatus("running");
           transcriptEvent(msg);
@@ -211,7 +208,7 @@ export function useDebateSession({
 
         case "debate_round_end":
           if (msg.convergence_score != null) setConvergenceScore(msg.convergence_score);
-          fetchTree(sessionId);
+          refreshSoon(sessionId);
           break;
 
         case "debate_converged":
@@ -227,23 +224,13 @@ export function useDebateSession({
         case "debate_synthesis_end":
           flushTokens();
           transcriptEvent(msg);
-          fetchTree(sessionId);
-          // Poll for completed status in case the WS event arrives late.
-          setTimeout(() => {
-            api
-              .fetchDebateSession(sessionId)
-              .then((s) => {
-                if (s.status === "completed") setStatus("completed");
-              })
-              .catch(() => {});
-          }, 2000);
+          refreshSoon(sessionId);
           break;
 
         case "debate_session_status":
           if (msg.status === "completed") {
             setStatus("completed");
-            stopPolling();
-            fetchTree(sessionId);
+            refreshSoon(sessionId);
             clearPendingNodes();
             refreshSessions();
             clearChatMessages();
@@ -259,7 +246,13 @@ export function useDebateSession({
           // bubble, and its "Thinking…" node is resolved here.
           flushTokens();
           transcriptEvent(msg);
-          if (msg.model) resolvePendingNode(msg.model, sessionId, msg.round ?? 0);
+          if (msg.model) {
+            resolvePendingNode(msg.model, sessionId, msg.round ?? 0);
+          } else if (beforeResumeRef.current) {
+            // A Resume the backend refused (e.g. another tab runs it).
+            setStatus(beforeResumeRef.current);
+            beforeResumeRef.current = null;
+          }
           pushToast(
             msg.message ?? "The debate reported an error.",
             "error",
@@ -277,8 +270,7 @@ export function useDebateSession({
       scheduleFlush,
       flushTokens,
       resolvePendingNode,
-      fetchTree,
-      stopPolling,
+      refreshSoon,
       clearPendingNodes,
       clearChatMessages,
       pushToast,
@@ -293,13 +285,13 @@ export function useDebateSession({
 
   // One socket per debate session. firstFrame is sent once it opens.
   const connect = useCallback(
-    (sessionId: string, firstFrame: Record<string, unknown>, onOpen?: () => void) => {
+    (sessionId: string, firstFrame: Record<string, unknown>) => {
       const ws = openSocket(api.createDebateWebSocketUrl(sessionId));
       wsRef.current = ws;
 
       ws.onopen = () => {
+        setConnected(true);
         ws.send(JSON.stringify(firstFrame));
-        onOpen?.();
       };
       ws.onmessage = (ev) => {
         // Same guard as onclose: a replaced socket must not touch this debate.
@@ -312,30 +304,31 @@ export function useDebateSession({
       ws.onclose = () => {
         if (wsRef.current !== ws) return;
         wsRef.current = null;
-        stopPolling();
+        setConnected(false);
         clearPendingNodes();
         setStatus((prev) => (prev === "completed" || prev === "converged" || prev === "stable" ? prev : "interrupted"));
         refreshSessions();
       };
       return ws;
     },
-    [openSocket, stopPolling, clearPendingNodes, refreshSessions],
+    [openSocket, clearPendingNodes, refreshSessions],
   );
 
   // ─── Loading an existing session ─────────────────────────────
-  const adoptSession = useCallback(
-    (s: DebateSession) => {
-      setRound(s.current_round);
-      setMaxRounds(s.termination_policy.max_rounds);
-      setStatus(restoredDebateStatus(s.status));
-      participantsRef.current = s.participants;
-      api
-        .loadDebateMessages(s)
-        .then((messages) => dispatch({ kind: "reset", messages }))
-        .catch(() => {});
-    },
-    [],
-  );
+  const adoptSession = useCallback((s: DebateSession) => {
+    setRound(s.current_round);
+    setMaxRounds(s.termination_policy.max_rounds);
+    setStatus(restoredDebateStatus(s.status));
+    participantsRef.current = s.participants;
+    promptRef.current = s.question ?? "";
+    api
+      .fetchDebateTranscript(s.session_id)
+      .then((t) => {
+        if (!promptRef.current) promptRef.current = t.question;
+        dispatch({ kind: "reset", messages: transcriptMessages(t, s.participants) });
+      })
+      .catch(() => {});
+  }, []);
 
   // Restore whenever the active session is set by something that didn't load
   // it itself (initial adoption from localStorage). Only for its own thread.
@@ -358,14 +351,19 @@ export function useDebateSession({
         restoredRef.current = null;
         setActiveSessionId(null);
       });
-  }, [activeSessionId, threadId, fetchTree, adoptSession]);
+  }, [activeSessionId, threadId, fetchTree, adoptSession, setActiveSessionId]);
 
-  // A debate-only thread (no regular chat) opens its latest debate.
+  // A debate-only thread (no regular chat) opens its latest debate — once
+  // per thread visit. Closing it used to bring it straight back, since the
+  // effect refired the moment no session was active.
+  const autoOpenedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!threadId || isHistoryLoading || historyNodeCount > 0 || activeSessionId) return;
+    if (autoOpenedRef.current === threadId) return;
     // Sessions arrive newest-first from the API.
     const threadDebates = sessions.filter((s) => s.parent_thread_id === threadId);
     if (threadDebates.length === 0) return;
+    autoOpenedRef.current = threadId;
     const latest =
       threadDebates.find((s) => s.current_round > 0 || s.status === "completed") ?? threadDebates[0];
     // Activate only once the session resolves, so a deleted or unreadable
@@ -380,12 +378,12 @@ export function useDebateSession({
         fetchTree(s.session_id);
       })
       .catch(() => {});
-  }, [threadId, isHistoryLoading, historyNodeCount, activeSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [threadId, isHistoryLoading, historyNodeCount, activeSessionId, sessions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Thread switches ─────────────────────────────────────────
   // The state reset runs during render (React's documented way to adjust
   // state on a prop change), so a stale debate never paints for a frame. The
-  // socket/interval teardown is impure, so it stays in an effect.
+  // socket teardown is impure, so it stays in an effect.
   const [threadKey, setThreadKey] = useState<string | null>(threadId);
   if (threadId !== threadKey) {
     setThreadKey(threadId);
@@ -411,8 +409,19 @@ export function useDebateSession({
     wsRef.current?.send(JSON.stringify(frame));
   }, []);
 
+  /**
+   * Ask before something takes the live debate off screen: its socket
+   * closing stops it. Resolves true when nothing is lost or the person
+   * agreed.
+   */
+  const confirmLeave = useCallback(async () => {
+    const warning = leaveWarning(status, isOpen(wsRef.current));
+    if (!warning) return true;
+    return confirm("Leave the debate?", warning, { confirmLabel: "Stop and leave" });
+  }, [status, confirm]);
+
   const openDialog = useCallback((prompt: string) => {
-    promptRef.current = prompt;
+    dialogPromptRef.current = prompt;
     setDialogPrompt(prompt);
     setDialogOpen(true);
   }, []);
@@ -420,12 +429,11 @@ export function useDebateSession({
   const closeDialog = useCallback(() => setDialogOpen(false), []);
 
   const start = useCallback(
-    async (
-      config: DebateDefaults,
-      ctx: Omit<DebateStartContext, "prompt">,
-    ) => {
+    async (config: DebateDefaults, ctx: Omit<DebateStartContext, "prompt">): Promise<boolean> => {
       setDialogOpen(false);
-      if (!threadId) return;
+      if (!threadId) return false;
+      if (!(await confirmLeave())) return false;
+      const prompt = dialogPromptRef.current;
       try {
         const session = await api.createDebateSession({
           parent_thread_id: threadId,
@@ -441,7 +449,7 @@ export function useDebateSession({
           peer_labels: config.peer_labels,
         });
 
-        // A new debate replaces whatever was on screen, live or not.
+        // A new debate replaces whatever was on screen.
         closeSocket();
         restoredRef.current = session.session_id;
         setActiveSessionId(session.session_id);
@@ -450,29 +458,27 @@ export function useDebateSession({
         setMaxRounds(config.max_rounds);
         setRound(0);
         setStatus("running");
-        dispatch({ kind: "reset", messages: [questionMessage(promptRef.current)] });
+        promptRef.current = prompt;
+        dispatch({ kind: "reset", messages: [questionMessage(prompt)] });
         setConvergenceScore(undefined);
         participantsRef.current = session.participants;
-        setStartCount((n) => n + 1);
         setShowTree(true);
 
-        connect(
-          session.session_id,
-          {
-            type: "debate_start",
-            prompt: promptRef.current,
-            toggles: ctx.toggles,
-            ...contextFields(ctx),
-            documents: ctx.documents,
-            parent_checkpoint_id: ctx.parentCheckpointId,
-          },
-          () => startPolling(session.session_id),
-        );
+        connect(session.session_id, {
+          type: "debate_start",
+          prompt,
+          toggles: ctx.toggles,
+          ...contextFields(ctx),
+          documents: ctx.documents,
+          parent_checkpoint_id: ctx.parentCheckpointId,
+        });
+        return true;
       } catch (e) {
         pushToast(errorMessage(e, "Couldn't start the debate"), "error");
+        return false;
       }
     },
-    [threadId, closeSocket, fetchTree, refreshSessions, setShowTree, connect, startPolling, pushToast],
+    [threadId, confirmLeave, closeSocket, setActiveSessionId, fetchTree, refreshSessions, setShowTree, connect, pushToast],
   );
 
   const inject = useCallback(
@@ -484,14 +490,22 @@ export function useDebateSession({
     [socketOpen, send],
   );
 
+  /** Change the question: the backend stops the round in progress and restarts on it. */
   const redirect = useCallback(
-    (message: string) => {
-      if (!socketOpen()) return;
+    async (message: string): Promise<boolean> => {
+      if (!socketOpen()) return false;
+      const ok = await confirm(
+        "Redirect the debate?",
+        "The round in progress stops and the models start again on your new question. Their answers so far stay in the transcript.",
+        { confirmLabel: "Redirect", destructive: false },
+      );
+      if (!ok) return false;
       promptRef.current = message;
       send({ type: "debate_redirect", message });
       dispatch({ kind: "user", entry: "redirect", content: message, now: Date.now() });
+      return true;
     },
-    [socketOpen, send],
+    [socketOpen, confirm, send],
   );
 
   const pause = useCallback(() => {
@@ -502,10 +516,30 @@ export function useDebateSession({
     if (socketOpen()) send({ type: "debate_control", action: "resume" });
   }, [socketOpen, send]);
 
+  /**
+   * Run more rounds of a debate that stopped: the rest of an interrupted
+   * one, or one more round of a finished one. Same events as a start.
+   */
+  const continueDebate = useCallback(
+    (message?: string) => {
+      if (!activeSessionId) return;
+      const rounds = status === "interrupted" ? Math.max(1, maxRounds - (round + 1)) : 1;
+      const frame = { type: "debate_continue", rounds, ...(message ? { message } : {}) };
+      beforeResumeRef.current = status;
+      setStatus("running");
+      if (message) dispatch({ kind: "user", entry: "inject", content: message, now: Date.now() });
+      if (isOpen(wsRef.current)) send(frame);
+      else connect(activeSessionId, frame);
+    },
+    [activeSessionId, status, maxRounds, round, send, connect],
+  );
+
   const synthesize = useCallback(
     (synthesizerModel: string | null, toggles: Toggles, context: RunContext = {}) => {
       // The synthesis frame carries the run's choices again: a frame that
-      // names any of them replaces the ones the debate started with.
+      // names any of them replaces the ones the debate started with. The
+      // prompt is the question being debated, also after a reload (it used
+      // to be empty then).
       const frame = {
         type: "debate_synthesize",
         synthesizer_model: synthesizerModel || participantsRef.current[0],
@@ -533,15 +567,16 @@ export function useDebateSession({
     setConvergenceScore(undefined);
     setActiveNode(null);
     clearTree();
-  }, [closeSocket, clearTree]);
+  }, [closeSocket, setActiveSessionId, clearTree]);
 
-  /** The banner's close button: stop the debate if it is still going, then drop it. */
-  const close = useCallback(() => {
+  /** The banner's close button: ask if the debate is live, stop it, then drop it. */
+  const close = useCallback(async () => {
+    if (!(await confirmLeave())) return;
     if (debateControls(status, true).stopOnClose && isOpen(wsRef.current)) {
       send({ type: "debate_control", action: "stop" });
     }
     clear();
-  }, [status, send, clear]);
+  }, [confirmLeave, status, send, clear]);
 
   const remove = useCallback(
     async (sessionId: string) => {
@@ -554,16 +589,17 @@ export function useDebateSession({
       try {
         await api.deleteDebateSession(sessionId);
         if (sessionId === activeSessionId) clear();
-        setSessions((prev) => prev.filter((d) => d.session_id !== sessionId));
+        forgetSession(sessionId);
+        pushToast("Debate deleted.", "success");
       } catch (e) {
         pushToast(errorMessage(e, "Couldn't delete the debate"), "error");
       }
     },
-    [confirm, activeSessionId, clear, pushToast],
+    [confirm, activeSessionId, clear, forgetSession, pushToast],
   );
 
   const switchTo = useCallback(
-    (sessionId: string) => {
+    async (sessionId: string) => {
       if (sessionId === activeSessionId) {
         // Re-selecting the debate on screen: refresh it, but keep its socket,
         // or a live debate would be cancelled by its own click.
@@ -571,21 +607,28 @@ export function useDebateSession({
         setShowTree(true);
         return;
       }
-      // Leaving a live debate: its socket closing cancels it server-side.
+      if (!(await confirmLeave())) return;
       closeSocket();
       restoredRef.current = sessionId;
       setActiveSessionId(sessionId);
       dispatch({ kind: "reset" });
       setConvergenceScore(undefined);
       fetchTree(sessionId);
-      api.fetchDebateSession(sessionId).then(adoptSession).catch(() => {});
+      api
+        .fetchDebateSession(sessionId)
+        .then(adoptSession)
+        .catch((e) => pushToast(errorMessage(e, "Couldn't open the debate"), "error"));
       setShowTree(true);
     },
-    [activeSessionId, fetchTree, setShowTree, closeSocket, adoptSession],
+    [activeSessionId, confirmLeave, fetchTree, setShowTree, closeSocket, setActiveSessionId, adoptSession, pushToast],
   );
 
   const hasTranscript = transcript.messages.length > 0;
-  const controls = useMemo(() => debateControls(status, hasTranscript), [status, hasTranscript]);
+  const controls = useMemo(() => {
+    const c = debateControls(status, hasTranscript);
+    // Pause and the live controls need this tab's socket; Resume needs a session.
+    return { ...c, continue: c.continue && !connected };
+  }, [status, hasTranscript, connected]);
 
   // The debate a chat turn sent now continues: the one on screen until a
   // turn has followed it here. Tracked rather than read off the chat
@@ -607,11 +650,11 @@ export function useDebateSession({
     round,
     maxRounds,
     status,
+    connected,
     convergenceScore,
     controls,
     dialogOpen,
     dialogPrompt,
-    startCount,
     openDialog,
     closeDialog,
     start,
@@ -619,8 +662,10 @@ export function useDebateSession({
     redirect,
     pause,
     resume,
+    continueDebate,
     synthesize,
     close,
+    confirmLeave,
     remove,
     switchTo,
   };

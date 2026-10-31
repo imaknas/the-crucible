@@ -318,7 +318,13 @@ test.describe("live flows (scripted models)", () => {
     await send(page, "[[slow]] take your time");
     await expect(page.getByRole("button", { name: "Stop generating" })).toBeVisible();
 
+    // Leaving stops the models, so it asks first; declining stays put.
     await page.getByRole("button", { name: MAIN_THREAD_TITLE, exact: false }).first().click();
+    await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("button", { name: "Stop generating" })).toBeVisible();
+
+    await page.getByRole("button", { name: MAIN_THREAD_TITLE, exact: false }).first().click();
+    await page.getByRole("dialog").getByRole("button", { name: "Stop and leave" }).click();
     await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
     await page.getByPlaceholder(/Ask the arena/i).fill("ready?");
     await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled();
@@ -396,6 +402,39 @@ test.describe("live flows (scripted models)", () => {
     await expect(debateStatus(page)).toHaveText("completed", { timeout: 20_000 });
     const after = await (await request.get(`${BACKEND_URL}/debate/sessions/${sessionId}/tree`)).json();
     expect(after.nodes.some((n: { id: string }) => /synthesis/i.test(n.id))).toBe(true);
+  });
+
+  test("an interrupted debate resumes in this tab and finishes", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await startDebate(page, "Vim or Emacs?", 3);
+    await expect(page.getByText("DEBATE · ROUND 2/3")).toBeVisible({ timeout: 20_000 });
+
+    await page.reload();
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await expect(debateStatus(page)).toHaveText("interrupted");
+    await expect(page.getByText(/Stopped when the tab running it closed/)).toBeVisible();
+    // The restored transcript comes aligned by round from the server.
+    await expect(page.getByText("Round 1 · independent answers")).toBeVisible();
+
+    await page.getByRole("button", { name: "Resume the interrupted debate" }).click();
+    await expect(debateStatus(page)).toHaveText("completed", { timeout: 30_000 });
+    await expect(page.getByText("Round 3", { exact: true })).toBeVisible();
+  });
+
+  test("closing a running debate asks first, and declining keeps it running", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await startDebate(page, "Slow one [[slow]]", 2);
+    await expect(debateStatus(page)).toHaveText("running");
+
+    await page.getByRole("button", { name: "Close debate" }).first().click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("Leave the debate?");
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(debateStatus(page)).toHaveText("running");
+
+    await page.getByRole("button", { name: "Close debate" }).first().click();
+    await page.getByRole("dialog").getByRole("button", { name: "Stop and leave" }).click();
+    await expect(page.getByText(/DEBATE · ROUND/)).toHaveCount(0);
   });
 
   test("a debate with named participants shows no participant key", async ({ page, request }) => {

@@ -154,11 +154,11 @@ export async function fetchModels(): Promise<{
 
 import type {
   DebateSession,
+  DebateTranscript,
   DebateTreeResponse,
   PeerLabels,
   TerminationPolicy,
 } from "@/lib/types";
-import { questionMessage, roundLabel } from "@/lib/debateTranscript";
 
 export async function createDebateSession(params: {
   parent_thread_id: string;
@@ -196,80 +196,16 @@ export async function listDebateSessions(
   return res.json();
 }
 
-// Reconstruct debate messages from sub-thread histories, interleaved by round with headers.
-export async function loadDebateMessages(session: DebateSession): Promise<import("@/lib/types").Message[]> {
-  const perModel: Record<string, import("@/lib/types").Message[]> = {};
-  let originalPrompt = "";
-
-  await Promise.all(
-    session.participants.map(async (modelId) => {
-      const subThreadId = session.thread_ids[modelId];
-      try {
-        const data = await fetchHistory(subThreadId);
-        const allMsgs = data.messages ?? [];
-        // Grab original prompt from first user message of any sub-thread
-        if (!originalPrompt) {
-          const firstUser = allMsgs.find((m: any) => m.role === "user");
-          if (firstUser) originalPrompt = firstUser.content ?? "";
-        }
-        perModel[modelId] = allMsgs
-          .filter((m: any) => m.role === "assistant")
-          .map((m: any, i: number) => ({
-            id: `restored-${modelId}-r${i}`,
-            role: "assistant" as const,
-            model: modelId,
-            content: m.content ?? "",
-            type: "ai",
-          }));
-      } catch {
-        perModel[modelId] = [];
-      }
-    }),
-  );
-
-  const maxRounds = Math.max(0, ...Object.values(perModel).map((msgs) => msgs.length));
-  const result: import("@/lib/types").Message[] = [];
-
-  // Original prompt at the top
-  if (originalPrompt) result.push(questionMessage(originalPrompt));
-
-  for (let r = 0; r < maxRounds; r++) {
-    result.push({
-      id: `round-header-${r}`,
-      role: "system",
-      type: "round_header",
-      content: roundLabel(r),
-    } as any);
-    for (const modelId of session.participants) {
-      const msg = perModel[modelId]?.[r];
-      if (msg) result.push({ ...msg, id: `restored-${modelId}-r${r}` });
-    }
-  }
-
-  // Synthesis sub-thread
-  const synthId = session.thread_ids["synthesis"] ?? `${session.parent_thread_id}::synthesis`;
-  try {
-    const synthData = await fetchHistory(synthId);
-    const synthMsgs = (synthData.messages ?? []).filter((m: any) => m.role === "assistant");
-    if (synthMsgs.length > 0) {
-      const last = synthMsgs[synthMsgs.length - 1];
-      // The session names its synthesizer once one has run; older sessions
-      // whose synthesizer was left as "First participant" store none, and
-      // the reply itself says which model wrote it. "synthesis" is the
-      // thread key, never a model, and was shown as "Synthesis · synthesis".
-      const model = session.synthesizer_model ?? last.model ?? session.participants[0];
-      result.push({
-        id: "restored-synthesis",
-        role: "assistant",
-        model,
-        ...(last.model_name && !session.synthesizer_model ? { model_name: last.model_name } : {}),
-        content: last.content ?? "",
-        type: "synthesis",
-      } as any);
-    }
-  } catch { /* no synthesis yet */ }
-
-  return result;
+/**
+ * The whole debate in one request: question, rounds aligned by number (a
+ * failed model has an `errors` entry, not a shifted index), injected
+ * messages and the synthesis. It replaces rebuilding the transcript from
+ * every sub-thread's history, one request per participant.
+ */
+export async function fetchDebateTranscript(sessionId: string): Promise<DebateTranscript> {
+  const res = await fetch(`${API_BASE}/debate/sessions/${encodeURIComponent(sessionId)}/transcript`);
+  await ensureOk(res, "Failed to load the debate transcript");
+  return res.json();
 }
 
 export async function deleteDebateSession(sessionId: string): Promise<void> {

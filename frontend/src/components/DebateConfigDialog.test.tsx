@@ -62,4 +62,18 @@ describe("DebateConfigDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start Debate" }));
     expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ max_rounds: 1 }));
   });
+
+  it("says where the participants come from and roughly what the debate costs", () => {
+    const { rounds } = setup();
+    expect(screen.getByText(/selected in the Control Panel/)).toBeInTheDocument();
+    expect(screen.getByTestId("debate-cost")).toHaveTextContent("Up to 6 model calls (3 rounds × 2 models)");
+    fireEvent.change(rounds, { target: { value: "5" } });
+    expect(screen.getByTestId("debate-cost")).toHaveTextContent("Up to 10 model calls");
+  });
+
+  it("labels its switches for assistive technology", () => {
+    setup();
+    expect(screen.getByLabelText("Auto-synthesize")).toBeInTheDocument();
+    expect(screen.getByLabelText("Stop when answers stop changing")).toBeInTheDocument();
+  });
 });

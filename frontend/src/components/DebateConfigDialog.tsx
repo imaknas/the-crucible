@@ -19,6 +19,7 @@ import {
 import { Swords } from "lucide-react";
 import type { DebateDefaults, PeerLabels } from "@/lib/types";
 import { MAX_DEBATE_ROUNDS, clampRounds } from "@/hooks/useDebateDefaults";
+import { debateCallEstimate } from "@/lib/debateTranscript";
 
 interface DebateConfigDialogProps {
   open: boolean;
@@ -66,6 +67,14 @@ export default function DebateConfigDialog({
     setConfig((p) => ({ ...p, max_rounds }));
     return max_rounds;
   };
+
+  const typedRounds = Number.parseInt(roundsText.trim(), 10);
+  const estimate = debateCallEstimate({
+    rounds: Number.isFinite(typedRounds) ? clampRounds(typedRounds) : config.max_rounds,
+    participants: participants.length,
+    judge: !!config.llm_judge,
+    synthesize: config.auto_synthesize,
+  });
 
   const labelSx = { fontSize: "0.8rem", color: "text.secondary", minWidth: 140 };
   const rowSx = { display: "flex", alignItems: "center", gap: 2 };
@@ -140,6 +149,9 @@ export default function DebateConfigDialog({
                 <Chip key={m} size="small" label={modelLabel(m)} title={m} />
               ))}
             </Box>
+            <Typography variant="caption" sx={{ display: "block", mt: 0.75, color: "text.secondary" }}>
+              The models selected in the Control Panel. Change the selection there to debate with others.
+            </Typography>
           </Box>
 
           {/* Max rounds */}
@@ -181,6 +193,7 @@ export default function DebateConfigDialog({
             </Typography>
             <Switch
               size="small"
+              slotProps={{ input: { "aria-label": "Stop when answers stop changing" } }}
               checked={config.convergence_threshold !== null}
               onChange={() =>
                 setConfig((p) => ({
@@ -204,6 +217,7 @@ export default function DebateConfigDialog({
             </Typography>
             <Select
               size="small"
+              inputProps={{ "aria-label": "Agreement judge" }}
               value={config.llm_judge ?? "__none__"}
               onChange={(e) =>
                 setConfig((p) => ({
@@ -232,6 +246,7 @@ export default function DebateConfigDialog({
               <Typography sx={labelSx}>Stop when</Typography>
               <Select
                 size="small"
+                inputProps={{ "aria-label": "Stop when" }}
                 value={config.mode}
                 onChange={(e) =>
                   setConfig((p) => ({ ...p, mode: e.target.value as "any" | "all" }))
@@ -284,6 +299,7 @@ export default function DebateConfigDialog({
             </Typography>
             <Switch
               size="small"
+              slotProps={{ input: { "aria-label": "Auto-synthesize" } }}
               checked={config.auto_synthesize}
               onChange={() =>
                 setConfig((p) => ({ ...p, auto_synthesize: !p.auto_synthesize }))
@@ -297,6 +313,7 @@ export default function DebateConfigDialog({
               <Typography sx={labelSx}>Synthesizer</Typography>
               <Select
                 size="small"
+                inputProps={{ "aria-label": "Synthesizer" }}
                 value={config.synthesizer_model ?? "__none__"}
                 onChange={(e) =>
                   setConfig((p) => ({
@@ -320,6 +337,9 @@ export default function DebateConfigDialog({
               </Select>
             </Box>
           )}
+          <Typography data-testid="debate-cost" variant="caption" sx={{ color: "text.secondary" }}>
+            Up to {estimate.calls} model calls ({estimate.breakdown}); stopping early makes fewer.
+          </Typography>
         </Stack>
       </DialogContent>
 

@@ -1,3 +1,4 @@
+import type { DebateTranscript } from "./types";
 import {
   EMPTY_TRANSCRIPT,
   afterDebateRecord,
@@ -10,8 +11,7 @@ import {
   roundLabel,
   transcriptReducer,
   type Transcript,
-  type TranscriptAction,
-} from "./debateTranscript";
+  type TranscriptAction, debateCallEstimate, leaveWarning, sessionAge, transcriptMessages } from "./debateTranscript";
 
 const run = (actions: TranscriptAction[], start: Transcript = EMPTY_TRANSCRIPT) =>
   actions.reduce(transcriptReducer, start);
@@ -124,12 +124,14 @@ describe("debate status helpers", () => {
 
   it("offers controls that match the status", () => {
     expect(debateControls("running", true)).toEqual({
-      inject: true, redirect: true, pause: true, resume: false, synthesize: false, stopOnClose: true,
+      continue: false, inject: true, redirect: true, pause: true, resume: false, synthesize: false, stopOnClose: true,
     });
     expect(debateControls("pausing", true)).toMatchObject({ inject: true, pause: false, resume: false, synthesize: false, stopOnClose: true });
     // A paused debate still takes injected messages; they join the next round.
     expect(debateControls("paused", true)).toMatchObject({ inject: true, resume: true, synthesize: true, stopOnClose: true });
-    expect(debateControls("interrupted", true)).toMatchObject({ inject: false, synthesize: true, stopOnClose: false });
+    expect(debateControls("interrupted", true)).toMatchObject({ continue: true, inject: false, synthesize: true, stopOnClose: false });
+    expect(debateControls("completed", true).continue).toBe(true);
+    expect(debateControls("paused", true).continue).toBe(false);
     expect(debateControls("completed", false).synthesize).toBe(false);
   });
 });
@@ -190,5 +192,78 @@ describe("afterDebateRecord", () => {
   it("keeps everything when the thread holds no record", () => {
     const thread = [msg("ask", "user"), msg("reply", "assistant")];
     expect(afterDebateRecord(thread)).toEqual(thread);
+  });
+});
+
+describe("transcriptMessages", () => {
+  const transcript: DebateTranscript = {
+    question: "Is a hot dog a sandwich?",
+    rounds: [
+      { round: 0, question: "Is a hot dog a sandwich?", responses: { a: "Yes", b: "No" } },
+      // b failed round 1: its slot says why; its round-2 answer stays in round 2.
+      { round: 1, question: "Is a hot dog a sandwich?", responses: { a: "Still yes" }, errors: { b: "timed out" } },
+      { round: 2, question: "Is a taco a sandwich?", responses: { b: "No", a: "Maybe" } },
+    ],
+    synthesis: { model: "a", content: "The map" },
+    injected: [{ round: 1, message: "Consider bread" }],
+  };
+
+  it("lays the stored debate out round by round, aligned", () => {
+    const out = transcriptMessages(transcript, ["a", "b"]);
+    expect(out.map((m) => [m.type, m.model ?? null, m.content])).toEqual([
+      ["human", null, "Is a hot dog a sandwich?"],
+      ["round_header", null, "Round 1 · independent answers"],
+      ["ai", "a", "Yes"],
+      ["ai", "b", "No"],
+      ["inject", null, "Consider bread"],
+      ["round_header", null, "Round 2"],
+      ["ai", "a", "Still yes"],
+      ["ai", "b", "_(no response: timed out)_"],
+      ["redirect", null, "Is a taco a sandwich?"],
+      ["round_header", null, "Round 3"],
+      ["ai", "a", "Maybe"],
+      ["ai", "b", "No"],
+      ["synthesis", "a", "The map"],
+    ]);
+  });
+
+  it("keeps ids unique", () => {
+    const ids = transcriptMessages(transcript, ["a", "b"]).map((m) => m.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("sessionAge", () => {
+  const now = Date.parse("2026-10-31T12:00:00Z");
+  it("reads SQLite's zone-less UTC timestamps", () => {
+    expect(sessionAge("2026-10-31 11:55:00", now)).toBe("5 min ago");
+    expect(sessionAge("2026-10-31 09:00:00", now)).toBe("3 h ago");
+    expect(sessionAge("2026-10-31 11:59:50", now)).toBe("just now");
+  });
+  it("says nothing for a missing or unreadable time", () => {
+    expect(sessionAge(null, now)).toBeNull();
+    expect(sessionAge("yesterday", now)).toBeNull();
+  });
+});
+
+describe("leaveWarning", () => {
+  it("warns only when leaving would stop a debate this tab is driving", () => {
+    expect(leaveWarning("running", true)).toMatch(/stops it/);
+    expect(leaveWarning("paused", true)).toMatch(/holds only while this tab/);
+    expect(leaveWarning("running", false)).toBeNull();
+    expect(leaveWarning("completed", true)).toBeNull();
+  });
+});
+
+describe("debateCallEstimate", () => {
+  it("counts every answer, judge call and the synthesis", () => {
+    expect(debateCallEstimate({ rounds: 3, participants: 2, judge: false, synthesize: false })).toEqual({
+      calls: 6,
+      breakdown: "3 rounds × 2 models",
+    });
+    expect(debateCallEstimate({ rounds: 2, participants: 3, judge: true, synthesize: true })).toEqual({
+      calls: 9,
+      breakdown: "2 rounds × 3 models + 2 judge calls + 1 synthesis",
+    });
   });
 });

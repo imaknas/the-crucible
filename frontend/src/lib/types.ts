@@ -101,8 +101,15 @@ export interface DebateSession {
   participants: string[];
   thread_ids: Record<string, string>;
   current_round: number;
-  // "interrupted": the socket driving it closed mid-debate; nothing is running.
-  status: "running" | "paused" | "completed" | "interrupted";
+  // "pending": created, not started yet. "interrupted": the socket driving it
+  // closed mid-debate; nothing is running.
+  status: "pending" | "running" | "paused" | "completed" | "interrupted";
+  /** The question being debated now (a redirect replaces it). */
+  question?: string | null;
+  /** Every question asked, with the round it started at. */
+  questions?: { round: number; prompt: string }[];
+  /** When the session was created (SQLite UTC timestamp). */
+  created_at?: string | null;
   termination_policy: TerminationPolicy;
   auto_synthesize: boolean;
   synthesizer_model: string | null;
@@ -123,6 +130,24 @@ export type DebateUiStatus =
   | "stable"
   | "completed"
   | "interrupted";
+
+/** GET /debate/sessions/{id}/transcript: the whole debate, rounds aligned by number. */
+export interface DebateTranscript {
+  question: string;
+  /** Model id → "Participant A" when peers were anonymous. */
+  labels?: Record<string, string>;
+  rounds: {
+    round: number;
+    /** The question this round answered (it changes at a redirect). */
+    question: string;
+    responses: Record<string, string>;
+    /** A model that failed this round: its slot holds the reason, later rounds don't shift. */
+    errors?: Record<string, string>;
+    score?: number | null;
+  }[];
+  synthesis: { model: string; model_name?: string | null; content: string } | null;
+  injected?: { round: number; message: string }[];
+}
 
 export interface DebateRoundState {
   round: number;

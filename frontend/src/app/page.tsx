@@ -95,6 +95,12 @@ export default function Home() {
     clearTree,
   } = useHistoryTree(handleMessagesLoaded, pushToast);
 
+  // Leaving the open thread stops whatever runs on it (its sockets close).
+  // The guard is composed further down from the chat and the debate, which
+  // need the thread id first; the ref breaks that cycle.
+  const leaveGuardRef = useRef<() => Promise<boolean>>(async () => true);
+  const beforeLeave = useCallback(() => leaveGuardRef.current(), []);
+
   const handleThreadCleared = useCallback(() => {
     clearTree();
     setMessagesRef.current?.([]);
@@ -114,6 +120,7 @@ export default function Home() {
     onThreadSwitch: fetchHistory,
     confirm: showConfirm,
     pushToast,
+    beforeLeave,
   });
 
   // The node the next message continues: the chosen one, else the head.
@@ -167,7 +174,6 @@ export default function Home() {
   const clearChatMessages = useCallback(() => setMessages([]), [setMessages]);
   const debate = useDebateSession({
     threadId,
-    threads,
     fetchThreads,
     historyNodeCount: nodes.length,
     isHistoryLoading,
@@ -198,8 +204,25 @@ export default function Home() {
           : undefined,
         onPause: debate.controls.pause ? debate.pause : undefined,
         onResume: debate.controls.resume ? debate.resume : undefined,
+        onContinue: debate.controls.continue ? () => debate.continueDebate() : undefined,
       }
     : null;
+
+  const { confirmLeave: confirmLeaveDebate } = debate;
+  useEffect(() => {
+    leaveGuardRef.current = async () => {
+      if (
+        isLoading &&
+        !(await showConfirm(
+          "Leave while models answer?",
+          "The models are still answering in this session. Leaving stops them where they are.",
+          { confirmLabel: "Stop and leave" },
+        ))
+      )
+        return false;
+      return confirmLeaveDebate();
+    };
+  }, [isLoading, showConfirm, confirmLeaveDebate]);
 
   // ─── Tree node & composer actions ───────────────────────────────
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -260,8 +283,9 @@ export default function Home() {
   const { redirect: debateRedirect, switchTo: debateSwitchTo } = debate;
   const handleDebateRedirect = useCallback(
     (text: string) => {
-      debateRedirect(text);
-      setInput("");
+      debateRedirect(text).then((redirected) => {
+        if (redirected) setInput("");
+      });
     },
     [debateRedirect],
   );
@@ -490,15 +514,20 @@ export default function Home() {
         onStart={(config) => {
           // Turns after the debate continue it with its participants, not a reply clicked before.
           reply.reset();
-          setInput("");
-          return debate.start(config, {
-            participants: selectedModels,
-            toggles,
-            documents,
-            parentCheckpointId: chosen ?? head,
-            summarizer,
-            systemPrompt,
-          });
+          // The composer empties once the debate has actually started:
+          // cancelling or a refused start keeps what was typed.
+          debate
+            .start(config, {
+              participants: selectedModels,
+              toggles,
+              documents,
+              parentCheckpointId: chosen ?? head,
+              summarizer,
+              systemPrompt,
+            })
+            .then((started) => {
+              if (started) setInput("");
+            });
         }}
         defaults={debateDefaults}
         availableModels={allModelIds.length ? allModelIds : selectedModels}

@@ -16,16 +16,24 @@ const tree = (sessionId: string, nodeIds: string[] = []) => ({
 describe("useDebateTree", () => {
   beforeEach(() => fetchMock.mockReset());
 
+  afterEach(() => jest.useRealTimers());
+
   it("resolving round N keeps the model's round N+1 placeholder", async () => {
+    jest.useFakeTimers();
     let release: (v: unknown) => void = () => {};
     fetchMock.mockImplementation(() => new Promise((r) => { release = r; }));
     const { result } = renderHook(() => useDebateTree());
 
+    act(() => {
+      void result.current.fetchTree("s1");
+    });
+    release(tree("s1"));
     act(() => result.current.addPendingNode("gpt-5.4", 0, 0, "#000"));
     let resolving: Promise<void> = Promise.resolve();
     act(() => {
       resolving = result.current.resolvePendingNode("gpt-5.4", "s1", 0);
     });
+    act(() => jest.advanceTimersByTime(500));
     // The next round starts while round 0's refetch is still in flight.
     act(() => result.current.addPendingNode("gpt-5.4", 1, 0, "#000"));
     await act(async () => {
@@ -34,6 +42,25 @@ describe("useDebateTree", () => {
     });
 
     expect(result.current.nodes.map((n) => n.id)).toEqual(["gpt-5.4::pending-r1"]);
+  });
+
+  it("refetches once for replies that finish together", async () => {
+    jest.useFakeTimers();
+    fetchMock.mockResolvedValue(tree("s1"));
+    const { result } = renderHook(() => useDebateTree());
+    await act(async () => {
+      await result.current.fetchTree("s1");
+    });
+    fetchMock.mockClear();
+    act(() => {
+      void result.current.refreshSoon("s1");
+      void result.current.refreshSoon("s1");
+      void result.current.refreshSoon("s1");
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("drops a late response for a session it has moved away from", async () => {

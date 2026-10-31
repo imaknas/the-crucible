@@ -6,7 +6,7 @@
  * batching) and every side effect. Keeping the transformation pure is what
  * makes it testable without a socket or a page.
  */
-import type { DebateLane, DebateSession, DebateUiStatus, Message } from "@/lib/types";
+import type { DebateLane, DebateSession, DebateTranscript, DebateUiStatus, Message } from "@/lib/types";
 
 export interface Transcript {
   messages: Message[];
@@ -71,6 +71,88 @@ export function peerLegend(lanes: DebateLane[] | undefined): PeerLegendEntry[] {
 /** The debated question, shown at the top of the transcript. */
 export function questionMessage(content: string): Message {
   return { id: "debate-question", role: "user", content, type: "human" };
+}
+
+/**
+ * A stored debate as transcript bubbles: the question, each round under its
+ * heading with every participant in session order, what was injected into a
+ * round, a redirect where the question changed, and the synthesis. Rounds
+ * come aligned from the server, so a model that failed a round shows why in
+ * that round instead of shifting its later answers up.
+ */
+export function transcriptMessages(t: DebateTranscript, participants: string[]): Message[] {
+  const out: Message[] = [];
+  if (t.question || t.rounds[0]?.question) out.push(questionMessage(t.rounds[0]?.question || t.question));
+  let asked = t.rounds[0]?.question || t.question;
+  for (const r of [...t.rounds].sort((a, b) => a.round - b.round)) {
+    if (r.question && r.question !== asked) {
+      out.push({ id: `redirect-r${r.round}`, role: "user", type: "redirect", content: r.question });
+      asked = r.question;
+    }
+    for (const [i, inj] of (t.injected ?? []).entries()) {
+      if (inj.round === r.round) out.push({ id: `inject-r${r.round}-${i}`, role: "user", type: "inject", content: inj.message });
+    }
+    out.push({ id: `round-header-${r.round}`, role: "system", type: "round_header", content: roundLabel(r.round) });
+    const models = [...participants, ...Object.keys(r.responses).filter((m) => !participants.includes(m))];
+    for (const model of models) {
+      const text = r.responses[model];
+      const error = r.errors?.[model];
+      if (text === undefined && error === undefined) continue;
+      out.push({
+        id: `restored-${model}-r${r.round}`,
+        role: "assistant",
+        model,
+        type: "ai",
+        content: text ? (error ? `${text}\n\n_(stopped: ${error})_` : text) : `_(no response: ${error})_`,
+      });
+    }
+  }
+  if (t.synthesis?.content) {
+    out.push({
+      id: "restored-synthesis",
+      role: "assistant",
+      type: "synthesis",
+      model: t.synthesis.model,
+      ...(t.synthesis.model_name ? { model_name: t.synthesis.model_name } : {}),
+      content: t.synthesis.content,
+    });
+  }
+  return out;
+}
+
+/**
+ * The most model calls a debate can make, so its cost is visible before it
+ * starts: every participant every round, a judge after each round, and the
+ * synthesis. An early stop makes fewer.
+ */
+export function debateCallEstimate(opts: {
+  rounds: number;
+  participants: number;
+  judge: boolean;
+  synthesize: boolean;
+}): { calls: number; breakdown: string } {
+  const answers = opts.rounds * opts.participants;
+  const judge = opts.judge ? opts.rounds : 0;
+  const synthesis = opts.synthesize ? 1 : 0;
+  const parts = [`${opts.rounds} ${opts.rounds === 1 ? "round" : "rounds"} × ${opts.participants} models`];
+  if (judge) parts.push(`${judge} judge ${judge === 1 ? "call" : "calls"}`);
+  if (synthesis) parts.push("1 synthesis");
+  return { calls: answers + judge + synthesis, breakdown: parts.join(" + ") };
+}
+
+/** How long ago a session started, for the sidebar ("5 min ago", "Oct 28"). */
+export function sessionAge(createdAt: string | null | undefined, now: number): string | null {
+  if (!createdAt) return null;
+  // SQLite's CURRENT_TIMESTAMP is UTC without a zone: "2026-10-31 09:15:02".
+  const iso = /[zZ]|[+-]\d\d:?\d\d$/.test(createdAt) ? createdAt : `${createdAt.replace(" ", "T")}Z`;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const minutes = Math.round((now - t) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 /**
@@ -211,7 +293,7 @@ export function sessionRowStatus(
   serverStatus: DebateSession["status"],
   liveStatus: DebateUiStatus | null | undefined,
 ): string {
-  if (!liveStatus) return serverStatus;
+  if (!liveStatus) return serverStatus === "pending" ? "not started" : serverStatus;
   return liveStatus === "converged" || liveStatus === "stable" ? "completed" : liveStatus;
 }
 
@@ -224,6 +306,20 @@ export function restoredDebateStatus(status: DebateSession["status"]): DebateUiS
 }
 
 /**
+ * What leaving a debate would cost, or null when nothing is lost: a debate
+ * runs only while the tab driving it is connected, so leaving a running,
+ * pausing or paused one stops it.
+ */
+export function leaveWarning(status: DebateUiStatus, connected: boolean): string | null {
+  if (!connected) return null;
+  if (status === "running" || status === "pausing")
+    return "The debate is still running in this tab. Leaving stops it after the current answers; you can resume it later.";
+  if (status === "paused")
+    return "The debate is paused, which holds only while this tab stays on it. Leaving stops it; you can resume it later.";
+  return null;
+}
+
+/**
  * The status after a debate stops early. Only a judge measures agreement; a
  * stability stop means each model's answer stopped changing, which two models
  * holding opposite positions also satisfy.
@@ -233,6 +329,8 @@ export function earlyStopStatus(method: string | undefined): DebateUiStatus {
 }
 
 export interface DebateControls {
+  /** Run more rounds of a stopped debate (debate_continue): Resume after an interruption, or one more round. */
+  continue: boolean;
   inject: boolean;
   redirect: boolean;
   pause: boolean;
@@ -253,6 +351,7 @@ export function debateControls(status: DebateUiStatus, hasTranscript: boolean): 
   const live = status === "running";
   const held = status === "pausing" || status === "paused";
   return {
+    continue: hasTranscript && (status === "interrupted" || status === "completed" || status === "stable" || status === "converged"),
     inject: live || held,
     redirect: live,
     pause: live,
