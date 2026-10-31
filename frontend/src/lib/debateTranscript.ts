@@ -140,6 +140,14 @@ export function debateCallEstimate(opts: {
   return { calls: answers + judge + synthesis, breakdown: parts.join(" + ") };
 }
 
+/**
+ * Whether a stored transcript lacks rounds its session says were finished:
+ * the session is at round N, so rounds before N must have answers.
+ */
+export function transcriptIncomplete(t: DebateTranscript, session: Pick<DebateSession, "current_round">): boolean {
+  return t.rounds.length < session.current_round;
+}
+
 /** How long ago a session started, for the sidebar ("5 min ago", "Oct 28"). */
 export function sessionAge(createdAt: string | null | undefined, now: number): string | null {
   if (!createdAt) return null;

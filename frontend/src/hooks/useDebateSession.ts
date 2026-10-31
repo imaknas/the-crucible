@@ -8,6 +8,7 @@ import {
   leaveWarning,
   questionMessage,
   restoredDebateStatus,
+  transcriptIncomplete,
   transcriptMessages,
   transcriptReducer,
   type TranscriptEvent,
@@ -22,6 +23,8 @@ import type { Confirm } from "@/hooks/useConfirm";
 import type { PushToast } from "@/hooks/useToasts";
 
 const STORAGE_KEY = "crucible_active_debate";
+const TRANSCRIPT_RETRIES = 3;
+const TRANSCRIPT_RETRY_MS = 600;
 
 export interface DebateStartContext extends RunContext {
   participants: string[];
@@ -319,20 +322,40 @@ export function useDebateSession({
   );
 
   // ─── Loading an existing session ─────────────────────────────
+  // The session whose stored transcript may be applied: a load for any other
+  // (one still in flight when the person switched) is dropped.
+  const adoptingRef = useRef<string | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelRetry = useCallback(() => {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    retryTimerRef.current = null;
+  }, []);
+  useEffect(() => cancelRetry, [cancelRetry]);
   const adoptSession = useCallback((s: DebateSession) => {
+    cancelRetry();
+    adoptingRef.current = s.session_id;
     setRound(s.current_round);
     setMaxRounds(s.termination_policy.max_rounds);
     setStatus(restoredDebateStatus(s.status));
     participantsRef.current = s.participants;
     promptRef.current = s.question ?? "";
-    api
-      .fetchDebateTranscript(s.session_id)
-      .then((t) => {
-        if (!promptRef.current) promptRef.current = t.question;
-        dispatch({ kind: "reset", messages: transcriptMessages(t, s.participants) });
-      })
-      .catch(() => {});
-  }, []);
+    const load = (attempt: number) =>
+      api
+        .fetchDebateTranscript(s.session_id)
+        .then((t) => {
+          if (adoptingRef.current !== s.session_id) return;
+          if (!promptRef.current) promptRef.current = t.question;
+          dispatch({ kind: "reset", messages: transcriptMessages(t, s.participants) });
+          // Read right after a reload, while the backend is still stopping
+          // the run this tab left, a transcript can come back without rounds
+          // the session says were finished; ask again shortly.
+          if (transcriptIncomplete(t, s) && attempt < TRANSCRIPT_RETRIES) {
+            retryTimerRef.current = setTimeout(() => load(attempt + 1), TRANSCRIPT_RETRY_MS);
+          }
+        })
+        .catch(() => {});
+    load(0);
+  }, [cancelRetry]);
 
   // Restore whenever the active session is set by something that didn't load
   // it itself (initial adoption from localStorage). Only for its own thread.
@@ -455,6 +478,8 @@ export function useDebateSession({
 
         // A new debate replaces whatever was on screen.
         closeSocket();
+        cancelRetry();
+        adoptingRef.current = session.session_id;
         restoredRef.current = session.session_id;
         setActiveSessionId(session.session_id);
         fetchTree(session.session_id);
@@ -482,7 +507,7 @@ export function useDebateSession({
         return false;
       }
     },
-    [threadId, confirmLeave, closeSocket, setActiveSessionId, fetchTree, refreshSessions, setShowTree, connect, pushToast],
+    [threadId, confirmLeave, closeSocket, cancelRetry, setActiveSessionId, fetchTree, refreshSessions, setShowTree, connect, pushToast],
   );
 
   const inject = useCallback(
@@ -564,6 +589,8 @@ export function useDebateSession({
 
   const clear = useCallback(() => {
     closeSocket();
+    cancelRetry();
+    adoptingRef.current = null;
     setActiveSessionId(null);
     dispatch({ kind: "reset" });
     setRound(0);
@@ -571,7 +598,7 @@ export function useDebateSession({
     setConvergenceScore(undefined);
     setActiveNode(null);
     clearTree();
-  }, [closeSocket, setActiveSessionId, clearTree]);
+  }, [closeSocket, cancelRetry, setActiveSessionId, clearTree]);
 
   /** The banner's close button: ask if the debate is live, stop it, then drop it. */
   const close = useCallback(async () => {

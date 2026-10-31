@@ -11,7 +11,7 @@ import {
   roundLabel,
   transcriptReducer,
   type Transcript,
-  type TranscriptAction, debateCallEstimate, leaveWarning, sessionAge, transcriptMessages } from "./debateTranscript";
+  type TranscriptAction, debateCallEstimate, transcriptIncomplete, leaveWarning, sessionAge, transcriptMessages } from "./debateTranscript";
 
 const run = (actions: TranscriptAction[], start: Transcript = EMPTY_TRANSCRIPT) =>
   actions.reduce(transcriptReducer, start);
@@ -265,5 +265,15 @@ describe("debateCallEstimate", () => {
       calls: 9,
       breakdown: "2 rounds × 3 models + 2 judge calls + 1 synthesis",
     });
+  });
+});
+
+describe("transcriptIncomplete", () => {
+  const t = (n: number) => ({ question: "Q", rounds: Array.from({ length: n }, (_, round) => ({ round, question: "Q", responses: {} })), synthesis: null });
+  it("flags a transcript missing rounds the session finished", () => {
+    expect(transcriptIncomplete(t(0), { current_round: 1 })).toBe(true);
+    expect(transcriptIncomplete(t(1), { current_round: 1 })).toBe(false);
+    expect(transcriptIncomplete(t(2), { current_round: 1 })).toBe(false);
+    expect(transcriptIncomplete(t(0), { current_round: 0 })).toBe(false);
   });
 });

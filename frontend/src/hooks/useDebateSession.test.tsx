@@ -89,6 +89,10 @@ async function startDebate(result: ReturnType<typeof setup>["result"], sessionId
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Tests that set their own answers must not leak them into the next one.
+  (api.listDebateSessions as jest.Mock).mockReset().mockResolvedValue([]);
+  (api.fetchDebateSession as jest.Mock).mockReset();
+  (api.fetchDebateTranscript as jest.Mock).mockReset().mockResolvedValue({ question: "", rounds: [], synthesis: null });
   localStorage.clear();
   jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
     cb(0);
@@ -419,5 +423,29 @@ describe("useDebateSession", () => {
     act(() => result.current.inject("Consider cost"));
     expect(sockets[0].sent.at(-1)).toEqual({ type: "debate_inject", message: "Consider cost" });
     expect(result.current.messages.at(-1)).toMatchObject({ type: "inject", content: "Consider cost" });
+  });
+
+  it("asks for the transcript again when it comes back without rounds the session finished", async () => {
+    localStorage.setItem("crucible_active_debate", "s7");
+    (api.fetchDebateSession as jest.Mock).mockResolvedValue({
+      session_id: "s7",
+      parent_thread_id: "t1",
+      participants: ["a", "b"],
+      current_round: 1,
+      status: "interrupted",
+      question: "Vim or Emacs?",
+      termination_policy: { max_rounds: 3 },
+    });
+    (api.fetchDebateTranscript as jest.Mock)
+      // Read while the backend was still stopping the run: no rounds yet.
+      .mockResolvedValueOnce({ question: "Vim or Emacs?", rounds: [], synthesis: null })
+      .mockResolvedValueOnce({
+        question: "Vim or Emacs?",
+        rounds: [{ round: 0, question: "Vim or Emacs?", responses: { a: "Vim", b: "Emacs" } }],
+        synthesis: null,
+      });
+    const { result } = setup();
+    await waitFor(() => expect(result.current.messages.map((m) => m.content)).toContain("Emacs"), { timeout: 3000 });
+    expect(result.current.messages.map((m) => m.content)).toContain("Round 1 · independent answers");
   });
 });
