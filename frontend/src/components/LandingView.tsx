@@ -71,7 +71,7 @@ const LandingView: React.FC<LandingViewProps> = ({ onStartNewExperiment, hasAnyK
             sx={{
               display: "inline-flex",
               p: 2,
-              borderRadius: 4,
+              borderRadius: 3,
               mb: 2.5,
               background: isDark
                 ? "linear-gradient(135deg, rgba(37,99,235,0.2), rgba(139,92,246,0.2))"
@@ -185,7 +185,7 @@ const LandingView: React.FC<LandingViewProps> = ({ onStartNewExperiment, hasAnyK
               key={title}
               sx={{
                 p: 3,
-                borderRadius: 4,
+                borderRadius: 3,
                 border: "1px solid",
                 borderColor: "divider",
                 bgcolor: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.6)",

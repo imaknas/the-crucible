@@ -500,7 +500,7 @@ export const MessageBubble = React.memo(
         <Paper
           sx={{
             maxWidth: isUser ? "85%" : "100%",
-            borderRadius: 2.5,
+            borderRadius: 3,
             transition: "all 0.3s",
             p: 2.5,
             border: "1px solid",

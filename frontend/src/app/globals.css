@@ -144,7 +144,7 @@ body::after {
 
 /* React Flow Theming */
 .react-flow__node {
-  border-radius: 16px !important;
+  border-radius: 12px !important; /* RADIUS.lg in theme.ts */
   font-family: inherit !important;
   font-size: 13px !important;
   font-weight: 600 !important;

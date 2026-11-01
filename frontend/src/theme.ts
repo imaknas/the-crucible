@@ -1,6 +1,22 @@
 "use client";
 import { createTheme } from "@mui/material/styles";
 
+/**
+ * Corner radii in px, for values set outside MUI's `sx` (inline styles, React
+ * Flow nodes, globals.css). Inside `sx`, `borderRadius: n` means n ×
+ * `shape.borderRadius` (4px): 1.5 = 6, 2 = 8, 3 = 12, 4 = 16.
+ */
+export const RADIUS = {
+  /** chips, badges */
+  sm: 6,
+  /** buttons, inputs, small controls */
+  md: 8,
+  /** cards, tree nodes, message bubbles */
+  lg: 12,
+  /** the app's outer panels */
+  panel: 16,
+} as const;
+
 const baseTheme = {
   typography: {
     fontFamily: "var(--font-inter), sans-serif",
@@ -22,7 +38,7 @@ const baseTheme = {
     overline: { fontSize: "0.75rem" },
   },
   shape: {
-    borderRadius: 16,
+    borderRadius: 4,
   },
 };
 
@@ -68,7 +84,7 @@ export const darkTheme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 9999, // Pill shape
+          borderRadius: RADIUS.md,
         },
       },
     },
@@ -118,7 +134,7 @@ export const lightTheme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 9999,
+          borderRadius: RADIUS.md,
         },
       },
     },

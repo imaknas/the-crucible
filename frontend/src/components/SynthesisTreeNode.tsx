@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Handle, Position } from "reactflow";
 import { BookOpen, GitBranch, Sparkles, Trash2 } from "lucide-react";
 import { useTheme } from "@mui/material";
+import { RADIUS } from "@/theme";
 
 interface SynthesisNodeData {
   label: string;
@@ -45,7 +46,7 @@ export default function SynthesisTreeNode({
         style={{
           width: 220,
           padding: "14px 16px",
-          borderRadius: 16,
+          borderRadius: RADIUS.lg,
           background: isDark
             ? "linear-gradient(135deg, rgba(109,40,217,0.25), rgba(37,99,235,0.2))"
             : "linear-gradient(135deg, rgba(109,40,217,0.08), rgba(37,99,235,0.06))",
@@ -109,7 +110,7 @@ export default function SynthesisTreeNode({
                 style={{
                   background: "#0f766e",
                   border: "none",
-                  borderRadius: 12,
+                  borderRadius: RADIUS.md,
                   height: 24,
                   padding: "0 8px",
                   cursor: "pointer",
@@ -139,7 +140,7 @@ export default function SynthesisTreeNode({
                 style={{
                   background: "#2563eb",
                   border: "none",
-                  borderRadius: 12,
+                  borderRadius: RADIUS.md,
                   height: 24,
                   padding: "0 8px",
                   cursor: "pointer",

@@ -35,6 +35,7 @@ import { useReplyTarget } from "@/hooks/useReplyTarget";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
 import { reconcileMessages } from "@/lib/messages";
 import { mayLeaveThread } from "@/lib/leaveGuard";
+import { RADIUS } from "@/theme";
 
 /**
  * The app shell. State lives in hooks; this component wires them together and
@@ -404,7 +405,7 @@ export default function Home() {
           minWidth: 0,
           overflow: "hidden",
           // Edge to edge on narrow screens, where the side panels are drawers.
-          borderRadius: { xs: 0, md: "40px" },
+          borderRadius: { xs: 0, md: `${RADIUS.panel}px` },
           mx: { xs: 0, md: 2 },
           bgcolor: "background.paper",
           border: { xs: "none", md: "1px solid" },

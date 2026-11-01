@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Handle, Position, NodeProps, useStore } from "reactflow";
 import { Trash2, Brain, GitBranch, BookOpen } from "lucide-react";
 import { useTheme, Box, Typography } from "@mui/material";
+import { RADIUS } from "@/theme";
 
 export type CustomNodeData = {
   label: string;
@@ -104,7 +105,7 @@ const CustomTreeNode = React.memo(
               alignItems: "center",
               gap: 11,
               padding: "13px 14px",
-              borderRadius: 14,
+              borderRadius: RADIUS.lg,
               background: data.styling?.background,
               boxShadow: data.styling?.boxShadow,
               outline: `1px solid ${accent || (isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.12)")}`,
@@ -175,7 +176,7 @@ const CustomTreeNode = React.memo(
             data.styling?.border ||
             `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
           color: data.styling?.color || (isDark ? "#fff" : "#000"),
-          borderRadius: data.styling?.borderRadius || "16px",
+          borderRadius: data.styling?.borderRadius || `${RADIUS.lg}px`,
           padding: data.styling?.padding || "12px 14px",
           fontSize: data.styling?.fontSize || "13px",
           fontFamily: "Inter, var(--font-geist-sans), sans-serif",
@@ -295,7 +296,7 @@ const CustomTreeNode = React.memo(
                 style={{
                   background: "#0f766e",
                   border: "none",
-                  borderRadius: 12,
+                  borderRadius: RADIUS.md,
                   height: 24,
                   padding: "0 8px",
                   cursor: "pointer",
@@ -325,7 +326,7 @@ const CustomTreeNode = React.memo(
                 style={{
                   background: "#2563eb",
                   border: "none",
-                  borderRadius: 12,
+                  borderRadius: RADIUS.md,
                   height: 24,
                   padding: "0 8px",
                   cursor: "pointer",

@@ -34,6 +34,7 @@ import { searchHistory } from "@/lib/api";
 import type { DebateSession, DebateUiStatus, Thread } from "@/lib/types";
 import { sessionAge, sessionRowStatus } from "@/lib/debateTranscript";
 import { motion, AnimatePresence } from "framer-motion";
+import { RADIUS } from "@/theme";
 
 interface SidebarProps {
   threads: Thread[];
@@ -167,7 +168,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
             alignItems: "center",
             gap: 1.5,
             py: 2.5,
-            borderRadius: "40px",
+            borderRadius: `${RADIUS.panel}px`,
             border: "1px solid",
             borderColor: "divider",
             bgcolor: "background.paper",
@@ -275,7 +276,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                 </InputAdornment>
               ),
               sx: {
-                borderRadius: "12px",
+                borderRadius: `${RADIUS.md}px`,
                 fontSize: "0.75rem",
                 bgcolor: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
                 "& fieldset": { borderColor: "transparent" },
@@ -603,7 +604,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
             position: "relative",
             width: 288,
             flexShrink: 0,
-            borderRadius: "40px",
+            borderRadius: `${RADIUS.panel}px`,
             border: "1px solid",
             borderColor: "divider",
             backgroundColor: "background.paper",

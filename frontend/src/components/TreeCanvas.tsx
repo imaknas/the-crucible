@@ -27,6 +27,7 @@ import type { DebateLane } from "@/lib/types";
 import { FAMILY_COLORS, NEUTRAL_COLOR, modelFamilyColor, modelPalette } from "@/lib/colors";
 import dagre from "dagre";
 import "reactflow/dist/style.css";
+import { RADIUS } from "@/theme";
 
 export interface CustomNode extends Node {
   metadata?: {
@@ -246,7 +247,7 @@ function TreeViewInner({
             border: `1px solid ${isActive ? (isDark ? "#60a5fa" : "#2563eb") : colors.border}`,
             color: isActive ? "#fff" : colors.text,
             width: 220,
-            borderRadius: "14px",
+            borderRadius: `${RADIUS.lg}px`,
             padding: "14px",
             fontSize: "12px",
             lineHeight: "1.4",
@@ -543,7 +544,7 @@ function TreeViewInner({
               style={{
                 backgroundColor: isDark ? "#0f172a" : "#ffffff",
                 border: `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
-                borderRadius: "12px",
+                borderRadius: `${RADIUS.md}px`,
                 overflow: "hidden",
               }}
             >
@@ -570,7 +571,7 @@ function TreeViewInner({
                 style={{
                   background: isDark ? "#0f172a" : "#ffffff",
                   border: `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
-                  borderRadius: "12px",
+                  borderRadius: `${RADIUS.md}px`,
                 }}
                 maskColor={isDark ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
                 nodeColor={(node) => miniMapColor(node, isDark)}

@@ -62,7 +62,7 @@ export const CompareCard = React.memo(function CompareCard({
       aria-busy={card.streaming}
       data-state={card.streaming ? "streaming" : failed ? "failed" : card.stopped ? "stopped" : "done"}
       sx={{
-        borderRadius: 4,
+        borderRadius: 3,
         overflow: "hidden",
         p: 2.5,
         display: "flex",
