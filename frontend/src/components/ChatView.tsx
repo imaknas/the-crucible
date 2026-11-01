@@ -118,6 +118,9 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
     { top: number; isUser: boolean; id: number }[]
   >([]);
   const isScrolledToBottom = useRef(true);
+  // A marker's smooth scroll is under way: until it lands, its first frames
+  // (still near the bottom) must not turn following back on.
+  const jumping = useRef(false);
   const isDark = useTheme().palette.mode === "dark";
   const lastUpdate = useRef(0);
   const lastInnerHeight = useRef(0);
@@ -221,9 +224,22 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
 
   const scrollToMessage = (idx: number) => {
     const el = messageRefs.current[idx];
-    if (el && scrollRef.current) {
+    const scroller = scrollRef.current;
+    if (el && scroller) {
+      const target = Math.min(el.offsetTop, scroller.scrollHeight - scroller.clientHeight);
+      if (Math.abs(target - scroller.scrollTop) < 1) return;
+      // A jump leaves the bottom: stop following new tokens until it lands, or
+      // the next token snaps the view back before the smooth scroll has moved.
+      // Where it lands decides again (a jump to the end resumes following).
+      jumping.current = true;
+      isScrolledToBottom.current = false;
+      // scrollend lands it; this covers browsers without that event (Safari
+      // before 26), where following would otherwise never resume.
+      setTimeout(() => {
+        if (jumping.current) handleScrollEnd();
+      }, 1500);
       // Use offsetTop directly for 1:1 match with marker logic
-      scrollRef.current.scrollTo({
+      scroller.scrollTo({
         top: el.offsetTop,
         behavior: "smooth",
       });
@@ -238,11 +254,17 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   );
 
   const handleScroll = () => {
-    if (scrollRef.current) {
+    if (scrollRef.current && !jumping.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
       // Less than 50px from the bottom means we are effectively at the bottom
       isScrolledToBottom.current = scrollHeight - scrollTop - clientHeight < 50;
     }
+  };
+
+  // The jump has landed (or a scroll the person took over has stopped).
+  const handleScrollEnd = () => {
+    jumping.current = false;
+    handleScroll();
   };
 
   useEffect(() => {
@@ -293,6 +315,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         {/* Scrollable message area */}
         <Box
           onScroll={handleScroll}
+          onScrollEnd={handleScrollEnd}
           ref={scrollRef}
           sx={{
             flex: 1,
