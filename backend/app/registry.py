@@ -37,6 +37,14 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "limit": 100_000,
         "native_search": True,
     },
+    "gpt-6.1-terra": {
+        "family": "openai",
+        "id": "gpt-6.1-terra",
+        "name": "GPT-6.1 Terra",
+        "desc": "Fast",
+        "limit": 100_000,
+        "native_search": True,
+    },
     "gpt-6-sol": {
         "family": "openai",
         "id": "gpt-6-sol",

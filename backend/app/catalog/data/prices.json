@@ -1,6 +1,6 @@
 {
  "_about": "USD per 1M tokens, standard tier, text input, base context tier (all experiment contexts are well below the 200k/272k tiers). Hand-maintained: no provider API exposes prices. cached_input is the cache-hit price. A price with 'until' is replaced by 'after' from the next day.",
- "checked": "2026-10-25",
+ "checked": "2026-11-02",
  "sources": {
   "openai": "https://developers.openai.com/api/docs/pricing",
   "anthropic": "https://platform.claude.com/docs/en/about-claude/pricing",
@@ -8,6 +8,7 @@
  },
  "models": {
   "gpt-6-astra": {"source": "openai", "input": 10.00, "cached_input": 1.00, "output": 50.00},
+  "gpt-6.1-terra": {"source": "openai", "input": 1.00, "cached_input": 0.05, "output": 5.00, "note": "<272K context tier"},
   "gpt-6.1-sol": {"source": "openai", "input": 2.00, "cached_input": 0.10, "output": 10.00, "note": "<272K context tier"},
   "gpt-6-sol": {"source": "openai", "input": 2.00, "cached_input": 0.20, "output": 10.00},
   "gpt-6-luna": {"source": "openai", "input": 0.10, "cached_input": 0.01, "output": 0.50},

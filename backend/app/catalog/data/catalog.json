@@ -1170,68 +1170,74 @@
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-5",
    "id": "gpt-5",
    "input_limit": 272000,
    "output_limit": 128000,
    "provider": "openai",
    "released": "2025-08-05",
-   "shutdown_date": null,
+   "shutdown_date": "2026-12-11",
    "sources": {
     "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5",
     "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5"
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-02",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-5-mini",
    "id": "gpt-5-mini",
    "input_limit": 272000,
    "output_limit": 128000,
    "provider": "openai",
    "released": "2025-08-05",
-   "shutdown_date": null,
+   "shutdown_date": "2026-12-11",
    "sources": {
     "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5-mini",
     "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5-mini"
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-02",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-5-nano",
    "id": "gpt-5-nano",
    "input_limit": 272000,
    "output_limit": 128000,
    "provider": "openai",
    "released": "2025-08-05",
-   "shutdown_date": null,
+   "shutdown_date": "2026-12-11",
    "sources": {
     "input_limit": "openai docs (400,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-5-nano",
     "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5-nano"
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-02",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
   },
@@ -1245,16 +1251,16 @@
    "output_limit": 272000,
    "provider": "openai",
    "released": "2025-10-03",
-   "shutdown_date": null,
+   "shutdown_date": "2026-12-11",
    "sources": {
     "input_limit": "openai docs (400,000 context window − 272,000 max output): https://developers.openai.com/api/docs/models/gpt-5-pro",
     "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-5-pro"
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-02",
     "chat_ok": true,
-    "error": "web search: HTTP 429: Rate limit reached for gpt-5-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 382774, Requested 24000. Please try again in 1.016s. Visit https://platform.openai.com/account/rate-l",
+    "error": "web search: HTTP 429: Rate limit reached for gpt-5-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 378194, Requested 30628. Please try again in 1.323s. Visit https://platform.openai.com/account/rate-l",
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -1322,9 +1328,9 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-02",
     "chat_ok": true,
-    "error": "web search: HTTP 429: Rate limit reached for gpt-5.2-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 378570, Requested 30070. Please try again in 1.296s. Visit https://platform.openai.com/account/rate",
+    "error": "web search: HTTP 429: Rate limit reached for gpt-5.2-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 391180, Requested 51981. Please try again in 6.474s. Visit https://platform.openai.com/account/rate",
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -1414,9 +1420,9 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-02",
     "chat_ok": true,
-    "error": "web search: HTTP 429: Rate limit reached for gpt-5.4-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 389144, Requested 18329. Please try again in 1.12s. Visit https://platform.openai.com/account/rate-",
+    "error": "web search: timed out (ReadTimeout)",
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -1627,6 +1633,30 @@
    "capabilities": {
     "api": "chat_completions"
    },
+   "display_name": "gpt-6.1-terra",
+   "id": "gpt-6.1-terra",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-10-13",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-6.1-terra",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-6.1-terra"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-02",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-11-02",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "o1",
    "id": "o1",
    "input_limit": 100000,
@@ -1672,24 +1702,26 @@
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "o3",
    "id": "o3",
    "input_limit": 100000,
    "output_limit": 100000,
    "provider": "openai",
    "released": "2025-04-09",
-   "shutdown_date": null,
+   "shutdown_date": "2026-12-11",
    "sources": {
     "input_limit": "openai docs (200,000 context window − 100,000 max output): https://developers.openai.com/api/docs/models/o3",
     "output_limit": "openai docs: https://developers.openai.com/api/docs/models/o3"
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-02",
     "chat_ok": true,
     "error": null,
-    "web_search_checked": "2026-09-26",
+    "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
   },
@@ -1740,5 +1772,5 @@
    }
   }
  ],
- "synced": "2026-10-25"
+ "synced": "2026-11-02"
 }
