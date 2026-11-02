@@ -291,6 +291,101 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.getByText("2 models", { exact: true })).toBeVisible();
   });
 
+  test("a model added to a finished turn answers as one more card, and nobody else is asked again", async ({
+    page,
+    request,
+  }) => {
+    const sent: { model?: string; message?: string; join_turn?: string }[] = [];
+    page.on("websocket", (ws) => {
+      if (!/\/ws\/thread/.test(ws.url())) return;
+      ws.on("framesent", (f) => {
+        try {
+          sent.push(JSON.parse(String(f.payload)));
+        } catch {}
+      });
+    });
+    await newSession(page);
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    const idle = () => expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    // One model: a bubble, which takes another model.
+    await send(page, "Name a colour");
+    await expect(page.getByText(answerFrom(GPT)).first()).toBeVisible();
+    await idle();
+    await expect(page.getByRole("article")).toHaveCount(0);
+    await page.getByRole("button", { name: "Add a model" }).click();
+    const menu = page.getByRole("menu", { name: "Model to add to this turn" });
+    // Display names only, and never the model already in the turn.
+    await expect(menu.getByRole("menuitem", { name: "GPT-6.1 Sol" })).toHaveCount(0);
+    await menu.getByRole("menuitem", { name: "Claude Sonnet 5.5" }).click();
+
+    // The bubble becomes the turn's first card; Claude streams in beside it.
+    await expect(page.getByRole("article", { name: "Claude Sonnet 5.5's answer" })).toContainText(answerFrom(CLAUDE));
+    await expect(page.getByRole("article")).toHaveCount(2);
+    await idle();
+    expect(sent.filter((f) => f.join_turn).map((f) => f.model)).toEqual([CLAUDE]);
+    expect(sent.filter((f) => f.message === "Name a colour").map((f) => f.model)).toEqual([GPT]);
+    // Nothing was chosen: the next message still continues the latest turn.
+    await expect(page.getByTestId("branch-chip")).toContainText("Continuing the latest turn");
+    await expect(page.getByTestId("next-here")).toHaveCount(0);
+
+    // And a third, from the cards.
+    await page.getByRole("button", { name: "Add a model" }).click();
+    const third = page.getByRole("menu", { name: "Model to add to this turn" }).getByRole("menuitem").first();
+    const thirdId = await third.getAttribute("title");
+    await third.click();
+    await expect(page.getByRole("article")).toHaveCount(3);
+    await expect(page.getByText(answerFrom(thirdId!)).first()).toBeVisible();
+    await idle();
+
+    // One question, three answers of one turn.
+    const tree = await (await request.get(`${BACKEND_URL}/history/${await currentThreadId(page)}`)).json();
+    type N = { id: string; metadata?: { role?: string; turn_id?: string; active_peer?: string } };
+    const replies = tree.nodes.filter((n: N) => n.metadata?.role === "ai");
+    expect(replies.map((n: N) => n.metadata?.active_peer).sort()).toEqual([CLAUDE, GPT, thirdId].sort());
+    expect(new Set(replies.map((n: N) => n.metadata?.turn_id)).size).toBe(1);
+    expect(tree.nodes.filter((n: N) => n.metadata?.role === "user")).toHaveLength(1);
+  });
+
+  test("the reply the next message continues is marked, and everyone can continue from it", async ({ page }) => {
+    const sent: { model?: string; message?: string; parent_checkpoint_id?: string | null }[] = [];
+    page.on("websocket", (ws) => {
+      if (!/\/ws\/thread/.test(ws.url())) return;
+      ws.on("framesent", (f) => {
+        try {
+          sent.push(JSON.parse(String(f.payload)));
+        } catch {}
+      });
+    });
+    await newSession(page);
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    const idle = () => expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    await send(page, "First question");
+    await expect(page.getByRole("article")).toHaveCount(2);
+    await idle();
+    // The latest turn: each model continues its own reply, so no card claims the next message.
+    await expect(page.getByTestId("next-here")).toHaveCount(0);
+
+    const claude = page.getByRole("article", { name: "Claude Sonnet 5.5's answer" });
+    await claude.getByRole("button", { name: "Everyone continues from here" }).click();
+    await expect(claude.getByTestId("next-here")).toHaveText("Next message continues here");
+    await expect(page.getByTestId("next-here")).toHaveCount(1);
+    await expect(page.getByTestId("branch-chip")).toContainText("All 2 answer");
+
+    await send(page, "Both of you, go on");
+    await expect.poll(() => sent.filter((f) => f.message === "Both of you, go on").length).toBe(2);
+    const frames = sent.filter((f) => f.message === "Both of you, go on");
+    expect(frames.map((f) => f.model).sort()).toEqual([CLAUDE, GPT].sort());
+    // Both continue Claude's reply.
+    expect(new Set(frames.map((f) => f.parent_checkpoint_id)).size).toBe(1);
+    expect(frames[0].parent_checkpoint_id).toBeTruthy();
+    await idle();
+    // The turn settled: back to the latest turn, nothing marked.
+    await expect(page.getByTestId("next-here")).toHaveCount(0);
+  });
+
   test("a new session appears in the sidebar under its title without a reload", async ({ page }) => {
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     const title = `Sidebar title check ${Date.now() % 100000}`;
