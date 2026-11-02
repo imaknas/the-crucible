@@ -764,6 +764,61 @@ async def get_thread_tree(thread_id: str, excerpt_chars: int = 300) -> Dict[str,
 
 @mcp.tool()
 @_quiet
+async def label_node(
+    thread_id: str, node_id: str, name: Optional[str] = None, bookmarked: Optional[bool] = None
+) -> Dict[str, Any]:
+    """Name a node's branch and/or bookmark it; get_thread_tree shows both.
+
+    Returns {thread_id, node_id, name, bookmarked}.
+
+    Args:
+        thread_id: The thread.
+        node_id: The node (a checkpoint id from get_thread_tree).
+        name: The branch name (at most 80 characters); an empty string clears it. Omit to keep it.
+        bookmarked: True to bookmark, False to remove the bookmark. Omit to keep it.
+    """
+    from app.services import subtree
+
+    if name is None and bookmarked is None:
+        raise ToolError("Give a name and/or bookmarked.")
+    async with arena_svc.open_graph() as graph_app:
+        try:
+            return await subtree.label_node(graph_app, thread_id, node_id, name=name, bookmarked=bookmarked)
+        except ValueError as e:
+            raise _tool_error(e)
+
+
+@mcp.tool()
+@_quiet
+async def summarize_subtree(
+    thread_id: str, node_id: str, model: Optional[str] = None, clear: bool = False
+) -> Dict[str, Any]:
+    """Summarize a node and everything that branches from it, stored on the
+    node (get_thread_tree shows it as subtree_summary). One summarizer call;
+    nothing is added to the conversation.
+
+    Returns {thread_id, node_id, summary, model, nodes} (summary null after clear).
+
+    Args:
+        thread_id: The thread.
+        node_id: The node whose subtree to summarize (a checkpoint id from get_thread_tree).
+        model: The model that writes it. Default: the app's summarizer.
+        clear: Forget the node's summary instead.
+    """
+    from app.services import subtree
+
+    async with arena_svc.open_graph() as graph_app:
+        try:
+            if clear:
+                await subtree.clear_subtree_summary(graph_app, thread_id, node_id)
+                return {"thread_id": thread_id, "node_id": node_id, "summary": None, "model": None, "nodes": None}
+            return await subtree.summarize_subtree(graph_app, thread_id, node_id, model=model)
+        except ValueError as e:
+            raise _tool_error(e)
+
+
+@mcp.tool()
+@_quiet
 async def get_thread_context(
     thread_id: str, checkpoint_id: Optional[str] = None, models: Optional[List[str]] = None
 ) -> Dict[str, Any]:

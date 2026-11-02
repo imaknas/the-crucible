@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from app.core import database as db
-from app.services import history
+from app.services import history, subtree
 from app.api.deps import get_graph_app
 
 router = APIRouter(prefix="/history", tags=["history"])
@@ -35,6 +35,48 @@ async def get_context(
         return await history.context_report(graph_app, thread_id, checkpoint_id, models)
     except ValueError as e:
         raise HTTPException(404 if "not found" in str(e) else 400, str(e))
+
+
+class NodeLabel(BaseModel):
+    name: Optional[str] = None
+    bookmarked: Optional[bool] = None
+
+
+class SubtreeSummaryRequest(BaseModel):
+    model: Optional[str] = None
+
+
+def _http_error(e: ValueError) -> HTTPException:
+    return HTTPException(404 if "not found" in str(e) else 400, str(e))
+
+
+@router.patch("/{thread_id}/nodes/{node_id}")
+async def label_node(thread_id: str, node_id: str, body: NodeLabel, graph_app=Depends(get_graph_app)):
+    """Name a node's branch and/or bookmark it (subtree.label_node)."""
+    try:
+        return await subtree.label_node(graph_app, thread_id, node_id, name=body.name, bookmarked=body.bookmarked)
+    except ValueError as e:
+        raise _http_error(e)
+
+
+@router.post("/{thread_id}/nodes/{node_id}/summary")
+async def summarize_subtree(
+    thread_id: str, node_id: str, body: SubtreeSummaryRequest, graph_app=Depends(get_graph_app)
+):
+    """Summarize the node and everything below it, stored on the node."""
+    try:
+        return await subtree.summarize_subtree(graph_app, thread_id, node_id, model=body.model)
+    except ValueError as e:
+        raise _http_error(e)
+
+
+@router.delete("/{thread_id}/nodes/{node_id}/summary")
+async def clear_subtree_summary(thread_id: str, node_id: str, graph_app=Depends(get_graph_app)):
+    try:
+        await subtree.clear_subtree_summary(graph_app, thread_id, node_id)
+    except ValueError as e:
+        raise _http_error(e)
+    return {"status": "ok"}
 
 
 @router.post("/{thread_id}/positions")

@@ -1149,6 +1149,85 @@ def messages(
 
 
 @app.command()
+def node(
+    checkpoint: str = typer.Argument(..., help="The node (a checkpoint id from `crucible tree`)."),
+    thread: str = typer.Option(..., "--thread", "-t", help="Thread the node is on."),
+    name: Optional[str] = typer.Option(None, "--name", help="Name its branch (an empty string clears the name)."),
+    bookmark: Optional[bool] = typer.Option(None, "--bookmark/--no-bookmark", help="Bookmark it, or remove the bookmark."),
+    format_output: str = _opt_format(),
+):
+    """Name a node's branch or bookmark it; `crucible tree` shows both."""
+    from app.cli_display import print_error, print_success
+
+    as_json = _check_format(format_output)
+    if name is None and bookmark is None:
+        print_error("Give --name and/or --bookmark/--no-bookmark.")
+        raise typer.Exit(2)
+    _load_env()
+
+    async def run():
+        from app.services import subtree
+        from app.services.arena import open_graph
+
+        async with open_graph() as graph_app:
+            return await subtree.label_node(graph_app, thread, checkpoint, name=name, bookmarked=bookmark)
+
+    note = _run(run(), as_json)
+    if as_json:
+        _emit_json(note)
+        return
+    from rich.markup import escape
+
+    print_success(
+        f"{escape(checkpoint)}: name {escape(note['name']) if note['name'] else '(none)'}, "
+        f"{'bookmarked' if note['bookmarked'] else 'not bookmarked'}."
+    )
+
+
+@app.command("summarize-branch")
+def summarize_branch(
+    checkpoint: str = typer.Argument(..., help="The node whose subtree to summarize (a checkpoint id)."),
+    thread: str = typer.Option(..., "--thread", "-t", help="Thread the node is on."),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Model that writes it (default: the summarizer)."),
+    clear: bool = typer.Option(False, "--clear", help="Forget the node's subtree summary instead."),
+    format_output: str = _opt_format(),
+):
+    """Summarize a node and everything that branches from it, stored on the
+    node (the web UI shows it on a collapsed subtree). Nothing is added to
+    the conversation."""
+    from app.cli_display import print_error, print_success
+
+    as_json = _check_format(format_output)
+    if clear and model:
+        print_error("--clear takes no --model.")
+        raise typer.Exit(2)
+    _load_env()
+
+    async def run():
+        from app.services import subtree
+        from app.services.arena import open_graph
+
+        async with open_graph() as graph_app:
+            if clear:
+                await subtree.clear_subtree_summary(graph_app, thread, checkpoint)
+                return None
+            return await subtree.summarize_subtree(graph_app, thread, checkpoint, model=model)
+
+    result = _run(run(), as_json)
+    if as_json:
+        _emit_json(result or {"thread_id": thread, "node_id": checkpoint, "summary": None})
+        return
+    if result is None:
+        print_success("Summary removed.")
+        return
+    from rich.markdown import Markdown
+    from app.registry import display_name
+
+    console.rule(f"[dim]{result['nodes']} messages, by {display_name(result['model'])}[/dim]")
+    console.print(Markdown(result["summary"]))
+
+
+@app.command()
 def context(
     thread: str = typer.Option(..., "--thread", "-t", help="Thread to measure."),
     at: Optional[str] = typer.Option(None, "--at", help="Branch point to measure from (default: the latest answer)."),

@@ -626,6 +626,22 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
     return list(reversed(path_messages))
 
 
+def apply_node_notes(nodes: List[Dict], notes: Dict[str, Dict]) -> None:
+    """What the person wrote on each node (core/database node_notes), in its
+    metadata: ``name``, ``bookmarked``, and ``subtree_summary`` {text, model,
+    nodes} once its subtree was summarized. Every node carries the keys."""
+    for node in nodes:
+        note = notes.get(node["id"]) or {}
+        meta = node.setdefault("metadata", {})
+        meta["name"] = note.get("name")
+        meta["bookmarked"] = bool(note.get("bookmarked"))
+        meta["subtree_summary"] = (
+            {"text": note["summary"], "model": note.get("summary_model"), "nodes": note.get("summary_nodes")}
+            if note.get("summary")
+            else None
+        )
+
+
 def summary_entry(msg, checkpoint_id: Optional[str]) -> Dict[str, Any]:
     """A summary on a path, as the transcript shows it: its text without the
     marker it starts with."""
@@ -931,6 +947,7 @@ def build_history_tree(
     nodes, edges = build_graph_layout(
         id_to_vis, roots, child_map, state_map, significant_ids, saved_positions
     )
+    apply_node_notes(nodes, db.load_node_notes(thread_id))
 
     # NEW: Reconstruct history from graph path
     active_id = active_state.config.get("configurable", {}).get("checkpoint_id")

@@ -92,6 +92,23 @@ def init_db():
         )
     """)
 
+    # What a person wrote on a tree node: a branch name, a bookmark, and the
+    # summary of the subtree below it (services/subtree.py). Keyed by the
+    # node's checkpoint id; never part of the conversation itself.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS node_notes (
+            thread_id TEXT NOT NULL,
+            node_id TEXT NOT NULL,
+            name TEXT,
+            bookmarked INTEGER NOT NULL DEFAULT 0,
+            summary TEXT,
+            summary_model TEXT,
+            summary_nodes INTEGER,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (thread_id, node_id)
+        )
+    """)
+
     # Backfill: ensure all debate parent threads appear in thread_metadata.
     # The row only lists the thread; its title stays NULL ("untitled") so the
     # debate can still name it. A placeholder title equal to the thread id read
@@ -328,6 +345,53 @@ def _purge_thread_rows(conn, thread_id: str) -> None:
     conn.execute("DELETE FROM thread_metadata WHERE thread_id = ?", (thread_id,))
     conn.execute("DELETE FROM thread_documents WHERE thread_id = ?", (thread_id,))
     conn.execute("DELETE FROM answer_reviews WHERE thread_id = ?", (thread_id,))
+    conn.execute("DELETE FROM node_notes WHERE thread_id = ?", (thread_id,))
+
+
+NOTE_FIELDS = ("name", "bookmarked", "summary", "summary_model", "summary_nodes")
+
+
+def save_node_note(thread_id: str, node_id: str, **fields: Any) -> Optional[dict]:
+    """Change some of a node's notes (``NOTE_FIELDS``), keeping the others;
+    a node left with none loses its row. Returns the node's notes, or None.
+    Blocking: call from async code through asyncio.to_thread."""
+    unknown = set(fields) - set(NOTE_FIELDS)
+    if unknown:
+        raise ValueError(f"Unknown node note field(s): {', '.join(sorted(unknown))}")
+    conn = get_db_connection()
+    try:
+        row = conn.execute(
+            f"SELECT {', '.join(NOTE_FIELDS)} FROM node_notes WHERE thread_id = ? AND node_id = ?",
+            (thread_id, node_id),
+        ).fetchone()
+        note = dict(zip(NOTE_FIELDS, row)) if row else {f: None for f in NOTE_FIELDS}
+        note.update(fields)
+        note["bookmarked"] = bool(note["bookmarked"])
+        if not (note["name"] or note["bookmarked"] or note["summary"]):
+            conn.execute("DELETE FROM node_notes WHERE thread_id = ? AND node_id = ?", (thread_id, node_id))
+            conn.commit()
+            return None
+        conn.execute(
+            f"INSERT OR REPLACE INTO node_notes (thread_id, node_id, {', '.join(NOTE_FIELDS)}, updated_at) "
+            f"VALUES (?, ?, {', '.join('?' for _ in NOTE_FIELDS)}, CURRENT_TIMESTAMP)",
+            (thread_id, node_id, *(int(note[f]) if f == "bookmarked" else note[f] for f in NOTE_FIELDS)),
+        )
+        conn.commit()
+        return note
+    finally:
+        conn.close()
+
+
+def load_node_notes(thread_id: str) -> dict[str, dict]:
+    """Every node's notes on a thread, by node id."""
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            f"SELECT node_id, {', '.join(NOTE_FIELDS)} FROM node_notes WHERE thread_id = ?", (thread_id,)
+        ).fetchall()
+    finally:
+        conn.close()
+    return {r[0]: {**dict(zip(NOTE_FIELDS, r[1:])), "bookmarked": bool(r[2])} for r in rows}
 
 
 def save_answer_review(thread_id: str, review_key: str, data: dict) -> None:
@@ -658,7 +722,7 @@ def delete_thread_data(thread_id):
         # Sub-threads are namespaced "{thread_id}::…". Compared by prefix
         # rather than LIKE because thread ids contain "_", a LIKE wildcard.
         prefix = f"{thread_id}::"
-        for table in ("checkpoints", "writes", "node_positions", "thread_metadata", "thread_documents"):
+        for table in ("checkpoints", "writes", "node_positions", "thread_metadata", "thread_documents", "node_notes"):
             conn.execute(
                 f"DELETE FROM {table} WHERE substr(thread_id, 1, ?) = ?",
                 (len(prefix), prefix),
@@ -685,6 +749,10 @@ def delete_checkpoint_data(thread_id, checkpoint_ids):
             )
             conn.execute(
                 "DELETE FROM node_positions WHERE thread_id = ? AND node_id = ?",
+                (thread_id, cid),
+            )
+            conn.execute(
+                "DELETE FROM node_notes WHERE thread_id = ? AND node_id = ?",
                 (thread_id, cid),
             )
         conn.commit()

@@ -191,7 +191,12 @@ def render_ascii_tree(
 
         # The checkpoint id is what --from, delete-branch and synthesize
         # --answers take.
-        text = Text(f"{label}{marker}", style=style)
+        text = Text()
+        if meta.get("bookmarked"):
+            text.append("★ ", style="yellow")
+        if meta.get("name"):
+            text.append(f"«{meta['name']}» ", style="bold")
+        text.append(f"{label}{marker}", style=style)
         text.append(f"  {node_id}", style="dim")
         branch = parent_tree.add(text)
 
