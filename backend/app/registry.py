@@ -304,6 +304,12 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
 # 2026-12-01 and has half the output limit.
 DEFAULT_MODEL = "gpt-6.1-sol"
 DEFAULT_ARENA_MODELS = ["gpt-6.1-sol", "claude-sonnet-5-5", "gemini-3.1-pro-preview"]
+# Who writes a debate's argument map when the session names no one: the first
+# of these with a key whose family isn't debating (debate.default_synthesizer).
+# Kept apart from DEFAULT_ARENA_MODELS on purpose: a referee is useful only
+# from a family that isn't debating, so this list wants one more family than
+# the default debate has (xAI's model joins it once the catalog verifies one).
+REFEREE_MODELS = [*DEFAULT_ARENA_MODELS]
 # Models used to summarise history when the context limit is hit: the first
 # offered one with an API key wins (a run may name another). Chosen with
 # recall on, as the app runs (experiments/NOTES.md, pilot 22): gpt-6-luna was

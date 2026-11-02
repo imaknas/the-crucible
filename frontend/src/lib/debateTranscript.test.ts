@@ -265,8 +265,8 @@ describe("debateCallEstimate", () => {
       breakdown: "3 rounds × 2 models",
     });
     expect(debateCallEstimate({ rounds: 2, participants: 3, judge: true, synthesize: true })).toEqual({
-      calls: 11,
-      breakdown: "2 rounds × 3 models + 4 judge calls + 1 synthesis",
+      calls: 13,
+      breakdown: "2 rounds × 3 models + 6 judge calls + 1 synthesis",
     });
   });
 });

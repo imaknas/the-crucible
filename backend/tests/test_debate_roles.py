@@ -99,3 +99,37 @@ def test_a_verdict_both_orders_agree_on_stands(answer, converged):
     verdict = asyncio.run(_judge(Steady()).evaluate({}, {GPT: "a", CLAUDE: "b"}))
     assert verdict.converged is converged
     assert "error" not in verdict.reason.lower()
+
+
+class _MiddleFavouringJudge:
+    """Says yes only when Participant B's answer sits in the middle of three:
+    reversing the order would keep it there; rotating doesn't."""
+
+    def __init__(self):
+        self.prompts = []
+
+    def invoke(self, messages):
+        prompt = messages[0].content
+        self.prompts.append(prompt)
+        order = sorted(["A", "B", "C"], key=lambda x: prompt.index(f"[Participant {x}]"))
+        return AIMessage(content="CONVERGED: yes, fine" if order[1] == "B" else "CONVERGED: no, apart")
+
+
+def test_with_three_answers_every_answer_takes_every_position():
+    model = _MiddleFavouringJudge()
+    peers = AnonymousPeers("s", [GPT, CLAUDE, GEMINI])
+    judge = JudgeCheck(GEMINI, peers, factory=CallableModelFactory(lambda _id, _t: model))
+    verdict = asyncio.run(judge.evaluate({}, {GPT: "x", CLAUDE: "y", GEMINI: "z"}))
+    assert not verdict.converged
+    assert len(model.prompts) == 3
+    firsts = {p[p.index("[Participant"):][:14] for p in model.prompts}
+    assert len(firsts) == 3  # each participant led one reading
+
+
+def test_the_referee_list_is_its_own_list():
+    """The referee shortlist is kept apart from the default debate, which it
+    has to outnumber by a family to ever find an outsider."""
+    from app.registry import DEFAULT_ARENA_MODELS, REFEREE_MODELS
+
+    assert REFEREE_MODELS is not DEFAULT_ARENA_MODELS
+    assert set(DEFAULT_ARENA_MODELS) <= set(REFEREE_MODELS)

@@ -129,9 +129,12 @@ class JudgeCheck:
 
     The judge reads the answers labelled as the debate's `peers` label them,
     so with anonymous peers it judges positions, not which models hold them.
-    It reads them twice, in label order and reversed, and only agreement in
-    both counts: LLM judges have a systematic position bias, and a verdict
-    that flips with the order is the order speaking, not the answers.
+    It reads them once per participant, rotating the order so that every
+    answer takes every position once (A B C, B C A, C A B), and only
+    agreement in every reading counts: LLM judges have a systematic position
+    bias, a verdict that changes with the order is the order speaking, not the
+    answers, and merely reversing the order would leave a middle answer in
+    the middle both times.
     """
 
     def __init__(self, judge_model: str, peers: PeerPresentation, factory=None, timeout: float = 30.0):
@@ -140,10 +143,9 @@ class JudgeCheck:
         self._factory = factory
         self.timeout = timeout
 
-    def _prompt(self, current: Responses, reverse: bool = False) -> str:
+    def _prompt(self, current: Responses, shift: int = 0) -> str:
         answers = labelled(self.peers, current)
-        if reverse:
-            answers = answers[::-1]
+        answers = answers[shift:] + answers[:shift]
         summaries = "\n\n".join(f"[{label}]:\n{content}" for label, content in answers)
         return (
             "You are evaluating whether multiple AI models have reached a substantive consensus.\n\n"
@@ -172,21 +174,23 @@ class JudgeCheck:
             llm = (self._factory or default_model_factory()).chat(self.judge_model, {})
             loop = asyncio.get_running_loop()
 
-            async def ask(reverse: bool) -> tuple[bool, str]:
-                prompt = self._prompt(current, reverse)
+            async def ask(shift: int) -> tuple[bool, str]:
+                prompt = self._prompt(current, shift)
                 response = await loop.run_in_executor(None, llm.invoke, [HumanMessage(content=prompt)])
                 text = extract_text(response.content).strip()
                 return text.upper().startswith("CONVERGED: YES"), (text.split(",", 1)[1].strip() if "," in text else text)
 
-            (forward, why), (backward, why_reversed) = await asyncio.wait_for(
-                asyncio.gather(ask(False), ask(True)), timeout=self.timeout
+            readings = await asyncio.wait_for(
+                asyncio.gather(*(ask(shift) for shift in range(max(len(current), 1)))), timeout=self.timeout
             )
-            if forward == backward:
-                return Verdict(converged=forward, method="judge", reason=why)
+            agreed = [ok for ok, _ in readings]
+            if all(agreed) or not any(agreed):
+                return Verdict(converged=agreed[0], method="judge", reason=readings[0][1])
+            dissent = next(why for ok, why in readings if not ok)
             return Verdict(
                 converged=False,
                 method="judge",
-                reason=f"The judge's verdict changed with the order of the answers, so it doesn't count: {why if forward else why_reversed}",
+                reason=f"The judge's verdict changed with the order of the answers, so it doesn't count: {dissent}",
             )
         except asyncio.TimeoutError:
             return Verdict(converged=False, method="judge", reason="Judge timed out")

@@ -218,6 +218,10 @@ export default function Home() {
     continueDebate,
   } = debate;
   const debateLanes = debate.tree.lanes;
+  const debateWarnings = useMemo(
+    () => debate.sessions.find((s) => s.session_id === debate.activeSessionId)?.warnings ?? [],
+    [debate.sessions, debate.activeSessionId],
+  );
   const synthesizerModel = debateDefaults.synthesizer_model;
   const debateBanner: DebateBannerProps | null = useMemo(
     () =>
@@ -229,6 +233,7 @@ export default function Home() {
               status: debateStatus,
               convergenceScore,
               legend: peerLegend(debateLanes),
+              warnings: debateWarnings,
             },
             onClose: closeDebate,
             onSynthesize: debateCtl.synthesize
@@ -246,6 +251,7 @@ export default function Home() {
       debateStatus,
       convergenceScore,
       debateLanes,
+      debateWarnings,
       closeDebate,
       debateCtl,
       synthesizeDebate,

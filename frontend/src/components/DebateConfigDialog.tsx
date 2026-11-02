@@ -257,7 +257,7 @@ export default function DebateConfigDialog({
 
           {/* LLM Judge */}
           <Setting
-            help="A model reads each round's answers by participant label, twice in opposite orders, and stops the debate once both readings find they agree. Agreement reached by debating isn't evidence by itself."
+            help="A model reads each round's answers by participant label, once per participant with the order rotated so each answer takes each position, and stops the debate once every reading finds they agree. Agreement reached by debating isn't evidence by itself."
             helpId="debate-judge-help"
             warning={debatingRoleWarning(config.llm_judge, participants, "judge")}
           >

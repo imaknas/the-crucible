@@ -22,7 +22,7 @@ from uuid import uuid4
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from app.registry import DEFAULT_ARENA_MODELS, MODEL_REGISTRY, display_name
+from app.registry import MODEL_REGISTRY, REFEREE_MODELS, display_name
 from app.core import database as db
 from app.services.convergence import build_convergence_check
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
@@ -144,12 +144,12 @@ def check_session_config(
 
 def default_synthesizer(
     participants: Sequence[str],
-    candidates: Sequence[str] = DEFAULT_ARENA_MODELS,
+    candidates: Sequence[str] = REFEREE_MODELS,
     env: Mapping[str, str] = os.environ,
 ) -> str:
     """Who writes the argument map when a session names no one: the first
-    of `candidates` (one model per family) whose family isn't debating and
-    whose key is set, else the first participant.
+    of `candidates` (registry REFEREE_MODELS, one per family) whose family
+    isn't debating and whose key is set, else the first participant.
 
     A participant would read its own arguments among the others', and models
     favour text they recognise as their own. With one model per family

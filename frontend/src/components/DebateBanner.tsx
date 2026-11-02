@@ -11,6 +11,8 @@ export interface DebateBannerState {
   convergenceScore?: number;
   /** Which model each anonymous "Participant X" is; empty for named debates. */
   legend?: PeerLegendEntry[];
+  /** The session's warnings (a judge or synthesizer that is also debating). */
+  warnings?: string[];
 }
 
 const DEBATE_STATUS_STYLE: Record<DebateUiStatus, { bg: string; fg: string }> = {
@@ -132,6 +134,15 @@ export default function DebateBanner({
         </Box>
       )}
       <Box sx={{ flex: 1 }} />
+      {state.warnings && state.warnings.length > 0 && (
+        <Typography
+          variant="caption"
+          role="note"
+          sx={{ flexBasis: "100%", order: 99, color: "text.primary", fontSize: "0.75rem", pl: 1, borderLeft: "2px solid", borderColor: "warning.main" }}
+        >
+          {state.warnings.join(" ")}
+        </Typography>
+      )}
       {(onPause || onResume) && (
         <ButtonBase
           onClick={onPause ?? onResume}

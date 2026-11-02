@@ -229,8 +229,9 @@ export function debateCallEstimate(opts: {
   synthesize: boolean;
 }): { calls: number; breakdown: string } {
   const answers = opts.rounds * opts.participants;
-  // The judge reads every round twice, in both orders (JudgeCheck).
-  const judge = opts.judge ? opts.rounds * 2 : 0;
+  // The judge reads every round once per participant, each answer in each
+  // position once (JudgeCheck).
+  const judge = opts.judge ? opts.rounds * opts.participants : 0;
   const synthesis = opts.synthesize ? 1 : 0;
   const parts = [`${opts.rounds} ${opts.rounds === 1 ? "round" : "rounds"} × ${opts.participants} models`];
   if (judge) parts.push(`${judge} judge ${judge === 1 ? "call" : "calls"}`);
