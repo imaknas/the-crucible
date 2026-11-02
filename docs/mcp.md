@@ -37,6 +37,7 @@ Everything the web UI does to a conversation is a tool, except writing API keys 
 | `get_thread_tree` | The conversation tree: every node with its checkpoint id, parent, model, kind and turn |
 | `get_thread_messages` | Read one path of a thread; pass a `checkpoint_id` to read one model's branch |
 | `search_thread` | Find messages on every branch of a thread |
+| `diff_answers` | What differs between two replies (by checkpoint id): sentences, then words inside a changed sentence; code and JSON line by line. Returns the rows in reading order, per-kind counts and a one-line summary |
 | `delete_branch` | Delete a node and everything below it |
 | `get_branch_answers` | The latest answer on every branch of a thread |
 | `get_thread_status`, `get_thread_summary` | A thread's title, latest model and message count, latest answer and context summary |

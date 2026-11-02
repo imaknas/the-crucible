@@ -50,9 +50,12 @@ uv run crucible threads                                            # --rename <i
 uv run crucible tree --thread <thread_id>                          # each node's checkpoint id; --open shows it in the web UI
 uv run crucible messages --thread <thread_id> --at <checkpoint>    # one path, as the chat view shows it
 uv run crucible search "keyword" --thread <thread_id>              # every branch
+uv run crucible diff <checkpoint_a> <checkpoint_b> --thread <thread_id>   # what differs between two answers
 uv run crucible delete-branch <checkpoint> --thread <thread_id>    # a node and everything below it
 uv run crucible upload notes.pdf --thread <thread_id>              # for --rag; --list shows what is kept
 ```
+
+`diff` compares two replies sentence by sentence and, inside a changed sentence, word by word; code and JSON line by line (JSON with sorted keys, so key order and whitespace don't count). Markdown formatting is ignored. A's lines start with `−`, B's with `+`; removed words are struck through and added ones underlined. It prints a summary ("12 sentences the same, 3 changed, 2 only in A, 1 only in B") and counts the sentences both share (`--unchanged` prints them). `--format json` gives the rows, the counts and `summary_text`.
 
 Every command accepts `--format json`: stdout then carries only the JSON document, errors exit 1 with the message on stderr, and option combinations that can't work exit 2 before anything runs. `crucible -v <command>` shows the backend's diagnostics on stderr. Everything the CLI creates appears in the web UI.
 

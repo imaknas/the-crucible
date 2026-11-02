@@ -29,7 +29,7 @@ Cheap changes that answer published criticism of multi-agent debate, plus the nu
 
 ## Phase 2 — Reading and combining answers
 
-5. **Diff two answers or two branches.**
+5. **Diff two answers or two branches.** _Done: "Compare with…" on every finished compare card, "Show changes" per participant in the debate's start-and-end panel, `crucible diff` and the MCP `diff_answers` tool (`lib/diff.ts`, `services/textdiff.py`)._
    - A "Compare with…" action: sentence-level for prose, structural for JSON and code.
    - Phase 1's "who changed" and Phase 5's replay reuse it.
    - Evaluation tools have this; no chat or canvas tool found does.
