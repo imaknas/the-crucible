@@ -31,7 +31,9 @@ class Outbox:
             while True:
                 frame = await self._queue.get()
                 await self.websocket.send_json(frame)
-        except (RuntimeError, WebSocketDisconnect):
-            pass
+        except (RuntimeError, WebSocketDisconnect, OSError):
+            # The client went away (servers raise any of these); the runs
+            # it watched go on.
+            log.debug("[WS] socket gone; dropping its frames")
         finally:
             self.closed = True
