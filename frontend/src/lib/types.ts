@@ -128,8 +128,9 @@ export interface DebateSession {
   participants: string[];
   thread_ids: Record<string, string>;
   current_round: number;
-  // "pending": created, not started yet. "interrupted": the socket driving it
-  // closed mid-debate; nothing is running.
+  // "pending": created, not started yet. "interrupted": the process running it
+  // stopped mid-debate (a server restart, a cancelled command); nothing is
+  // running. A closed tab doesn't interrupt a debate: the server runs it.
   status: "pending" | "running" | "paused" | "completed" | "interrupted";
   /** The question being debated now (a redirect replaces it). */
   question?: string | null;
