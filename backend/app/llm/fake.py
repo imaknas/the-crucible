@@ -17,6 +17,7 @@ CRUCIBLE_FAKE_LLM_DELAY sets the per-token delay in seconds (default 0.04).
 """
 
 import hashlib
+import re
 import os
 import time
 from typing import Any, Iterator, List, Optional
@@ -73,6 +74,10 @@ class ScriptedChatModel(BaseChatModel):
         if f"[[fail:{self.model_id}]]" in prompt:
             raise RuntimeError(f"{self.model_id} failed (scripted by [[fail:{self.model_id}]])")
         digest = hashlib.sha1(prompt.encode()).hexdigest()[:6]
+        if "Score each answer from 1 to 10" in prompt:
+            # A peer review (services/review.py): a score for every letter shown.
+            letters = re.findall(r"^\[([A-Z])\]:", prompt, re.M)
+            return "\n".join(f"{letter}: 7 — Scripted review from {self.model_id}." for letter in letters)
         if "List the distinct components of these answers" in prompt:
             # A checklist synthesis's first step (synthesis.component_request).
             return (

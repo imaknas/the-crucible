@@ -1,4 +1,6 @@
 import { SYNTHESIS_MODES, type SynthesisMode, type SynthesisRequest } from "@/lib/synthesis";
+import PeerReviewPanel from "./PeerReviewPanel";
+import type { AnswerReview } from "@/lib/types";
 import React from "react";
 import { Box, ButtonBase, CircularProgress, Divider, MenuItem, Paper, Select, Stack, Typography } from "@mui/material";
 import { AlertTriangle, CheckCircle2, Scale, Sparkles } from "lucide-react";
@@ -236,6 +238,8 @@ interface TurnProps {
   onRetry?: (errorId: string) => void;
   onDismiss?: (errorId: string) => void;
   retryDisabled?: boolean;
+  /** The models score each other's answers (one call per author); its result shows under the cards. */
+  review?: { result: AnswerReview | null; running: boolean; disabled: boolean; onRun: () => void } | null;
 }
 
 /** One turn's answers side by side, from the first token to the settled tree. */
@@ -250,6 +254,7 @@ export default function TurnCards({
   onRetry,
   onDismiss,
   retryDisabled,
+  review = null,
 }: TurnProps) {
   // "" = the first selected model, the original behaviour.
   const [synthesizer, setSynthesizer] = React.useState("");
@@ -380,6 +385,33 @@ export default function TurnCards({
         ))}
       </Box>
       <TurnMetricsLine total={total} />
+      {review && (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+          <ButtonBase
+            onClick={review.onRun}
+            disabled={review.disabled || review.running}
+            aria-busy={review.running}
+            sx={{
+              px: 1.5,
+              py: 0.5,
+              borderRadius: 2,
+              border: "1px solid",
+              borderColor: "divider",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              gap: 0.75,
+              "&.Mui-disabled": { opacity: 0.5 },
+            }}
+          >
+            {review.running && <CircularProgress size={10} />}
+            {review.result ? "Score each other again" : "Have them score each other"}
+          </ButtonBase>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+            Each model scores the others&apos; answers anonymously, never its own: one call per model.
+          </Typography>
+        </Box>
+      )}
+      {review?.result && <PeerReviewPanel review={review.result} modelLabel={modelLabel} />}
     </Box>
   );
 }

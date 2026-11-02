@@ -166,6 +166,7 @@ import type {
   PeerLabels,
   TerminationPolicy,
   Thread,
+  AnswerReview,
 } from "@/lib/types";
 
 export async function createDebateSession(params: {
@@ -271,4 +272,22 @@ export async function listAnswerComponents(
   });
   await ensureOk(res, "Couldn't split the answers into parts");
   return (await res.json()).components;
+}
+
+/** Have the answers' authors score each other's anonymously (POST /synthesis/reviews); stored on the thread. */
+export async function runAnswerReview(threadId: string, checkpointIds: string[]): Promise<AnswerReview> {
+  const res = await fetch(`${API_BASE}/synthesis/reviews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ thread_id: threadId, checkpoint_ids: checkpointIds }),
+  });
+  await ensureOk(res, "Couldn't run the peer review");
+  return res.json();
+}
+
+/** The peer reviews stored on a thread, newest first. */
+export async function listAnswerReviews(threadId: string): Promise<AnswerReview[]> {
+  const res = await fetch(`${API_BASE}/synthesis/reviews/${encodeURIComponent(threadId)}`);
+  await ensureOk(res, "Couldn't load the peer reviews");
+  return (await res.json()).reviews;
 }

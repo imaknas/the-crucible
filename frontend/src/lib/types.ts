@@ -212,3 +212,20 @@ export interface DebateTreeResponse {
     max_round?: number;
   };
 }
+
+/** An anonymous peer review of a set of answers (backend services/review.py). */
+export interface AnswerReview {
+  review_key: string;
+  thread_id: string;
+  checkpoint_ids: string[];
+  question: string;
+  answers: {
+    label: string;
+    checkpoint_id: string;
+    model: string;
+    model_name: string;
+    average: number | null;
+    scores: { reviewer: string; reviewer_name: string; score: number; reason: string }[];
+  }[];
+  errors: Record<string, string>;
+}

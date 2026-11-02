@@ -22,6 +22,9 @@ jest.mock("@/lib/api", () => ({
   API_BASE: "http://test",
   CLIENT_HEADERS: {},
   listThreads: jest.fn(),
+  listAnswerReviews: jest.fn(),
+  runAnswerReview: jest.fn(),
+  listAnswerComponents: jest.fn(),
   fetchHistory: jest.fn(),
   fetchKeyStatus: jest.fn(),
   fetchModels: jest.fn(),
@@ -166,6 +169,7 @@ beforeEach(() => {
   mocked.fetchDebateTree.mockResolvedValue({ nodes: [], edges: [], lanes: [], session_metadata: null } as never);
   mocked.fetchDebateTranscript.mockResolvedValue({ question: "", rounds: [], synthesis: null } as never);
   mocked.searchHistory.mockResolvedValue({ results: [] });
+  mocked.listAnswerReviews.mockResolvedValue([]);
 });
 
 describe("Home: the view never switches itself", () => {

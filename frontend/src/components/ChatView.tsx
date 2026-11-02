@@ -14,6 +14,7 @@ import TurnCards from "./TurnCards";
 import PositionShiftPanel from "./PositionShiftPanel";
 import { positionShifts } from "@/lib/debateTranscript";
 import type { SynthesisRequest } from "@/lib/synthesis";
+import type { AnswerReview } from "@/lib/types";
 
 interface ChatViewProps {
   messages: Message[];
@@ -30,6 +31,12 @@ interface ChatViewProps {
   onContinueReply: (id: string) => void;
   /** Merge the answers at these checkpoints; `model` writes it (null = first selected). */
   onSynthesize: (checkpointIds: string[], model?: string | null, request?: SynthesisRequest) => void;
+  /** Peer reviews of a turn's answers (useAnswerReviews). */
+  reviews?: {
+    reviewFor: (ids: string[]) => AnswerReview | null;
+    isRunning: (ids: string[]) => boolean;
+    run: (ids: string[]) => void;
+  } | null;
   /** Models a synthesis can be written by (those with a key). */
   synthesizerOptions?: string[];
   onDeliberate: (text: string) => void;
@@ -86,6 +93,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onViewReply,
   onContinueReply,
   onSynthesize,
+  reviews = null,
   synthesizerOptions = [],
   onDeliberate,
   setShowTree,
@@ -290,6 +298,18 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   const shiftPanel = shift ? (
     <PositionShiftPanel shift={shift} legend={debateBanner?.state.legend} modelLabel={modelLabel} isDark={isDark} />
   ) : null;
+  // A turn's peer review: offered once two different models have answered.
+  const turnReview = (cards: Parameters<typeof synthesizableIds>[0]) => {
+    if (!reviews) return null;
+    const ids = synthesizableIds(cards, nodes);
+    if (ids.length < 2 || new Set(cards.map((c) => c.model)).size < 2) return null;
+    return {
+      result: reviews.reviewFor(ids),
+      running: reviews.isRunning(ids),
+      disabled: isLoading,
+      onRun: () => reviews.run(ids),
+    };
+  };
   const lastTurnKey = React.useMemo(() => {
     const last = items[items.length - 1];
     return last?.kind === "turn" ? last.key : null;
@@ -529,6 +549,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       onRetry={onRetryModel}
                       onDismiss={onDismissModelError}
                       retryDisabled={isLoading}
+                      review={turnReview(item.cards)}
                     />
                   </Box>
                 );

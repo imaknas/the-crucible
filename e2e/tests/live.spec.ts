@@ -362,6 +362,23 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.getByText(/^Synthesis of kept parts · /i)).toBeVisible();
   });
 
+  test("the models score each other's answers anonymously, shown as evidence under the cards", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, "Vim or Emacs?");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Have them score each other" }).click();
+    const panel = page.getByRole("region", { name: "How the models scored each other's answers" });
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText("7.0 / 10")).toHaveCount(2);
+    await expect(panel).toContainText("not a verdict");
+
+    // Stored: it comes back with the thread.
+    await page.reload();
+    await expect(page.getByRole("region", { name: "How the models scored each other's answers" })).toBeVisible();
+  });
+
   test("answers picked on different branches are combined from the tree, without moving the branch point", async ({ page }) => {
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await page.getByRole("button", { name: "Arena", exact: true }).click();
