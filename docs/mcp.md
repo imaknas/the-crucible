@@ -24,7 +24,10 @@ Everything the web UI does to a conversation is a tool, except writing API keys 
 |---|---|
 | **Turns & synthesis** | |
 | `invoke_arena` | Ask one or more models the same message in parallel: a chat turn (one model, `synthesize=false`), an arena turn with a synthesis, or a Deliberation (`deliberation=true`). Continues a thread (`thread_id`), branches from a node (`parent_checkpoint_id`) or from a finished debate (`after_debate_session_id`); takes `attachments` (local files), `use_rag`, `use_web_search`, `system_prompt` and `summarizer` |
-| `synthesize_answers` | Combine answers already on a thread into one: by default every model's answer to the latest question, or exactly the `checkpoint_ids` given |
+| `synthesize_answers` | Combine answers already on a thread (by default every model's answer to the latest question, or exactly the `checkpoint_ids` given, from any branches): `mode` merge (one answer), compare (a table of where they differ), checklist (one answer from the `keep` parts) or ask (answer your `question` about them) |
+| `list_answer_components` | Split answers into the parts to choose from for a checklist synthesis; writes nothing |
+| `review_answers` | The answers' authors score each other's 1–10 with a reason, anonymously and never their own; stored as evidence, never a verdict |
+| `list_answer_reviews` | The peer reviews stored on a thread |
 | **Debates** | |
 | `run_debate` | Multi-round debate between two or more models (anonymous to each other unless `peer_labels="named"`), with optional early stopping (stability or a judge's agreement) and a final argument map. Can start from a node of an existing thread (`parent_checkpoint_id`); takes `attachments`, `use_rag`, `use_web_search`, `system_prompt` and `summarizer` |
 | `continue_debate` | More rounds of a stopped debate, optionally injecting messages into the next round |
