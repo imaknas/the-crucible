@@ -126,4 +126,20 @@ test.describe("debate tree", () => {
     await synthesis.getByRole("button", { name: "Read in full" }).click();
     await expect(page.getByRole("dialog").getByRole("heading")).toHaveText(/^Argument map · /);
   });
+
+  test("the transcript shows where each participant started and ended, before the argument map", async ({ page }) => {
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    const panel = page.getByRole("region", { name: "Where each participant started and ended" });
+    await expect(panel).toBeVisible();
+    // Both participants, each with its Round 1 answer and its last one.
+    await expect(panel.getByText("Round 1 · independent", { exact: true })).toHaveCount(2);
+    await expect(panel.getByText("Round 2", { exact: true })).toHaveCount(2);
+    // It comes right before the map.
+    const order = await page.evaluate(() => {
+      const panelEl = document.querySelector('section[aria-label="Where each participant started and ended"]');
+      const map = [...document.querySelectorAll("*")].find((el) => /^Synthesis/i.test(el.textContent ?? "") && el.children.length === 0);
+      return panelEl && map ? panelEl.compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING : -1;
+    });
+    expect(order).toBeTruthy();
+  });
 });

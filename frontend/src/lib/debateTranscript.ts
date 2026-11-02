@@ -148,6 +148,42 @@ export function transcriptMessages(t: DebateTranscript, participants: string[]):
   return out;
 }
 
+/** One participant's first and last answer to the question now being debated. */
+export interface PositionShift {
+  model: string;
+  first: Message;
+  /** null when the participant has no answer in a later round (it failed). */
+  last: Message | null;
+}
+
+/**
+ * Where each participant started and ended on the current question: its
+ * Round 1 (independent) answer next to its latest one. Round 1 carries most
+ * of what a debate knows (its majority explains most of debate's gain over a
+ * single answer), and later rounds can drift by conformity, so the reader
+ * sees both side by side instead of only the end. After a redirect, "Round 1"
+ * is the first round of the new question. Null until the question has at
+ * least two rounds.
+ */
+export function positionShifts(messages: Message[]): { startRound: number; endRound: number; rows: PositionShift[] } | null {
+  const lastRedirect = messages.map((m) => m.type).lastIndexOf("redirect");
+  const answers = messages
+    .slice(lastRedirect + 1)
+    .filter((m) => m.type === "ai" && m.model && typeof m.round === "number" && !m.streaming);
+  if (!answers.length) return null;
+  const rounds = answers.map((m) => m.round as number);
+  const startRound = Math.min(...rounds);
+  const endRound = Math.max(...rounds);
+  if (endRound === startRound) return null;
+  const rows: PositionShift[] = [];
+  for (const m of answers) {
+    if (m.round !== startRound || rows.some((r) => r.model === m.model)) continue;
+    const later = answers.filter((a) => a.model === m.model && (a.round as number) > startRound);
+    rows.push({ model: m.model as string, first: m, last: later.length ? later[later.length - 1] : null });
+  }
+  return rows.length ? { startRound, endRound, rows } : null;
+}
+
 /**
  * The transcript reply a debate tree node stands for, so the node can be read
  * in full (the node shows a 400-character excerpt at most). A lane node is

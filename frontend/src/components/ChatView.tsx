@@ -11,6 +11,8 @@ import BranchChip, { type AnswerChoice } from "./BranchChip";
 import type { BranchPoint } from "@/lib/branching";
 import { buildTranscript, synthesizableIds, type LiveTurn } from "@/lib/turns";
 import TurnCards from "./TurnCards";
+import PositionShiftPanel from "./PositionShiftPanel";
+import { positionShifts } from "@/lib/debateTranscript";
 
 interface ChatViewProps {
   messages: Message[];
@@ -279,6 +281,14 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
     () => buildTranscript({ messages, nodes, edges, selected: selectedModels, replyTexts, live: liveTurn }),
     [messages, nodes, edges, selectedModels, replyTexts, liveTurn],
   );
+  // A debate's first and last answers per participant, shown beside the
+  // argument map once the debate has stopped (or before its map, if one).
+  const shift = React.useMemo(() => (debateBanner ? positionShifts(messages) : null), [debateBanner, messages]);
+  const debateStopped = !!debateBanner && !["running", "pausing", "paused"].includes(debateBanner.state.status);
+  const hasSynthesis = messages.some((m) => m.type === "synthesis" && m.content?.trim());
+  const shiftPanel = shift ? (
+    <PositionShiftPanel shift={shift} legend={debateBanner?.state.legend} modelLabel={modelLabel} isDark={isDark} />
+  ) : null;
   const lastTurnKey = React.useMemo(() => {
     const last = items[items.length - 1];
     return last?.kind === "turn" ? last.key : null;
@@ -629,16 +639,18 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                   );
                 }
                 return (
-                  <MessageBubble
-                    key={msg.id || `synthesis-${i}`}
-                    msg={{ ...msg, role: "assistant" } as Message}
-                    isUser={false}
-                    isDark={isDark}
-                    onMount={registerMessageRef}
-                    index={i}
-                    modelLabel={modelLabel}
-                    variant="synthesis"
-                  />
+                  <React.Fragment key={msg.id || `synthesis-${i}`}>
+                    {msg.type === "synthesis" && shiftPanel}
+                    <MessageBubble
+                      msg={{ ...msg, role: "assistant" } as Message}
+                      isUser={false}
+                      isDark={isDark}
+                      onMount={registerMessageRef}
+                      index={i}
+                      modelLabel={modelLabel}
+                      variant="synthesis"
+                    />
+                  </React.Fragment>
                 );
               }
 
@@ -655,6 +667,8 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                 />
               );
             })}
+
+            {debateStopped && !hasSynthesis && shiftPanel}
 
             {bubbleErrors.map((err) => (
               <ModelErrorBubble

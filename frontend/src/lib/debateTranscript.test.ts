@@ -10,6 +10,7 @@ import {
   peerLegend,
   roundLabel,
   roundsAdvice,
+  positionShifts,
   debatingRoleWarning,
   transcriptReducer,
   type Transcript,
@@ -349,5 +350,39 @@ describe("debatingRoleWarning", () => {
   it("says nothing for an outsider or for Automatic / None", () => {
     expect(debatingRoleWarning("c", ["a", "b"], "judge")).toBeNull();
     expect(debatingRoleWarning(null, ["a", "b"], "synthesizer")).toBeNull();
+  });
+});
+
+describe("positionShifts", () => {
+  const answer = (model: string, round: number, content = `${model} r${round}`) =>
+    ({ id: `${model}-${round}`, role: "assistant", type: "ai", model, round, content }) as const;
+
+  it("is nothing until the question has two rounds", () => {
+    expect(positionShifts([answer("a", 0), answer("b", 0)])).toBeNull();
+  });
+
+  it("pairs each participant's Round 1 with its latest answer", () => {
+    const shift = positionShifts([answer("a", 0), answer("b", 0), answer("a", 1), answer("b", 1), answer("a", 2)]);
+    expect(shift?.startRound).toBe(0);
+    expect(shift?.endRound).toBe(2);
+    expect(shift?.rows.map((r) => [r.model, r.first.content, r.last?.content])).toEqual([
+      ["a", "a r0", "a r2"],
+      ["b", "b r0", "b r1"],
+    ]);
+  });
+
+  it("keeps a participant whose later rounds failed, with no last answer", () => {
+    const shift = positionShifts([answer("a", 0), answer("b", 0), answer("a", 1)]);
+    expect(shift?.rows.find((r) => r.model === "b")?.last).toBeNull();
+  });
+
+  it("after a redirect, starts from the new question's first round", () => {
+    const shift = positionShifts([
+      answer("a", 0), answer("b", 0), answer("a", 1), answer("b", 1),
+      { id: "redirect-r2", role: "user", type: "redirect", content: "New?" },
+      answer("a", 2), answer("b", 2), answer("a", 3), answer("b", 3),
+    ]);
+    expect(shift?.startRound).toBe(2);
+    expect(shift?.rows[0].first.content).toBe("a r2");
   });
 });
