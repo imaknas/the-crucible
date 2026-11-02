@@ -7,6 +7,7 @@ Settings are environment variables, read from `backend/.env` (copy [`.env.exampl
 | `OPENAI_API_KEY` | At least one* | OpenAI API key |
 | `ANTHROPIC_API_KEY` | At least one* | Anthropic API key |
 | `GOOGLE_API_KEY` | At least one* | Google AI API key |
+| `XAI_API_KEY` | No | xAI API key (Grok models). It doesn't count toward "at least one" yet: xAI models are offered only after `uv run crucible catalog-sync` has verified them and they are added to the registry (see [Development](development.md)) |
 | `NEXT_PUBLIC_API_URL` | No | Backend URL for the frontend (default `http://localhost:8000`). Read when the frontend is built, not when it starts |
 | `HOST` | No | Backend bind address (default `127.0.0.1`) |
 | `CORS_ORIGINS` | No | Extra browser origins, comma-separated. `localhost` / `127.0.0.1` on any port are always allowed. Also governs which pages may open the WebSockets |

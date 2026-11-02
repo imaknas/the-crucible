@@ -19,7 +19,7 @@ Create a `.env` file based on `.env.example`:
 ```bash
 cp .env.example .env
 ```
-Ensure at least one and preferably multiple API keys are set (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`).
+Ensure at least one and preferably multiple API keys are set (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`). `XAI_API_KEY` is read too, but no xAI model is offered until `crucible catalog-sync` has verified one and it is added to the registry.
 
 ## 🛠️ Key Components
 

@@ -41,7 +41,7 @@ The Crucible is a self-hosted workbench for comparing language models. Every con
 
 ## 🚀 Quick start
 
-You need Node.js 24+, Python 3.13+ with [uv](https://docs.astral.sh/uv/), and an API key for at least one of OpenAI, Anthropic or Google.
+You need Node.js 24+, Python 3.13+ with [uv](https://docs.astral.sh/uv/), and an API key for at least one of OpenAI, Anthropic or Google. xAI (Grok) is wired in as a fourth provider with its own key (`XAI_API_KEY`); its models appear once `uv run crucible catalog-sync` has verified them and they are added to the registry ([how](docs/development.md#adding-models)).
 
 ```bash
 git clone https://github.com/imaknas/the-crucible.git && cd the-crucible
@@ -92,9 +92,9 @@ Read the write-up, [**What Survives Compaction?**](https://www.imaknas.com/writi
 ## ❓ FAQ
 
 <details>
-<summary><strong>Do I need keys for all three providers?</strong></summary>
+<summary><strong>Do I need keys for every provider?</strong></summary>
 
-No. One is enough, and you can add the others later in the app. `uv run crucible models` lists every model, whether its provider has a key, and its price.
+No. One of OpenAI, Anthropic or Google is enough, and you can add the others later in the app. An xAI key alone isn't enough yet: no Grok model is offered until one has been verified. `uv run crucible models` lists every model, whether its provider has a key, and its price.
 </details>
 
 <details>

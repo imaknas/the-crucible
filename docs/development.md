@@ -37,6 +37,16 @@ the-crucible/
 
 [`CLAUDE.md`](../CLAUDE.md) is the detailed maintainer guide: design invariants, where each kind of change belongs, and how to test it.
 
+## Adding models
+
+The app offers only models it has verified with a real call. With the provider's key in `backend/.env`:
+
+1. `cd backend && uv run crucible catalog-sync` lists the provider's models from its own API and probes each with a one-token call and a web search (a few cents; `--probe none` only lists). It writes `app/catalog/data/catalog.json`.
+2. Add the model's price to `app/catalog/data/prices.json`, from the provider's pricing page.
+3. Add an entry to `MODEL_REGISTRY` in `app/registry.py` (`native_search` only if the probe's web search passed).
+
+`tests/test_registry_catalog.py` fails until all three agree. xAI (Grok) is set up this way: its key, provider and catalog source are in place, and its models appear after these three steps.
+
 ## Running the servers separately
 
 `./start_dev.sh` starts both; to run them in two terminals instead:
