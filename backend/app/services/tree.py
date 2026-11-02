@@ -7,7 +7,15 @@ from app.core.schema import is_summary_message
 from app.registry import SYNTHESIS_COLOR, display_name, model_color
 from app.services.message_format import message_model, message_sources
 from app.services.metrics import message_metrics, snapshot_day
-from app.services.runs import DEBATE_RECORD_KEY, SYNTHESIS_TURN, TURN_ID_KEY, TURN_KIND_KEY, is_seed
+from app.services.runs import (
+    DEBATE_RECORD_KEY,
+    SYNTHESIS_MODE_KEY,
+    SYNTHESIS_QUESTION_KEY,
+    SYNTHESIS_TURN,
+    TURN_ID_KEY,
+    TURN_KIND_KEY,
+    is_seed,
+)
 from app.utils.helpers import extract_text, get_preview_text
 
 # Chat synthesis prompts written before they were flagged (by the frontend)
@@ -86,6 +94,19 @@ def is_synthesis_reply(state_obj) -> bool:
         return True
     m_list = state_obj.values.get("messages", [])
     return len(m_list) >= 2 and is_synthesis_prompt(m_list[-2])
+
+
+def synthesis_details(state_obj) -> dict:
+    """How a synthesis reply was asked for: its mode ("merge" for replies
+    written before modes existed) and, for "ask", the reader's question.
+    From the checkpoint metadata, else the prompt message it answers."""
+    meta = getattr(state_obj, "metadata", None)
+    meta = meta if isinstance(meta, dict) else {}
+    m_list = state_obj.values.get("messages", [])
+    prompt = _extra_of(m_list[-2]) if len(m_list) >= 2 else {}
+    mode = meta.get(SYNTHESIS_MODE_KEY) or prompt.get(SYNTHESIS_MODE_KEY) or "merge"
+    question = meta.get(SYNTHESIS_QUESTION_KEY) or prompt.get(SYNTHESIS_QUESTION_KEY)
+    return {"synthesis_mode": mode, "synthesis_question": question}
 
 
 def get_content_key(state_obj) -> str:
@@ -483,6 +504,7 @@ def build_graph_layout(
         if visual_role == "ai" and is_synthesis_reply(state):
             node["type"] = "synthesis"
             node["metadata"]["kind"] = "synthesis"
+            node["metadata"].update(synthesis_details(state))
         elif is_debate_record(state):
             node["metadata"]["kind"] = "debate"
             node["metadata"]["model_name"] = DEBATE_RECORD_NAME
@@ -585,6 +607,7 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
                         else None,
                         "checkpoint_id": curr_id,
                         "turn_id": _turn_id(state),
+                        **(synthesis_details(state) if role == "assistant" and is_synthesis_reply(state) else {}),
                     }
                 )
         previous_key = key

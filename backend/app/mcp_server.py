@@ -257,9 +257,15 @@ async def synthesize_answers(
     parent_checkpoint_id: Optional[str] = None,
     system_prompt: Optional[str] = None,
     summarizer: Optional[str] = None,
+    mode: str = "merge",
+    keep: Optional[List[str]] = None,
+    question: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Synthesize answers already on a thread into one, as a new reply beside
-    them (under the question they answer).
+    """Synthesize answers already on a thread, as a new reply beside them
+    (under the question they answer): merge them into one, compare them in a
+    table of differences, merge only the components you keep (list them with
+    list_answer_components first), or answer your question about them. The
+    answers may come from any branches.
 
     Returns {thread_id, parent_checkpoint_id, answers: [answer] (exactly the
     ones synthesized), synthesis: answer}.
@@ -271,6 +277,9 @@ async def synthesize_answers(
         parent_checkpoint_id: Where the synthesis goes instead.
         system_prompt: Instructions sent before the conversation.
         summarizer: Model that summarizes long history.
+        mode: "merge" (one answer), "compare" (a table of where they differ), "checklist" (one answer from the `keep` components), or "ask" (answer `question` about them).
+        keep: With mode "checklist": the component texts to keep, as list_answer_components returned them.
+        question: With mode "ask": your question about the answers.
     """
     context = _context(system_prompt, summarizer)
     await _require_thread(thread_id)
@@ -280,6 +289,7 @@ async def synthesize_answers(
             async for event in arena_svc.synthesize_thread(
                 graph_app, thread_id, synthesizer, context=context,
                 checkpoint_ids=checkpoint_ids, parent_checkpoint_id=parent_checkpoint_id,
+                mode=mode, keep=keep or (), question=question,
             ):
                 if event["type"] == "start":
                     result["parent_checkpoint_id"] = event["parent_checkpoint_id"]
@@ -292,6 +302,34 @@ async def synthesize_answers(
     if not result["synthesis"] or result["synthesis"]["error"]:
         raise ToolError(f"Synthesis failed: {(result['synthesis'] or {}).get('error')}")
     return result
+
+
+@mcp.tool()
+@_quiet
+async def list_answer_components(
+    thread_id: str,
+    checkpoint_ids: Optional[List[str]] = None,
+    model: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Split answers on a thread into the components to choose from for a
+    checklist synthesis: each claim, recommendation, step or caveat, merged
+    where answers say the same thing. Nothing is written to the thread.
+    Pass the texts you want to synthesize_answers(mode="checklist", keep=...).
+
+    Returns {thread_id, components: [{text, sources: [answer names]}]}.
+
+    Args:
+        thread_id: The thread.
+        checkpoint_ids: The answers (invoke_arena or get_thread_tree ids). Default: every model's answer to the thread's latest question.
+        model: Model that writes the list. Default: the first answer's model.
+    """
+    await _require_thread(thread_id)
+    try:
+        async with arena_svc.open_graph() as graph_app:
+            components = await arena_svc.answer_components(graph_app, thread_id, checkpoint_ids, model)
+    except ValueError as e:
+        raise _tool_error(e)
+    return {"thread_id": thread_id, "components": [{"text": c.text, "sources": list(c.sources)} for c in components]}
 
 
 # ─── Debates ─────────────────────────────────────────────────────

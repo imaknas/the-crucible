@@ -50,6 +50,7 @@ ROUTES: dict = {
     ("GET", "/debate/sessions/{session_id}/tree"): (("debates show", None), ("get_debate", None)),
     ("GET", "/debate/sessions/{session_id}/transcript"): (("debates show", None), ("get_debate", None)),
     ("WS", "/debate/ws/{session_id}"): (("debate", None), ("run_debate", None)),
+    ("POST", "/synthesis/components"): (("synthesize", "--mode"), ("list_answer_components", None)),
 }
 
 # The debate socket's commands. A live control maps to running a debate in
@@ -72,6 +73,9 @@ CHAT_FRAME: dict = {
     "document_names": (("arena", "--attach"), ("invoke_arena", "attachments")),
     "debate_session_id": (("chat", "--after-debate"), ("invoke_arena", "after_debate_session_id")),
     "answer_checkpoint_ids": (("synthesize", "--answers"), ("synthesize_answers", "checkpoint_ids")),
+    "synthesis_mode": (("synthesize", "--mode"), ("synthesize_answers", "mode")),
+    "keep_components": (("synthesize", "--keep"), ("synthesize_answers", "keep")),
+    "synthesis_question": (("synthesize", "--question"), ("synthesize_answers", "question")),
     "toggles.use_rag": (("arena", "--rag"), ("invoke_arena", "use_rag")),
     "toggles.use_web_search": (("arena", "--web-search"), ("invoke_arena", "use_web_search")),
     "summarizer": (("arena", "--summarizer"), ("invoke_arena", "summarizer")),
@@ -142,7 +146,7 @@ def test_chat_frame_fields_are_listed():
     """The chat socket's documented frame fields, from its docstring."""
     doc = ChatConnection.__doc__
     for field in ("parent_checkpoint_id", "is_deliberation", "documents", "document_names", "debate_session_id",
-                  "answer_checkpoint_ids"):
+                  "answer_checkpoint_ids", "synthesis_mode", "keep_components", "synthesis_question"):
         assert field in doc and field in CHAT_FRAME, field
 
 

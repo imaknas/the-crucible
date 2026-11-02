@@ -42,6 +42,7 @@ def build_turn_input(
     document_names: Sequence[str] = (),
     is_deliberation: bool = False,
     turn_kind: Optional[str] = None,
+    turn_note: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, Any]:
     """The graph input for one model's turn, given the parent's state values.
 
@@ -68,7 +69,7 @@ def build_turn_input(
         prompt = "Please continue."
 
     message = (
-        HumanMessage(content=prompt, additional_kwargs={TURN_KIND_KEY: turn_kind})
+        HumanMessage(content=prompt, additional_kwargs={TURN_KIND_KEY: turn_kind, **(turn_note or {})})
         if turn_kind in TURN_KINDS
         else ("user", prompt)
     )
@@ -177,6 +178,7 @@ async def stream_turn(
     context: ContextSettings = DEFAULT_CONTEXT,
     turn_kind: Optional[str] = None,
     turn_id: Optional[str] = None,
+    turn_note: Optional[Mapping[str, str]] = None,
     configurable: Optional[Mapping[str, Any]] = None,
     with_path: bool = True,
 ) -> AsyncIterator[Dict[str, Any]]:
@@ -194,12 +196,13 @@ async def stream_turn(
     ``documents`` are saved and attached; ``document_names`` attach files
     already saved for the run's document thread. ``turn_kind="synthesis"``
     tags the turn's checkpoints, so the tree and the transcript can show the
-    reply as a synthesis. ``configurable`` adds run settings (e.g. the
+    reply as a synthesis, and ``turn_note`` records how it was asked for (its
+    synthesis mode). ``configurable`` adds run settings (e.g. the
     document thread a debate lane reads)."""
     config = context.apply(thread_config(thread_id, parent_checkpoint_id))
     config["configurable"].update(configurable or {})
     run_id = tag_run(config)
-    tag_turn_kind(config, turn_kind)
+    tag_turn_kind(config, turn_kind, turn_note)
     tag_turn(config, turn_id)
     names = list(document_names) if document_names is not None else await attach_documents(config, documents)
     state = await graph_app.aget_state(config)
@@ -218,6 +221,7 @@ async def stream_turn(
         document_names=names,
         is_deliberation=is_deliberation,
         turn_kind=turn_kind,
+        turn_note=turn_note,
     )
 
     async for event in graph_app.astream_events(turn_input, config, version="v2", exclude_tags=[INTERNAL_TAG]):

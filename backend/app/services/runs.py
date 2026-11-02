@@ -9,7 +9,7 @@ checkpoint the run produced.
 """
 
 import uuid
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 RUN_ID_KEY = "crucible_run_id"
 # Marks a checkpoint holding context copied in from elsewhere (a debate's
@@ -20,6 +20,12 @@ SEED_KEY = "crucible_seed"
 TURN_KIND_KEY = "crucible_turn"
 SYNTHESIS_TURN = "synthesis"
 TURN_KINDS = frozenset({SYNTHESIS_TURN})
+# How a synthesis was asked for (synthesis.SYNTHESIS_MODES: merge, compare,
+# checklist, ask), and the reader's question for "ask". Copied into the
+# checkpoint metadata and the prompt message (tag_turn_kind,
+# chat.build_turn_input), so the tree and the transcript can label the reply.
+SYNTHESIS_MODE_KEY = "crucible_synthesis_mode"
+SYNTHESIS_QUESTION_KEY = "crucible_synthesis_question"
 # Shared by every run of one turn (each model answering the same message), so
 # readers can group the replies to it even when they sit on different branches.
 TURN_ID_KEY = "crucible_turn_id"
@@ -52,10 +58,11 @@ def tag_turn(config: Dict[str, Any], turn_id: Optional[str]) -> None:
         config["metadata"] = {**config.get("metadata", {}), TURN_ID_KEY: turn_id}
 
 
-def tag_turn_kind(config: Dict[str, Any], kind: Optional[str]) -> None:
-    """Mark the run as a special kind of turn (e.g. a synthesis); unknown kinds are ignored."""
+def tag_turn_kind(config: Dict[str, Any], kind: Optional[str], note: Optional[Mapping[str, str]] = None) -> None:
+    """Mark the run as a special kind of turn (e.g. a synthesis), with any
+    notes about it (its synthesis mode); unknown kinds are ignored."""
     if kind in TURN_KINDS:
-        config["metadata"] = {**config.get("metadata", {}), TURN_KIND_KEY: kind}
+        config["metadata"] = {**config.get("metadata", {}), TURN_KIND_KEY: kind, **(note or {})}
 
 
 async def resolve_fork_point(graph_app, thread_id: str) -> str:

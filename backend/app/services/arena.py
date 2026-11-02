@@ -8,7 +8,7 @@ point, a tagged synthesis) exists for every client at once.
 import asyncio
 import sys
 from contextlib import asynccontextmanager, redirect_stdout
-from typing import Any, AsyncGenerator, Dict, List, Mapping, Optional, Sequence
+from typing import Any, AsyncGenerator, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
@@ -20,8 +20,23 @@ from app.services.chat import node_checkpoint, stream_turn, thread_state_map
 from app.services.graph import workflow
 from app.services.metrics import message_metrics, snapshot_day
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
-from app.services.synthesis import INDEPENDENT, build_synthesis_prompt
-from app.services.runs import SYNTHESIS_TURN, TURN_ID_KEY, fork_point, new_turn_id, thread_config
+from app.services.synthesis import (
+    INDEPENDENT,
+    Component,
+    build_synthesis_prompt,
+    component_request,
+    parse_components,
+    synthesis_framing,
+)
+from app.services.runs import (
+    SYNTHESIS_MODE_KEY,
+    SYNTHESIS_QUESTION_KEY,
+    SYNTHESIS_TURN,
+    TURN_ID_KEY,
+    fork_point,
+    new_turn_id,
+    thread_config,
+)
 from app.utils.helpers import extract_text
 
 # Overall budget for one arena turn; models still running after it are
@@ -140,6 +155,7 @@ async def model_turn(
     is_deliberation: bool = False,
     turn_kind: Optional[str] = None,
     turn_id: Optional[str] = None,
+    turn_note: Optional[Mapping[str, str]] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """chat.stream_turn as model-tagged events: ``token`` {model, token}, then
     ``end`` {model, content, checkpoint_id, error, turn_id,
@@ -157,6 +173,7 @@ async def model_turn(
         context=context,
         turn_kind=turn_kind,
         turn_id=turn_id,
+        turn_note=turn_note,
         with_path=False,
     ):
         if event["type"] == "token":
@@ -366,11 +383,12 @@ async def run_arena(
         yield event
 
 
-async def _synthesize(graph_app, thread_id, parent, synthesizer, synthesis_prompt, toggles, context=DEFAULT_CONTEXT):
+async def _synthesize(graph_app, thread_id, parent, synthesizer, synthesis_prompt, toggles, context=DEFAULT_CONTEXT,
+                      note: Optional[Mapping[str, str]] = None):
     yield {"type": "synthesis_start", "model": synthesizer}
     try:
         async for event in model_turn(graph_app, thread_id, parent, synthesizer, synthesis_prompt, toggles, context,
-                                      turn_kind=SYNTHESIS_TURN):
+                                      turn_kind=SYNTHESIS_TURN, turn_note=note):
             if event["type"] == "token":
                 yield {"type": "synthesis_token", "model": synthesizer, "token": event["token"]}
             else:
@@ -478,13 +496,86 @@ async def question_point(graph_app, thread_id: str, answer_checkpoint_id: str) -
     return state.config["configurable"]["checkpoint_id"]
 
 
-async def synthesis_request(graph_app, thread_id: str, checkpoint_ids: Sequence[str]) -> str:
-    """The prompt asking a model to synthesize the replies at ``checkpoint_ids``
-    (answers written independently, as an arena turn's are)."""
+def _labelled_answers(answers: Sequence[Mapping[str, Any]]) -> Tuple[str, List[Tuple[str, str]]]:
+    """The question line and (label, content) pairs a synthesizer reads.
+    Answers to one question are labelled by model; a selection across
+    branches can answer several questions, so each label then says which. A
+    model that appears twice is numbered."""
+    questions = list(dict.fromkeys((a.get("question") or "").strip() for a in answers))
+    names = [display_name(a["model"]) for a in answers]
+    labels = [f"{n} #{names[:i + 1].count(n)}" if names.count(n) > 1 else n for i, n in enumerate(names)]
+    if len(questions) == 1:
+        return questions[0] or "(see the answers below)", list(zip(labels, (a["content"] for a in answers)))
+    return (
+        "(several questions: each answer is shown with the one it answered)",
+        [(f"{label}, answering: {a.get('question') or '(no question)'}", a["content"]) for label, a in zip(labels, answers)],
+    )
+
+
+def synthesis_note(mode: str = "merge", question: Optional[str] = None) -> Dict[str, str]:
+    """What a synthesis turn records about how it was asked for (runs.SYNTHESIS_MODE_KEY)."""
+    note = {SYNTHESIS_MODE_KEY: mode}
+    if mode == "ask" and question:
+        note[SYNTHESIS_QUESTION_KEY] = question.strip()
+    return note
+
+
+async def synthesis_request(
+    graph_app,
+    thread_id: str,
+    checkpoint_ids: Sequence[str],
+    mode: str = "merge",
+    *,
+    keep: Sequence[str] = (),
+    question: Optional[str] = None,
+) -> str:
+    """The prompt asking a model to synthesize the replies at
+    ``checkpoint_ids``: merge them (answers written independently, as an
+    arena turn's are), compare them, merge the components the reader kept
+    (``keep``), or answer the reader's ``question`` about them (``mode``,
+    synthesis.SYNTHESIS_MODES). ValueError for fewer than two answers, an
+    unknown mode, or a mode missing what it needs."""
+    framing = synthesis_framing(mode, keep=keep, question=question)
     answers = [await answer_at(graph_app, thread_id, cid) for cid in dict.fromkeys(checkpoint_ids)]
     if len(answers) < 2:
         raise ValueError(f"Synthesis needs at least two answers; got {len(answers)}.")
-    return _independent_synthesis_prompt(answers[0]["question"] or "(see the answers below)", answers)
+    question_line, labelled = _labelled_answers(answers)
+    return build_synthesis_prompt(question_line, labelled, framing)
+
+
+async def answer_components(
+    graph_app,
+    thread_id: str,
+    checkpoint_ids: Optional[Sequence[str]] = None,
+    model: Optional[str] = None,
+    *,
+    factory=None,
+) -> List[Component]:
+    """The checklist to choose from before a "checklist" synthesis: the
+    answers at ``checkpoint_ids`` (default: the answers to the latest
+    question) split into components, each naming the answers that contain
+    it. A helper call, not a turn: nothing is written to the thread.
+    ``model`` writes the list (default: the first answer's model);
+    ValueError if it lists none."""
+    from langchain_core.messages import HumanMessage
+
+    from app.llm import model_factory_from
+    from app.services.recall import INTERNAL_TAG
+
+    if checkpoint_ids:
+        answers = [await answer_at(graph_app, thread_id, cid) for cid in dict.fromkeys(checkpoint_ids)]
+    else:
+        answers = await latest_turn_answers(graph_app, thread_id)
+    if len(answers) < 2:
+        raise ValueError(f"A checklist needs at least two answers; got {len(answers)}.")
+    model = model or answers[0]["model"]
+    resolve_models([model])
+    question_line, labelled = _labelled_answers(answers)
+    config = {"configurable": {"model_factory": factory}} if factory else {}
+    llm = model_factory_from(config).chat(model, {})
+    response = await llm.ainvoke([HumanMessage(content=component_request(question_line, labelled))],
+                                 config={"tags": [INTERNAL_TAG]})
+    return parse_components(extract_text(response.content))
 
 
 async def latest_turn_answers(graph_app, thread_id: str) -> List[Dict[str, Any]]:
@@ -516,15 +607,20 @@ async def synthesize_thread(
     *,
     checkpoint_ids: Optional[Sequence[str]] = None,
     parent_checkpoint_id: Optional[str] = None,
+    mode: str = "merge",
+    keep: Sequence[str] = (),
+    question: Optional[str] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Synthesize answers already on a thread: exactly the replies at
     ``checkpoint_ids`` (the web UI's "Synthesize answers"), by default the
     answers to the latest question (latest_turn_answers). Written beside
     them, from the question they answer (question_point), unless
     ``parent_checkpoint_id`` says where. ``synthesizer`` defaults to the
-    first answer's model. Raises ValueError when there is nothing to
-    synthesize.
+    first answer's model. ``mode``, ``keep`` and ``question`` (the reader's,
+    for mode "ask") as in synthesis_request. Raises ValueError when there is
+    nothing to synthesize or the mode lacks what it needs.
     """
+    framing = synthesis_framing(mode, keep=keep, question=question)
     if checkpoint_ids:
         answers = [await answer_at(graph_app, thread_id, cid) for cid in dict.fromkeys(checkpoint_ids)]
     else:
@@ -536,7 +632,7 @@ async def synthesize_thread(
         )
     synthesizer = synthesizer or answers[0]["model"]
     resolve_models([synthesizer])
-    question = answers[0].get("question") or await _latest_question(graph_app, thread_id)
+    asked = answers[0].get("question") or await _latest_question(graph_app, thread_id)
     parent, _ = await fork_point(
         graph_app, thread_id,
         parent_checkpoint_id or await question_point(graph_app, thread_id, answers[0]["checkpoint_id"]),
@@ -546,7 +642,10 @@ async def synthesize_thread(
     for a in answers:
         yield {"type": "end", "model": a["model"], "content": a["content"], "checkpoint_id": a["checkpoint_id"],
                "error": None, "metrics": a.get("metrics")}
-    async for event in _synthesize(graph_app, thread_id, parent, synthesizer, _independent_synthesis_prompt(question, answers), toggles, context):
+    question_line, labelled = _labelled_answers([{**a, "question": a.get("question") or asked} for a in answers])
+    prompt = build_synthesis_prompt(question_line, labelled, framing)
+    async for event in _synthesize(graph_app, thread_id, parent, synthesizer, prompt, toggles, context,
+                                   note=synthesis_note(mode, question)):
         yield event
 
 

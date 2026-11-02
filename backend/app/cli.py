@@ -895,6 +895,15 @@ def synthesize(
     judge: Optional[str] = typer.Option(
         None, "--judge", "-j", help="Model that writes it (default: the first answer's model, or the debate's synthesizer)."
     ),
+    mode: str = typer.Option(
+        "merge",
+        "--mode",
+        help="merge: one answer; compare: a table of where the answers differ; checklist: one answer from the components you --keep (without --keep, lists them); ask: answer your --question about them.",
+    ),
+    keep: Optional[List[str]] = typer.Option(
+        None, "--keep", "-k", help="With --mode checklist: a component to keep, as listed (repeat)."
+    ),
+    question: Optional[str] = typer.Option(None, "--question", "-q", help="With --mode ask: your question about the answers."),
     summarizer: Optional[str] = _opt_summarizer(),
     system: Optional[str] = _opt_system(),
     format_output: str = _opt_format(),
@@ -903,9 +912,11 @@ def synthesize(
     [bold cyan]🔬 Synthesize[/bold cyan] — Combine existing answers into one.
 
     With --thread: the answers to the thread's latest question (each model's
-    reply in that turn), or exactly the --answers given; the synthesis is
-    added beside them. With --debate: every round of every participant
-    becomes an argument map.
+    reply in that turn), or exactly the --answers given, from any branches;
+    the synthesis is added beside them. --mode compare tabulates where they
+    differ instead; --mode checklist lists their components, then merges the
+    ones you --keep; --mode ask answers your --question about them. With
+    --debate: every round of every participant becomes an argument map.
     """
     as_json = _check_format(format_output)
     _load_env()
@@ -913,6 +924,21 @@ def synthesize(
         raise typer.BadParameter("pass exactly one of --thread or --debate")
     if debate and (answers or from_checkpoint):
         raise typer.BadParameter("--answers and --from go with --thread")
+    if debate and (mode != "merge" or keep or question):
+        raise typer.BadParameter("--mode, --keep and --question go with --thread")
+    from app.services.synthesis import SYNTHESIS_MODES
+
+    if mode not in SYNTHESIS_MODES:
+        raise typer.BadParameter(f"--mode is one of {', '.join(SYNTHESIS_MODES)}")
+    if mode == "ask" and not (question or "").strip():
+        raise typer.BadParameter("--mode ask needs --question")
+    if mode == "checklist" and not keep:
+        if judge:
+            _validate_models([judge], as_json)
+        result = _run(_run_list_components(thread, judge, as_json, answers), as_json)
+        if as_json:
+            _emit_json(result)
+        return
     if judge:
         _validate_models([judge], as_json)
     context = _run_context(as_json, summarizer, system)
@@ -920,14 +946,36 @@ def synthesize(
     if debate:
         result = _run(_run_synthesize_debate(debate, judge, as_json, context), as_json)
     else:
-        result = _run(_run_synthesize_thread(thread, judge, as_json, context, answers, from_checkpoint), as_json)
+        result = _run(
+            _run_synthesize_thread(thread, judge, as_json, context, answers, from_checkpoint,
+                                   mode=mode, keep=keep or (), question=question),
+            as_json,
+        )
     if as_json:
         _emit_json(result)
     if not result.get("synthesis") or result["synthesis"].get("error"):
         raise typer.Exit(1)
 
 
-async def _run_synthesize_thread(thread_id, judge, as_json, context, answers=None, parent=None):
+async def _run_list_components(thread_id, model, as_json, answers=None):
+    from rich.markup import escape
+
+    from app.services.arena import answer_components, open_graph
+    from app.cli_display import print_header, print_info
+
+    async with open_graph() as graph_app:
+        components = await answer_components(graph_app, thread_id, answers, model)
+    result = {"thread_id": thread_id, "components": [{"text": c.text, "sources": list(c.sources)} for c in components]}
+    if not as_json:
+        print_header()
+        print_info("Components of the answers. Keep the ones you want with --mode checklist --keep \"<text>\" (repeat):")
+        for i, c in enumerate(components, 1):
+            console.print(f"  {i}. {escape(c.text)}  [dim]({escape(', '.join(c.sources))})[/dim]")
+    return result
+
+
+async def _run_synthesize_thread(thread_id, judge, as_json, context, answers=None, parent=None, *,
+                                 mode="merge", keep=(), question=None):
     from rich.markup import escape
 
     from app.services.arena import open_graph, synthesize_thread
@@ -938,7 +986,8 @@ async def _run_synthesize_thread(thread_id, judge, as_json, context, answers=Non
         print_header()
     async with open_graph() as graph_app:
         async for event in synthesize_thread(graph_app, thread_id, judge, context=context,
-                                             checkpoint_ids=answers, parent_checkpoint_id=parent):
+                                             checkpoint_ids=answers, parent_checkpoint_id=parent,
+                                             mode=mode, keep=keep, question=question):
             if event["type"] == "start":
                 result["parent_checkpoint_id"] = event["parent_checkpoint_id"]
             elif event["type"] == "end":

@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from app.api.deps import get_graph_app
 from app.registry import DEFAULT_MODEL, model_color
-from app.services.arena import TurnStart, question_point, synthesis_request, turn_start
+from app.services.arena import TurnStart, question_point, synthesis_note, synthesis_request, turn_start
 from app.services.chat import name_new_thread, stream_turn
 from app.services.context import ContextSettings
 from app.services.runs import SYNTHESIS_TURN, new_turn_id
@@ -92,8 +92,10 @@ class ChatConnection:
                      model (type "synthesis" tags a synthesis turn, and with
                      answer_checkpoint_ids in place of a message synthesizes
                      those replies, hung from their question unless a parent
-                     is given; debate_session_id, without a parent, continues
-                     that finished debate); or {type: "stop"}.
+                     is given: synthesis_mode merge | compare | checklist
+                     (with keep_components) | ask (with synthesis_question);
+                     debate_session_id, without a parent, continues that
+                     finished debate); or {type: "stop"}.
     Server frames:  stream_start, stream_token, stream_end, title_update, error.
                     stream_start, stream_end and a model's error carry the
                     parent_checkpoint_id that model forked from and the turn_id;
@@ -193,10 +195,16 @@ class ChatConnection:
             return
         try:
             message = frame.get("message")
+            note = None
             if frame.get("type") == SYNTHESIS_TURN and frame.get("answer_checkpoint_ids"):
                 # The answers to synthesize, by checkpoint: the prompt is the
                 # backend's, the same one the CLI and MCP synthesis writes.
-                message = await synthesis_request(self.graph_app, self.thread_id, frame["answer_checkpoint_ids"])
+                mode = frame.get("synthesis_mode") or "merge"
+                message = await synthesis_request(
+                    self.graph_app, self.thread_id, frame["answer_checkpoint_ids"], mode,
+                    keep=frame.get("keep_components") or (), question=frame.get("synthesis_question"),
+                )
+                note = synthesis_note(mode, frame.get("synthesis_question"))
             await self.send({"type": "stream_start", **where, "model_color": model_color(model)})
             async for event in stream_turn(
                 self.graph_app,
@@ -211,6 +219,7 @@ class ChatConnection:
                 context=context,
                 turn_kind=frame.get("type"),
                 turn_id=turn_id,
+                turn_note=note,
             ):
                 if event["type"] == "token":
                     if not await self.send({"type": "stream_token", "token": event["token"], "model": model}):
