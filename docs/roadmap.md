@@ -45,8 +45,8 @@ Cheap changes that answer published criticism of multi-agent debate, plus the nu
 
 ## Phase 3 — Nothing lost, nothing hidden
 
-9. **Resumable streams.**
-   - A chat turn or a debate keeps running when the tab reloads or the socket drops, and the client reattaches. This replaces today's rule that a run dies with its socket (`interrupted`).
+9. **Resumable streams.** _Done._
+   - A chat turn or a debate keeps running when the tab reloads or the socket drops, and the client reattaches. This replaces the rule that a run died with its socket (`interrupted` now means a server restart).
    - Source: LibreChat.
 10. **Visible context.**
     - How much of the model's budget the path uses.
