@@ -18,6 +18,7 @@ import AppHeader from "@/components/AppHeader";
 import DebateReplyDialog from "@/components/DebateReplyDialog";
 import DebateBanner, { type DebateBannerProps } from "@/components/DebateBanner";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import AnswerDiffDialog from "@/components/AnswerDiff";
 import type { Message } from "@/lib/types";
 import { useLayoutPanels } from "@/hooks/useLayoutPanels";
 import { useThreads } from "@/hooks/useThreads";
@@ -35,6 +36,7 @@ import { useToggles } from "@/hooks/useToggles";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useTreeActions } from "@/hooks/useTreeActions";
 import { useReplyTarget } from "@/hooks/useReplyTarget";
+import { useAnswerDiff } from "@/hooks/useAnswerDiff";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
 import { reconcileMessages } from "@/lib/messages";
 import { mayLeaveThread } from "@/lib/leaveGuard";
@@ -189,6 +191,9 @@ export default function Home() {
   useEffect(() => {
     setMessagesRef.current = setMessages;
   }, [setMessages]);
+
+  // "Compare with…" on a compare card: reads only, the path on screen stays.
+  const answerDiff = useAnswerDiff({ threadId, replyTexts, modelLabel });
 
   // ─── Debate ─────────────────────────────────────────────────────
   const clearChatMessages = useCallback(() => setMessages([]), [setMessages]);
@@ -554,6 +559,7 @@ export default function Home() {
                     maxPromptChars={limits.max_prompt_chars}
                     contextNotes={contextNotes}
                     liveTurn={liveTurn}
+                    onCompareAnswers={answerDiff.compare}
                   />
                 </motion.div>
               )}
@@ -632,6 +638,15 @@ export default function Home() {
         />
       )}
       <ConfirmDialog request={confirmRequest} onAnswer={answerConfirm} />
+
+      <AnswerDiffDialog
+        open={answerDiff.open}
+        a={answerDiff.a}
+        b={answerDiff.b}
+        labels={answerDiff.labels}
+        error={answerDiff.error}
+        onClose={answerDiff.close}
+      />
 
       {errorModals.map((err) => (
         <ErrorModal

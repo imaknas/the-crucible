@@ -4,11 +4,13 @@ import type { Message } from "@/lib/types";
 import type { PeerLegendEntry, PositionShift } from "@/lib/debateTranscript";
 import { roundLabel } from "@/lib/debateTranscript";
 import { MessageBody } from "./MessageBubble";
+import { DiffView } from "./AnswerDiff";
 
 /**
  * Each participant's Round 1 answer next to its latest one, shown beside the
  * argument map (lib/debateTranscript.positionShifts). The map says who
- * changed and why; this shows the answers it is about, unparaphrased.
+ * changed and why; this shows the answers it is about, unparaphrased, and
+ * per participant what changed between them (lib/diff).
  */
 export default function PositionShiftPanel({
   shift,
@@ -22,6 +24,8 @@ export default function PositionShiftPanel({
   isDark: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
+  // Participants whose two answers are shown as a diff.
+  const [diffed, setDiffed] = React.useState<Record<string, boolean>>({});
   const peer = (model: string) => legend.find((l) => l.modelId === model)?.label;
   const first = roundLabel(shift.startRound, "short");
   return (
@@ -52,24 +56,43 @@ export default function PositionShiftPanel({
             key={row.model}
             sx={{ display: "grid", gap: 0.75, pt: 1.5, borderTop: "1px solid", borderColor: "divider", "&:first-of-type": { borderTop: "none", pt: 0 } }}
           >
-            <Typography sx={{ fontWeight: 700, fontSize: "0.85rem" }} title={row.model}>
-              {modelLabel(row.model)}
-              {peer(row.model) && (
-                <Box component="span" sx={{ fontWeight: 500, color: "text.secondary", ml: 1 }}>
-                  {peer(row.model)}
-                </Box>
-              )}
-            </Typography>
-            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.5 }}>
-              <Answer heading={first} msg={row.first} open={open} isDark={isDark} />
-              {row.last ? (
-                <Answer heading={roundLabel(row.last.round ?? shift.endRound)} msg={row.last} open={open} isDark={isDark} />
-              ) : (
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  No later answer: it failed in the rounds after {first}.
-                </Typography>
+            <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
+              <Typography sx={{ fontWeight: 700, fontSize: "0.85rem" }} title={row.model}>
+                {modelLabel(row.model)}
+                {peer(row.model) && (
+                  <Box component="span" sx={{ fontWeight: 500, color: "text.secondary", ml: 1 }}>
+                    {peer(row.model)}
+                  </Box>
+                )}
+              </Typography>
+              {row.last && (
+                <ButtonBase
+                  onClick={() => setDiffed((d) => ({ ...d, [row.model]: !d[row.model] }))}
+                  aria-pressed={!!diffed[row.model]}
+                  aria-label={`Show changes in ${modelLabel(row.model)}'s answer`}
+                  sx={{ fontSize: "0.8rem", fontWeight: 600, color: "primary.main", px: 1, py: 0.5, borderRadius: 1.5 }}
+                >
+                  Show changes
+                </ButtonBase>
               )}
             </Box>
+            {row.last && diffed[row.model] ? (
+              <DiffView
+                a={{ label: first, text: row.first.content }}
+                b={{ label: roundLabel(row.last.round ?? shift.endRound), text: row.last.content }}
+              />
+            ) : (
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.5 }}>
+                <Answer heading={first} msg={row.first} open={open} isDark={isDark} />
+                {row.last ? (
+                  <Answer heading={roundLabel(row.last.round ?? shift.endRound)} msg={row.last} open={open} isDark={isDark} />
+                ) : (
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    No later answer: it failed in the rounds after {first}.
+                  </Typography>
+                )}
+              </Box>
+            )}
           </Box>
         ))}
       </Box>

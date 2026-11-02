@@ -96,6 +96,25 @@ test.describe("live flows (scripted models)", () => {
     await expect(cards.first().getByRole("button", { name: /^Continue with/ })).toBeEnabled();
   });
 
+  test("Compare with… on a card shows what differs between two answers", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, "Which answer differs?");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0, { timeout: 30_000 });
+
+    const gpt = page.getByRole("article", { name: "GPT-6.1 Sol's answer" });
+    await gpt.getByRole("button", { name: "Compare with…" }).click();
+    await page.getByRole("menuitem", { name: "Claude Sonnet 5.5", exact: true }).click();
+
+    const dialog = page.getByRole("dialog", { name: "Compare answers: GPT-6.1 Sol and Claude Sonnet 5.5" });
+    await expect(dialog).toBeVisible();
+    // The scripted answers differ only in the model id: one sentence changed, one the same.
+    await expect(dialog.getByTestId("diff-summary")).toHaveText("1 sentence the same, 1 changed");
+    await expect(dialog.locator("ins").first()).toContainText("claude");
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toHaveCount(0);
+  });
+
   test("every card says what its answer took, the turn its total, and both survive a reload", async ({ page }) => {
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await page.getByRole("button", { name: "Arena", exact: true }).click();

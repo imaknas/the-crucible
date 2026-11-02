@@ -9,7 +9,7 @@ import { Message, ModelError } from "@/lib/types";
 import ModelErrorBubble from "./ModelErrorBubble";
 import BranchChip, { type AnswerChoice } from "./BranchChip";
 import type { BranchPoint } from "@/lib/branching";
-import { buildTranscript, synthesizableIds, type LiveTurn } from "@/lib/turns";
+import { buildTranscript, synthesizableIds, type LiveTurn, type TurnCard } from "@/lib/turns";
 import TurnCards from "./TurnCards";
 import PositionShiftPanel from "./PositionShiftPanel";
 import { positionShifts } from "@/lib/debateTranscript";
@@ -77,6 +77,8 @@ interface ChatViewProps {
   replyTexts?: Record<string, string>;
   /** The multi-model turn streaming (or just streamed) in this tab: it streams into cards. */
   liveTurn?: LiveTurn | null;
+  /** "Compare with…" on a compare card: show what differs between two answers. */
+  onCompareAnswers?: (card: TurnCard, other: TurnCard) => void;
 }
 
 
@@ -121,6 +123,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   contextNotes,
   replyTexts = EMPTY_TEXTS,
   liveTurn = null,
+  onCompareAnswers,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerContentRef = useRef<HTMLDivElement>(null);
@@ -550,6 +553,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       onDismiss={onDismissModelError}
                       retryDisabled={isLoading}
                       review={turnReview(item.cards)}
+                      onCompare={onCompareAnswers}
                     />
                   </Box>
                 );

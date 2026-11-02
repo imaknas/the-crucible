@@ -2,7 +2,7 @@ import { SYNTHESIS_MODES, type SynthesisMode, type SynthesisRequest } from "@/li
 import PeerReviewPanel from "./PeerReviewPanel";
 import type { AnswerReview } from "@/lib/types";
 import React from "react";
-import { Box, ButtonBase, CircularProgress, Divider, MenuItem, Paper, Select, Stack, Typography } from "@mui/material";
+import { Box, ButtonBase, CircularProgress, Divider, Menu, MenuItem, Paper, Select, Stack, Typography } from "@mui/material";
 import { AlertTriangle, CheckCircle2, Scale, Sparkles } from "lucide-react";
 import { MessageBody, getModelColor } from "./MessageBubble";
 import type { TurnCard } from "@/lib/turns";
@@ -34,6 +34,15 @@ interface CardProps {
   onRetry?: (errorId: string) => void;
   onDismiss?: (errorId: string) => void;
   retryDisabled?: boolean;
+  /** Every card of the turn: "Compare with…" offers the others. */
+  peers?: TurnCard[];
+  /** Show what differs between this answer and another (the diff dialog). */
+  onCompare?: (card: TurnCard, other: TurnCard) => void;
+}
+
+/** A finished answer whose whole text can be had: shown in full, or read from its node. */
+function comparable(card: TurnCard): boolean {
+  return !card.streaming && !card.error && !!card.text && (card.full || !!card.id);
 }
 
 /**
@@ -51,6 +60,8 @@ export const CompareCard = React.memo(function CompareCard({
   onRetry,
   onDismiss,
   retryDisabled,
+  peers = [],
+  onCompare,
 }: CardProps) {
   const color = getModelColor(card.model, isDark, card.color);
   const label = card.label || modelLabel(card.model);
@@ -59,6 +70,9 @@ export const CompareCard = React.memo(function CompareCard({
   const open = toggled ?? card.full;
   const clamp = !card.streaming && !open;
   const failed = !!card.error;
+  const [compareAnchor, setCompareAnchor] = React.useState<HTMLElement | null>(null);
+  const others = onCompare && comparable(card) ? peers.filter((p) => p.key !== card.key && comparable(p)) : [];
+  const menuId = `compare-menu-${card.key}`;
 
   return (
     <Paper
@@ -200,6 +214,41 @@ export const CompareCard = React.memo(function CompareCard({
                 Read in full
               </ButtonBase>
             )}
+            {others.length > 0 && (
+              <>
+                <ButtonBase
+                  onClick={(e) => setCompareAnchor(e.currentTarget)}
+                  aria-haspopup="menu"
+                  aria-expanded={!!compareAnchor}
+                  aria-controls={compareAnchor ? menuId : undefined}
+                  title={`Show what differs between ${label}'s answer and another one`}
+                  sx={actionSx(color.text)}
+                >
+                  Compare with…
+                </ButtonBase>
+                <Menu
+                  id={menuId}
+                  anchorEl={compareAnchor}
+                  open={!!compareAnchor}
+                  onClose={() => setCompareAnchor(null)}
+                  slotProps={{ list: { "aria-label": `Compare ${label}'s answer with` } }}
+                >
+                  {others.map((other) => (
+                    <MenuItem
+                      key={other.key}
+                      title={other.model}
+                      onClick={() => {
+                        setCompareAnchor(null);
+                        onCompare?.(card, other);
+                      }}
+                      sx={{ fontSize: "0.85rem" }}
+                    >
+                      {other.label || modelLabel(other.model)}
+                    </MenuItem>
+                  ))}
+                </Menu>
+              </>
+            )}
             <ButtonBase
               onClick={() => card.id && onContinueReply(card.id)}
               disabled={!card.id}
@@ -240,6 +289,8 @@ interface TurnProps {
   retryDisabled?: boolean;
   /** The models score each other's answers (one call per author); its result shows under the cards. */
   review?: { result: AnswerReview | null; running: boolean; disabled: boolean; onRun: () => void } | null;
+  /** "Compare with…" on a card: show what differs between two of the turn's answers. */
+  onCompare?: (card: TurnCard, other: TurnCard) => void;
 }
 
 /** One turn's answers side by side, from the first token to the settled tree. */
@@ -255,6 +306,7 @@ export default function TurnCards({
   onDismiss,
   retryDisabled,
   review = null,
+  onCompare,
 }: TurnProps) {
   // "" = the first selected model, the original behaviour.
   const [synthesizer, setSynthesizer] = React.useState("");
@@ -381,6 +433,8 @@ export default function TurnCards({
             onRetry={onRetry}
             onDismiss={onDismiss}
             retryDisabled={retryDisabled}
+            peers={cards}
+            onCompare={onCompare}
           />
         ))}
       </Box>

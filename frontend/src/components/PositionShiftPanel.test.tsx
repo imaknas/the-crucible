@@ -68,6 +68,24 @@ describe("PositionShiftPanel", () => {
     expect(setup()).toHaveTextContent("No later answer");
   });
 
+  it("shows what changed between a participant's first and last answer", () => {
+    const panel = setup();
+    const toggle = within(panel).getByRole("button", { name: "Show changes in GPT-6.1 Sol's answer" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    // A participant with no later answer has nothing to compare.
+    expect(within(panel).queryByRole("button", { name: "Show changes in Claude Sonnet 5.5's answer" })).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(within(panel).getByTestId("diff-summary")).toHaveTextContent("0 sentences the same, 1 only in A, 1 only in B");
+    expect(within(panel).getByText("A · Round 1 · independent")).toBeInTheDocument();
+    expect(within(panel).getByText("B · Round 2")).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(within(panel).queryByTestId("diff-summary")).toBeNull();
+    expect(within(panel).getByText("No, after all.")).toBeInTheDocument();
+  });
+
   it("expands to the full answers and back", () => {
     setup();
     const toggle = screen.getByRole("button", { name: "Show both in full" });

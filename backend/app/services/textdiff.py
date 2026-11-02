@@ -39,6 +39,7 @@ _QUOTE = re.compile(r"^\s*>\s?")
 _RULE = re.compile(r"^\s*(?:[-*_]\s*){3,}$")
 _TABLE_SEP = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)*\|?\s*$")
 _TOKEN = re.compile(r"\s+|[\w'-]+|[^\w\s]")
+_WORDLIKE = re.compile(r"[^\W_]")
 _ENDERS = ".!?"
 _CJK_ENDERS = "。！？"
 _CLOSERS = "\"'”’)]"
@@ -168,9 +169,10 @@ def tokens(text: str) -> List[str]:
 
 
 def similarity(a: str, b: str) -> float:
-    """Dice overlap of the two texts' words (case-insensitive)."""
-    wa = [t.lower() for t in tokens(a) if not t.isspace()]
-    wb = [t.lower() for t in tokens(b) if not t.isspace()]
+    """Dice overlap of the two texts' words (case-insensitive); punctuation
+    and spaces don't make two sentences alike."""
+    wa = [t.lower() for t in tokens(a) if _WORDLIKE.search(t)]
+    wb = [t.lower() for t in tokens(b) if _WORDLIKE.search(t)]
     if not wa and not wb:
         return 1.0
     counts: Dict[str, int] = {}

@@ -34,6 +34,8 @@ def test_a_changed_sentence_is_diffed_word_by_word():
 def test_unrelated_sentences_in_the_same_spot_are_not_paired():
     d = diff_texts("Cats purr loudly.", "Quantum fields fluctuate.")
     assert _ops(d) == ["only_a", "only_b"]
+    # Shared punctuation is not likeness.
+    assert _ops(diff_texts("Yes, at first.", "No, after all.")) == ["only_a", "only_b"]
 
 
 def test_markdown_formatting_is_not_a_difference():
