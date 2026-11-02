@@ -332,6 +332,49 @@ async def list_answer_components(
     return {"thread_id": thread_id, "components": [{"text": c.text, "sources": list(c.sources)} for c in components]}
 
 
+@mcp.tool()
+@_quiet
+async def review_answers(thread_id: str, checkpoint_ids: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Have the models that wrote a set of answers score each other's, as
+    evidence beside them, never a verdict: each answer gets a letter, every
+    author scores the others (never its own) from 1 to 10 with a reason,
+    without model names and in its own order. Stored on the thread. One
+    model call per author.
+
+    Returns {review_key, thread_id, checkpoint_ids, question, answers: [{label,
+    checkpoint_id, model, model_name, average, scores: [{reviewer,
+    reviewer_name, score, reason}]}], errors: {model: message}}.
+
+    Args:
+        thread_id: The thread.
+        checkpoint_ids: The answers (invoke_arena or get_thread_tree ids), by at least two different models. Default: every model's answer to the thread's latest question.
+    """
+    from app.services import review
+
+    await _require_thread(thread_id)
+    try:
+        async with arena_svc.open_graph() as graph_app:
+            return await review.review_answers(graph_app, thread_id, checkpoint_ids)
+    except ValueError as e:
+        raise _tool_error(e)
+
+
+@mcp.tool()
+@_quiet
+async def list_answer_reviews(thread_id: str) -> Dict[str, Any]:
+    """The peer reviews stored on a thread (review_answers), newest first.
+
+    Returns {thread_id, reviews: [review]}.
+
+    Args:
+        thread_id: The thread.
+    """
+    from app.services import review
+
+    await _require_thread(thread_id)
+    return {"thread_id": thread_id, "reviews": review.reviews_of(thread_id)}
+
+
 # ─── Debates ─────────────────────────────────────────────────────
 
 

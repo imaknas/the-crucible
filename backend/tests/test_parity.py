@@ -51,6 +51,8 @@ ROUTES: dict = {
     ("GET", "/debate/sessions/{session_id}/transcript"): (("debates show", None), ("get_debate", None)),
     ("WS", "/debate/ws/{session_id}"): (("debate", None), ("run_debate", None)),
     ("POST", "/synthesis/components"): (("synthesize", "--mode"), ("list_answer_components", None)),
+    ("POST", "/synthesis/reviews"): (("review", None), ("review_answers", None)),
+    ("GET", "/synthesis/reviews/{thread_id}"): (("review", "--list"), ("list_answer_reviews", None)),
 }
 
 # The debate socket's commands. A live control maps to running a debate in

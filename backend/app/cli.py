@@ -1174,6 +1174,64 @@ def search(
         console.print(Text(f"  {r['excerpt']}"))
 
 
+@app.command()
+def review(
+    thread: str = typer.Option(..., "--thread", "-t", help="The thread whose answers to review."),
+    answers: Optional[List[str]] = typer.Option(
+        None, "--answers", "-a", help="Checkpoint of an answer to include (repeat; default: the answers to the latest question)."
+    ),
+    list_only: bool = typer.Option(False, "--list", help="Show the reviews stored on the thread instead of running one."),
+    format_output: str = _opt_format(),
+):
+    """
+    [bold cyan]⚖️ Review[/bold cyan] — How the models score each other's answers.
+
+    Each answer gets a letter; every model that wrote one scores the others
+    (never its own) from 1 to 10 with a reason, without model names. Shown as
+    evidence beside the answers, never as a verdict. One call per author.
+    """
+    as_json = _check_format(format_output)
+    _load_env()
+    if list_only and answers:
+        raise typer.BadParameter("--list shows stored reviews; it takes no --answers")
+    result = _run(_run_review(thread, answers, list_only, as_json), as_json)
+    if as_json:
+        _emit_json(result)
+
+
+async def _run_review(thread_id, answers, list_only, as_json):
+    from rich.text import Text
+
+    from app.core import database as db
+    from app.services import review as review_svc
+    from app.services.arena import open_graph
+    from app.cli_display import print_header, print_info
+
+    if not db.thread_exists(thread_id):
+        raise ValueError(f"Thread {thread_id} not found.")
+    if list_only:
+        reviews = review_svc.reviews_of(thread_id)
+    else:
+        async with open_graph() as graph_app:
+            reviews = [await review_svc.review_answers(graph_app, thread_id, answers)]
+    if as_json:
+        return {"thread_id": thread_id, "reviews": reviews} if list_only else reviews[0]
+    print_header()
+    if not reviews:
+        print_info("No reviews on this thread yet.")
+    for r in reviews:
+        console.print(Text(f"Question: {r['question']}", style="bold"))
+        for a in sorted(r["answers"], key=lambda a: -(a["average"] or 0)):
+            avg = f"{a['average']:.1f}/10" if a["average"] is not None else "not scored"
+            console.print(Text(f"  {a['label']}  {a['model_name']}  {avg}  ({len(a['scores'])} reviews)"))
+            for s in a["scores"]:
+                console.print(Text(f"      {s['reviewer_name']}: {s['score']} — {s['reason']}", style="dim"))
+        for model, error in r.get("errors", {}).items():
+            console.print(Text(f"  {model} couldn't review: {error}", style="red"))
+        print_info("Scores the models gave each other's answers, anonymously and never their own: evidence, not a verdict.")
+    return {"thread_id": thread_id, "reviews": reviews}
+
+
 @app.command("delete-branch")
 def delete_branch(
     checkpoint: str = typer.Argument(..., help="Checkpoint of the node to delete, with everything below it."),

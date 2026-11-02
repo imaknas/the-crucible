@@ -79,6 +79,18 @@ def init_db():
             PRIMARY KEY (thread_id, filename)
         )
     """)
+    # Peer reviews of a set of answers (services/review.py): the latest per
+    # set, keyed by the sorted answer checkpoints. Not tree nodes: n reviews
+    # of one turn would crowd the tree.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS answer_reviews (
+            thread_id TEXT NOT NULL,
+            review_key TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (thread_id, review_key)
+        )
+    """)
 
     # Backfill: ensure all debate parent threads appear in thread_metadata.
     # The row only lists the thread; its title stays NULL ("untitled") so the
@@ -315,6 +327,32 @@ def _purge_thread_rows(conn, thread_id: str) -> None:
     conn.execute("DELETE FROM node_positions WHERE thread_id = ?", (thread_id,))
     conn.execute("DELETE FROM thread_metadata WHERE thread_id = ?", (thread_id,))
     conn.execute("DELETE FROM thread_documents WHERE thread_id = ?", (thread_id,))
+    conn.execute("DELETE FROM answer_reviews WHERE thread_id = ?", (thread_id,))
+
+
+def save_answer_review(thread_id: str, review_key: str, data: dict) -> None:
+    """Store a peer review, replacing an earlier one of the same answers. Blocking: call from async code through asyncio.to_thread."""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO answer_reviews (thread_id, review_key, data) VALUES (?, ?, ?)",
+            (thread_id, review_key, json.dumps(data)),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_answer_reviews(thread_id: str) -> list[dict]:
+    """Every stored peer review on a thread, newest first."""
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            "SELECT data FROM answer_reviews WHERE thread_id = ? ORDER BY created_at DESC, rowid DESC", (thread_id,)
+        ).fetchall()
+    finally:
+        conn.close()
+    return [json.loads(r[0]) for r in rows]
 
 
 class ThreadDocumentStore:
