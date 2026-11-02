@@ -10,7 +10,8 @@
   <a href="docs/cli.md">CLI</a> ·
   <a href="docs/mcp.md">MCP server</a> ·
   <a href="#-research-what-survives-compaction">Research</a> ·
-  <a href="docs/development.md">Development</a>
+  <a href="docs/development.md">Development</a> ·
+  <a href="docs/roadmap.md">Roadmap</a>
 </p>
 
 <p align="center">
@@ -123,6 +124,10 @@ In a local SQLite database (`backend/checkpoints.sqlite`), with uploads in `back
 ## 🛠️ Development
 
 [docs/development.md](docs/development.md) covers the layout, design, tech stack, the test suites (pytest, Jest, and a Playwright suite that runs against scripted models at no cost) and how the demo above is recorded. [`CLAUDE.md`](CLAUDE.md) is the detailed maintainer guide: design invariants and where each kind of change belongs.
+
+## 🗺️ Roadmap
+
+Next: debates that follow what the research says about rounds, anonymity and judges; the cost and speed of every answer; diffs; synthesizing any set of nodes; resumable streams; a navigable tree; your own blind evaluation set; and a third round of compaction research. [The full plan →](docs/roadmap.md)
 
 ## 🤝 Contributing
 
