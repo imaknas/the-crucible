@@ -107,6 +107,33 @@ describe("buildTranscript", () => {
     expect(synthesizableIds(turn.cards, nodes)).toEqual(["a1", "b1"]);
   });
 
+  it("gives each card its metrics: live from stream_end, else the path's, else the tree node's", () => {
+    const m = (cost: number) => ({
+      ttft_ms: 1, total_ms: 2, input_tokens: 3, output_tokens: 4, reasoning_tokens: null, cached_input_tokens: null, cost_usd: cost,
+    });
+    const withMetrics = [
+      node("a1", "a", "t1", { metadata: { role: "ai", active_peer: "a", turn_id: "t1", metrics: m(1) } }),
+      node("b1", "b", "t1", { metadata: { role: "ai", active_peer: "b", turn_id: "t1", metrics: m(2) } }),
+      node("c1", "c", "t1", { metadata: { role: "ai", active_peer: "c", turn_id: "t1" } }),
+    ];
+    const live = updateLiveReply(startLiveTurn(["a", "b", "c"], "k"), "c", { turn_id: "t1", checkpoint_id: "c1", streaming: false, metrics: m(3) });
+    const items = buildTranscript({
+      messages: [q, { ...reply("a1", "a", "t1"), metrics: m(9) }],
+      nodes: withMetrics,
+      edges: [],
+      selected: ["a", "b", "c"],
+      replyTexts: {},
+      live,
+    });
+    const turn = items[1];
+    if (turn.kind !== "turn") throw new Error();
+    expect(turn.cards.map((c) => c.metrics?.cost_usd)).toEqual([9, 2, 3]);
+    // An older turn without metrics: none, not zeros.
+    const old = buildTranscript({ messages: [q, reply("a1", "a", "t1")], nodes, edges: [], selected: ["a", "b"], replyTexts: {}, live: null });
+    if (old[1].kind !== "turn") throw new Error();
+    expect(old[1].cards.map((c) => c.metrics)).toEqual([null, null]);
+  });
+
   it("does not draw the latest turn under another branch the person opened", () => {
     const live = updateLiveReply(startLiveTurn(["a", "b"], "k"), "a", { turn_id: "t9", checkpoint_id: "z", streaming: false });
     const items = buildTranscript({ messages: [q, reply("a0", "a", "t0")], nodes, edges: [], selected: ["a"], replyTexts: {}, live });

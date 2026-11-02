@@ -209,3 +209,4 @@ def test_describe_and_turn_total():
     assert total["cost_usd"] == 0.0123 and total["unpriced"] == 1
     assert describe(total).endswith("$0.0123 + 1 price unknown")
     assert turn_total([None]) is None
+    assert describe({**one, "cost_usd": 0.00001}).endswith("<$0.0001")

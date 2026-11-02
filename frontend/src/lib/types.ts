@@ -1,6 +1,8 @@
 // ─── Shared Types ───────────────────────────────────────────────────────────
 // Single source of truth for all shared data types across the frontend.
 
+import type { ReplyMetrics } from "@/lib/metrics";
+
 /** A row of the session list (GET /threads). */
 export interface Thread {
   id: string;
@@ -37,6 +39,8 @@ export interface Message {
   model_color?: string | null;
   /** Debate transcripts: the round this reply answered (0-based). */
   round?: number;
+  /** A reply's time, tokens and cost (stream_end and path messages); null if it recorded none. */
+  metrics?: ReplyMetrics | null;
 }
 
 /** One model's failed turn, shown inline with a Retry instead of a modal. */
@@ -76,6 +80,8 @@ export interface TreeNode {
     kind?: string;
     /** The person's message and every reply sent with it share one; absent on older threads. */
     turn_id?: string;
+    /** A reply's time, tokens and cost; null if it recorded none. */
+    metrics?: ReplyMetrics | null;
     [key: string]: unknown;
   };
   /** "synthesis" renders the node as a SynthesisTreeNode. */

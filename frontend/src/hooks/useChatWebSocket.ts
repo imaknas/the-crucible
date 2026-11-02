@@ -235,6 +235,7 @@ export function useChatWebSocket({
                     ...(data.model_color ? { model_color: data.model_color } : {}),
                     content: content || m.content,
                     streaming: false,
+                    metrics: data.metrics ?? null,
                   }
                 : m,
             ),
@@ -246,6 +247,7 @@ export function useChatWebSocket({
               streaming: false,
               checkpoint_id: data.checkpoint_id ?? null,
               ...(data.turn_id ? { turn_id: data.turn_id } : {}),
+              metrics: data.metrics ?? null,
             }),
           );
           delete streamBufferRef.current[data.model];

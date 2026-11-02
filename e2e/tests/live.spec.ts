@@ -96,6 +96,36 @@ test.describe("live flows (scripted models)", () => {
     await expect(cards.first().getByRole("button", { name: /^Continue with/ })).toBeEnabled();
   });
 
+  test("every card says what its answer took, the turn its total, and both survive a reload", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, "What does each answer cost?");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0, { timeout: 30_000 });
+
+    // The scripted models report usage, and both are priced, so every number shows.
+    const line = /^\d+\.\d s to first token · \d+\.\d s · [\d,]+ in \/ [\d,]+ out \([\d,]+ reasoning\) · (<)?\$\d/;
+    const expectMetrics = async () => {
+      const cards = page.getByRole("article");
+      await expect(cards).toHaveCount(2);
+      for (const card of await cards.all()) {
+        await expect(card.getByTestId("reply-metrics")).toHaveText(line);
+      }
+      await expect(page.getByTestId("turn-metrics")).toHaveText(/^Total · slowest \d+\.\d s · [\d,]+ in \/ [\d,]+ out .*\$\d/);
+    };
+    await expectMetrics();
+    // The exact numbers are a keyboard focus away (Tab there: a scripted
+    // focus() isn't keyboard focus, which is what opens the tooltip).
+    await page.getByTestId("reply-metrics").first().focus();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.getByTestId("reply-metrics").first()).toBeFocused();
+    await expect(page.getByRole("tooltip").filter({ hasText: "Input tokens:" })).toBeVisible();
+
+    // Stored with the replies: a reload reads them back from the tree.
+    await page.reload();
+    await expectMetrics();
+  });
+
   test("Stop marks every card still streaming as cut off", async ({ page }) => {
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await page.getByRole("button", { name: "Arena", exact: true }).click();

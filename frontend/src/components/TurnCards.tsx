@@ -4,6 +4,8 @@ import { AlertTriangle, CheckCircle2, Scale, Sparkles } from "lucide-react";
 import { MessageBody, getModelColor } from "./MessageBubble";
 import type { TurnCard } from "@/lib/turns";
 import type { ModelError } from "@/lib/types";
+import { turnTotal } from "@/lib/metrics";
+import { ReplyMetricsLine, TurnMetricsLine } from "./ReplyMetrics";
 
 const actionSx = (color: string) => ({
   px: 1,
@@ -157,6 +159,12 @@ export const CompareCard = React.memo(function CompareCard({
         </ButtonBase>
       )}
 
+      {!card.streaming && !failed && (
+        <Box sx={{ mb: 1.5 }}>
+          <ReplyMetricsLine metrics={card.metrics} />
+        </Box>
+      )}
+
       <Box
         sx={{
           mt: "auto",
@@ -245,6 +253,9 @@ export default function TurnCards({
   // "" = the first selected model, the original behaviour.
   const [synthesizer, setSynthesizer] = React.useState("");
   const columns = cards.length === 2 ? "repeat(2, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))";
+  // Shown once every answer is in (a total of half a turn would read as the
+  // whole), under the cards, so its arrival doesn't move them.
+  const total = cards.some((c) => c.streaming) ? null : turnTotal(cards.map((c) => c.metrics));
   return (
     <Box data-testid="turn-cards" sx={{ display: "flex", flexDirection: "column", gap: 2, width: "100%" }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -322,6 +333,7 @@ export default function TurnCards({
           />
         ))}
       </Box>
+      <TurnMetricsLine total={total} />
     </Box>
   );
 }

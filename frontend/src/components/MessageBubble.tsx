@@ -21,6 +21,7 @@ import {
   vs,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Message } from "@/lib/types";
+import { ReplyMetricsLine } from "./ReplyMetrics";
 import { FAMILY_COLORS, NEUTRAL_COLOR, modelFamilyColor, modelPalette, type ModelPalette } from "@/lib/colors";
 
 const thinkRegex =
@@ -565,6 +566,11 @@ export const MessageBubble = React.memo(
             </Typography>
           </Box>
           <MessageBody msg={msg} isDark={isDark} />
+          {!isUser && !msg.streaming && msg.metrics && (
+            <Box sx={{ mt: 1.5 }}>
+              <ReplyMetricsLine metrics={msg.metrics} />
+            </Box>
+          )}
         </Paper>
       </Box>
     );

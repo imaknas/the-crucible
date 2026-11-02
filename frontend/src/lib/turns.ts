@@ -1,4 +1,5 @@
 import type { Message, TreeEdge, TreeNode } from "@/lib/types";
+import type { ReplyMetrics } from "@/lib/metrics";
 import { cardExcerpt, isSynthesisNode, orderSiblings, turnSiblings } from "@/lib/arenaCompare";
 
 /**
@@ -25,6 +26,8 @@ export interface LiveReply {
   checkpoint_id?: string | null;
   turn_id?: string | null;
   model_color?: string | null;
+  /** Time, tokens and cost, once stream_end gives them. */
+  metrics?: ReplyMetrics | null;
 }
 
 /** The multi-model turn streaming (or just streamed) in this tab. */
@@ -74,6 +77,8 @@ export interface TurnCard {
   error: string | null;
   /** Its conversation is the one on screen. */
   shown: boolean;
+  /** What the answer took; null until known, or for a reply that recorded none. */
+  metrics: ReplyMetrics | null;
 }
 
 export type TranscriptItem =
@@ -104,6 +109,7 @@ function liveCard(r: LiveReply): TurnCard {
     stopped: !!r.stopped,
     error: r.error ?? null,
     shown: false,
+    metrics: r.metrics ?? null,
   };
 }
 
@@ -152,6 +158,8 @@ export function buildTranscript({ messages, nodes, edges, selected, replyTexts, 
         stopped: !!liveReply?.stopped,
         error: liveReply?.error ?? null,
         shown: own,
+        // Live numbers first (stream_end), then the stored ones.
+        metrics: (own ? msg.metrics : null) ?? liveReply?.metrics ?? node.metadata?.metrics ?? null,
       };
     });
     // A model that failed this turn has no node; its card stays, saying so.

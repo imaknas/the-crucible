@@ -149,8 +149,8 @@ def turn_total(metrics: Iterable[Optional[Metrics]]) -> Optional[Metrics]:
     """A turn's answers together: tokens and cost summed, time the slowest.
 
     ``cost_usd`` sums the priced answers only; ``unpriced`` counts the
-    answers whose cost is unknown, so a total is never shown as complete
-    when it isn't. None when no answer has metrics."""
+    answers with tokens but no known price, so a total is never shown as
+    complete when it isn't. None when no answer has metrics."""
     known = [m for m in metrics if m]
     if not known:
         return None
@@ -164,6 +164,7 @@ def turn_total(metrics: Iterable[Optional[Metrics]]) -> Optional[Metrics]:
         return max(values) if values else None
 
     costs = [m["cost_usd"] for m in known if m.get("cost_usd") is not None]
+    counted = [m for m in known if m.get("input_tokens") is not None and m.get("output_tokens") is not None]
     return {
         "answers": len(known),
         "ttft_ms": slowest("ttft_ms"),
@@ -173,7 +174,7 @@ def turn_total(metrics: Iterable[Optional[Metrics]]) -> Optional[Metrics]:
         "reasoning_tokens": total("reasoning_tokens"),
         "cached_input_tokens": total("cached_input_tokens"),
         "cost_usd": sum(costs) if costs else None,
-        "unpriced": len(known) - len(costs),
+        "unpriced": sum(1 for m in counted if m.get("cost_usd") is None),
     }
 
 
@@ -186,6 +187,8 @@ def format_cost(cost: Optional[float]) -> str:
         return "price unknown"
     if cost == 0:
         return "$0"
+    if cost < 0.0001:  # four decimals would round it to "$0.0000"
+        return "<$0.0001"
     return f"${cost:.4f}" if cost < 1 else f"${cost:,.2f}"
 
 

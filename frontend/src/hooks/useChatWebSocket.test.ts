@@ -253,6 +253,32 @@ describe("useChatWebSocket", () => {
     expect(result.current.messages.at(-1)).toMatchObject({ role: "assistant", id: "n_a" });
   });
 
+  it("keeps each reply's metrics from stream_end, for the cards and the bubble", async () => {
+    const metrics = { ttft_ms: 900, total_ms: 3000, input_tokens: 10, output_tokens: 20, reasoning_tokens: 5, cached_input_tokens: 0, cost_usd: 0.001 };
+    const multi = renderHook(() => useChatWebSocket({ ...mockProps, selectedModels: ["gpt-4o", "claude-x"] }));
+    await act(async () => {
+      await multi.result.current.sendInteractiveMessage("Hello");
+    });
+    const ws = MockWebSocket.instances.at(-1)!;
+    act(() => {
+      ws.onmessage?.({ data: JSON.stringify({ type: "stream_start", model: "gpt-4o", turn_id: "t1" }) });
+      ws.onmessage?.({ data: JSON.stringify({ type: "stream_end", model: "gpt-4o", checkpoint_id: "n_a", turn_id: "t1", metrics }) });
+    });
+    expect(multi.result.current.liveTurn?.replies[0].metrics).toEqual(metrics);
+    multi.unmount();
+
+    const single = renderHook(() => useChatWebSocket(mockProps));
+    await act(async () => {
+      await single.result.current.sendInteractiveMessage("Hello");
+    });
+    const ws2 = MockWebSocket.instances.at(-1)!;
+    act(() => {
+      ws2.onmessage?.({ data: JSON.stringify({ type: "stream_start", model: "gpt-4o" }) });
+      ws2.onmessage?.({ data: JSON.stringify({ type: "stream_end", model: "gpt-4o", checkpoint_id: "n_b", metrics }) });
+    });
+    expect(single.result.current.messages.at(-1)).toMatchObject({ id: "n_b", metrics });
+  });
+
   it("cards a model that fails, streams its retry back into the same card, and stops cards on Stop", async () => {
     const { result } = renderHook(() => useChatWebSocket({ ...mockProps, selectedModels: ["gpt-4o", "claude-x"] }));
     await act(async () => {
