@@ -14,6 +14,7 @@ from langchain_core.messages import HumanMessage
 
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.documents import attach_documents
+from app.services.metrics import message_metrics, snapshot_day
 from app.services.recall import INTERNAL_TAG
 from app.services.runs import (
     TURN_KIND_KEY,
@@ -185,7 +186,8 @@ async def stream_turn(
     Yields ``token`` events, ``drafted`` once the reply is written (later
     nodes are bookkeeping), then one ``end`` event: the reply's checkpoint
     (its tree node), text, turn id, the run's attached documents and
-    retrieved sources, notices about anything that degraded the turn, and
+    retrieved sources, notices about anything that degraded the turn, the
+    reply's ``metrics`` (time, tokens, cost: services/metrics.py) and
     (``with_path``) the path's messages. Raises on failure.
 
     ``parent_checkpoint_id`` None continues from the thread head.
@@ -249,6 +251,7 @@ async def stream_turn(
         "attached_documents": list(values.get("attached_documents") or []),
         "retrieved": sorted({c.get("filename") for c in values.get("retrieved_chunks") or [] if c.get("filename")}),
         "notices": list(values.get("notices") or []),
+        "metrics": message_metrics(last_reply(final), day=snapshot_day(final)),
     }
     if with_path:
         from app.services.tree import format_messages
@@ -257,8 +260,13 @@ async def stream_turn(
     yield end
 
 
+def last_reply(state):
+    """The last reply in a checkpoint's messages, or None."""
+    messages = (state.values or {}).get("messages", []) if state else []
+    return next((m for m in reversed(messages) if getattr(m, "type", "") == "ai"), None)
+
+
 def reply_text(state) -> str:
     """The text of the last reply in a checkpoint's messages ("" if none)."""
-    messages = (state.values or {}).get("messages", []) if state else []
-    last_ai = next((m for m in reversed(messages) if getattr(m, "type", "") == "ai"), None)
+    last_ai = last_reply(state)
     return extract_text(last_ai.content) if last_ai is not None else ""

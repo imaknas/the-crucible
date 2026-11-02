@@ -281,3 +281,13 @@ def print_error(msg: str):
 
 def print_info(msg: str):
     console.print(f"[bold blue]ℹ[/bold blue] {msg}")
+
+
+def print_metrics(metrics, label: str = "") -> None:
+    """A reply's (with ``label``, a turn's) time, tokens and cost on one dim
+    line; nothing for a reply that recorded none."""
+    from app.services.metrics import describe
+
+    line = describe(metrics)
+    if line:
+        console.print(f"  [dim]{escape(f'{label}: ' if label else '')}{escape(line)}[/dim]")

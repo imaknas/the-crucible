@@ -344,8 +344,10 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
     from app.services.chat import name_new_thread
     from app.services.context import DEFAULT_CONTEXT
     from app.cli_display import (
-        ArenaDisplay, ReplyDisplay, print_header, print_info, print_success, print_error, render_synthesis,
+        ArenaDisplay, ReplyDisplay, print_header, print_info, print_metrics, print_success, print_error,
+        render_synthesis,
     )
+    from app.services.metrics import turn_total
 
     single = len(models) == 1 and not synthesizer
     result: Dict[str, Any] = {
@@ -381,7 +383,8 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
                     display.update_token(event["model"], event["token"])
                 elif kind == "end":
                     result["answers"][event["model"]] = {
-                        k: event.get(k) for k in ("content", "checkpoint_id", "error", "attached_documents", "retrieved", "notices")
+                        k: event.get(k)
+                        for k in ("content", "checkpoint_id", "error", "metrics", "attached_documents", "retrieved", "notices")
                     }
                     if display:
                         if event["error"]:
@@ -392,12 +395,13 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
                     display = None
                     print_info(f"Synthesizing with {escape(event['model'])}…")
                 elif kind == "synthesis":
-                    result["synthesis"] = {k: event[k] for k in ("model", "content", "checkpoint_id", "error")}
+                    result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error", "metrics")}
                     if not as_json:
                         if event["error"]:
                             print_error(f"Synthesis failed: {event['error']}")
                         else:
                             render_synthesis(event["content"], event["model"])
+                            print_metrics(event.get("metrics"))
         finally:
             if display:
                 display.stop()
@@ -411,12 +415,15 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
         for model, answer in result["answers"].items():
             if answer.get("checkpoint_id"):
                 print_info(f"{escape(model)}: checkpoint [dim]{answer['checkpoint_id']}[/dim]")
+            print_metrics(answer.get("metrics"))
             if answer.get("attached_documents"):
                 print_info(f"  attached: {escape(', '.join(answer['attached_documents']))}")
             if answer.get("retrieved"):
                 print_info(f"  from your documents: {escape(', '.join(answer['retrieved']))}")
             for notice in answer.get("notices") or []:
                 print_error(f"{model}: {notice}")
+        if len(result["answers"]) > 1:
+            print_metrics(turn_total(a.get("metrics") for a in result["answers"].values()), label="turn")
         if result.get("synthesis_skipped"):
             print_error(f"Synthesis skipped: {result['synthesis_skipped']}.")
         failed = [m for m, a in result["answers"].items() if a["error"]]
@@ -924,7 +931,7 @@ async def _run_synthesize_thread(thread_id, judge, as_json, context, answers=Non
     from rich.markup import escape
 
     from app.services.arena import open_graph, synthesize_thread
-    from app.cli_display import print_header, print_info, print_error, print_success, render_synthesis
+    from app.cli_display import print_header, print_info, print_error, print_metrics, print_success, render_synthesis
 
     result: Dict[str, Any] = {"thread_id": thread_id, "parent_checkpoint_id": None, "answers": [], "synthesis": None}
     if not as_json:
@@ -935,17 +942,18 @@ async def _run_synthesize_thread(thread_id, judge, as_json, context, answers=Non
             if event["type"] == "start":
                 result["parent_checkpoint_id"] = event["parent_checkpoint_id"]
             elif event["type"] == "end":
-                result["answers"].append({k: event[k] for k in ("model", "content", "checkpoint_id")})
+                result["answers"].append({k: event.get(k) for k in ("model", "content", "checkpoint_id", "metrics")})
             elif event["type"] == "synthesis_start" and not as_json:
                 print_info(f"Synthesizing {len(result['answers'])} answers "
                            f"({escape(', '.join(a['model'] for a in result['answers']))}) with {escape(event['model'])}…")
             elif event["type"] == "synthesis":
-                result["synthesis"] = {k: event[k] for k in ("model", "content", "checkpoint_id", "error")}
+                result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error", "metrics")}
                 if not as_json:
                     if event["error"]:
                         print_error(f"Synthesis failed: {event['error']}")
                     else:
                         render_synthesis(event["content"], event["model"])
+                        print_metrics(event.get("metrics"))
                         print_success(f"Saved at {event['checkpoint_id']} (under {result['parent_checkpoint_id']})")
     return result
 

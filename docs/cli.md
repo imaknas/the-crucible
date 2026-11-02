@@ -27,6 +27,8 @@ uv run crucible synthesize --thread <thread_id>                    # combine the
 - `--system "<prompt>"` to send every model a system prompt (none by default; `debate` and `synthesize` take it too);
 - `--summarizer <model>` to choose who summarizes long history (default: the first summarizer model with a key).
 
+Under each answer (and the synthesis) a dim line says what it took: time to first token, total time, input / output tokens (reasoning among the output) and cost in USD, or "price unknown" for a model without a known price; a turn of several models ends with their total. With `--format json` each answer carries the same numbers as `metrics`.
+
 **Debates**
 
 ```bash

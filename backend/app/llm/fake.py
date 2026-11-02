@@ -6,6 +6,9 @@ deterministic reply word by word, so the UI goes through the same
 stream_start / stream_token / stream_end path as with a real provider, without
 network access or cost.
 
+Every reply reports deterministic token usage (``usage``), as the real
+providers do, so the per-answer metrics and their cost show in tests.
+
 Test hooks, written into the prompt:
   [[fail:<model_id>]]  that model raises instead of answering
   [[slow]]             ten times the per-token delay, to hold a stream open
@@ -21,6 +24,7 @@ from typing import Any, Iterator, List, Optional
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
+from langchain_core.messages.ai import UsageMetadata
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 
 
@@ -33,6 +37,20 @@ def _text(message: BaseMessage) -> str:
     if isinstance(content, list):
         return " ".join(c.get("text", "") if isinstance(c, dict) else str(c) for c in content)
     return str(content)
+
+
+def usage(messages: List[BaseMessage], reply: str) -> UsageMetadata:
+    """Tokens as words: the prompt's in, the reply's out, a quarter of them
+    reasoning (part of the output, as providers count it)."""
+    input_tokens = sum(len(_text(m).split()) for m in messages)
+    output_tokens = len(reply.split())
+    return UsageMetadata(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=input_tokens + output_tokens,
+        input_token_details={"cache_read": 0},
+        output_token_details={"reasoning": output_tokens // 4},
+    )
 
 
 class ScriptedChatModel(BaseChatModel):
@@ -71,7 +89,8 @@ class ScriptedChatModel(BaseChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=self._reply(messages)))])
+        reply = self._reply(messages)
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=reply, usage_metadata=usage(messages, reply)))])
 
     def _stream(
         self,
@@ -85,8 +104,12 @@ class ScriptedChatModel(BaseChatModel):
         words = reply.split(" ")
         for i, word in enumerate(words):
             time.sleep(delay)
-            token = word if i == len(words) - 1 else word + " "
-            chunk = ChatGenerationChunk(message=AIMessageChunk(content=token))
+            last = i == len(words) - 1
+            token = word if last else word + " "
+            # Usage on the last chunk only: chunks are added together.
+            chunk = ChatGenerationChunk(
+                message=AIMessageChunk(content=token, usage_metadata=usage(messages, reply) if last else None)
+            )
             if run_manager:
                 run_manager.on_llm_new_token(token, chunk=chunk)
             yield chunk

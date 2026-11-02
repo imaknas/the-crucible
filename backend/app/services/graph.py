@@ -20,6 +20,7 @@ from app.llm import model_factory_from
 from app.llm.providers import REQUEST_NOTES_HEADER
 from app.services.documents import document_thread, documents_for_run
 from app.services.message_format import message_model
+from app.services.metrics import ReplyTimer, clock_from
 from app.services.recall import INTERNAL_TAG
 from app.compaction import ContextSnapshot, DetailedBrief, EarlierMessage, KeepRecent, ModelBudget, ThresholdPolicy
 
@@ -583,8 +584,12 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
         f"\n[INVOKE] Model: {active_peer} | Delib: {is_delib} | Msgs: {len(sanitized_messages)} {roles} | Effective Tokens: {effective_tokens}"
     )
 
+    # Timed on the call's own callbacks; the timing is stored on the reply
+    # (services/metrics.py), so it survives a reload like the reply does.
+    timer = ReplyTimer(clock_from(config))
     try:
-        response = model.invoke(sanitized_messages)
+        response = model.invoke(sanitized_messages, config=timer.watch(config))
+        timer.stop()
     except Exception as e:
         log.warning(f"[LLM Error] Node: drafting_node, Model: {active_peer}")
         log.warning(f"[LLM Error] Effective Tokens: {effective_tokens}")
@@ -593,6 +598,7 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     # Tag the response with the model's name for future attribution
     response.name = active_peer
     response.additional_kwargs["model_id"] = active_peer
+    timer.stamp(response)
 
     if state.get("retrieved_chunks"):
         response.additional_kwargs["sources"] = state["retrieved_chunks"]

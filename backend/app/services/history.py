@@ -124,7 +124,8 @@ async def delete_branch(graph_app, thread_id: str, checkpoint_id: str) -> int:
 async def compact_tree(graph_app, thread_id: str, excerpt_chars: int = 300) -> Dict[str, Any]:
     """The conversation tree for a reader that isn't a canvas (the CLI's
     JSON, MCP): one entry per node with its checkpoint id, parent, role,
-    model, kind, turn, time and the start of its text as written.
+    model, kind, turn, time, the start of its text as written and a reply's
+    metrics.
 
     A thread that so far holds only debates has no nodes; its debates are
     listed. Raises ValueError for a thread that doesn't exist."""
@@ -147,6 +148,7 @@ async def compact_tree(graph_app, thread_id: str, excerpt_chars: int = 300) -> D
             "turn_id": meta.get("turn_id"),
             "created_at": meta.get("created_at"),
             "excerpt": (meta.get("excerpt") or "")[:excerpt_chars],
+            "metrics": meta.get("metrics") if is_reply else None,
         })
     return {"thread_id": thread_id, "current_checkpoint": data["current_checkpoint"], "nodes": nodes, "debates": debates}
 

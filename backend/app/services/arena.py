@@ -18,6 +18,7 @@ from app.core.storage import current_storage
 from app.llm import has_credentials
 from app.services.chat import node_checkpoint, stream_turn, thread_state_map
 from app.services.graph import workflow
+from app.services.metrics import message_metrics, snapshot_day
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.synthesis import INDEPENDENT, build_synthesis_prompt
 from app.services.runs import SYNTHESIS_TURN, TURN_ID_KEY, fork_point, new_turn_id, thread_config
@@ -142,7 +143,7 @@ async def model_turn(
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """chat.stream_turn as model-tagged events: ``token`` {model, token}, then
     ``end`` {model, content, checkpoint_id, error, turn_id,
-    attached_documents, retrieved, notices}. Raises on failure."""
+    attached_documents, retrieved, notices, metrics}. Raises on failure."""
     async for event in stream_turn(
         graph_app,
         thread_id,
@@ -287,10 +288,13 @@ async def run_arena(
     Events:
       start            {models, thread_id, parent_checkpoint_id, parents, new_thread, turn_id}
       token            {model, token}
-      end              {model, content, checkpoint_id, error, attached_documents, retrieved, notices}
+      end              {model, content, checkpoint_id, error, attached_documents, retrieved, notices, metrics}
       synthesis_start  {model}
       synthesis_token  {model, token}
-      synthesis        {model, content, checkpoint_id, error}
+      synthesis        {model, content, checkpoint_id, error, metrics}
+
+    ``metrics`` is the reply's time, tokens and cost (services/metrics.py);
+    None for a model that failed.
 
     Where each model forks is turn_start(): ``parent_checkpoint_id``, the
     debate ``after_debate``, or each model's own latest reply.
@@ -383,9 +387,9 @@ async def collect(events: AsyncGenerator[Dict[str, Any], None]) -> Dict[str, Any
             result["thread_id"] = event["thread_id"]
             result["parent_checkpoint_id"] = event["parent_checkpoint_id"]
         elif event["type"] == "end":
-            result["answers"][event["model"]] = {k: event[k] for k in ("content", "checkpoint_id", "error")}
+            result["answers"][event["model"]] = {k: event.get(k) for k in ("content", "checkpoint_id", "error", "metrics")}
         elif event["type"] == "synthesis":
-            result["synthesis"] = {k: event[k] for k in ("model", "content", "checkpoint_id", "error")}
+            result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error", "metrics")}
     return result
 
 
@@ -426,13 +430,14 @@ async def latest_branch_answers(graph_app, thread_id: str) -> List[Dict[str, Any
             "model": getattr(last_ai, "name", None) or s.values.get("active_peer") or "model",
             "content": content,
             "checkpoint_id": cid,
+            "metrics": message_metrics(last_ai, day=snapshot_day(s)),
         })
     return answers
 
 
 async def answer_at(graph_app, thread_id: str, checkpoint_id: str) -> Dict[str, Any]:
     """The reply a checkpoint ends on and the question it answered:
-    {model, content, checkpoint_id, question}. Raises ValueError if there is none."""
+    {model, content, checkpoint_id, question, metrics}. Raises ValueError if there is none."""
     state = await graph_app.aget_state(thread_config(thread_id, checkpoint_id))
     messages = (state.values or {}).get("messages", []) if state else []
     if not messages or getattr(messages[-1], "type", "") != "ai":
@@ -444,6 +449,7 @@ async def answer_at(graph_app, thread_id: str, checkpoint_id: str) -> Dict[str, 
         "content": extract_text(last.content),
         "checkpoint_id": checkpoint_id,
         "question": question,
+        "metrics": message_metrics(last, day=snapshot_day(state)),
     }
 
 
@@ -538,7 +544,8 @@ async def synthesize_thread(
     yield {"type": "start", "models": [a["model"] for a in answers], "thread_id": thread_id,
            "parent_checkpoint_id": parent, "parents": {}, "new_thread": False, "turn_id": None}
     for a in answers:
-        yield {"type": "end", "model": a["model"], "content": a["content"], "checkpoint_id": a["checkpoint_id"], "error": None}
+        yield {"type": "end", "model": a["model"], "content": a["content"], "checkpoint_id": a["checkpoint_id"],
+               "error": None, "metrics": a.get("metrics")}
     async for event in _synthesize(graph_app, thread_id, parent, synthesizer, _independent_synthesis_prompt(question, answers), toggles, context):
         yield event
 

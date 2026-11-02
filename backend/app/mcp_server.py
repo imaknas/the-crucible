@@ -5,7 +5,7 @@ table in tests/test_parity.py keeps it that way), except writing API keys:
 a key passed through a tool call goes through the calling model's context.
 
 Shapes are shared across tools: an answer is always {model, model_name,
-content, checkpoint_id, error}; debate rounds are always a list of
+content, checkpoint_id, error, metrics}; debate rounds are always a list of
 {round, question, responses, errors, ...}; every checkpoint id is the tree
 node's (get_thread_tree), so any id from any tool works with any other.
 
@@ -110,6 +110,9 @@ def _answer(event: Dict[str, Any]) -> Dict[str, Any]:
         "content": event.get("content") or "",
         "checkpoint_id": event.get("checkpoint_id"),
         "error": event.get("error"),
+        # Time, tokens and cost of the reply (services/metrics.py); None when
+        # the reply recorded none (a failure, a reply from before metrics).
+        "metrics": event.get("metrics"),
     }
 
 
@@ -158,9 +161,13 @@ async def invoke_arena(
     model, synthesize=false), an arena turn, or a Deliberation.
 
     Returns {thread_id, new_thread, turn_id, answers: [{model, model_name,
-    content, checkpoint_id, error, parent_checkpoint_id, attached_documents,
-    retrieved, notices}], synthesis: answer | null, synthesis_skipped?}.
-    Each answer's checkpoint_id is where to continue that model from.
+    content, checkpoint_id, error, metrics, parent_checkpoint_id,
+    attached_documents, retrieved, notices}], synthesis: answer | null,
+    synthesis_skipped?}. Each answer's checkpoint_id is where to continue
+    that model from. `metrics` is {ttft_ms, total_ms, input_tokens,
+    output_tokens, reasoning_tokens, cached_input_tokens, cost_usd} (times of
+    the model call; reasoning and cached tokens are part of output and input;
+    cost_usd null = the model has no known price), or null.
     `notices` say what degraded a turn without failing it (a summary that
     couldn't be written, document search that failed). Raises if every
     model failed; a new thread whose first turn failed entirely is removed.
@@ -659,7 +666,8 @@ async def get_thread_tree(thread_id: str, excerpt_chars: int = 300) -> Dict[str,
     parent_checkpoint_id continues), nodes: [{checkpoint_id, parent, role
     (user | assistant), model, model_name, kind (synthesis | debate | null),
     turn_id (replies sent together share it), created_at, excerpt (the text
-    as written)}], debates: [session_id]}. A thread holding only debates has
+    as written), metrics (a reply's time, tokens and cost, as in
+    invoke_arena; null if it recorded none)}], debates: [session_id]}. A thread holding only debates has
     no nodes yet. Checkpoint ids work with every tool that takes one.
 
     Args:
@@ -680,7 +688,8 @@ async def get_thread_messages(thread_id: str, checkpoint_id: Optional[str] = Non
     view shows it (synthesis prompts and summaries left out).
 
     Returns {thread_id, checkpoint_id, messages: [{role (user | assistant),
-    content, model, model_name, kind, checkpoint_id, turn_id, sources}]}.
+    content, model, model_name, kind, checkpoint_id, turn_id, sources,
+    metrics (a reply's time, tokens and cost, as in invoke_arena)}]}.
 
     Args:
         thread_id: The thread.
@@ -695,7 +704,7 @@ async def get_thread_messages(thread_id: str, checkpoint_id: Optional[str] = Non
                 messages = (await history.thread_tree(graph_app, thread_id))["messages"]
         except ValueError as e:
             raise _tool_error(e)
-    keep = ("role", "content", "model", "model_name", "kind", "checkpoint_id", "turn_id", "sources")
+    keep = ("role", "content", "model", "model_name", "kind", "checkpoint_id", "turn_id", "sources", "metrics")
     return {"thread_id": thread_id, "checkpoint_id": checkpoint_id,
             "messages": [{k: m.get(k) for k in keep} for m in messages]}
 

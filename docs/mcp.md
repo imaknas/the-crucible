@@ -18,7 +18,7 @@ The Crucible can act as a tool for other agents over the [Model Context Protocol
 }
 ```
 
-Everything the web UI does to a conversation is a tool, except writing API keys (a key passed to a tool would go through the calling model's context; use `crucible keys` or the environment). All tools return structured JSON and raise an MCP error on failure. An answer always has the same shape (`model`, `model_name`, `content`, `checkpoint_id`, `error`), and every checkpoint id is a node of the conversation tree, so an id from any tool works with every other.
+Everything the web UI does to a conversation is a tool, except writing API keys (a key passed to a tool would go through the calling model's context; use `crucible keys` or the environment). All tools return structured JSON and raise an MCP error on failure. An answer always has the same shape (`model`, `model_name`, `content`, `checkpoint_id`, `error`, `metrics`), and every checkpoint id is a node of the conversation tree, so an id from any tool works with every other. `metrics` is what the reply took: `ttft_ms` and `total_ms` (the model call), `input_tokens`, `output_tokens`, `reasoning_tokens` and `cached_input_tokens` (part of output and input, not added to them) and `cost_usd` (null when the model has no known price, never a guess); the whole object is null for a failed reply or one written before metrics were recorded.
 
 | Tool | Purpose |
 |---|---|

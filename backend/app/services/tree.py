@@ -6,6 +6,7 @@ from app.core.database import load_node_positions
 from app.core.schema import is_summary_message
 from app.registry import SYNTHESIS_COLOR, display_name, model_color
 from app.services.message_format import message_model, message_sources
+from app.services.metrics import message_metrics, snapshot_day
 from app.services.runs import DEBATE_RECORD_KEY, SYNTHESIS_TURN, TURN_ID_KEY, TURN_KIND_KEY, is_seed
 from app.utils.helpers import extract_text, get_preview_text
 
@@ -472,6 +473,9 @@ def build_graph_layout(
                     # The text as written (the label and preview drop markdown).
                     "excerpt": content[:300],
                     "created_at": getattr(state, "created_at", None),
+                    "metrics": message_metrics(m_list[-1], day=snapshot_day(state))
+                    if visual_role == "ai" and m_list
+                    else None,
                 },
             }
         # A synthesis reply hangs off the same prompt as the answers it merged;
@@ -574,6 +578,11 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
                         if debate_record
                         else None,
                         "sources": message_sources(msg) if role == "assistant" else None,
+                        # Time, tokens and cost (services/metrics.py); None
+                        # for replies that recorded none.
+                        "metrics": message_metrics(msg, day=snapshot_day(state))
+                        if role == "assistant" and not debate_record
+                        else None,
                         "checkpoint_id": curr_id,
                         "turn_id": _turn_id(state),
                     }

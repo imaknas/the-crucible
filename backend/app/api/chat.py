@@ -96,7 +96,8 @@ class ChatConnection:
                      that finished debate); or {type: "stop"}.
     Server frames:  stream_start, stream_token, stream_end, title_update, error.
                     stream_start, stream_end and a model's error carry the
-                    parent_checkpoint_id that model forked from and the turn_id.
+                    parent_checkpoint_id that model forked from and the turn_id;
+                    stream_end carries the reply's metrics (services/metrics.py).
 
     Where a frame without a parent forks is turn_start(): each model from its
     own reply in the latest turn. The frontend sends a turn's frames back to
@@ -223,6 +224,7 @@ class ChatConnection:
                         "attached_documents": event["attached_documents"],
                         "retrieved": event["retrieved"],
                         "notices": event["notices"],
+                        "metrics": event["metrics"],
                     })
                     if not sent:
                         return
