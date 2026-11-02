@@ -33,13 +33,13 @@ Cheap changes that answer published criticism of multi-agent debate, plus the nu
    - A "Compare with…" action: sentence-level for prose, structural for JSON and code.
    - Phase 1's "who changed" and Phase 5's replay reuse it.
    - Evaluation tools have this; no chat or canvas tool found does.
-6. **Checklist and Compare synthesis.**
+6. **Checklist and Compare synthesis.** _Done, with "ask about them" as a fourth mode._
    - New `SynthesisFraming`s. Compare builds a table of where the answers differ. Checklist splits the answers into components; the user ticks which to keep, then they are merged.
    - Source: big-AGI Beam.
-7. **Synthesize or question any selection of nodes.**
+7. **Synthesize or question any selection of nodes.** _Done for the chat tree (Shift/Cmd-click or Pick); debate lanes, which live in sub-threads, are a follow-up._
    - Today synthesis takes one turn's answers. This opens it to any nodes, across branches and debate lanes, and lets the user ask a question about the selection.
    - Sources: Flowith Group Nodes, canvas-chat, NotebookLM mind maps.
-8. **Anonymous peer review before synthesis, as evidence.**
+8. **Anonymous peer review before synthesis, as evidence.** _Done: scores 1–10 with a reason rather than a ranking (two answers leave each reviewer only one other)._
    - After Arena's independent answers, each model reviews the others anonymously and cannot change its own answer. The ranking is shown beside the synthesis, never as a verdict.
    - Source: llm-council.
 
