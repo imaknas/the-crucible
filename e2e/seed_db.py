@@ -44,6 +44,7 @@ import app.services.graph as graph_mod  # noqa: E402
 from app.llm import CallableModelFactory, use_model_factory  # noqa: E402
 from app.core import database as db  # noqa: E402
 from app.services import debate as debate_svc  # noqa: E402
+from app.compaction import KeywordRecall, ThresholdPolicy, fixed_tokens  # noqa: E402
 
 # ─── Fixture content ─────────────────────────────────────────────────────────
 
@@ -58,6 +59,12 @@ DEBATE_MODELS = ["gpt-5.4", "claude-sonnet-5"]
 # that interrupts a debate now, and the e2e harness can't restart its server.
 INTERRUPTED_THREAD_ID = "thread_e2e_interrupted"
 INTERRUPTED_TITLE = "E2E Interrupted Debate"
+
+# A conversation long enough to have been summarized, with recall bringing
+# earlier messages back: the transcript's summary marker and context notes.
+SUMMARIZED_THREAD_ID = "thread_e2e_summarized"
+SUMMARIZED_TITLE = "E2E Summarized Thread"
+SUMMARIZED_TURNS = 8
 
 # Long enough that the 40-char node preview truncates, which is what the
 # level-of-detail assertions care about.
@@ -78,9 +85,9 @@ def _fake_model(*_args, **_kwargs):
     return FakeListChatModel(responses=REPLIES)
 
 
-async def _invoke(app, thread_id, model, text, parent_checkpoint_id=None):
+async def _invoke(app, thread_id, model, text, parent_checkpoint_id=None, configurable=None):
     """Run one turn and return the resulting checkpoint id."""
-    cfg = {"configurable": {"thread_id": thread_id}}
+    cfg = {"configurable": {"thread_id": thread_id, **(configurable or {})}}
     if parent_checkpoint_id:
         cfg["configurable"]["checkpoint_id"] = parent_checkpoint_id
     state = {
@@ -101,6 +108,21 @@ async def main():
 
     async with AsyncSqliteSaver.from_conn_string(str(DB_PATH)) as saver:
         app = graph_mod.workflow.compile(checkpointer=saver)
+
+        # ── Summarized early: seeded first, so it is the oldest in the sidebar ──
+        # A threshold this low summarizes after a few turns; keyword recall
+        # picks earlier messages back without a model call.
+        db.rename_thread(SUMMARIZED_THREAD_ID, SUMMARIZED_TITLE)
+        compacting = {
+            graph_mod.POLICY_CONFIG_KEY: ThresholdPolicy(fixed_tokens(150)),
+            graph_mod.RECALL_CONFIG_KEY: KeywordRecall(),
+        }
+        for turn in range(SUMMARIZED_TURNS):
+            await _invoke(
+                app, SUMMARIZED_THREAD_ID, "gpt-5.4",
+                f"Turn {turn + 1}: remind me what branching and deliberation are for.",
+                configurable=compacting,
+            )
 
         # ── A linear thread that then forks, so the layout has a real branch ──
         db.rename_thread(THREAD_ID, THREAD_TITLE)

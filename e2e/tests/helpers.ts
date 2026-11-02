@@ -4,6 +4,7 @@ import { Page, expect } from "@playwright/test";
 export const MAIN_THREAD_TITLE = "E2E Reference Thread";
 export const DEBATE_THREAD_TITLE = "E2E Debate Thread";
 export const INTERRUPTED_THREAD_TITLE = "E2E Interrupted Debate";
+export const SUMMARIZED_THREAD_TITLE = "E2E Summarized Thread";
 
 /** Mirrored from backend/app/services/tree.py and CustomTreeNode.tsx. */
 export const LOD_THRESHOLD = 0.6;
