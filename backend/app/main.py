@@ -2,8 +2,9 @@
 
 Routes live in app/api/*, behaviour in app/services/*. This module only:
 applies third-party patches, compiles the graph once at startup (routers get
-it via api.deps.get_graph_app), wires the browser guards (api/security.py)
-and mounts the routers.
+it via api.deps.get_graph_app), creates the live-run registries
+(api.deps.get_runs), wires the browser guards (api/security.py) and mounts
+the routers.
 """
 
 import asyncio
@@ -28,6 +29,7 @@ from app.core import database as db
 from app.core.storage import Storage, current_storage, has_storage, reset_storage, set_storage
 from app.patches import apply_langchain_patches
 from app.services.graph import workflow
+from app.services.live import LiveRuns
 
 apply_langchain_patches()
 
@@ -104,9 +106,16 @@ async def _serving(app: FastAPI):
         # a fresh database (thread lists, topology) don't hit "no such table".
         await checkpointer.setup()
         app.state.graph_app = workflow.compile(checkpointer=checkpointer)
+        # Chat turns and debates belong to the server, not to the socket that
+        # started them (services/live.py).
+        app.state.runs = LiveRuns()
         try:
             yield
         finally:
+            # Runs stop before the checkpointer closes, so each can still
+            # record how it ended (a debate: interrupted).
+            await app.state.runs.close()
+            app.state.runs = None
             # The checkpointer closes with this block; don't leave a graph
             # behind that points at it.
             app.state.graph_app = None

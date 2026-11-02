@@ -68,11 +68,13 @@ MAX_ROUNDS = 10
 
 @dataclass
 class DebateControl:
-    """Live controls for a running debate, owned by its WebSocket connection.
+    """Live controls for a running debate, owned by the run (services/live.py
+    keeps it with the run, so every socket attached to the debate reaches
+    the same object).
 
     Pause takes effect between rounds; injected messages are added to the
-    next round's prompts. Both live in memory because a debate only runs
-    while its socket is connected.
+    next round's prompts. Both live in memory: a debate runs in this process
+    only, and a server restart interrupts it.
     """
 
     resumed: asyncio.Event = field(default_factory=asyncio.Event)
@@ -301,7 +303,7 @@ async def run_debate(
 
         await name_new_thread(parent_thread_id, prompt or ", ".join(session["participants"]), kind="debate")
         claim.ran()
-        yield _created(session)
+        yield _created(session, prompt)
 
         if parent_checkpoint_id:
             await seed_from_parent(
@@ -384,7 +386,7 @@ async def continue_debate(
                 control.inject(message.strip())
 
         question = await current_question(graph_app, session)
-        yield _created(session)
+        yield _created(session, question["prompt"])
         async for event in _run_rounds(
             graph_app, session, question["prompt"], toggles, await _debate_documents(graph_app, session),
             control, context,
@@ -414,7 +416,9 @@ class _Claim:
 class _claimed:
     """Claim a session for one run and settle its status when the run ends:
     completed, interrupted if rounds started but didn't finish (a stop, a
-    disconnect, Ctrl-C, an error), or back to what it was if nothing ran."""
+    server shutdown, a cancelled CLI or MCP call, an error), or back to what
+    it was if nothing ran. A closed socket is none of these: the server's
+    run registry keeps the run going."""
 
     def __init__(self, session_id: str, force: bool):
         self.claim = _Claim(session_id)
@@ -451,12 +455,14 @@ def _error(session_id: str, message: str) -> dict[str, Any]:
     return {"type": "error", "session_id": session_id, "message": message}
 
 
-def _created(session: Mapping[str, Any]) -> dict[str, Any]:
+def _created(session: Mapping[str, Any], question: str) -> dict[str, Any]:
     return {
         "type": "debate_session_created",
         "session_id": session["session_id"],
         "participants": _participants(session),
         "thread_ids": session["thread_ids"],
+        # What these rounds answer: a client attaching mid-run reads it.
+        "question": question,
     }
 
 
@@ -824,7 +830,7 @@ async def _stream_round(
             else:
                 yield event
     finally:
-        # On stop/disconnect the consumer is cancelled at queue.get(); without
+        # On a stop or a cancelled call the consumer is cancelled at queue.get(); without
         # this the producers kept streaming and billing until their timeout.
         for t in tasks:
             if not t.done():

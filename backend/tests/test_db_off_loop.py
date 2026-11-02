@@ -19,7 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
-from app.api.chat import ChatConnection
+from app.api.chat import name_thread
 from app.core import database as db
 from app.llm import CallableModelFactory, use_model_factory
 from app.services import debate as debate_svc
@@ -74,19 +74,20 @@ def writes_on_loop(db_path, monkeypatch):
     return seen
 
 
-class _Socket:
+class _Run:
+    """Collects what a run tells the sockets watching it."""
+
     def __init__(self):
         self.frames: list[dict] = []
 
-    async def send_json(self, frame):
+    def emit(self, frame):
         self.frames.append(frame)
 
 
 @pytest.mark.asyncio
 async def test_auto_title_survives_a_checkpoint_write_awaiting_commit(db_path):
     prompt = "Why is the sky blue at noon?"
-    socket = _Socket()
-    connection = ChatConnection(socket, graph_app=None, thread_id="t-title")
+    run = _Run()
     held = asyncio.Event()
 
     async def checkpoint_write(conn):
@@ -100,14 +101,14 @@ async def test_auto_title_survives_a_checkpoint_write_awaiting_commit(db_path):
     async def title():
         await held.wait()
         started = time.monotonic()
-        await connection._name_thread(prompt)
+        await name_thread(run, "t-title", prompt)
         return time.monotonic() - started
 
     async with aiosqlite.connect(db_path) as conn:
         _, elapsed = await asyncio.gather(checkpoint_write(conn), title())
 
     assert db.get_thread_title("t-title") == auto_title(prompt)
-    assert {"type": "title_update", "thread_id": "t-title", "title": auto_title(prompt)} in socket.frames
+    assert {"type": "title_update", "thread_id": "t-title", "title": auto_title(prompt)} in run.frames
     # A write that blocked the loop waited out the whole busy timeout (5 s).
     assert elapsed < 2
 

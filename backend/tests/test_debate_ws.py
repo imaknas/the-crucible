@@ -1,6 +1,7 @@
 """WebSocket control flow in api/debate.py, with run_debate stubbed out."""
 
 import asyncio
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -111,19 +112,49 @@ def test_pause_is_acknowledged_and_resume_restores(ws_env):
         _recv_until(ws, "debate_session_status", "completed")
 
 
-def test_disconnect_cancels_the_debate(ws_env):
-    """The run itself then records it as interrupted
-    (test_debate_lifecycle.py, against the real service)."""
+def test_a_disconnect_leaves_the_debate_running_and_another_socket_can_stop_it(ws_env):
+    """The run belongs to the server (services/live.py); test_live_runs.py
+    runs a real debate through a reload."""
     client, state = ws_env
     with client.websocket_connect("/debate/ws/debate-ws") as ws:
         ws.send_json({"type": "debate_start", "prompt": "Q"})
         _recv_until(ws, "debate_round_start")
-    # The handler's finally runs on the server loop after the client closes.
-    for _ in range(50):
-        if state["cancelled"]:
-            break
-        import time
-        time.sleep(0.02)
+    time.sleep(0.1)
+    assert state["cancelled"] == 0
+    assert len(client.app.state.runs.debates.live("debate-ws")) == 1
+
+    with client.websocket_connect("/debate/ws/debate-ws") as ws:
+        resume = _recv_until(ws, "debate_resume")
+        assert resume["round"] == 0 and resume["status"] == "running"
+        assert _recv_until(ws, "attached")["live"] is True
+        ws.send_json({"type": "debate_control", "action": "stop"})
+        _recv_until(ws, "debate_session_status", "completed")
+    assert state["cancelled"] == 1
+
+
+def test_pause_and_inject_from_a_reattached_socket_reach_the_same_run(ws_env):
+    client, state = ws_env
+    with client.websocket_connect("/debate/ws/debate-ws") as first:
+        first.send_json({"type": "debate_start", "prompt": "Q"})
+        _recv_until(first, "debate_round_start")
+    with client.websocket_connect("/debate/ws/debate-ws") as second, client.websocket_connect("/debate/ws/debate-ws") as third:
+        _recv_until(second, "attached")
+        _recv_until(third, "attached")
+        second.send_json({"type": "debate_control", "action": "pause"})
+        _recv_until(second, "debate_session_status", "pausing")
+        # Every socket on the session hears it, and a later attach says so.
+        _recv_until(third, "debate_session_status", "pausing")
+        assert state["controls"][0].paused
+        third.send_json({"type": "debate_inject", "message": "consider cost"})
+        _recv_until(third, "debate_session_status", "inject_queued")
+        assert state["controls"][0].injected == ["consider cost"]
+        with client.websocket_connect("/debate/ws/debate-ws") as fourth:
+            assert _recv_until(fourth, "debate_resume")["status"] == "pausing"
+        second.send_json({"type": "debate_control", "action": "resume"})
+        _recv_until(third, "debate_session_status", "running")
+        assert not state["controls"][0].paused
+        third.send_json({"type": "debate_control", "action": "stop"})
+        _recv_until(second, "debate_session_status", "completed")
     assert state["cancelled"] == 1
 
 

@@ -1,7 +1,8 @@
 """Browser guards wired in create_app (app/api/security.py).
 
 Each test builds its own app with create_app(...) and never runs the lifespan:
-a MagicMock graph on app.state is enough for a socket to be accepted.
+a MagicMock graph and empty run registries on app.state are enough for a
+socket to be accepted.
 """
 
 from unittest.mock import MagicMock
@@ -12,6 +13,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.api.security import OriginPolicy, allowed_hosts_from_env, is_simple_request
 from app.main import create_app
+from app.services.live import LiveRuns
 from tests.storage_helpers import point
 
 EVIL = "https://evil.example"
@@ -20,6 +22,7 @@ EVIL = "https://evil.example"
 def _client(**kwargs) -> TestClient:
     app = create_app(**kwargs)
     app.state.graph_app = MagicMock()
+    app.state.runs = LiveRuns()
     return TestClient(app)
 
 
@@ -77,6 +80,7 @@ def test_chat_socket_accepts_local_origin_and_no_origin():
 
 def test_debate_socket_accepts_local_origin():
     with _client().websocket_connect("/debate/ws/s1", headers={"origin": "http://127.0.0.1:3000"}) as ws:
+        assert ws.receive_json() == {"type": "attached", "session_id": "s1", "live": False}
         ws.send_json({"type": "debate_inject", "message": "hi"})
         assert ws.receive_json()["type"] == "error"  # served: no debate is running
 

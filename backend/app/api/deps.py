@@ -23,3 +23,12 @@ def get_graph_app(conn: HTTPConnection):
     if graph_app is None:
         raise HTTPException(503, "Graph not ready")
     return graph_app
+
+
+def get_runs(conn: HTTPConnection):
+    """The app's live runs (services/live.LiveRuns), created in main.lifespan:
+    the sockets attach to runs here instead of owning them."""
+    runs = getattr(conn.app.state, "runs", None)
+    if runs is None:
+        raise HTTPException(503, "Server not ready")
+    return runs
