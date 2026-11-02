@@ -340,7 +340,7 @@ async def _collect_debate(events, session: Dict[str, Any]) -> Dict[str, Any]:
 async def run_debate(
     prompt: str,
     models: List[str],
-    max_rounds: int = 3,
+    max_rounds: int = debate_svc.DEFAULT_ROUNDS,
     convergence_threshold: Optional[float] = None,
     mode: Literal["all", "any"] = "all",
     convergence_judge: Optional[str] = None,

@@ -21,7 +21,7 @@ describe("DebateDefaultsSection max rounds", () => {
     fireEvent.change(field, { target: { value: "" } });
     expect(field.value).toBe("");
     fireEvent.change(field, { target: { value: "8" } });
-    expect(screen.getByTestId("saved")).toHaveTextContent("3");
+    expect(screen.getByTestId("saved")).toHaveTextContent("2");
     fireEvent.blur(field);
     expect(screen.getByTestId("saved")).toHaveTextContent("8");
   });

@@ -44,6 +44,22 @@ export function roundLabel(round: number, form: "full" | "short" = "full"): stri
   return form === "full" ? "Round 1 · independent answers" : "Round 1 · independent";
 }
 
+/**
+ * What a round count means, where it is set (the debate dialog, the Control
+ * Panel). Round 1 is each model's own answer; past the recommended count,
+ * more rounds mostly add conformity (models drifting toward each other's
+ * answers) and cost, so a higher count gets a warning, not a refusal.
+ */
+export function roundsAdvice(rounds: number, recommended: number): { help: string; warning: string | null } {
+  return {
+    help: "Every participant answers once per round. Round 1 is each model's own answer, written before it sees the others.",
+    warning:
+      rounds > recommended
+        ? `More than ${recommended} rounds tends to pull the models toward each other's answers rather than toward better ones, and each round costs one call per participant.`
+        : null,
+  };
+}
+
 export interface PeerLegendEntry {
   label: string;
   name: string;

@@ -66,7 +66,7 @@ describe("DebateConfigDialog", () => {
   it("says where the participants come from and roughly what the debate costs", () => {
     const { rounds } = setup();
     expect(screen.getByText(/selected in the Control Panel/)).toBeInTheDocument();
-    expect(screen.getByTestId("debate-cost")).toHaveTextContent("Up to 6 model calls (3 rounds × 2 models)");
+    expect(screen.getByTestId("debate-cost")).toHaveTextContent("Up to 4 model calls (2 rounds × 2 models)");
     fireEvent.change(rounds, { target: { value: "5" } });
     expect(screen.getByTestId("debate-cost")).toHaveTextContent("Up to 10 model calls");
   });
@@ -85,5 +85,13 @@ describe("DebateConfigDialog", () => {
     expect(screen.getByText(/weighed by its argument/)).toBeVisible();
     expect(screen.getByLabelText("Stop when answers stop changing")).toHaveAccessibleDescription(/stability, not agreement/);
     expect(screen.getByLabelText("Auto-synthesize")).toHaveAccessibleDescription(/picks no winner/);
+  });
+
+  it("warns in visible text when the rounds go past the recommended count", () => {
+    const { rounds } = setup();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    fireEvent.change(rounds, { target: { value: "4" } });
+    expect(screen.getByRole("status")).toHaveTextContent(/More than 2 rounds tends to pull the models toward each other's answers/);
+    expect(rounds).toHaveAccessibleDescription(/More than 2 rounds/);
   });
 });

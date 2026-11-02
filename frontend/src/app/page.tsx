@@ -72,7 +72,7 @@ export default function Home() {
   } = useModelCatalog();
   const { choice: summarizerChoice, summarizer, setChoice: setSummarizerChoice } = useSummarizerChoice(families);
   const { text: systemPromptText, systemPrompt, setText: setSystemPromptText } = useSystemPrompt();
-  const { debateDefaults, setDebateDefaults } = useDebateDefaults(limits.max_debate_rounds);
+  const { debateDefaults, setDebateDefaults } = useDebateDefaults(limits.max_debate_rounds, limits.default_debate_rounds);
 
   // ─── Conversation tree, threads, chat ───────────────────────────
   // useHistoryTree loads messages into the chat hook, which is created after
@@ -602,6 +602,7 @@ export default function Home() {
         modelLabel={modelLabel}
         question={debate.dialogPrompt}
         maxRounds={limits.max_debate_rounds}
+        recommendedRounds={limits.default_debate_rounds}
         participants={selectedModels}
       />
 

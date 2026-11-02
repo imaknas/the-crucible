@@ -435,7 +435,14 @@ def debate(
     models: Optional[List[str]] = typer.Option(
         None, "--models", "-m", help="Model IDs to debate (repeat the flag; at least two different ones)."
     ),
-    rounds: int = typer.Option(2, "--rounds", "-r", min=1, max=10, help="Maximum number of rounds (1-10)."),
+    rounds: Optional[int] = typer.Option(
+        None,
+        "--rounds",
+        "-r",
+        min=1,
+        max=10,
+        help="Maximum number of rounds, 1-10. The default is kept low: later rounds tend to pull models toward each other's answers rather than toward better ones.",
+    ),
     judge: Optional[str] = typer.Option(
         None, "--judge", "-j", help="Model that writes the final synthesis, an argument map (default: the first model)."
     ),
@@ -492,6 +499,10 @@ def debate(
     context = _run_context(as_json, summarizer, system)
     documents = _documents(attach, as_json)
 
+    if rounds is None:
+        from app.services.debate import DEFAULT_ROUNDS
+
+        rounds = DEFAULT_ROUNDS
     policy = {
         "max_rounds": rounds,
         "convergence_threshold": threshold,

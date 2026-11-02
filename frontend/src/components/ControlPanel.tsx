@@ -229,6 +229,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             debateDefaults={debateDefaults}
             setDebateDefaults={setDebateDefaults}
             maxRounds={limits.max_debate_rounds}
+            recommendedRounds={limits.default_debate_rounds}
           />
           <ApiKeysSection families={families} isDark={isDark} onSaved={onKeysSaved} />
         </Stack>

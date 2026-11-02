@@ -8,12 +8,15 @@ import { modelFamilyColor } from "@/lib/colors";
 export interface Limits {
   max_system_prompt_chars: number;
   max_debate_rounds: number;
+  /** Not a cap: the round count a new debate starts with. */
+  default_debate_rounds: number;
   max_prompt_chars: number;
 }
 
 export const FALLBACK_LIMITS: Limits = {
   max_system_prompt_chars: 8000,
   max_debate_rounds: 10,
+  default_debate_rounds: 2,
   max_prompt_chars: 100_000,
 };
 

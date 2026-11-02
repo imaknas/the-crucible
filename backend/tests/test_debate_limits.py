@@ -194,3 +194,42 @@ async def test_a_stored_round_count_above_the_limit_is_capped(monkeypatch):
         if e["type"] == "debate_round_start"
     ]
     assert rounds == list(range(MAX_ROUNDS))
+
+
+# ─── The default round count ─────────────────────────────────────
+
+
+def test_the_default_round_count_has_one_copy_every_transport_reads(client):
+    """Kept low (later rounds mostly add conformity): GET /models ships it for
+    the web UI, MCP's run_debate and the CLI fall back to it."""
+    import inspect
+
+    from app import mcp_server
+    from app.services.debate import DEFAULT_ROUNDS, MAX_ROUNDS
+
+    assert 1 <= DEFAULT_ROUNDS <= 2 < MAX_ROUNDS
+    limits = client.get("/models").json()["limits"]
+    assert limits["default_debate_rounds"] == DEFAULT_ROUNDS
+    assert limits["max_debate_rounds"] == MAX_ROUNDS
+    run_debate = getattr(mcp_server.run_debate, "fn", mcp_server.run_debate)
+    assert inspect.signature(run_debate).parameters["max_rounds"].default == DEFAULT_ROUNDS
+
+
+def test_the_cli_debate_defaults_to_the_service_round_count(monkeypatch):
+    """`crucible debate` without --rounds asks for DEFAULT_ROUNDS."""
+    from typer.testing import CliRunner
+
+    from app import cli
+    from app.services.debate import DEFAULT_ROUNDS
+
+    seen = {}
+
+    async def fake_run_debate(prompt, models, thread, policy, *args, **kwargs):
+        seen.update(policy)
+        return {"session_id": "s", "rounds": [], "synthesis": None}
+
+    monkeypatch.setattr(cli, "_load_env", lambda: None)
+    monkeypatch.setattr(cli, "_validate_models", lambda models, as_json: list(models))
+    monkeypatch.setattr(cli, "_run_debate", fake_run_debate)
+    CliRunner().invoke(cli.app, ["debate", "Topic", "-m", "gpt-5.4", "-m", "claude-sonnet-5", "--format", "json"])
+    assert seen.get("max_rounds") == DEFAULT_ROUNDS

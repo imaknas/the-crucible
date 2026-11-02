@@ -2,7 +2,8 @@ import React from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { Swords } from "lucide-react";
 import type { DebateDefaults } from "@/lib/types";
-import { clampRounds } from "@/hooks/useDebateDefaults";
+import { DEFAULT_DEBATE_ROUNDS, clampRounds } from "@/hooks/useDebateDefaults";
+import { roundsAdvice } from "@/lib/debateTranscript";
 import { SectionHeader, ToggleRow } from "./primitives";
 
 /** Defaults the debate dialog starts from (persisted by useDebateDefaults). */
@@ -11,12 +12,15 @@ export default function DebateDefaultsSection({
   debateDefaults,
   setDebateDefaults,
   maxRounds,
+  recommendedRounds = DEFAULT_DEBATE_ROUNDS,
 }: {
   isDark: boolean;
   debateDefaults: DebateDefaults;
   setDebateDefaults: (next: DebateDefaults | ((prev: DebateDefaults) => DebateDefaults)) => void;
   /** The backend's round limit (GET /models `limits.max_debate_rounds`). */
   maxRounds: number;
+  /** Rounds past this get a warning (GET /models `limits.default_debate_rounds`). */
+  recommendedRounds?: number;
 }) {
   // The field's raw text, committed on blur or Enter as the debate dialog
   // does: clamping per keystroke turned a cleared field into "3" and made a
@@ -76,6 +80,15 @@ export default function DebateDefaultsSection({
             }}
           />
         </Box>
+        {roundsAdvice(debateDefaults.max_rounds, recommendedRounds).warning && (
+          <Typography
+            variant="caption"
+            role="status"
+            sx={{ pl: 1, borderLeft: "2px solid", borderColor: "warning.main", color: "text.primary", lineHeight: 1.4 }}
+          >
+            {roundsAdvice(debateDefaults.max_rounds, recommendedRounds).warning}
+          </Typography>
+        )}
         <ToggleRow
           isDark={isDark}
           label="Anonymous Participants"

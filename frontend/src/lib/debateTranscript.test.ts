@@ -9,6 +9,7 @@ import {
   restoredDebateStatus,
   peerLegend,
   roundLabel,
+  roundsAdvice,
   transcriptReducer,
   type Transcript,
   type TranscriptAction, debateCallEstimate, debateReplyFor, debateReplyTitle, transcriptIncomplete, leaveWarning, sessionAge, transcriptMessages } from "./debateTranscript";
@@ -322,5 +323,18 @@ describe("reading a debate node in full", () => {
     expect(debateReplyTitle(node("s", { role: "synthesis", model_name: "Model C" }, "synthesis"), lanes)).toBe(
       "Argument map · Model C",
     );
+  });
+});
+
+describe("roundsAdvice", () => {
+  it("explains what a round is at any count", () => {
+    expect(roundsAdvice(1, 2).help).toMatch(/Round 1 is each model's own answer/);
+  });
+
+  it("warns only above the recommended count, and says why", () => {
+    expect(roundsAdvice(2, 2).warning).toBeNull();
+    const warning = roundsAdvice(3, 2).warning;
+    expect(warning).toMatch(/More than 2 rounds/);
+    expect(warning).toMatch(/toward each other's answers/);
   });
 });

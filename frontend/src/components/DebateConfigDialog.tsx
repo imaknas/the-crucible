@@ -18,8 +18,8 @@ import {
 } from "@mui/material";
 import { Swords } from "lucide-react";
 import type { DebateDefaults, PeerLabels } from "@/lib/types";
-import { MAX_DEBATE_ROUNDS, clampRounds } from "@/hooks/useDebateDefaults";
-import { debateCallEstimate } from "@/lib/debateTranscript";
+import { DEFAULT_DEBATE_ROUNDS, MAX_DEBATE_ROUNDS, clampRounds } from "@/hooks/useDebateDefaults";
+import { debateCallEstimate, roundsAdvice } from "@/lib/debateTranscript";
 
 interface DebateConfigDialogProps {
   open: boolean;
@@ -34,6 +34,8 @@ interface DebateConfigDialogProps {
   participants: string[];
   /** The backend's round limit (GET /models `limits.max_debate_rounds`). */
   maxRounds?: number;
+  /** Rounds past this get a warning (GET /models `limits.default_debate_rounds`). */
+  recommendedRounds?: number;
 }
 
 /**
@@ -42,12 +44,32 @@ interface DebateConfigDialogProps {
  * which keyboard and touch never see; the control points at its line with
  * aria-describedby.
  */
-function Setting({ help, helpId, children }: { help: string; helpId: string; children: React.ReactNode }) {
+function Setting({
+  help,
+  helpId,
+  warning = null,
+  children,
+}: {
+  help: string;
+  helpId: string;
+  /** A caution about the current value, in body text: color alone would not say it. */
+  warning?: string | null;
+  children: React.ReactNode;
+}) {
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", columnGap: 2, rowGap: 0.5 }}>{children}</Box>
       <Typography id={helpId} variant="caption" sx={{ display: "block", mt: 0.25, color: "text.secondary", lineHeight: 1.4 }}>
         {help}
+        {warning && (
+          <Box
+            component="span"
+            role="status"
+            sx={{ display: "block", mt: 0.5, pl: 1, borderLeft: "2px solid", borderColor: "warning.main", color: "text.primary" }}
+          >
+            {warning}
+          </Box>
+        )}
       </Typography>
     </Box>
   );
@@ -63,6 +85,7 @@ export default function DebateConfigDialog({
   question,
   participants,
   maxRounds = MAX_DEBATE_ROUNDS,
+  recommendedRounds = DEFAULT_DEBATE_ROUNDS,
 }: DebateConfigDialogProps) {
   const isDark = useTheme().palette.mode === "dark";
   const [config, setConfig] = useState<DebateDefaults>(defaults);
@@ -89,8 +112,10 @@ export default function DebateConfigDialog({
   };
 
   const typedRounds = Number.parseInt(roundsText.trim(), 10);
+  const rounds = Number.isFinite(typedRounds) ? clampRounds(typedRounds, maxRounds) : config.max_rounds;
+  const advice = roundsAdvice(rounds, recommendedRounds);
   const estimate = debateCallEstimate({
-    rounds: Number.isFinite(typedRounds) ? clampRounds(typedRounds, maxRounds) : config.max_rounds,
+    rounds,
     participants: participants.length,
     judge: !!config.llm_judge,
     synthesize: config.auto_synthesize,
@@ -174,7 +199,7 @@ export default function DebateConfigDialog({
           </Box>
 
           {/* Max rounds */}
-          <Setting help="Every participant answers once per round." helpId="debate-rounds-help">
+          <Setting help={advice.help} helpId="debate-rounds-help" warning={advice.warning}>
             <Typography sx={labelSx}>Max rounds</Typography>
             <Box
               component="input"

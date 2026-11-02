@@ -51,9 +51,17 @@ log = logging.getLogger(__name__)
 # even if the later nodes run past it.
 MODEL_TIMEOUT_SECONDS = 120
 
+# Rounds a session runs unless it asks for others. Kept low: across studies,
+# later rounds pull models toward each other's answers (conformity) more
+# than toward correct ones, and most of debate's gain over one answer is the
+# majority of the independent first round. Round 1 plus one exchange shows
+# the arguments; more rounds mostly add cost. The only copy: the CLI, MCP and
+# GET /models (`limits.default_debate_rounds`, which the web UI seeds from)
+# read it.
+DEFAULT_ROUNDS = 2
 # Rounds a session may ask for. The API has no authentication, so this bounds
-# what one request can spend: rounds × participants model calls.
-DEFAULT_ROUNDS = 3
+# what one request can spend: rounds × participants model calls. A spend
+# limit, not a recommendation.
 MAX_ROUNDS = 10
 
 
