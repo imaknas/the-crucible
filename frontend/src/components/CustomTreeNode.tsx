@@ -397,6 +397,7 @@ const CustomTreeNode = React.memo(
             )}
             {data.onMenu && (
               <button
+                className="nodrag"
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -519,6 +520,9 @@ const CustomTreeNode = React.memo(
                   </div>
                 )}
                 <button
+                  // "nodrag": React Flow selects a node on mousedown, the
+                  // selected node grows, and the click would land on its text.
+                  className="nodrag"
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();

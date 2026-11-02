@@ -283,6 +283,7 @@ export default function Home() {
     branch,
     resetToLatest,
     branchFrom,
+    branchFromSpan,
     startFresh,
   } = useTreeActions({
     threadId,
@@ -569,6 +570,7 @@ export default function Home() {
                     branchPoint={inDebate ? null : branch}
                     onResetBranch={resetToLatest}
                     answerChoice={answerChoice}
+                    onBranchFromSpan={inDebate ? undefined : branchFromSpan}
                     nextTurnContext={inDebate ? null : nextTurnContext}
                     onStartFresh={messages.length ? startFresh : undefined}
                     replyTexts={replyTexts}

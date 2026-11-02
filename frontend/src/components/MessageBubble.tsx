@@ -76,6 +76,8 @@ export const MessageBody = React.memo(
 
     return (
       <Box
+        // Where a text selection is (ChatView's "Branch from this").
+        data-message-id={msg.id}
         sx={{
           fontSize: compact ? "0.875rem" : "1rem",
           lineHeight: compact ? 1.6 : 1.75,

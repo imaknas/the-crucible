@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from "react";
-import { Box, Paper, Typography, ButtonBase, CircularProgress, useTheme } from "@mui/material";
-import { Sparkles, Network } from "lucide-react";
+import { Box, Paper, Portal, Typography, ButtonBase, CircularProgress, useTheme } from "@mui/material";
+import { Sparkles, Network, GitBranch } from "lucide-react";
 import { motion } from "framer-motion";
 import { ChatInput } from "./ChatInput";
 import DebateBanner, { type DebateBannerProps } from "./DebateBanner";
@@ -9,6 +9,7 @@ import { Message, ModelError } from "@/lib/types";
 import ModelErrorBubble from "./ModelErrorBubble";
 import BranchChip, { type AnswerChoice } from "./BranchChip";
 import SummaryMarker from "./SummaryMarker";
+import { replyNodeAt } from "@/lib/spanBranch";
 import type { NextTurnContext } from "@/lib/context";
 import type { BranchPoint } from "@/lib/branching";
 import { buildTranscript, synthesizableIds, type LiveTurn, type TurnCard } from "@/lib/turns";
@@ -71,6 +72,8 @@ interface ChatViewProps {
   onResetBranch?: () => void;
   /** Who answers a clicked reply, switchable on the branch chip. */
   answerChoice?: AnswerChoice | null;
+  /** Text selected in a reply: continue from that reply with the text quoted in the composer. */
+  onBranchFromSpan?: (nodeId: string, text: string) => void;
   /** What the next turn would send each answering model (useNextTurnContext). */
   nextTurnContext?: NextTurnContext[] | null;
   /** Branch from the thread's empty start: the next message goes without earlier ones. */
@@ -125,6 +128,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   branchPoint,
   onResetBranch,
   answerChoice = null,
+  onBranchFromSpan,
   nextTurnContext = null,
   onStartFresh,
   maxPromptChars,
@@ -301,6 +305,42 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
     () => buildTranscript({ messages, nodes, edges, selected: selectedModels, replyTexts, live: liveTurn }),
     [messages, nodes, edges, selectedModels, replyTexts, liveTurn],
   );
+  // Text selected inside one reply offers "Branch from this" (lib/spanBranch).
+  const [span, setSpan] = React.useState<{ nodeId: string; text: string; top: number; left: number } | null>(null);
+  const readSelection = React.useCallback(() => {
+    requestAnimationFrame(() => {
+      const sel = window.getSelection();
+      const text = sel?.toString() ?? "";
+      if (!sel || sel.isCollapsed || !sel.rangeCount || !text.trim()) return setSpan(null);
+      const range = sel.getRangeAt(0);
+      const elementOf = (n: Node) => (n instanceof Element ? n : n.parentElement);
+      const body = elementOf(range.startContainer)?.closest("[data-message-id]");
+      // Within one reply only: a quote across replies has no single place to continue from.
+      if (!body || body !== elementOf(range.endContainer)?.closest("[data-message-id]")) return setSpan(null);
+      const turnKey = body.closest("[data-turn-key]")?.getAttribute("data-turn-key") ?? null;
+      const nodeId = replyNodeAt(items, turnKey, body.getAttribute("data-message-id"));
+      if (!nodeId) return setSpan(null);
+      const rect = range.getBoundingClientRect();
+      setSpan({ nodeId, text, top: rect.top, left: rect.left + rect.width / 2 });
+    });
+  }, [items]);
+  // The button floats over the selection: gone once it is, or the transcript moves.
+  React.useEffect(() => {
+    if (!span) return;
+    const clear = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) setSpan(null);
+    };
+    const hide = () => setSpan(null);
+    const scroller = scrollRef.current;
+    document.addEventListener("selectionchange", clear);
+    scroller?.addEventListener("scroll", hide, { passive: true });
+    return () => {
+      document.removeEventListener("selectionchange", clear);
+      scroller?.removeEventListener("scroll", hide);
+    };
+  }, [span]);
+
   // A debate's first and last answers per participant, shown beside the
   // argument map once the debate has stopped (or before its map, if one).
   const shift = React.useMemo(() => (debateBanner ? positionShifts(messages) : null), [debateBanner, messages]);
@@ -358,6 +398,8 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         <Box
           onScroll={handleScroll}
           onScrollEnd={handleScrollEnd}
+          onMouseUp={onBranchFromSpan ? readSelection : undefined}
+          onKeyUp={onBranchFromSpan ? readSelection : undefined}
           ref={scrollRef}
           sx={{
             flex: 1,
@@ -534,11 +576,53 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
               </Box>
             )}
 
+            {span && onBranchFromSpan && (
+              <Portal>
+                <ButtonBase
+                  data-testid="branch-from-span"
+                  // Keep the selection: a mousedown here would clear it first.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onBranchFromSpan(span.nodeId, span.text);
+                    window.getSelection()?.removeAllRanges();
+                    setSpan(null);
+                  }}
+                  title="Continue from this reply, with the selected text quoted in your message"
+                  sx={{
+                    position: "fixed",
+                    top: Math.max(8, span.top - 40),
+                    left: span.left,
+                    transform: "translateX(-50%)",
+                    zIndex: 1400,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.75,
+                    px: 1.25,
+                    py: 0.5,
+                    borderRadius: 2,
+                    bgcolor: "primary.main",
+                    color: "primary.contrastText",
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    boxShadow: "0 6px 20px rgba(0,0,0,0.2)",
+                    "&:hover": { bgcolor: "primary.dark" },
+                  }}
+                >
+                  <GitBranch size={13} aria-hidden />
+                  Branch from this
+                </ButtonBase>
+              </Portal>
+            )}
+
             {/* Messages, with each multi-model turn as its cards (lib/turns) */}
             {items.map((item) => {
               if (item.kind === "turn") {
                 return (
-                  <Box key={item.key} ref={(el: HTMLDivElement | null) => registerMessageRef(el, item.index)}>
+                  <Box
+                    key={item.key}
+                    data-turn-key={item.key}
+                    ref={(el: HTMLDivElement | null) => registerMessageRef(el, item.index)}
+                  >
                     <TurnCards
                       cards={item.cards}
                       isDark={isDark}

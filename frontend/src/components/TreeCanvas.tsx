@@ -223,7 +223,16 @@ function TreeViewInner({
   const [menu, setMenu] = useState<{ id: string; anchor: HTMLElement } | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const openMenu = useCallback((id: string, anchor: HTMLElement) => setMenu({ id, anchor }), []);
-  const expand = useCallback((id: string) => onSetCollapsed?.(id, false), [onSetCollapsed]);
+  // Folding or unfolding a node keeps it in view: the refit that follows a
+  // change of the drawn nodes targets the focus.
+  const fold = useCallback(
+    (id: string, folded: boolean) => {
+      setFocusedId(id);
+      onSetCollapsed?.(id, folded);
+    },
+    [onSetCollapsed],
+  );
+  const expand = useCallback((id: string) => fold(id, false), [fold]);
   // Answers picked to combine. Separate from the active node: picking never
   // moves the branch point or changes who answers next.
   const [picked, setPicked] = useState<string[]>([]);
@@ -449,15 +458,15 @@ function TreeViewInner({
 
     try {
       // The whole tree when it fits readably (its top must not end up off the
-      // canvas, under the header); otherwise the active node.
-      const hasActive = !!activeNodeId && externalNodes.some((n) => n.id === activeNodeId);
+      // canvas, under the header); otherwise the node being worked on: the
+      // keyboard focus (also where a fold or unfold happened), else the active node.
+      const target = [focusedId, activeNodeId].find((id) => !!id && externalNodes.some((n) => n.id === id));
       const whole =
-        !hasActive ||
-        shouldFitWholeTree(getNodesBounds(getNodes()), { width, height }, FIT_PADDING, LOD_THRESHOLD);
+        !target || shouldFitWholeTree(getNodesBounds(getNodes()), { width, height }, FIT_PADDING, LOD_THRESHOLD);
       fitView(
         whole
           ? { duration: 500, padding: FIT_PADDING, maxZoom: 0.85 }
-          : { duration: 500, padding: 0.35, nodes: [{ id: activeNodeId! }], maxZoom: 0.85, minZoom: 0.2 },
+          : { duration: 500, padding: 0.35, nodes: [{ id: target! }], maxZoom: 0.85, minZoom: 0.2 },
       );
       fittedKey.current = key;
     } catch (e) {
@@ -473,6 +482,7 @@ function TreeViewInner({
     width,
     height,
     activeNodeId,
+    focusedId,
   ]);
 
   const handleRecenter = useCallback(() => {
@@ -525,7 +535,8 @@ function TreeViewInner({
       if (!TREE_KEYS.has(e.key)) return;
       e.preventDefault();
       e.stopPropagation();
-      const next = visible(focusedId) ? neighbor(externalNodes, externalEdges, current, e.key as TreeKey) : current;
+      // From the focus, or from the selected node when nothing is focused yet.
+      const next = neighbor(externalNodes, externalEdges, current, e.key as TreeKey);
       setFocusedId(next);
       const node = getNodes().find((n) => n.id === next);
       if (node) {
@@ -584,9 +595,15 @@ function TreeViewInner({
           summarizing={notes.summarizing.includes(menuNode.id)}
           onRename={() => setRenaming({ id: menuNode.id, name: menuNode.metadata?.name ?? "" })}
           onBookmark={(b) => notes.setBookmark(menuNode.id, b)}
-          onCollapse={(c) => onSetCollapsed?.(menuNode.id, c)}
-          onHoist={(h) => onHoist?.(h ? menuNode.id : null)}
-          onSummarize={() => notes.summarize(menuNode.id)}
+          onCollapse={(c) => fold(menuNode.id, c)}
+          onHoist={(h) => {
+            setFocusedId(menuNode.id);
+            onHoist?.(h ? menuNode.id : null);
+          }}
+          onSummarize={() => {
+            setFocusedId(menuNode.id);
+            notes.summarize(menuNode.id);
+          }}
           onClearSummary={() => notes.clearSummary(menuNode.id)}
         />
       )}

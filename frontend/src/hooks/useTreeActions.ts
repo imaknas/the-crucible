@@ -4,6 +4,7 @@ import { errorMessage } from "@/lib/errors";
 import type { TreeEdge, TreeNode } from "@/lib/types";
 import { branchPoint, startNode } from "@/lib/branching";
 import { lastUserText } from "@/lib/messages";
+import { quoteForBranch } from "@/lib/spanBranch";
 import type { Confirm } from "@/hooks/useConfirm";
 import type { PushToast } from "@/hooks/useToasts";
 
@@ -95,6 +96,19 @@ export function useTreeActions({
     setChosen(null);
     if (threadId) fetchHistory(threadId);
   }, [setChosen, threadId, fetchHistory]);
+
+  /**
+   * "Branch from this" on text selected in a reply: continue from that
+   * reply (with its model, as Branch from here) with the text quoted in the
+   * composer, to ask about exactly that claim.
+   */
+  const branchFromSpan = useCallback(
+    (nodeId: string, text: string) => {
+      selectCheckpoint(nodeId);
+      setInput(quoteForBranch(text));
+    },
+    [selectCheckpoint, setInput],
+  );
 
   /**
    * "Start fresh": the next message goes from the thread's empty start, with
@@ -212,6 +226,7 @@ export function useTreeActions({
     branch,
     resetToLatest,
     branchFrom,
+    branchFromSpan,
     /** Absent while the tree has no start node to branch from. */
     startFresh: fresh ? startFresh : undefined,
   };

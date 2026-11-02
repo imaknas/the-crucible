@@ -363,9 +363,8 @@ describe("TreeCanvas: moving around a big tree", () => {
     const { container } = renderCanvas({ nodes: tree(), edges: treeEdges, activeNodeId: "q", onNodeClick, notes: notes() });
     const canvas = screen.getByTestId("tree-canvas");
     const focused = () => container.querySelector<HTMLElement>(".react-flow__node > div[style*='dashed']")?.parentElement?.dataset.id;
-    fireEvent.keyDown(canvas, { key: "ArrowDown" }); // first press lands on the active node
-    expect(focused()).toBe("q");
-    fireEvent.keyDown(canvas, { key: "ArrowDown" });
+    fireEvent.keyDown(canvas, { key: "ArrowDown" }); // from the active node
+    expect(focused()).toBe("a");
     fireEvent.keyDown(canvas, { key: "ArrowRight" });
     expect(focused()).toBe("b");
     expect(onNodeClick).not.toHaveBeenCalled();
@@ -381,21 +380,25 @@ describe("TreeCanvas: moving around a big tree", () => {
     const nodes = tree();
     nodes[3] = { ...nodes[3], metadata: { role: "user", bookmarked: true, name: "Cost question" } };
     renderCanvas({ nodes, edges: treeEdges, activeNodeId: "a", notes: n, onSetCollapsed, onReveal, onNodeClick });
-    act(() => measureNodes());
+    // React Flow hides a node again until it is measured after its data changes.
+    const openMenu = () => {
+      act(() => measureNodes());
+      fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    };
 
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    openMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: /Collapse/ }));
     expect(onSetCollapsed).toHaveBeenCalledWith("a", true);
 
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    openMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: /Compress into a summary/ }));
     expect(n.summarize).toHaveBeenCalledWith("a");
 
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    openMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Bookmark" }));
     expect(n.setBookmark).toHaveBeenCalledWith("a", true);
 
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    openMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: /Name this branch/ }));
     fireEvent.change(screen.getByLabelText("Branch name"), { target: { value: "Postgres line" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
