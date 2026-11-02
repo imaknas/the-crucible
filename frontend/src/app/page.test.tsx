@@ -378,3 +378,67 @@ describe("Home: leaving a thread while models answer", () => {
     expect(screen.queryByText("Leave while models answer?")).not.toBeInTheDocument();
   });
 });
+
+describe("Home: adding a model to a turn, and the reply the next message continues", () => {
+  const question = { id: "u1", position: { x: 0, y: 0 }, data: { label: "The question" }, metadata: { role: "user" } };
+  const answer = (id: string, model: string, name: string) => ({
+    id,
+    position: { x: 0, y: 160 },
+    data: { label: `${name} says` },
+    metadata: { role: "ai", active_peer: model, model_name: name, turn_id: "T", preview: `${name} says` },
+  });
+  const history = (replies: ReturnType<typeof answer>[]) => ({
+    nodes: [question, ...replies],
+    edges: replies.map((r) => ({ id: `e-${r.id}`, source: "u1", target: r.id })),
+    messages: [
+      { role: "user", content: "The question", type: "human", checkpoint_id: "u1" },
+      { role: "assistant", content: "GPT A says", type: "ai", model: "gpt-a", checkpoint_id: "a1", turn_id: "T" },
+    ],
+    current_checkpoint: "a1",
+  });
+
+  it("asks one more model the turn's question and leaves the branch point where it was", async () => {
+    mocked.fetchHistory.mockResolvedValue(history([answer("a1", "gpt-a", "GPT A")]) as never);
+    renderPage({ view: "arena" });
+    await screen.findByText("GPT A says");
+    fireEvent.click(await screen.findByRole("button", { name: "Add a model" }));
+    // Only models with a key that aren't in the turn yet.
+    expect(screen.getAllByRole("menuitem").map((i) => i.textContent)).toEqual(["Claude B"]);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("menuitem", { name: "Claude B" }));
+    });
+    const ws = chatSocket();
+    expect(ws.sent).toEqual([expect.objectContaining({ model: "claude-b", join_turn: "a1" })]);
+    expect(ws.sent[0]).not.toHaveProperty("message");
+
+    mocked.fetchHistory.mockClear();
+    ws.emit({ type: "stream_start", model: "claude-b", turn_id: "T", joins_turn: true, message: null });
+    expect(await screen.findByRole("article", { name: "Claude B's answer" })).toBeInTheDocument();
+    ws.emit({ type: "stream_end", model: "claude-b", checkpoint_id: "b1", turn_id: "T", joins_turn: true });
+    // The path on screen reloads; nothing was chosen, so the next message still continues the latest turn.
+    await waitFor(() => expect(mocked.fetchHistory).toHaveBeenCalledWith("t1", "a1"));
+    expect(screen.queryByTestId("next-here")).not.toBeInTheDocument();
+    ws.sent = [];
+    const frames = await send("Next");
+    expect(frames.map((f) => f.parent_checkpoint_id)).toEqual([null, null]);
+  });
+
+  it("Everyone continues from here makes that reply the branch point for every selected model", async () => {
+    mocked.fetchHistory.mockResolvedValue(
+      history([answer("a1", "gpt-a", "GPT A"), answer("b1", "claude-b", "Claude B")]) as never,
+    );
+    renderPage({ view: "arena" });
+    const claude = await screen.findByRole("article", { name: "Claude B's answer" });
+    mocked.fetchHistory.mockClear();
+    await act(async () => {
+      fireEvent.click(within(claude).getByRole("button", { name: "Everyone continues from here" }));
+    });
+    expect(mocked.fetchHistory).toHaveBeenCalledWith("t1", "b1");
+    expect(await within(screen.getByRole("article", { name: "Claude B's answer" })).findByTestId("next-here")).toBeInTheDocument();
+    const frames = await send("Go on");
+    expect(frames.map((f) => [f.model, f.parent_checkpoint_id])).toEqual([
+      ["gpt-a", "b1"],
+      ["claude-b", "b1"],
+    ]);
+  });
+});

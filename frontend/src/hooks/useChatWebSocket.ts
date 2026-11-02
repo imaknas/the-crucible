@@ -5,7 +5,7 @@ import { Message, ModelError, Toggles } from "@/lib/types";
 import { isOpen, reconnectDelay, useSocketFactory, whenOpen } from "@/lib/transport";
 import { contextFields } from "@/lib/runContext";
 import { RESUMED, markStopped, withResumedQuestion } from "@/lib/messages";
-import { adoptLiveReply, startLiveTurn, stopLiveTurn, updateLiveReply, type LiveTurn } from "@/lib/turns";
+import { adoptLiveReply, startJoin, startLiveTurn, stopLiveTurn, updateLiveReply, type LiveTurn } from "@/lib/turns";
 import type { PushToast } from "@/hooks/useToasts";
 
 const NOT_CONNECTED = "Not connected to the backend. It reconnects by itself; try again in a moment.";
@@ -33,6 +33,7 @@ export function useChatWebSocket({
   documentNames,
   clearDocuments,
   onTurnSettled,
+  onTurnJoined,
   setErrorModals,
   pushToast,
   onThreadsChanged,
@@ -60,6 +61,12 @@ export function useChatWebSocket({
    * latest turn again; the caller resets the branch point and reloads.
    */
   onTurnSettled: (threadId: string) => void;
+  /**
+   * A model added to an answered turn has finished ("+ model"). No new
+   * question was asked, so what the next message continues stays as it
+   * was; the caller only reloads. Default: onTurnSettled.
+   */
+  onTurnJoined?: (threadId: string) => void;
   setErrorModals: React.Dispatch<React.SetStateAction<any[]>>;
   /** Notices, e.g. that a message couldn't be sent. */
   pushToast: PushToast;
@@ -128,6 +135,13 @@ export function useChatWebSocket({
     onTurnSettledRef.current = onTurnSettled;
   }, [onTurnSettled]);
 
+  const onTurnJoinedRef = useRef(onTurnJoined);
+  useEffect(() => {
+    onTurnJoinedRef.current = onTurnJoined;
+  }, [onTurnJoined]);
+  // The runs on screen add models to an answered turn ("+ model").
+  const joiningRef = useRef(false);
+
   // Another thread (or none): nothing of this one's turn carries over. Kept
   // apart from the socket effect, which also reruns to reconnect, keeping
   // the turn on screen.
@@ -153,6 +167,7 @@ export function useChatWebSocket({
       finishedModelsCountRef.current = 0;
       reloadOnSettleRef.current = false;
       stopRequestedRef.current = false;
+      joiningRef.current = false;
       attemptRef.current = 0;
       // A self-initiated close is "clean", so onclose won't reset this; without
       // it, switching threads mid-stream left the new thread stuck loading.
@@ -205,15 +220,21 @@ export function useChatWebSocket({
         rafRef.current = null;
       }
       if (streamCheckpointsRef.current.length > 0 || reloadOnSettleRef.current) {
-        // No reply becomes the branch point: the next message continues
-        // the latest turn, every model from its own reply. Pinning the
-        // first reply here sent every model's next turn after one model.
-        onTurnSettledRef.current(threadId);
+        if (joiningRef.current && onTurnJoinedRef.current) {
+          // An answer added to a turn asks nothing new: the branch point stays.
+          onTurnJoinedRef.current(threadId);
+        } else {
+          // No reply becomes the branch point: the next message continues
+          // the latest turn, every model from its own reply. Pinning the
+          // first reply here sent every model's next turn after one model.
+          onTurnSettledRef.current(threadId);
+        }
       }
       streamCheckpointsRef.current = [];
       expectedModelsCountRef.current = 0;
       finishedModelsCountRef.current = 0;
       reloadOnSettleRef.current = false;
+      joiningRef.current = false;
       synthesisModelRef.current = null;
       setIsLoading(false);
       // A first turn is what makes a new thread exist on the server.
@@ -267,15 +288,19 @@ export function useChatWebSocket({
       const model: string = data.model;
       const turnId: string = data.turn_id ?? `turn-${model}`;
       const synthesis = data.kind === "synthesis";
+      // One more answer to a turn already on the thread: its question is
+      // there (the backend sends none), and it streams into that turn's grid.
+      const joins = !!data.joins_turn;
       pendingModelsRef.current.add(model);
       streamBufferRef.current[model] = content;
       expectedModelsCountRef.current += 1;
       setIsLoading(true);
+      if (joins) joiningRef.current = true;
       if (synthesis) synthesisModelRef.current = model;
       if (!synthesis && data.message) setMessages((prev) => withResumedQuestion(prev, turnId, data.message));
       // A turn of several models streams into cards. Resumes say how many
       // the turn asked; another tab's stream_start can't, so its turn is cards.
-      const cards = !synthesis && (data.type === "stream_start" || (data.turn_models?.length ?? 1) > 1);
+      const cards = !synthesis && (joins || data.type === "stream_start" || (data.turn_models?.length ?? 1) > 1);
       if (!cards) {
         setMessages((prev) => [
           ...prev,
@@ -298,13 +323,18 @@ export function useChatWebSocket({
       }
       liveModelsRef.current.add(model);
       setLiveTurn((turn) =>
-        adoptLiveReply(turn, turnId, {
-          model,
-          content,
-          streaming: true,
-          turn_id: turnId,
-          model_color: data.model_color ?? null,
-        }),
+        adoptLiveReply(
+          turn,
+          turnId,
+          {
+            model,
+            content,
+            streaming: true,
+            turn_id: turnId,
+            model_color: data.model_color ?? null,
+          },
+          joins,
+        ),
       );
     };
 
@@ -567,7 +597,38 @@ export function useChatWebSocket({
     expectedModelsCountRef.current = 1;
     finishedModelsCountRef.current = 0;
     if (error.frame.type === "synthesis") synthesisModelRef.current = error.model;
+    joiningRef.current = !!error.frame.join_turn;
     sendFrame(error.frame);
+  };
+
+  /**
+   * "+ model": ask `model` the question of an answered turn, without asking
+   * its other models again. `reply` names the turn by one of its replies
+   * (the one on screen), so the answer goes on that reply's branch. It
+   * streams into the turn's grid (lib/turns.startJoin) and, once done,
+   * leaves the branch point and who answers next as they were.
+   */
+  const addModelToTurn = (reply: string, turnId: string, model: string): boolean => {
+    if (isLoading || waitingRef.current) return false;
+    if (!isOpen(wsRef.current)) {
+      pushToast(NOT_CONNECTED, "error", "Not sent");
+      return false;
+    }
+    setIsLoading(true);
+    joiningRef.current = true;
+    liveModelsRef.current = new Set([model]);
+    setLiveTurn(startJoin(turnId, model));
+    expectedModelsCountRef.current = 1;
+    finishedModelsCountRef.current = 0;
+    setModelErrors([]);
+    sentFramesRef.current = {};
+    sendFrame({
+      model,
+      join_turn: reply,
+      toggles,
+      ...contextFields({ summarizer, systemPrompt }),
+    });
+    return true;
   };
 
   const dismissModelError = (errorId: string) =>
@@ -639,5 +700,6 @@ export function useChatWebSocket({
     dismissModelError,
     replyTexts,
     liveTurn,
+    addModelToTurn,
   };
 }

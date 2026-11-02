@@ -1,5 +1,6 @@
-import { FALLBACK_LIMITS, catalogColor, familyEnvKey, resolveLimits } from "./catalog";
+import { FALLBACK_LIMITS, answeringModelIds, catalogColor, familyEnvKey, resolveLimits } from "./catalog";
 import type { ModelFamily } from "./api";
+import { FAMILIES } from "@/test/families";
 
 const families: ModelFamily[] = [
   { key: "anthropic", label: "Anthropic", color: "#d97706", env_key: "ANTHROPIC_API_KEY", available: true, models: [{ id: "claude-x", name: "Claude X", desc: "" }] },
@@ -26,5 +27,11 @@ describe("familyEnvKey", () => {
   it("uses the backend's env_key", () => {
     expect(familyEnvKey({ key: "google", env_key: "GEMINI_KEY" })).toBe("GEMINI_KEY");
     expect(familyEnvKey({ key: "openai" })).toBe("OPENAI_API_KEY");
+  });
+});
+
+describe("answeringModelIds", () => {
+  it("offers models of families with a key, legacy entries left out", () => {
+    expect(answeringModelIds(FAMILIES)).toEqual(["gpt-a", "claude-b"]);
   });
 });

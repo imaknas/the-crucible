@@ -587,4 +587,89 @@ describe("useChatWebSocket", () => {
     act(() => ws.onmessage?.({ data: JSON.stringify({ type: "error", message: "bad key" }) }));
     expect(mockProps.setErrorModals).toHaveBeenCalled();
   });
+
+  describe("adding a model to a finished turn", () => {
+    it("sends one frame naming the turn by its reply, with no message, and streams into that turn's grid", () => {
+      const onTurnJoined = jest.fn();
+      const { result } = renderHook(() =>
+        useChatWebSocket({ ...mockProps, selectedModels: ["gpt-4o", "claude-x"], onTurnJoined }),
+      );
+      const ws = MockWebSocket.instances[0];
+      const frame = (data: object) => ws.onmessage?.({ data: JSON.stringify(data) });
+
+      act(() => {
+        expect(result.current.addModelToTurn("reply_a", "t1", "gemini-y")).toBe(true);
+      });
+      expect(ws.send).toHaveBeenCalledTimes(1);
+      const sent = JSON.parse(ws.send.mock.calls[0][0]);
+      expect(sent).toMatchObject({ model: "gemini-y", join_turn: "reply_a", toggles: mockProps.toggles });
+      expect(sent).not.toHaveProperty("message");
+      expect(sent).not.toHaveProperty("parent_checkpoint_id");
+      expect(result.current.liveTurn).toMatchObject({ key: "turn-t1", turnId: "t1", joins: true });
+      expect(result.current.isLoading).toBe(true);
+
+      act(() => {
+        frame({ type: "stream_start", model: "gemini-y", turn_id: "t1", joins_turn: true, message: null });
+        frame({ type: "stream_token", model: "gemini-y", token: "Hi" });
+        jest.advanceTimersByTime(50);
+      });
+      // No question bubble: the question is already on the thread.
+      expect(result.current.messages).toEqual([]);
+      expect(result.current.liveTurn?.replies).toEqual([expect.objectContaining({ model: "gemini-y", content: "Hi" })]);
+
+      act(() => frame({ type: "stream_end", model: "gemini-y", checkpoint_id: "ng", turn_id: "t1", joins_turn: true }));
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.liveTurn?.replies[0]).toMatchObject({ checkpoint_id: "ng", streaming: false });
+      // The branch point stays: the join reloads, it doesn't settle a turn.
+      expect(onTurnJoined).toHaveBeenCalledWith("thread_1");
+      expect(mockProps.onTurnSettled).not.toHaveBeenCalled();
+    });
+
+    it("waits for a running turn before adding a model", async () => {
+      const { result } = renderHook(() => useChatWebSocket(mockProps));
+      await act(async () => {
+        await result.current.sendInteractiveMessage("Hello");
+      });
+      const ws = MockWebSocket.instances[0];
+      ws.send.mockClear();
+      act(() => {
+        expect(result.current.addModelToTurn("reply_a", "t1", "gemini-y")).toBe(false);
+      });
+      expect(ws.send).not.toHaveBeenCalled();
+    });
+
+    it("resumes another tab's join as a card of its turn, without repeating the question", () => {
+      const onTurnJoined = jest.fn();
+      const { result } = renderHook(() => useChatWebSocket({ ...mockProps, onTurnJoined }));
+      const ws = MockWebSocket.instances[0];
+      act(() =>
+        ws.onmessage?.({
+          data: JSON.stringify({
+            type: "stream_resume", model: "gemini-y", turn_id: "t1", joins_turn: true, content_so_far: "So far",
+            message: null, kind: null, turn_models: ["gpt-4o", "gemini-y"],
+          }),
+        }),
+      );
+      expect(result.current.messages).toEqual([]);
+      expect(result.current.liveTurn).toMatchObject({ key: "turn-t1", turnId: "t1", joins: true });
+      act(() => ws.onmessage?.({ data: JSON.stringify({ type: "stream_end", model: "gemini-y", checkpoint_id: "ng", turn_id: "t1" }) }));
+      expect(onTurnJoined).toHaveBeenCalledWith("thread_1");
+      expect(mockProps.onTurnSettled).not.toHaveBeenCalled();
+    });
+
+    it("retries a refused join with the same frame", () => {
+      const { result } = renderHook(() => useChatWebSocket(mockProps));
+      const ws = MockWebSocket.instances[0];
+      act(() => {
+        result.current.addModelToTurn("reply_a", "t1", "gemini-y");
+      });
+      act(() =>
+        ws.onmessage?.({ data: JSON.stringify({ type: "error", model: "gemini-y", message: "busy", joins_turn: true }) }),
+      );
+      expect(result.current.liveTurn?.replies[0]).toMatchObject({ error: "busy", streaming: false });
+      ws.send.mockClear();
+      act(() => result.current.retryModel(result.current.modelErrors[0].id));
+      expect(JSON.parse(ws.send.mock.calls[0][0])).toMatchObject({ model: "gemini-y", join_turn: "reply_a" });
+    });
+  });
 });

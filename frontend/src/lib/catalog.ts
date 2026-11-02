@@ -39,3 +39,11 @@ export function catalogColor(modelId: string, families: ModelFamily[]): string {
 export function familyEnvKey(family: Pick<ModelFamily, "key" | "env_key">): string {
   return family.env_key || `${family.key.toUpperCase()}_API_KEY`;
 }
+
+/**
+ * Models a new answer can come from: families with a key, without the
+ * legacy entries kept only so old threads replay.
+ */
+export function answeringModelIds(families: ModelFamily[]): string[] {
+  return families.filter((f) => f.available).flatMap((f) => f.models.filter((m) => m.desc !== "Legacy").map((m) => m.id));
+}

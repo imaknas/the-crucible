@@ -1,4 +1,14 @@
-import { adoptLiveReply, buildTranscript, startLiveTurn, stopLiveTurn, synthesizableIds, updateLiveReply } from "./turns";
+import {
+  addableModels,
+  adoptLiveReply,
+  buildTranscript,
+  startJoin,
+  startLiveTurn,
+  stopLiveTurn,
+  synthesizableIds,
+  turnKey,
+  updateLiveReply,
+} from "./turns";
 import type { Message, TreeNode } from "./types";
 
 const node = (id: string, model: string, turn: string, extra: Partial<TreeNode> = {}): TreeNode => ({
@@ -148,5 +158,78 @@ describe("buildTranscript", () => {
     const live = updateLiveReply(startLiveTurn(["a", "b"], "k"), "a", { turn_id: "t9", checkpoint_id: "z", streaming: false });
     const items = buildTranscript({ messages: [q, reply("a0", "a", "t0")], nodes, edges: [], selected: ["a"], replyTexts: {}, live });
     expect(items.every((i) => i.kind === "message")).toBe(true);
+  });
+});
+
+describe("adding a model to a finished turn", () => {
+  const nodes = [node("a1", "a", "t1"), node("b1", "b", "t1"), node("a0", "a", "t0")];
+  const q2: Message = { id: "q2", role: "user", content: "Next" };
+
+  it("streams under the turn's own grid key, as a join", () => {
+    expect(startJoin("t0", "c")).toEqual({
+      key: turnKey("t0"),
+      turnId: "t0",
+      replies: [{ model: "c", content: "", streaming: true }],
+      joins: true,
+    });
+    expect(adoptLiveReply(null, "t0", { model: "c", content: "x", streaming: true }, true)).toMatchObject({
+      key: turnKey("t0"),
+      joins: true,
+    });
+  });
+
+  it("offers only the models not already in the turn", () => {
+    expect(addableModels(["a", "b", "c", "d"], ["b", "a"])).toEqual(["c", "d"]);
+  });
+
+  it("turns a lone reply into a two-card grid while a model joins it, and keeps that grid once it settles", () => {
+    const messages = [q, reply("a0", "a", "t0")];
+    let live = startJoin("t0", "c");
+    const joining = buildTranscript({ messages, nodes, edges: [], selected: ["a"], replyTexts: {}, live });
+    expect(joining.map((i) => i.kind)).toEqual(["message", "turn"]);
+    const grid = joining[1];
+    if (grid.kind !== "turn") throw new Error();
+    expect(grid.key).toBe(turnKey("t0"));
+    expect(grid.turnId).toBe("t0");
+    expect(grid.cards.map((c) => [c.model, c.shown, c.streaming])).toEqual([
+      ["a", true, false],
+      ["c", false, true],
+    ]);
+
+    live = updateLiveReply(live, "c", { streaming: false, checkpoint_id: "c0", content: "c whole" });
+    const settled = buildTranscript({
+      messages,
+      nodes: [...nodes, node("c0", "c", "t0")],
+      edges: [],
+      selected: ["a"],
+      replyTexts: { c0: "c whole" },
+      live,
+    });
+    const after = settled[1];
+    if (after.kind !== "turn") throw new Error();
+    expect(after.key).toBe(grid.key);
+    expect(after.cards.map((c) => [c.model, c.id, c.text])).toEqual([
+      ["a", "a0", "a whole"],
+      ["c", "c0", "c whole"],
+    ]);
+  });
+
+  it("adds the card to an earlier turn's grid and never after the last message", () => {
+    const messages = [q, reply("a1", "a", "t1"), q2];
+    const items = buildTranscript({ messages, nodes, edges: [], selected: ["a", "b"], replyTexts: {}, live: startJoin("t1", "c") });
+    expect(items.map((i) => i.kind)).toEqual(["message", "turn", "message"]);
+    const grid = items[1];
+    if (grid.kind !== "turn") throw new Error();
+    expect(grid.key).toBe(turnKey("t1"));
+    expect(grid.cards.map((c) => [c.model, c.streaming])).toEqual([
+      ["a", false],
+      ["b", false],
+      ["c", true],
+    ]);
+  });
+
+  it("leaves another turn's lone reply a bubble", () => {
+    const items = buildTranscript({ messages: [q, reply("a0", "a", "t0")], nodes, edges: [], selected: ["a"], replyTexts: {}, live: startJoin("t1", "c") });
+    expect(items.map((i) => i.kind)).toEqual(["message", "message"]);
   });
 });

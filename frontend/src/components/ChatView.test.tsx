@@ -279,6 +279,85 @@ describe("ChatView synthesis", () => {
     fireEvent.click(within(claude).getByRole("button", { name: "Retry" }));
     expect(onRetryModel).toHaveBeenCalledWith("err-1");
   });
+
+  describe("adding a model and the branch point", () => {
+    const chosen = (id: string) => ({
+      node: node(id, "gpt", "t1") as never,
+      preview: "",
+      isLatest: false,
+    });
+    const latest = { node: node("a1", "gpt", "t1") as never, preview: "", isLatest: true };
+
+    it("adds a model to a turn by the reply on screen, offering only models not in it", () => {
+      const onAddModel = jest.fn();
+      render(
+        <ChatView
+          {...base}
+          messages={[question, gptReply]}
+          nodes={[node("a1", "gpt", "t1"), node("b1", "claude", "t1")]}
+          onAddModel={onAddModel}
+          addableModels={["gpt", "claude", "gemini"]}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Add a model" }));
+      expect(screen.getAllByRole("menuitem").map((i) => i.textContent)).toEqual(["gemini"]);
+      fireEvent.click(screen.getByRole("menuitem", { name: "gemini" }));
+      expect(onAddModel).toHaveBeenCalledWith("a1", "t1", "gemini");
+    });
+
+    it("offers it under a single-model reply too, which then streams as a second card of that turn", () => {
+      const onAddModel = jest.fn();
+      const nodes = [node("a1", "gpt", "t1")];
+      const { rerender } = render(
+        <ChatView {...base} messages={[question, gptReply]} nodes={nodes} onAddModel={onAddModel} addableModels={["gpt", "claude"]} />,
+      );
+      expect(screen.queryAllByRole("article")).toHaveLength(0);
+      fireEvent.click(screen.getByRole("button", { name: "Add a model" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "claude" }));
+      expect(onAddModel).toHaveBeenCalledWith("a1", "t1", "claude");
+
+      const live = { key: "turn-t1", turnId: "t1", joins: true, replies: [{ model: "claude", content: "Hi", streaming: true }] };
+      rerender(
+        <ChatView {...base} isLoading messages={[question, gptReply]} nodes={nodes} onAddModel={onAddModel} addableModels={["gpt", "claude"]} liveTurn={live} />,
+      );
+      expect(screen.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["GPT's answer", "claude's answer"]);
+      expect(screen.getByRole("article", { name: "claude's answer" })).toHaveAttribute("aria-busy", "true");
+    });
+
+    it("marks the chosen reply, on its card or under its bubble, and nothing for the latest turn", () => {
+      const nodes = [node("a1", "gpt", "t1"), node("b1", "claude", "t1")];
+      const { rerender } = render(
+        <ChatView {...base} messages={[question, gptReply]} nodes={nodes} branchPoint={chosen("b1")} />,
+      );
+      expect(within(screen.getByRole("article", { name: "CLAUDE's answer" })).getByTestId("next-here")).toBeInTheDocument();
+      expect(screen.getAllByTestId("next-here")).toHaveLength(1);
+
+      rerender(<ChatView {...base} messages={[question, gptReply]} nodes={nodes} branchPoint={latest} />);
+      expect(screen.queryByTestId("next-here")).toBeNull();
+
+      rerender(<ChatView {...base} messages={[question, gptReply]} nodes={[node("a1", "gpt", "t1")]} branchPoint={chosen("a1")} />);
+      expect(screen.getByTestId("reply-actions")).toHaveTextContent("Next message continues here");
+    });
+
+    it("lets everyone continue from a card when the selection has other models", () => {
+      const onContinueReplyAll = jest.fn();
+      render(
+        <ChatView
+          {...base}
+          selectedModels={["gpt", "claude"]}
+          messages={[question, gptReply]}
+          nodes={[node("a1", "gpt", "t1"), node("b1", "claude", "t1")]}
+          onContinueReplyAll={onContinueReplyAll}
+        />,
+      );
+      fireEvent.click(
+        within(screen.getByRole("article", { name: "CLAUDE's answer" })).getByRole("button", {
+          name: "Everyone continues from here",
+        }),
+      );
+      expect(onContinueReplyAll).toHaveBeenCalledWith("b1");
+    });
+  });
 });
 
 describe("replyAuthor", () => {

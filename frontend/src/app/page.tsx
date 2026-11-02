@@ -42,6 +42,7 @@ import { useNodeNotes } from "@/hooks/useNodeNotes";
 import { useAnswerDiff } from "@/hooks/useAnswerDiff";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
 import { reconcileMessages } from "@/lib/messages";
+import { answeringModelIds } from "@/lib/catalog";
 import { RADIUS } from "@/theme";
 
 /**
@@ -139,6 +140,12 @@ export default function Home() {
     },
     [setChosen, fetchHistory],
   );
+  // A model was added to an answered turn: nothing new was asked, so the
+  // branch point and the path on screen stay; only the tree reloads.
+  const handleTurnJoined = useCallback(
+    (tid: string) => fetchHistory(tid, shown ?? undefined),
+    [fetchHistory, shown],
+  );
 
   // An attachment's whole text goes with the next message; searching it as
   // well would put it in that turn twice. Later turns reach it through
@@ -164,6 +171,7 @@ export default function Home() {
     dismissModelError,
     replyTexts,
     liveTurn,
+    addModelToTurn,
   } = useChatWebSocket({
     threadId,
     parentCheckpoint: chosen,
@@ -175,6 +183,7 @@ export default function Home() {
     documentNames: documents.names,
     clearDocuments: documents.clear,
     onTurnSettled: handleTurnSettled,
+    onTurnJoined: handleTurnJoined,
     setErrorModals,
     pushToast,
     onThreadsChanged: fetchThreads,
@@ -317,6 +326,17 @@ export default function Home() {
     [sendInteractiveMessage, continuesDebate, markFollowedUp],
   );
   const handleSendMessage = useCallback((text: string) => send(text, false), [send]);
+  // "Everyone continues from here": the reply becomes the branch point, every selected model answering.
+  const { setAskAll } = reply;
+  // Who "+ Add a model" offers: models with a key, no legacy entries.
+  const answeringModels = useMemo(() => answeringModelIds(families), [families]);
+  const continueReplyAll = useCallback(
+    (id: string) => {
+      selectCheckpoint(id);
+      setAskAll(true);
+    },
+    [selectCheckpoint, setAskAll],
+  );
   const handleDeliberate = useCallback((text: string) => send(text, true), [send]);
   const { redirect: debateRedirect, switchTo: debateSwitchTo } = debate;
   const handleDebateRedirect = useCallback(
@@ -578,6 +598,9 @@ export default function Home() {
                     contextNotes={contextNotes}
                     liveTurn={liveTurn}
                     onCompareAnswers={answerDiff.compare}
+                    onAddModel={addModelToTurn}
+                    addableModels={answeringModels}
+                    onContinueReplyAll={continueReplyAll}
                   />
                 </motion.div>
               )}

@@ -12,8 +12,9 @@ import SummaryMarker from "./SummaryMarker";
 import { replyNodeAt } from "@/lib/spanBranch";
 import type { NextTurnContext } from "@/lib/context";
 import type { BranchPoint } from "@/lib/branching";
-import { buildTranscript, synthesizableIds, type LiveTurn, type TurnCard } from "@/lib/turns";
+import { addableModels, buildTranscript, synthesizableIds, type LiveTurn, type TurnCard } from "@/lib/turns";
 import TurnCards from "./TurnCards";
+import { ReplyTurnActions, answererNames } from "./TurnActions";
 import PositionShiftPanel from "./PositionShiftPanel";
 import { positionShifts } from "@/lib/debateTranscript";
 import type { SynthesisRequest } from "@/lib/synthesis";
@@ -88,10 +89,20 @@ interface ChatViewProps {
   liveTurn?: LiveTurn | null;
   /** "Compare with…" on a compare card: show what differs between two answers. */
   onCompareAnswers?: (card: TurnCard, other: TurnCard) => void;
+  /**
+   * "+ Add a model" on a finished turn: ask `model` that turn's question,
+   * on the branch of `reply` (the turn's reply on screen).
+   */
+  onAddModel?: (reply: string, turnId: string, model: string) => void;
+  /** Models that can be added to a turn (those with a key). */
+  addableModels?: string[];
+  /** "Everyone continues from here": the reply becomes the branch point and every selected model answers. */
+  onContinueReplyAll?: (id: string) => void;
 }
 
 
 const EMPTY_TEXTS: Record<string, string> = {};
+const EMPTY_MODELS: string[] = [];
 
 const ChatViewRaw: React.FC<ChatViewProps> = ({
   messages,
@@ -136,6 +147,9 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   replyTexts = EMPTY_TEXTS,
   liveTurn = null,
   onCompareAnswers,
+  onAddModel,
+  addableModels: addable = EMPTY_MODELS,
+  onContinueReplyAll,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerContentRef = useRef<HTMLDivElement>(null);
@@ -365,12 +379,31 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
     const last = items[items.length - 1];
     return last?.kind === "turn" ? last.key : null;
   }, [items]);
+  // A model being added to an earlier turn reports its failure on that turn's card.
+  const joinKey = liveTurn?.joins ? liveTurn.key : null;
+  const errorsShownOn = (key: string) => key === lastTurnKey || key === joinKey;
   // Failures of the turn on cards show on their card; the rest as bubbles.
   const bubbleErrors = React.useMemo(() => {
-    const last = items.find((it) => it.key === lastTurnKey);
-    const onCards = new Set(last?.kind === "turn" ? last.cards.map((c) => c.model) : []);
+    const onCards = new Set(
+      items.flatMap((it) => (it.kind === "turn" && (it.key === lastTurnKey || it.key === joinKey) ? it.cards : [])).map((c) => c.model),
+    );
     return modelErrors.filter((e) => !onCards.has(e.model));
-  }, [items, lastTurnKey, modelErrors]);
+  }, [items, lastTurnKey, joinKey, modelErrors]);
+
+  // The branch point, when one is chosen. "Latest" marks nothing: each
+  // model then continues its own reply.
+  const primaryId = branchPoint && !branchPoint.isLatest && !branchPoint.fresh ? branchPoint.node.id : null;
+  const answerers = answererNames(respondingModels ?? selectedModels, modelLabel);
+  const chat = !debateBanner;
+  // "+ Add a model" on a turn: the models with a key that it doesn't have yet.
+  const addModelTo = (turnId: string | null | undefined, reply: string | null | undefined, inTurn: string[]) => {
+    if (!chat || !onAddModel || !turnId || !reply) return null;
+    return {
+      options: addableModels(addable, inTurn),
+      disabled: isLoading,
+      onAdd: (model: string) => onAddModel(reply, turnId, model),
+    };
+  };
 
   return (
     <Box
@@ -640,12 +673,21 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                             }
                           : null
                       }
-                      errors={item.key === lastTurnKey ? modelErrors : []}
+                      errors={errorsShownOn(item.key) ? modelErrors : []}
                       onRetry={onRetryModel}
                       onDismiss={onDismissModelError}
                       retryDisabled={isLoading}
                       review={turnReview(item.cards)}
                       onCompare={onCompareAnswers}
+                      primaryId={chat ? primaryId : null}
+                      answerers={answerers}
+                      onContinueAll={chat ? onContinueReplyAll : undefined}
+                      selectedModels={selectedModels}
+                      addModel={addModelTo(
+                        item.turnId,
+                        (item.cards.find((c) => c.shown) ?? item.cards.find((c) => c.id))?.id,
+                        item.cards.map((c) => c.model),
+                      )}
                     />
                   </Box>
                 );
@@ -779,16 +821,41 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
               }
 
               const stableKey = msg.id || `msg-${i}-${msg.role}`;
+              // A finished single-model reply: its turn can take another
+              // model, and it can be the branch point.
+              const replyId = !isUser && chat && !msg.streaming && msg.kind !== "debate" ? msg.checkpoint_id : null;
+              const replyNode = replyId ? nodes.find((n) => n.id === replyId) : undefined;
+              const replyModel: string = msg.model ?? replyNode?.metadata?.active_peer ?? "";
               return (
-                <MessageBubble
-                  key={stableKey}
-                  msg={msg}
-                  isUser={isUser}
-                  isDark={isDark}
-                  onMount={registerMessageRef}
-                  index={i}
-                  modelLabel={modelLabel}
-                />
+                <React.Fragment key={stableKey}>
+                  <MessageBubble
+                    msg={msg}
+                    isUser={isUser}
+                    isDark={isDark}
+                    onMount={registerMessageRef}
+                    index={i}
+                    modelLabel={modelLabel}
+                  />
+                  {replyId && (
+                    <ReplyTurnActions
+                      id={replyId}
+                      label={modelLabel(replyModel)}
+                      primary={replyId === primaryId}
+                      answerers={answerers}
+                      addModel={addModelTo(
+                        msg.turn_id ?? replyNode?.metadata?.turn_id,
+                        replyId,
+                        replyModel ? [replyModel] : [],
+                      )}
+                      onContinueAll={
+                        onContinueReplyAll && selectedModels.some((m) => m !== replyModel)
+                          ? () => onContinueReplyAll(replyId)
+                          : undefined
+                      }
+                      modelLabel={modelLabel}
+                    />
+                  )}
+                </React.Fragment>
               );
             })}
 

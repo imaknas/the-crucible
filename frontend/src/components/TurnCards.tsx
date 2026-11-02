@@ -10,6 +10,7 @@ import type { ModelError } from "@/lib/types";
 import { turnTotal } from "@/lib/metrics";
 import { ReplyMetricsLine, TurnMetricsLine } from "./ReplyMetrics";
 import { ReplyContextNote } from "./ContextNotes";
+import { AddModelMenu, ContinueAllButton, NextHereMark } from "./TurnActions";
 
 const actionSx = (color: string) => ({
   px: 1,
@@ -39,6 +40,12 @@ interface CardProps {
   peers?: TurnCard[];
   /** Show what differs between this answer and another (the diff dialog). */
   onCompare?: (card: TurnCard, other: TurnCard) => void;
+  /** This reply is the branch point: the next message continues it. */
+  primary?: boolean;
+  /** Who answers the next message, in words, for the mark's tooltip. */
+  answerers?: string;
+  /** Make this reply the branch point with every selected model answering; absent when that is only its own model. */
+  onContinueAll?: (id: string) => void;
 }
 
 /** A finished answer whose whole text can be had: shown in full, or read from its node. */
@@ -63,6 +70,9 @@ export const CompareCard = React.memo(function CompareCard({
   retryDisabled,
   peers = [],
   onCompare,
+  primary = false,
+  answerers = "",
+  onContinueAll,
 }: CardProps) {
   const color = getModelColor(card.model, isDark, card.color);
   const label = card.label || modelLabel(card.model);
@@ -125,14 +135,19 @@ export const CompareCard = React.memo(function CompareCard({
             {card.text ? "Writing…" : "Waiting…"}
           </Box>
         )}
-        {card.shown && !card.streaming && (
-          <Box
-            title="Your next message continues this conversation"
-            sx={{ display: "flex", alignItems: "center", gap: 0.5, fontSize: "0.6875rem", fontWeight: 700, color: color.text }}
-          >
-            <CheckCircle2 width={12} height={12} />
-            On screen
-          </Box>
+        {primary && card.id && !card.streaming ? (
+          <NextHereMark answerers={answerers} color={color.text} />
+        ) : (
+          card.shown &&
+          !card.streaming && (
+            <Box
+              title="This answer's conversation is the one on screen"
+              sx={{ display: "flex", alignItems: "center", gap: 0.5, fontSize: "0.6875rem", fontWeight: 700, color: color.text }}
+            >
+              <CheckCircle2 width={12} height={12} />
+              On screen
+            </Box>
+          )
         )}
       </Box>
 
@@ -251,6 +266,11 @@ export const CompareCard = React.memo(function CompareCard({
                 </Menu>
               </>
             )}
+            {onContinueAll && card.id && (
+              <Box sx={{ ml: "auto" }}>
+                <ContinueAllButton onClick={() => onContinueAll(card.id!)} label={label} />
+              </Box>
+            )}
             <ButtonBase
               onClick={() => card.id && onContinueReply(card.id)}
               disabled={!card.id}
@@ -260,7 +280,7 @@ export const CompareCard = React.memo(function CompareCard({
                   : "Available once this answer has finished"
               }
               aria-label={`Continue with ${label}`}
-              sx={{ ...actionSx("text.secondary"), ml: "auto" }}
+              sx={{ ...actionSx("text.secondary"), ml: onContinueAll && card.id ? 0 : "auto" }}
             >
               Continue from this
             </ButtonBase>
@@ -293,6 +313,16 @@ interface TurnProps {
   review?: { result: AnswerReview | null; running: boolean; disabled: boolean; onRun: () => void } | null;
   /** "Compare with…" on a card: show what differs between two of the turn's answers. */
   onCompare?: (card: TurnCard, other: TurnCard) => void;
+  /** The branch point, when one is chosen: its card says the next message continues it. */
+  primaryId?: string | null;
+  /** Who answers the next message, in words (the mark's tooltip). */
+  answerers?: string;
+  /** "Everyone continues from here" on a card: its reply, every selected model answering. */
+  onContinueAll?: (id: string) => void;
+  /** The Control Panel's selection: the action above is offered on a card only if it adds models. */
+  selectedModels?: string[];
+  /** "+ Add a model": ask one more model this turn's question. */
+  addModel?: { options: string[]; disabled: boolean; onAdd: (model: string) => void } | null;
 }
 
 /** One turn's answers side by side, from the first token to the settled tree. */
@@ -309,6 +339,11 @@ export default function TurnCards({
   retryDisabled,
   review = null,
   onCompare,
+  primaryId = null,
+  answerers = "",
+  onContinueAll,
+  selectedModels = [],
+  addModel = null,
 }: TurnProps) {
   // "" = the first selected model, the original behaviour.
   const [synthesizer, setSynthesizer] = React.useState("");
@@ -330,6 +365,15 @@ export default function TurnCards({
             <Typography variant="overline" sx={{ fontSize: "0.6875rem", fontWeight: 800, letterSpacing: "0.2em" }}>
               {cards.length} answers
             </Typography>
+            {addModel && (
+              <AddModelMenu
+                id={cards.map((c) => c.key).join("-")}
+                options={addModel.options}
+                modelLabel={modelLabel}
+                disabled={addModel.disabled || cards.some((c) => c.streaming)}
+                onAdd={addModel.onAdd}
+              />
+            )}
           </Box>
           {synthesis && (
             <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 1 }}>
@@ -437,6 +481,11 @@ export default function TurnCards({
             retryDisabled={retryDisabled}
             peers={cards}
             onCompare={onCompare}
+            primary={!!primaryId && card.id === primaryId}
+            answerers={answerers}
+            onContinueAll={
+              onContinueAll && selectedModels.some((m) => m !== card.model) ? onContinueAll : undefined
+            }
           />
         ))}
       </Box>
