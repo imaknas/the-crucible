@@ -48,13 +48,13 @@ Cheap changes that answer published criticism of multi-agent debate, plus the nu
 9. **Resumable streams.** _Done._
    - A chat turn or a debate keeps running when the tab reloads or the socket drops, and the client reattaches. This replaces the rule that a run died with its socket (`interrupted` now means a server restart).
    - Source: LibreChat.
-10. **Visible context.**
+10. **Visible context.** _Done, except editing the summary: the branch chip measures what the next turn sends each model against its soft limit; a summary is a marker that opens it; a reply written from a summary or with recalled excerpts says so and lists them (also `crucible context`, MCP `get_thread_context`). Editing a summary is left out for now: a summary is a message inside every later checkpoint of its branch, so an edit would mean writing a new summary checkpoint and re-parenting the turns after it, or forking from it; worth doing once someone needs it._
     - How much of the model's budget the path uses.
     - A marker where history was summarized.
     - The summary itself, viewable and editable.
     - What recall brought back for a turn.
     - Sources: TypingMind, LobeHub.
-11. **Show what a branch inherits.** Branching from a node says which messages the next turn will see, and offers "start fresh from here". Sources: TREEGPT, shapeof.ai's branch patterns.
+11. **Show what a branch inherits.** _Done: the chip says how many messages and roughly how many tokens the next turn sends, and "Start fresh" branches from the tree's empty start._ Branching from a node says which messages the next turn will see, and offers "start fresh from here". Sources: TREEGPT, shapeof.ai's branch patterns.
 
 ## Phase 4 — Moving around a big tree
 
