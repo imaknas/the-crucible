@@ -8,15 +8,23 @@ services/live.py: the server, not the socket.
 import asyncio
 import json
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from app.api.deps import get_graph_app, get_runs
 from app.api.outbox import Outbox
-from app.registry import DEFAULT_MODEL, model_color
-from app.services.arena import TurnStart, question_point, synthesis_note, synthesis_request, turn_start
+from app.registry import DEFAULT_MODEL, display_name, model_color
+from app.services.arena import (
+    TurnJoin,
+    TurnStart,
+    join_point,
+    question_point,
+    synthesis_note,
+    synthesis_request,
+    turn_start,
+)
 from app.services.chat import name_new_thread, stream_turn
 from app.services.context import ContextSettings
 from app.services.live import ChatRunState, ChatTurn, LiveRun, RunRegistry
@@ -28,7 +36,8 @@ router = APIRouter(tags=["chat"])
 
 
 class ChatRequest(BaseModel):
-    message: str
+    # Required, except with join_turn.
+    message: Optional[str] = None
     thread_id: str
     model: str = DEFAULT_MODEL
     toggles: Dict[str, bool] = {}
@@ -43,6 +52,10 @@ class ChatRequest(BaseModel):
     summarizer: Optional[str] = None
     # The person's own system prompt; None = models get no system prompt.
     system_prompt: Optional[str] = None
+    # Add this model to a turn already answered (its id, or one of its
+    # replies' checkpoints): it answers that turn's question; `message` is
+    # then ignored (arena.join_point).
+    join_turn: Optional[str] = None
 
 
 @router.post("/chat")
@@ -52,7 +65,21 @@ async def chat(request: ChatRequest, graph_app=Depends(get_graph_app)):
     if problem := context.problem():
         raise HTTPException(status_code=400, detail=problem)
     try:
-        start = await turn_start(graph_app, request.thread_id, request.parent_checkpoint_id, request.debate_session_id)
+        if request.join_turn:
+            join = await join_point(graph_app, request.thread_id, request.join_turn, request.model,
+                                    request.parent_checkpoint_id)
+            start = TurnStart(join.parent)
+            turn_id, message, is_deliberation = join.turn_id, join.message, join.is_deliberation
+            # The files the turn's question went with, unless the request names others.
+            named = request.documents is not None or request.document_names is not None
+            document_names = request.document_names if named else join.document_names
+        else:
+            if request.message is None:
+                raise ValueError("A message is required (it may be left out only with join_turn).")
+            start = await turn_start(graph_app, request.thread_id, request.parent_checkpoint_id,
+                                     request.debate_session_id)
+            turn_id, message, is_deliberation = new_turn_id(), request.message, request.is_deliberation
+            document_names = request.document_names
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     end = None
@@ -60,23 +87,25 @@ async def chat(request: ChatRequest, graph_app=Depends(get_graph_app)):
         graph_app,
         request.thread_id,
         start.parent_for(request.model),
-        message=request.message,
+        message=message,
         model=request.model,
         toggles=request.toggles,
         documents=request.documents,
-        document_names=request.document_names,
-        is_deliberation=request.is_deliberation,
+        document_names=document_names,
+        is_deliberation=is_deliberation,
         context=context,
-        turn_id=new_turn_id(),
+        turn_id=turn_id,
+        joins_turn=bool(request.join_turn),
     ):
         if event["type"] == "end":
             end = event
     if start.new_thread:
-        await name_new_thread(request.thread_id, request.message)
+        await name_new_thread(request.thread_id, message or "")
     return {
         "messages": end["messages"],
         "thread_id": request.thread_id,
         "checkpoint_id": end["checkpoint_id"],
+        "turn_id": turn_id,
         "notices": end["notices"],
     }
 
@@ -98,8 +127,12 @@ class ChatConnection:
                      is given: synthesis_mode merge | compare | checklist
                      (with keep_components) | ask (with synthesis_question);
                      debate_session_id, without a parent, continues that
-                     finished debate); or {type: "stop"}, which stops every
-                     run on the thread, whichever socket started it.
+                     finished debate; join_turn, a turn id or one of its
+                     replies' checkpoints, adds the model to that answered
+                     turn: it answers the turn's own question, so the
+                     frame's message is ignored); or {type: "stop"}, which
+                     stops every run on the thread, whichever socket
+                     started it.
     Server frames:  stream_start, stream_token, stream_end, stream_stopped,
                     stream_resume, attached, title_update, error.
                     stream_start, stream_end, stream_stopped and a model's
@@ -108,7 +141,10 @@ class ChatConnection:
                     turn's kind ("synthesis" or null) and, for an ordinary
                     turn, its message; stream_end carries the reply's metrics
                     (services/metrics.py). stream_stopped: the run was
-                    stopped before it finished.
+                    stopped before it finished. A joining run's frames
+                    carry joins_turn: true and the turn id it joined; its
+                    stream_start and resume have no message (the question
+                    is already on the thread).
 
     Runs belong to the server (services/live.py): a reload, a dropped socket
     or a closed tab doesn't stop them, and every socket on the thread gets
@@ -124,7 +160,9 @@ class ChatConnection:
     back and waits for every model before the next turn, so frames that
     arrive while this socket's models are still running belong to the same
     turn: one turn id, and the fork points resolved once, before any of them
-    wrote.
+    wrote. A join_turn frame is not part of that turn: it has its own
+    ChatTurn under the joined turn's id, whose models start with the ones
+    that already answered it.
     """
 
     def __init__(self, websocket: WebSocket, graph_app, thread_id: str, runs: RunRegistry):
@@ -138,6 +176,8 @@ class ChatConnection:
         self._turn_runs: List[LiveRun] = []
         # Fork points resolved for this turn, by how the frame asked.
         self._starts: Dict[tuple, TurnStart] = {}
+        # Answered turns this socket is adding models to, by turn id.
+        self._joins: Dict[str, Tuple[ChatTurn, List[LiveRun]]] = {}
 
     async def serve(self) -> None:
         writer = asyncio.create_task(self.outbox.drain())
@@ -170,6 +210,9 @@ class ChatConnection:
 
     async def _start_model(self, frame: dict) -> None:
         model = frame.get("model", DEFAULT_MODEL)
+        if frame.get("join_turn"):
+            await self._join_turn(frame, model)
+            return
         if self._turn is None or all(run.done for run in self._turn_runs):
             self._turn = ChatTurn(new_turn_id())
             self._turn_runs = []
@@ -210,6 +253,49 @@ class ChatConnection:
 
         self._turn_runs.append(self.runs.start(self.thread_id, state, body))
 
+    async def _join_turn(self, frame: dict, model: str) -> None:
+        """One more model's answer to a turn the thread already has
+        (arena.join_point): the turn's question, from where it was asked,
+        tagged with its id. The others are not asked again."""
+        try:
+            join: TurnJoin = await join_point(
+                self.graph_app, self.thread_id, frame["join_turn"], model, frame.get("parent_checkpoint_id")
+            )
+            if any(run.state.model == model and run.state.turn.turn_id == join.turn_id
+                   for run in self.runs.live(self.thread_id)):
+                raise ValueError(f"{display_name(model)} is already answering this turn.")
+        except ValueError as e:
+            self.outbox.deliver({"type": "error", "message": str(e), "model": model, "joins_turn": True,
+                                 "parent_checkpoint_id": frame.get("parent_checkpoint_id")})
+            return
+        where = {"model": model, "parent_checkpoint_id": join.parent, "turn_id": join.turn_id, "joins_turn": True}
+        context = ContextSettings.from_frame(frame)
+        if problem := context.problem():
+            self.outbox.deliver({"type": "error", "message": problem, **where})
+            return
+        joined = self._joins.get(join.turn_id)
+        if joined is None or all(run.done for run in joined[1]):
+            joined = self._joins[join.turn_id] = (ChatTurn(join.turn_id, models=list(join.answered)), [])
+        turn, turn_runs = joined
+        turn.models.append(model)
+        # No message: the question is already on the thread, and a client
+        # resuming this run must not show it again.
+        state = ChatRunState(turn, model, where, message=None, kind=None)
+        named = frame.get("documents") or frame.get("document_names")
+        frame = {
+            **frame,
+            "type": None,
+            "message": join.message,
+            "is_deliberation": join.is_deliberation,
+            **({} if named else {"document_names": join.document_names, "documents": None}),
+        }
+        graph_app, thread_id = self.graph_app, self.thread_id
+
+        async def body(run: LiveRun) -> None:
+            await run_model(run, graph_app, thread_id, frame, context, False)
+
+        turn_runs.append(self.runs.start(self.thread_id, state, body))
+
 
 async def run_model(run: LiveRun, graph_app, thread_id: str, frame: dict, context: ContextSettings,
                     new_thread: bool) -> None:
@@ -245,6 +331,7 @@ async def run_model(run: LiveRun, graph_app, thread_id: str, frame: dict, contex
             turn_kind=frame.get("type"),
             turn_id=turn.turn_id,
             turn_note=note,
+            joins_turn=bool(frame.get("join_turn")),
         ):
             if event["type"] == "token":
                 run.emit({"type": "stream_token", "token": event["token"], "model": model})

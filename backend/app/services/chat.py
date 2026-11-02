@@ -21,6 +21,7 @@ from app.services.runs import (
     TURN_KINDS,
     final_state_of_run,
     tag_run,
+    tag_joined,
     tag_turn,
     tag_turn_kind,
     thread_config,
@@ -181,6 +182,7 @@ async def stream_turn(
     turn_note: Optional[Mapping[str, str]] = None,
     configurable: Optional[Mapping[str, Any]] = None,
     with_path: bool = True,
+    joins_turn: bool = False,
 ) -> AsyncIterator[Dict[str, Any]]:
     """Run one model's turn: every client's turns (chat, arena, synthesis,
     debate rounds) go through here.
@@ -198,12 +200,16 @@ async def stream_turn(
     tags the turn's checkpoints, so the tree and the transcript can show the
     reply as a synthesis, and ``turn_note`` records how it was asked for (its
     synthesis mode). ``configurable`` adds run settings (e.g. the
-    document thread a debate lane reads)."""
+    document thread a debate lane reads). ``joins_turn``: the run adds a
+    model to the answered turn ``turn_id`` (arena.join_turn), so the
+    thread's head passes over it (runs.answered_head)."""
     config = context.apply(thread_config(thread_id, parent_checkpoint_id))
     config["configurable"].update(configurable or {})
     run_id = tag_run(config)
     tag_turn_kind(config, turn_kind, turn_note)
     tag_turn(config, turn_id)
+    if joins_turn:
+        tag_joined(config)
     names = list(document_names) if document_names is not None else await attach_documents(config, documents)
     state = await graph_app.aget_state(config)
 

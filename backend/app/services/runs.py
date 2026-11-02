@@ -29,6 +29,11 @@ SYNTHESIS_QUESTION_KEY = "crucible_synthesis_question"
 # Shared by every run of one turn (each model answering the same message), so
 # readers can group the replies to it even when they sit on different branches.
 TURN_ID_KEY = "crucible_turn_id"
+# Marks a run that added a model to a turn already answered (arena.join_turn).
+# Its checkpoints are newer than the turn's, but it asks no new question: the
+# thread's head (answered_head) passes over them, or adding a model to an
+# earlier turn would make that turn the latest.
+JOINED_KEY = "crucible_joined"
 # Names the debate session a parent-thread checkpoint records (written by
 # debate.continue_from_debate when a chat turn follows a debate).
 DEBATE_RECORD_KEY = "crucible_debate"
@@ -56,6 +61,17 @@ def tag_turn(config: Dict[str, Any], turn_id: Optional[str]) -> None:
     """Mark the run as part of turn ``turn_id`` (copied into checkpoint metadata)."""
     if turn_id:
         config["metadata"] = {**config.get("metadata", {}), TURN_ID_KEY: turn_id}
+
+
+def tag_joined(config: Dict[str, Any]) -> None:
+    """Mark the run as one more model's answer to a turn already answered."""
+    config["metadata"] = {**config.get("metadata", {}), JOINED_KEY: True}
+
+
+def is_joined(snapshot) -> bool:
+    """Whether a checkpoint was written by a run that joined an earlier turn."""
+    metadata = getattr(snapshot, "metadata", None)
+    return isinstance(metadata, dict) and bool(metadata.get(JOINED_KEY))
 
 
 def tag_turn_kind(config: Dict[str, Any], kind: Optional[str], note: Optional[Mapping[str, str]] = None) -> None:
@@ -90,8 +106,14 @@ async def answered_head(graph_app, thread_id: str):
     request. The head is then its nearest ancestor that ends on a reply (or
     the empty root), so the next turn is a sibling of the abandoned one,
     which stays in the tree.
+
+    Runs that added a model to an answered turn (``is_joined``) are passed
+    over: the newest checkpoint then asked no new question, and taking it as
+    the head made the turn it joined the latest one.
     """
     head = await graph_app.aget_state(thread_config(thread_id))
+    if is_joined(head):
+        head = await _newest_not_joined(graph_app, thread_id, head)
     if not _ends_on_person(head):
         return head
     current = head
@@ -100,6 +122,15 @@ async def answered_head(graph_app, thread_id: str):
     while (_ends_on_person(current) or _is_run_input(current)) and current.parent_config:
         current = await graph_app.aget_state(current.parent_config)
     return head if _ends_on_person(current) else current
+
+
+async def _newest_not_joined(graph_app, thread_id: str, fallback):
+    """The thread's newest checkpoint not written by a joining run (history
+    comes newest first, so this stops at the first one), or ``fallback``."""
+    async for snapshot in graph_app.aget_state_history(thread_config(thread_id)):
+        if not is_joined(snapshot):
+            return snapshot
+    return fallback
 
 
 def _is_run_input(snapshot) -> bool:

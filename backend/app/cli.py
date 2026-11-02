@@ -177,6 +177,14 @@ def _opt_after_debate():
     )
 
 
+def _opt_join_turn():
+    return typer.Option(
+        None, "--join-turn", help="Add the model(s) to an answered turn: its turn id, or one of its replies' "
+        "checkpoints (both in `crucible tree --format json`). They answer that turn's own question, from where it "
+        "was asked; its other models are not asked again. Takes no prompt."
+    )
+
+
 def _opt_attach():
     return typer.Option(None, "--attach", "-a", help="Attach a file (.pdf .txt .md .csv) to this turn; repeat for more.")
 
@@ -214,12 +222,23 @@ def _opt_force():
 # ─── CHAT / ARENA ────────────────────────────────────────────────
 
 
-def _check_turn_options(as_json: bool, thread, from_checkpoint, after_debate) -> None:
+def _check_turn_options(as_json: bool, thread, from_checkpoint, after_debate, join_turn=None, *,
+                        prompt=None, deliberate=False, attach=None) -> None:
     """Option combinations that can't work, refused before anything runs."""
     if from_checkpoint and not thread:
         raise typer.BadParameter("--from needs --thread (the checkpoint's thread)", param_hint="--from")
     if from_checkpoint and after_debate:
         raise typer.BadParameter("pass --from or --after-debate, not both", param_hint="--after-debate")
+    if join_turn:
+        if not thread:
+            raise typer.BadParameter("--join-turn needs --thread (the turn's thread)", param_hint="--join-turn")
+        if prompt:
+            raise typer.BadParameter("--join-turn asks the turn's own question; pass no prompt", param_hint="--join-turn")
+        if after_debate or deliberate or attach:
+            raise typer.BadParameter(
+                "--join-turn takes no --after-debate, --deliberate or --attach (the turn's own apply)",
+                param_hint="--join-turn",
+            )
 
 
 @app.command()
@@ -232,6 +251,7 @@ def chat(
     deliberate: bool = typer.Option(
         False, "--deliberate", help="Deliberation: the model critically reviews the conversation so far (the prompt is optional)."
     ),
+    join_turn: Optional[str] = _opt_join_turn(),
     attach: Optional[List[str]] = _opt_attach(),
     rag: bool = _opt_rag(),
     web_search: bool = _opt_web(),
@@ -243,18 +263,21 @@ def chat(
     [bold green]💬 Chat[/bold green] — One model's turn.
 
     Without --from it continues the model's own latest reply on the thread
-    (or the latest answer). Supports stdin piping: echo "question" | crucible chat -m gpt-6.1-sol
+    (or the latest answer). With --join-turn it answers an earlier turn's
+    question as one more answer of that turn. Supports stdin piping:
+    echo "question" | crucible chat -m gpt-6.1-sol
     """
     as_json = _check_format(format_output)
     _load_env()
     if len(model) > 1:
         raise typer.BadParameter("chat asks one model; `crucible arena` asks several", param_hint="--model")
-    _check_turn_options(as_json, thread, from_checkpoint, after_debate)
+    _check_turn_options(as_json, thread, from_checkpoint, after_debate, join_turn,
+                        prompt=prompt, deliberate=deliberate, attach=attach)
     model_id = model[0]
 
-    if prompt is None and not sys.stdin.isatty():
+    if prompt is None and not join_turn and not sys.stdin.isatty():
         prompt = sys.stdin.read().strip()
-    if not prompt and not deliberate:
+    if not prompt and not deliberate and not join_turn:
         _fail("No prompt provided. Pass a message or pipe via stdin.", as_json)
 
     _validate_models([model_id], as_json)
@@ -263,7 +286,8 @@ def chat(
     thread_id = thread or (_debate_thread(after_debate, as_json) if after_debate else _gen_thread_id("chat"))
     result = _run(
         _run_turn(prompt or "", [model_id], thread_id, None, _toggles(web_search, rag), as_json, context,
-                  parent=from_checkpoint, after_debate=after_debate, documents=documents, deliberate=deliberate),
+                  parent=from_checkpoint, after_debate=after_debate, documents=documents, deliberate=deliberate,
+                  join_turn=join_turn),
         as_json,
     )
     answer = result["answers"].get(model_id, {})
@@ -289,6 +313,7 @@ def arena(
     deliberate: bool = typer.Option(
         False, "--deliberate", help="Deliberation: every model critically reviews the conversation so far; no synthesis."
     ),
+    join_turn: Optional[str] = _opt_join_turn(),
     judge: Optional[str] = typer.Option(
         None, "--judge", "-j", help="Model that synthesizes the answers (default: the first model)."
     ),
@@ -308,15 +333,23 @@ def arena(
     Every model answers the same prompt independently (each on its own branch),
     then one model synthesizes the answers. Without --from, each model
     continues its own latest reply, so models that answered side by side keep
-    their own conversations. Exits 1 if any model or the synthesis failed.
+    their own conversations. With --join-turn the models (-m, required)
+    answer an earlier turn's question as more answers of that turn, without
+    asking its other models again; no synthesis (`crucible synthesize`
+    combines the whole turn). Exits 1 if any model or the synthesis failed.
     """
     as_json = _check_format(format_output)
     _load_env()
-    _check_turn_options(as_json, thread, from_checkpoint, after_debate)
-    if not prompt and not deliberate:
+    _check_turn_options(as_json, thread, from_checkpoint, after_debate, join_turn,
+                        prompt=prompt, deliberate=deliberate, attach=attach)
+    if join_turn and not models:
+        raise typer.BadParameter("--join-turn needs the model(s) to add (-m)", param_hint="--models")
+    if join_turn and judge:
+        raise typer.BadParameter("--join-turn writes no synthesis; use `crucible synthesize`", param_hint="--judge")
+    if not prompt and not deliberate and not join_turn:
         _fail("No prompt provided. Pass the question as an argument.", as_json)
     resolved = _validate_models(models, as_json)
-    synthesizer = None if (no_synthesize or deliberate) else (judge or resolved[0])
+    synthesizer = None if (no_synthesize or deliberate or join_turn) else (judge or resolved[0])
     if synthesizer:
         _validate_models([synthesizer], as_json)
     context = _run_context(as_json, summarizer, system)
@@ -325,7 +358,8 @@ def arena(
 
     result = _run(
         _run_turn(prompt or "", resolved, thread_id, synthesizer, _toggles(web_search, rag), as_json, context,
-                  parent=from_checkpoint, after_debate=after_debate, documents=documents, deliberate=deliberate),
+                  parent=from_checkpoint, after_debate=after_debate, documents=documents, deliberate=deliberate,
+                  join_turn=join_turn),
         as_json,
     )
     if as_json:
@@ -336,9 +370,10 @@ def arena(
 
 
 async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, context=None, *,
-                    parent=None, after_debate=None, documents=None, deliberate=False):
+                    parent=None, after_debate=None, documents=None, deliberate=False, join_turn=None):
     """One turn by every model in ``models`` (chat is one model), then the
-    synthesis if a synthesizer is set."""
+    synthesis if a synthesizer is set; with ``join_turn``, those models'
+    answers to that earlier turn."""
     from rich.markup import escape
 
     from app.services.arena import open_graph, run_arena
@@ -367,11 +402,16 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
         try:
             async for event in run_arena(graph_app, prompt, thread_id, models, toggles, synthesizer,
                                          context=context or DEFAULT_CONTEXT, parent_checkpoint_id=parent,
-                                         after_debate=after_debate, documents=documents, is_deliberation=deliberate):
+                                         after_debate=after_debate, documents=documents, is_deliberation=deliberate,
+                                         join_turn=join_turn):
                 kind = event["type"]
                 if kind == "start":
                     result.update({k: event[k] for k in ("parent_checkpoint_id", "parents", "new_thread", "turn_id")})
+                    if join_turn:
+                        result["prompt"] = event["prompt"]
                     if not as_json:
+                        if join_turn:
+                            print_info(f"Adding to turn [dim]{event['turn_id']}[/dim]: {escape(event['prompt'])}")
                         if event["new_thread"] and parent is None and after_debate is None:
                             print_info(f"Starting a new thread [dim]{escape(thread_id)}[/dim]")
                         else:

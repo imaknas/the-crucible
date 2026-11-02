@@ -156,9 +156,11 @@ async def invoke_arena(
     use_web_search: bool = False,
     system_prompt: Optional[str] = None,
     summarizer: Optional[str] = None,
+    join_turn: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Ask one or more models the same message in parallel: a chat turn (one
-    model, synthesize=false), an arena turn, or a Deliberation.
+    model, synthesize=false), an arena turn, or a Deliberation; or, with
+    join_turn, add models to a turn already answered.
 
     Returns {thread_id, new_thread, turn_id, answers: [{model, model_name,
     content, checkpoint_id, error, metrics, parent_checkpoint_id,
@@ -180,6 +182,14 @@ async def invoke_arena(
     Files: attachments are local paths whose text is in this turn only;
     upload_document indexes a file for use_rag on every later turn.
 
+    Adding to a turn (join_turn): the models answer that turn's own question
+    from where it was asked (on the branch of the reply named, else of the
+    turn's first reply), with its Deliberation and attached files, and get
+    its turn_id; its other models are not asked again. Takes no prompt,
+    deliberation, attachments or debate, and writes no synthesis
+    (synthesize_answers combines the whole turn). Refused for a model that
+    already answered the turn.
+
     Args:
         prompt: The message (optional with deliberation).
         models: Model IDs (list_models). Default: the standard arena trio, limited to models with keys.
@@ -194,8 +204,16 @@ async def invoke_arena(
         use_web_search: Let models that support it (list_models native_search) search the web.
         system_prompt: Instructions sent to every model (and the synthesizer) before the conversation. Default: none.
         summarizer: Model that summarizes history once the thread outgrows a model's budget. Default: the app's.
+        join_turn: Add `models` (required) to this answered turn of thread_id: its turn_id, or one of its replies' checkpoint_id (get_thread_tree shows both).
     """
-    if not prompt.strip() and not deliberation:
+    if join_turn:
+        if not thread_id:
+            raise ToolError("join_turn needs the turn's thread_id.")
+        if prompt.strip() or deliberation or attachments or after_debate_session_id:
+            raise ToolError("join_turn asks the turn's own question: pass no prompt, deliberation, attachments or debate.")
+        if not models:
+            raise ToolError("join_turn needs the model(s) to add (models).")
+    elif not prompt.strip() and not deliberation:
         raise ToolError("A prompt is required (it is optional only with deliberation).")
     if thread_id:
         await _require_thread(thread_id)
@@ -213,12 +231,12 @@ async def invoke_arena(
     parents: Dict[str, str] = {}
     try:
         resolved = arena_svc.resolve_models(models)
-        chosen_synth = (synthesizer or resolved[0]) if synthesize and not deliberation else None
+        chosen_synth = (synthesizer or resolved[0]) if synthesize and not deliberation and not join_turn else None
         async with arena_svc.open_graph() as graph_app:
             async for event in arena_svc.run_arena(
                 graph_app, prompt, thread_id, resolved, _toggles(use_web_search, use_rag), chosen_synth,
                 context=context, parent_checkpoint_id=parent_checkpoint_id, after_debate=after_debate_session_id,
-                documents=documents, is_deliberation=deliberation,
+                documents=documents, is_deliberation=deliberation, join_turn=join_turn,
             ):
                 if event["type"] == "start":
                     result["new_thread"], result["turn_id"] = event["new_thread"], event["turn_id"]

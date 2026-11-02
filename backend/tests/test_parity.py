@@ -78,6 +78,7 @@ CHAT_FRAME: dict = {
     "documents": (("arena", "--attach"), ("invoke_arena", "attachments")),
     "document_names": (("arena", "--attach"), ("invoke_arena", "attachments")),
     "debate_session_id": (("chat", "--after-debate"), ("invoke_arena", "after_debate_session_id")),
+    "join_turn": (("arena", "--join-turn"), ("invoke_arena", "join_turn")),
     "answer_checkpoint_ids": (("synthesize", "--answers"), ("synthesize_answers", "checkpoint_ids")),
     "synthesis_mode": (("synthesize", "--mode"), ("synthesize_answers", "mode")),
     "keep_components": (("synthesize", "--keep"), ("synthesize_answers", "keep")),
@@ -152,7 +153,7 @@ def test_chat_frame_fields_are_listed():
     """The chat socket's documented frame fields, from its docstring."""
     doc = ChatConnection.__doc__
     for field in ("parent_checkpoint_id", "is_deliberation", "documents", "document_names", "debate_session_id",
-                  "answer_checkpoint_ids", "synthesis_mode", "keep_components", "synthesis_question"):
+                  "answer_checkpoint_ids", "synthesis_mode", "keep_components", "synthesis_question", "join_turn"):
         assert field in doc and field in CHAT_FRAME, field
 
 
