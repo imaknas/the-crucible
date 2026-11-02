@@ -25,6 +25,7 @@ Cheap changes that answer published criticism of multi-agent debate, plus the nu
    - Each card shows time to first token, total time, input, output and reasoning tokens, and cost; the turn shows a total.
    - `stream_end` carries the numbers, and `PriceBook` already prices a reply's usage.
    - Sources: LiteLLM compare, promptfoo, Microsoft Foundry.
+   - Done: timing is stored on the reply in its checkpoint, tokens are the provider's usage, cost is priced on the reply's day ("price unknown" without a price). Cards, reply bubbles, the turn total, `stream_end`, path messages, tree nodes, the CLI and every MCP answer carry it (`services/metrics.py`, `lib/metrics.ts`).
 
 ## Phase 2 — Reading and combining answers
 
