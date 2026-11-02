@@ -498,6 +498,8 @@ export function useDebateSession({
         setConvergenceScore(undefined);
         participantsRef.current = session.participants;
         setShowTree(true);
+        // Information, not a failure: the debate runs either way.
+        for (const warning of session.warnings ?? []) pushToast(warning, "info", "About this debate");
 
         connect(session.session_id, {
           type: "debate_start",

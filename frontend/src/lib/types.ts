@@ -130,6 +130,8 @@ export interface DebateSession {
   synthesizer_model: string | null;
   /** How participants saw each other; null for sessions stored before the choice existed (named). */
   peer_labels?: PeerLabels | null;
+  /** The judge or synthesizer is also debating (it may favour its own arguments). */
+  warnings?: string[];
 }
 
 /**

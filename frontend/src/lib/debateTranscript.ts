@@ -60,6 +60,17 @@ export function roundsAdvice(rounds: number, recommended: number): { help: strin
   };
 }
 
+/**
+ * A judge or synthesizer chosen from the debaters, said before the debate
+ * starts (the backend says it again in the session's `warnings`).
+ */
+export function debatingRoleWarning(model: string | null, participants: string[], role: "judge" | "synthesizer"): string | null {
+  if (!model || !participants.includes(model)) return null;
+  return role === "judge"
+    ? "This model is also debating. Models tend to favour their own answers; one from a provider that isn't debating judges more evenly."
+    : "This model is also debating. Models tend to favour arguments they wrote; one from a provider that isn't debating reads the debate more evenly.";
+}
+
 export interface PeerLegendEntry {
   label: string;
   name: string;
@@ -182,7 +193,8 @@ export function debateCallEstimate(opts: {
   synthesize: boolean;
 }): { calls: number; breakdown: string } {
   const answers = opts.rounds * opts.participants;
-  const judge = opts.judge ? opts.rounds : 0;
+  // The judge reads every round twice, in both orders (JudgeCheck).
+  const judge = opts.judge ? opts.rounds * 2 : 0;
   const synthesis = opts.synthesize ? 1 : 0;
   const parts = [`${opts.rounds} ${opts.rounds === 1 ? "round" : "rounds"} × ${opts.participants} models`];
   if (judge) parts.push(`${judge} judge ${judge === 1 ? "call" : "calls"}`);

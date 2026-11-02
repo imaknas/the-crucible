@@ -234,8 +234,12 @@ def test_cli_deliberate_system_option_reaches_every_participant_and_the_synthesi
     result = _cli("deliberate", "Debate it.", "-m", A, "-m", B, "-r", "1", "--system", PROMPT)
     assert result.exit_code == 0, (result.stdout, result.stderr, result.exception)
     assert json.loads(result.stdout)["synthesis"] is not None
+    from app.services.debate import default_synthesizer
+
+    outsider = default_synthesizer([A, B])  # writes the argument map
+    assert _systems(A) == [PROMPT]
     assert _systems(B) == [PROMPT]
-    assert _systems(A) == [PROMPT, PROMPT]  # round 0, then the argument map
+    assert _systems(outsider) == [PROMPT]
 
 
 def test_cli_synthesize_thread_system_option():

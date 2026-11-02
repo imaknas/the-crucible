@@ -40,7 +40,7 @@ class CreateSessionRequest(BaseModel):
 @router.post("/sessions")
 def create_session(req: CreateSessionRequest) -> dict[str, Any]:
     try:
-        return debate_svc.create_session(
+        session = debate_svc.create_session(
             parent_thread_id=req.parent_thread_id,
             participants=req.participants,
             termination_policy=req.termination_policy.model_dump(),
@@ -48,6 +48,7 @@ def create_session(req: CreateSessionRequest) -> dict[str, Any]:
             synthesizer_model=req.synthesizer_model,
             peer_labels=req.peer_labels,
         )
+        return {**session, "warnings": debate_svc.role_warnings(session)}
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -55,7 +56,13 @@ def create_session(req: CreateSessionRequest) -> dict[str, Any]:
 def _row(session: dict[str, Any]) -> dict[str, Any]:
     """The stored session plus what a reader wants (its question)."""
     view = debate_svc.session_view(session)
-    return {**session, "question": view["question"], "questions": view["questions"], "created_at": view["created_at"]}
+    return {
+        **session,
+        "question": view["question"],
+        "questions": view["questions"],
+        "created_at": view["created_at"],
+        "warnings": view["warnings"],
+    }
 
 
 @router.get("/sessions")

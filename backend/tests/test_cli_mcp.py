@@ -116,7 +116,11 @@ def test_deliberate_uses_the_debate_engine():
     out = _json(["deliberate", "Topic", "-m", A, "-m", B, "-r", "2", "--format", "json"])
     assert [r["round"] for r in out["rounds"]] == [0, 1]
     assert out["rounds"][1]["responses"] == {A: f"reply from {A}", B: f"reply from {B}"}
-    assert out["synthesis"]["model"] == A
+    # Every provider has a key here: a model from one that isn't debating writes the map.
+    from app.services.debate import default_synthesizer
+
+    assert out["synthesis"]["model"] == default_synthesizer([A, B]) not in (A, B)
+    assert out["warnings"] == []
     session = db.get_debate_session(out["session_id"])
     assert session["status"] == "completed"
     assert session["parent_thread_id"] == out["thread_id"]

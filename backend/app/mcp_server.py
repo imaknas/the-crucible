@@ -305,6 +305,7 @@ async def _collect_debate(events, session: Dict[str, Any]) -> Dict[str, Any]:
         "failed": {},
         "errors": [],
         "status": None,
+        "warnings": debate_svc.role_warnings(session),
     }
     current: Optional[Dict[str, Any]] = None
     async with aclosing(events):
@@ -359,10 +360,12 @@ async def run_debate(
     model's independent answer).
 
     Returns {session_id, thread_id, labels, rounds, converged, synthesis,
-    failed, errors, status}: see continue_debate. Use it to see the
-    arguments, not as a trustworthy answer: debating models conform to each
-    other, so for an answer prefer invoke_arena's independent answers and
-    synthesis. A debate whose round 0 has fewer than two answers stops there.
+    failed, errors, status, warnings}: see continue_debate; warnings name a
+    judge or synthesizer that is also debating (it may favour its own
+    arguments). Use it to see the arguments, not as a trustworthy answer:
+    debating models conform to each other, so for an answer prefer
+    invoke_arena's independent answers and synthesis. Two rounds (the
+    default) show the arguments; more mostly add conformity and cost. A debate whose round 0 has fewer than two answers stops there.
     To pause, run fewer rounds and continue_debate later (it can add a
     message); to change the question, redirect_debate.
 
@@ -373,7 +376,7 @@ async def run_debate(
         convergence_threshold: Stop once every model's answer stops changing: cosine similarity to its own previous answer, 0-1. Stability, not agreement.
         mode: With both convergence_threshold and convergence_judge: "all" needs both, "any" either.
         convergence_judge: Model that judges whether the models now agree; stops the debate if so.
-        synthesizer: Model that writes an argument map at the end (positions, strongest arguments, who changed position and why, what is unresolved). None: no map (synthesize_debate writes one later).
+        synthesizer: Model that writes an argument map at the end (positions, strongest arguments, who changed position and why, what is unresolved). None: no map now; synthesize_debate writes one later, by default with a model from a provider that isn't debating.
         thread_id: An existing thread the debate belongs to; omit for a new one.
         parent_checkpoint_id: A checkpoint of thread_id the debate starts from: the models see that conversation first.
         peer_labels: "anonymous" (Participant A/B…) or "named" (model ids; models then defer to names, which costs independence).

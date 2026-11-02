@@ -15,13 +15,14 @@ Yields typed event dicts consumed by the WebSocket handler in api/debate.py.
 import asyncio
 import hashlib
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Container, Mapping, Optional, Sequence
 from uuid import uuid4
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from app.registry import MODEL_REGISTRY, display_name
+from app.registry import DEFAULT_ARENA_MODELS, MODEL_REGISTRY, display_name
 from app.core import database as db
 from app.services.convergence import build_convergence_check
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
@@ -141,6 +142,47 @@ def check_session_config(
         raise ValueError(f"peer_labels must be one of: {', '.join(PEER_PRESENTATIONS)}")
 
 
+def default_synthesizer(
+    participants: Sequence[str],
+    candidates: Sequence[str] = DEFAULT_ARENA_MODELS,
+    env: Mapping[str, str] = os.environ,
+) -> str:
+    """Who writes the argument map when a session names no one: the first
+    of `candidates` (one model per family) whose family isn't debating and
+    whose key is set, else the first participant.
+
+    A participant would read its own arguments among the others', and models
+    favour text they recognise as their own. With one model per family
+    debating (the default arena) there is no outsider, and the first
+    participant writes it as before; role_warnings says so."""
+    from app.llm.factory import first_offered_with_key
+
+    debating = {MODEL_REGISTRY[m]["family"] for m in participants if m in MODEL_REGISTRY}
+    outsiders = [m for m in candidates if m in MODEL_REGISTRY and MODEL_REGISTRY[m]["family"] not in debating]
+    return first_offered_with_key(outsiders, env) or participants[0]
+
+
+def role_warnings(session: Mapping[str, Any]) -> list[str]:
+    """The session's judge or synthesizer is also debating: shown wherever a
+    debate is started or read, since both read the debate's answers and
+    models tend to favour arguments they wrote."""
+    participants = set(session["participants"])
+    warnings = []
+    synthesizer = db.session_synthesizer(dict(session))
+    if (session.get("auto_synthesize") or session.get("synthesizer_model")) and synthesizer in participants:
+        warnings.append(
+            f"{display_name(synthesizer)} writes the argument map and is also debating. Models tend to favour "
+            "arguments they wrote; a model from a provider that isn't debating reads the debate more evenly."
+        )
+    judge = (session.get("termination_policy") or {}).get("llm_judge")
+    if judge and judge in participants:
+        warnings.append(
+            f"{display_name(judge)} judges agreement and is also debating. Models tend to favour their own "
+            "answers; a model from a provider that isn't debating judges more evenly."
+        )
+    return warnings
+
+
 def create_session(
     parent_thread_id: str,
     participants: list[str],
@@ -151,6 +193,10 @@ def create_session(
     peer_labels: str = DEFAULT_PEER_LABELS,
 ) -> dict[str, Any]:
     check_session_config(participants, termination_policy, synthesizer_model, known_models, peer_labels)
+    # Resolved now and stored: a later synthesis of this session uses the same
+    # model even if the keys change (sessions stored without one fall back to
+    # their first participant in db.session_synthesizer).
+    synthesizer_model = synthesizer_model or default_synthesizer(participants)
     session_id = f"debate-{uuid4().hex[:12]}"
     # Stored, not derived, so the id scheme can change without losing the
     # threads of sessions created under an older one.
@@ -917,6 +963,7 @@ def session_view(session: Mapping[str, Any]) -> dict[str, Any]:
         "parent_checkpoint_id": session.get("parent_checkpoint_id"),
         "round_scores": session.get("round_scores") or {},
         "created_at": created,
+        "warnings": role_warnings(session),
     }
 
 

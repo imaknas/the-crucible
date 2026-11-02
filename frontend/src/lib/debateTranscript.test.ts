@@ -10,6 +10,7 @@ import {
   peerLegend,
   roundLabel,
   roundsAdvice,
+  debatingRoleWarning,
   transcriptReducer,
   type Transcript,
   type TranscriptAction, debateCallEstimate, debateReplyFor, debateReplyTitle, transcriptIncomplete, leaveWarning, sessionAge, transcriptMessages } from "./debateTranscript";
@@ -263,8 +264,8 @@ describe("debateCallEstimate", () => {
       breakdown: "3 rounds × 2 models",
     });
     expect(debateCallEstimate({ rounds: 2, participants: 3, judge: true, synthesize: true })).toEqual({
-      calls: 9,
-      breakdown: "2 rounds × 3 models + 2 judge calls + 1 synthesis",
+      calls: 11,
+      breakdown: "2 rounds × 3 models + 4 judge calls + 1 synthesis",
     });
   });
 });
@@ -336,5 +337,17 @@ describe("roundsAdvice", () => {
     const warning = roundsAdvice(3, 2).warning;
     expect(warning).toMatch(/More than 2 rounds/);
     expect(warning).toMatch(/toward each other's answers/);
+  });
+});
+
+describe("debatingRoleWarning", () => {
+  it("names a judge or synthesizer chosen from the debaters", () => {
+    expect(debatingRoleWarning("a", ["a", "b"], "judge")).toMatch(/also debating/);
+    expect(debatingRoleWarning("a", ["a", "b"], "synthesizer")).toMatch(/arguments they wrote/);
+  });
+
+  it("says nothing for an outsider or for Automatic / None", () => {
+    expect(debatingRoleWarning("c", ["a", "b"], "judge")).toBeNull();
+    expect(debatingRoleWarning(null, ["a", "b"], "synthesizer")).toBeNull();
   });
 });

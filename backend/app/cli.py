@@ -444,7 +444,10 @@ def debate(
         help="Maximum number of rounds, 1-10. The default is kept low: later rounds tend to pull models toward each other's answers rather than toward better ones.",
     ),
     judge: Optional[str] = typer.Option(
-        None, "--judge", "-j", help="Model that writes the final synthesis, an argument map (default: the first model)."
+        None,
+        "--judge",
+        "-j",
+        help="Model that writes the final synthesis, an argument map (default: a model from a provider that isn't debating, when one has a key; else the first participant).",
     ),
     no_synthesize: bool = typer.Option(False, "--no-synthesize", help="Skip the final synthesis."),
     peer_labels: str = typer.Option(
@@ -493,7 +496,8 @@ def debate(
     resolved = _validate_models(models, as_json)
     if len(resolved) < 2:
         _fail("A debate needs at least two different models with API keys.", as_json)
-    synthesizer = None if no_synthesize else (judge or resolved[0])
+    # None: the service picks it (a model from a provider that isn't debating).
+    synthesizer = judge
     for extra in filter(None, [synthesizer, convergence_judge]):
         _validate_models([extra], as_json)
     context = _run_context(as_json, summarizer, system)
@@ -513,7 +517,7 @@ def debate(
         _run_debate(
             prompt, resolved, thread or _gen_thread_id("debate"), policy, synthesizer,
             _toggles(web_search, rag), as_json, peer_labels, context,
-            parent=from_checkpoint, documents=documents,
+            parent=from_checkpoint, documents=documents, synthesize=not no_synthesize,
         ),
         as_json,
     )
@@ -530,7 +534,7 @@ app.command("deliberate", hidden=True)(debate)
 
 
 async def _run_debate(prompt, models, thread_id, policy, synthesizer, toggles, as_json, peer_labels="anonymous",
-                      context=None, *, parent=None, documents=None):
+                      context=None, *, parent=None, documents=None, synthesize=True):
     from app.services import debate as debate_svc
     from app.services.arena import open_graph
     from app.services.runs import fork_point
@@ -543,7 +547,7 @@ async def _run_debate(prompt, models, thread_id, policy, synthesizer, toggles, a
             parent_thread_id=thread_id,
             participants=models,
             termination_policy=policy,
-            auto_synthesize=bool(synthesizer),
+            auto_synthesize=synthesize,
             synthesizer_model=synthesizer,
             peer_labels=peer_labels,
         )
@@ -576,10 +580,13 @@ async def _follow_debate(events, session, prompt, as_json, plan: str) -> Dict[st
         "synthesis": None,
         "failed": {},
         "errors": [],
+        "warnings": debate_svc.role_warnings(session),
     }
     if not as_json:
         print_header()
         print_info(f"Thread: [dim]{escape(thread_id)}[/dim]  Session: [dim]{session_id}[/dim]")
+        for warning in result["warnings"]:
+            print_info(f"[yellow]Note:[/yellow] {escape(warning)}")
         print_info(f"Models: {escape(', '.join(models))}  ·  {plan}")
         if labels:
             print_info("They see each other as: " + escape(", ".join(f"{label} = {m}" for m, label in labels.items())))

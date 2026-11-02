@@ -19,7 +19,7 @@ import {
 import { Swords } from "lucide-react";
 import type { DebateDefaults, PeerLabels } from "@/lib/types";
 import { DEFAULT_DEBATE_ROUNDS, MAX_DEBATE_ROUNDS, clampRounds } from "@/hooks/useDebateDefaults";
-import { debateCallEstimate, roundsAdvice } from "@/lib/debateTranscript";
+import { debateCallEstimate, debatingRoleWarning, roundsAdvice } from "@/lib/debateTranscript";
 
 interface DebateConfigDialogProps {
   open: boolean;
@@ -257,8 +257,9 @@ export default function DebateConfigDialog({
 
           {/* LLM Judge */}
           <Setting
-            help="A model reads each round's answers by participant label and stops the debate once they agree. Agreement reached by debating isn't evidence by itself."
+            help="A model reads each round's answers by participant label, twice in opposite orders, and stops the debate once both readings find they agree. Agreement reached by debating isn't evidence by itself."
             helpId="debate-judge-help"
+            warning={debatingRoleWarning(config.llm_judge, participants, "judge")}
           >
             <Typography sx={labelSx}>Agreement judge</Typography>
             <Select
@@ -354,7 +355,11 @@ export default function DebateConfigDialog({
 
           {/* Synthesizer model */}
           {config.auto_synthesize && (
-            <Setting help="The model that writes the map." helpId="debate-synthesizer-help">
+            <Setting
+              help="The model that writes the map. Automatic picks one from a provider that isn't debating when it has a key, else the first participant."
+              helpId="debate-synthesizer-help"
+              warning={debatingRoleWarning(config.synthesizer_model, participants, "synthesizer")}
+            >
               <Typography sx={labelSx}>Synthesizer</Typography>
               <Select
                 size="small"
@@ -372,7 +377,7 @@ export default function DebateConfigDialog({
               >
                 <MenuItem value="__none__">
                   <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                    First participant
+                    Automatic
                   </Typography>
                 </MenuItem>
                 {availableModels.map((m) => (

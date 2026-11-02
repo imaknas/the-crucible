@@ -298,8 +298,8 @@ describe("useDebateSession", () => {
     act(() => result.current.continueDebate());
     const ws = sockets[1];
     act(() => ws.open());
-    // 3 rounds, round 1 of them done.
-    expect(ws.sent[0]).toEqual({ type: "debate_continue", rounds: 2 });
+    // The default 2 rounds, round 1 of them done.
+    expect(ws.sent[0]).toEqual({ type: "debate_continue", rounds: 1 });
     expect(result.current.status).toBe("running");
   });
 

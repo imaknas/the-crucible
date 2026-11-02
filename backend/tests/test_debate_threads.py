@@ -253,17 +253,36 @@ async def test_an_anonymous_debate_never_shows_a_model_id_to_a_debater():
 
 
 @pytest.mark.asyncio
-async def test_auto_synthesis_without_a_named_synthesizer_is_written_by_the_first_participant():
-    """The debate dialog's default synthesizer, "First participant", is stored
-    as no model; the debate used to finish without any synthesis."""
+async def test_auto_synthesis_without_a_named_synthesizer_is_written_by_an_outsider():
+    """No synthesizer named (the dialog's "Automatic"): a model from a provider
+    that isn't debating writes the map. The debate used to finish without any
+    synthesis when none was named."""
     async with open_graph() as graph_app:
         session = debate_svc.create_session("t-auto", [A, B], dict(POLICY), auto_synthesize=True)
         events = [e async for e in debate_svc.run_debate(graph_app, session["session_id"], "Q?", {}, {})]
         synthesis = await graph_app.aget_state(thread_config(db.synthesis_thread_id(session)))
 
+    outsider = debate_svc.default_synthesizer([A, B])
+    assert outsider not in (A, B)
+    ends = [e for e in events if e["type"] == "debate_synthesis_end"]
+    assert [e["model"] for e in ends] == [outsider], events
+    assert synthesis.values.get("messages")
+    assert debate_svc.session_view(session)["warnings"] == []
+
+
+@pytest.mark.asyncio
+async def test_without_an_outsider_the_first_participant_writes_the_map_and_is_warned_about(monkeypatch):
+    """Only the debating providers have keys: the first participant writes
+    it, as before, and the session says it is also debating."""
+    monkeypatch.delenv("GOOGLE_API_KEY")
+    async with open_graph() as graph_app:
+        session = debate_svc.create_session("t-auto2", [A, B], dict(POLICY), auto_synthesize=True)
+        events = [e async for e in debate_svc.run_debate(graph_app, session["session_id"], "Q?", {}, {})]
+
     ends = [e for e in events if e["type"] == "debate_synthesis_end"]
     assert [e["model"] for e in ends] == [A], events
-    assert synthesis.values.get("messages")
+    [warning] = debate_svc.session_view(session)["warnings"]
+    assert "argument map and is also debating" in warning
 
 
 @pytest.mark.asyncio

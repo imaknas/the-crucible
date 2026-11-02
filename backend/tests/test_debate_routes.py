@@ -18,6 +18,8 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from app.core import database as db
 from app.llm import CallableModelFactory, use_model_factory
 from app.main import server
+from app.registry import MODEL_REGISTRY
+from app.services import debate as debate_svc
 from tests.storage_helpers import point
 from tests.test_debate_continuation import _until
 
@@ -94,8 +96,12 @@ def test_creating_a_session_returns_it_with_its_own_threads(client):
     bare = client.post(
         "/debate/sessions", json={"parent_thread_id": "t-new", "participants": [A, B], "termination_policy": {}}
     ).json()
-    assert bare["termination_policy"] == {"max_rounds": 3, "convergence_threshold": None, "llm_judge": None, "mode": "all"}
-    assert bare["synthesizer_model"] is None
+    assert bare["termination_policy"] == {
+        "max_rounds": debate_svc.DEFAULT_ROUNDS, "convergence_threshold": None, "llm_judge": None, "mode": "all"
+    }
+    # No synthesizer named: one from a provider that isn't debating (every key is set here), stored.
+    assert bare["synthesizer_model"] == debate_svc.default_synthesizer([A, B])
+    assert MODEL_REGISTRY[bare["synthesizer_model"]]["family"] not in {MODEL_REGISTRY[A]["family"], MODEL_REGISTRY[B]["family"]}
 
 
 # ─── GET /debate/sessions ────────────────────────────────────────
@@ -212,10 +218,12 @@ def test_the_transcript_aligns_every_round_and_carries_the_synthesis(client):
         assert r["question"] == "Transcript question?"
         assert r["responses"] == {A: f"argument from {A}", B: f"argument from {B}"}
         assert r["errors"] == {}
-    # No synthesizer named: the first participant writes it.
-    assert transcript["synthesis"]["model"] == A
+    # No synthesizer named: a model from a provider that isn't debating writes it.
+    outsider = debate_svc.default_synthesizer([A, B])
+    assert outsider not in (A, B)
+    assert transcript["synthesis"]["model"] == outsider
     assert transcript["synthesis"]["model_name"]
-    assert transcript["synthesis"]["content"] == f"argument from {A}"
+    assert transcript["synthesis"]["content"] == f"argument from {outsider}"
     assert transcript["injected"] == []
 
 
