@@ -814,6 +814,33 @@ async def search_thread(thread_id: str, query: str) -> Dict[str, Any]:
 
 @mcp.tool()
 @_quiet
+async def diff_answers(thread_id: str, checkpoint_a: str, checkpoint_b: str) -> Dict[str, Any]:
+    """What differs between two replies of a thread: prose sentence by
+    sentence (markdown formatting ignored), then word by word inside a
+    changed sentence; code and JSON line by line (JSON with sorted keys, so
+    key order and whitespace don't count). Reads only.
+
+    Returns {thread_id, a: {checkpoint_id, model, model_name}, b: {...},
+    summary_text ("12 sentences the same, 3 changed, 2 only in A, 1 only in
+    B"), summary: {sentences: {same, changed, only_a, only_b}, lines: {...}},
+    identical, rows: [{op: same | only_a | only_b, kind (sentence | code |
+    json), text} | {op: changed, kind, a, b, segments: [{op: same | removed |
+    added, text}]}]} in reading order.
+
+    Args:
+        thread_id: The thread both replies are on.
+        checkpoint_a: One reply's checkpoint id (A), e.g. from invoke_arena or get_thread_tree.
+        checkpoint_b: The other reply's checkpoint id (B).
+    """
+    async with arena_svc.open_graph() as graph_app:
+        try:
+            return await history.diff_answers(graph_app, thread_id, checkpoint_a, checkpoint_b)
+        except ValueError as e:
+            raise _tool_error(e)
+
+
+@mcp.tool()
+@_quiet
 async def delete_branch(thread_id: str, checkpoint_id: str) -> Dict[str, Any]:
     """Delete a message and everything below it on the tree (any id of that
     message works). The thread's start can't be deleted: use delete_thread.

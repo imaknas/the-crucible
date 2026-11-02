@@ -1,5 +1,5 @@
 """Reading and editing a thread's checkpoint history: the tree, one path,
-search, deleting a branch.
+search, the difference between two replies, deleting a branch.
 
 The REST routes, the CLI and the MCP server all call these; none of them
 knows about the others.
@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 from app.core import database as db
 from app.core.schema import is_summary_message
 from app.services.runs import answered_head, thread_config
+from app.services.textdiff import diff_texts
 from app.services.tree import (
     build_history_tree,
     get_checkpoint_role,
@@ -200,3 +201,30 @@ async def search_thread(graph_app, thread_id: str, query: str, limit: int = SEAR
         if len(results) >= limit:
             break
     return results
+
+
+async def diff_answers(graph_app, thread_id: str, checkpoint_a: str, checkpoint_b: str) -> Dict[str, Any]:
+    """What differs between two replies of a thread, by checkpoint id (any
+    checkpoint of a reply names it: the path read there ends on it).
+
+    Returns {thread_id, a: {checkpoint_id, model, model_name}, b: {...},
+    rows, summary, summary_text, identical} (``textdiff.diff_texts``: prose
+    sentence by sentence, then word by word inside a changed sentence; code
+    and JSON line by line). Reads only. Raises ValueError for an unknown
+    thread or checkpoint, or a checkpoint that isn't a reply."""
+    if not await asyncio.to_thread(db.thread_exists, thread_id):
+        raise ValueError(f"Thread {thread_id} not found.")
+    replies = []
+    for checkpoint_id in (checkpoint_a, checkpoint_b):
+        messages = await path_at(graph_app, thread_id, checkpoint_id)
+        reply = messages[-1] if messages else None
+        if not reply or reply.get("role") != "assistant":
+            raise ValueError(f"Checkpoint {checkpoint_id} is not a reply; diff compares two answers.")
+        replies.append(reply)
+    a, b = replies
+    return {"thread_id": thread_id, "a": _side(a), "b": _side(b),
+            **diff_texts(a.get("content") or "", b.get("content") or "")}
+
+
+def _side(reply: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: reply.get(k) for k in ("checkpoint_id", "model", "model_name")}

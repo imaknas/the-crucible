@@ -291,3 +291,46 @@ def print_metrics(metrics, label: str = "") -> None:
     line = describe(metrics)
     if line:
         console.print(f"  [dim]{escape(f'{label}: ' if label else '')}{escape(line)}[/dim]")
+
+
+def render_diff(diff: Dict[str, Any], unchanged: bool = False) -> None:
+    """Two answers' differences (``history.diff_answers``) as text: a ``−``
+    line is A's, a ``+`` line B's; inside a changed sentence removed words are
+    struck through and added ones underlined, so the marks don't rely on
+    colour. Unchanged rows are counted, or printed dim with ``unchanged``.
+    Everything is a ``Text``: model text is never read as markup."""
+    for letter in ("a", "b"):
+        side = diff[letter]
+        line = Text(f"{letter.upper()}  ", style="bold")
+        line.append(side.get("model_name") or side.get("model") or "Answer", style=get_model_color(side.get("model") or ""))
+        line.append(f"  {side.get('checkpoint_id') or ''}", style="dim")
+        console.print(line)
+    console.print(Text(diff["summary_text"], style="bold"))
+    console.print()
+
+    skipped = 0
+    for row in diff["rows"] + [None]:
+        if row is not None and row["op"] == "same":
+            if unchanged:
+                console.print(Text(f"  {row['text']}", style="dim"))
+            else:
+                skipped += 1
+            continue
+        if skipped:
+            console.print(Text(f"  … {skipped} the same", style="dim"))
+            skipped = 0
+        if row is None:
+            break
+        if row["op"] == "only_a":
+            console.print(Text(f"− {row['text']}", style="red"))
+        elif row["op"] == "only_b":
+            console.print(Text(f"+ {row['text']}", style="green"))
+        else:
+            a, b = Text("− ", style="red"), Text("+ ", style="green")
+            for seg in row["segments"]:
+                if seg["op"] != "added":
+                    a.append(seg["text"], style="red strike" if seg["op"] == "removed" else "")
+                if seg["op"] != "removed":
+                    b.append(seg["text"], style="green underline" if seg["op"] == "added" else "")
+            console.print(a)
+            console.print(b)

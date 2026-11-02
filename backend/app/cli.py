@@ -8,6 +8,7 @@ Usage:
     crucible debates list                          # show / continue / redirect / delete a debate
     crucible synthesize --thread <id>              # or --answers <checkpoint>…, or --debate <session_id>
     crucible threads | tree -t <id> | messages -t <id> | search -t <id> "text"
+    crucible diff -t <id> <checkpoint_a> <checkpoint_b>   # what differs between two answers
     crucible delete-branch -t <id> <checkpoint>
     crucible upload -t <id> notes.pdf              # read by --rag
     crucible keys | models
@@ -1230,6 +1231,35 @@ async def _run_review(thread_id, answers, list_only, as_json):
             console.print(Text(f"  {model} couldn't review: {error}", style="red"))
         print_info("Scores the models gave each other's answers, anonymously and never their own: evidence, not a verdict.")
     return {"thread_id": thread_id, "reviews": reviews}
+
+
+@app.command()
+def diff(
+    checkpoint_a: str = typer.Argument(..., help="One reply's checkpoint (A)."),
+    checkpoint_b: str = typer.Argument(..., help="The other reply's checkpoint (B)."),
+    thread: str = typer.Option(..., "--thread", "-t", help="The replies' thread."),
+    unchanged: bool = typer.Option(False, "--unchanged", "-u", help="Print the sentences both share too, not only their count."),
+    format_output: str = _opt_format(),
+):
+    """What differs between two answers: sentence by sentence, then word by
+    word (code and JSON line by line). Reads only."""
+    as_json = _check_format(format_output)
+    _load_env()
+
+    async def go():
+        from app.services import history
+        from app.services.arena import open_graph
+
+        async with open_graph() as graph_app:
+            return await history.diff_answers(graph_app, thread, checkpoint_a, checkpoint_b)
+
+    result = _run(go(), as_json)
+    if as_json:
+        _emit_json(result)
+        return
+    from app.cli_display import render_diff
+
+    render_diff(result, unchanged=unchanged)
 
 
 @app.command("delete-branch")
