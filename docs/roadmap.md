@@ -58,13 +58,13 @@ Cheap changes that answer published criticism of multi-agent debate, plus the nu
 
 ## Phase 4 — Moving around a big tree
 
-12. **Tree navigation.**
+12. **Tree navigation.** _Done: arrow keys and Enter, branch names and bookmarks (also `crucible node`, MCP `label_node`), collapse and show one branch alone, and "Compress into a summary" (the summarizer writes it onto the node, the branch folds under it; `crucible summarize-branch`, MCP `summarize_subtree`)._
     - Keyboard: parent, child and sibling.
     - Bookmarks and branch names.
     - Collapse or hoist a subtree.
     - Compress a subtree into one summary node, using the existing summarizer.
     - Sources: Loom, Canvas Branch Chat, branching-ai-chat, the CanvasConvo field study.
-13. **Branch from a highlighted span.** Select text in a reply and open a branch about exactly that claim. Sources: canvas-chat, treechat.
+13. **Branch from a highlighted span.** _Done: "Branch from this" over text selected in a reply quotes it in the composer and continues from that reply._ Select text in a reply and open a branch about exactly that claim. Sources: canvas-chat, treechat.
 14. **Add a model to a finished turn, and mark the primary reply.**
     - A "+ model" button asks one more model the same question, without re-asking the others.
     - A "primary" mark says which reply the next message continues.
