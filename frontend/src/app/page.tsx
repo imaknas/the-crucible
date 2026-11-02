@@ -37,6 +37,8 @@ import { useDocuments } from "@/hooks/useDocuments";
 import { useTreeActions } from "@/hooks/useTreeActions";
 import { useReplyTarget } from "@/hooks/useReplyTarget";
 import { useNextTurnContext } from "@/hooks/useNextTurnContext";
+import { useTreeView } from "@/hooks/useTreeView";
+import { useNodeNotes } from "@/hooks/useNodeNotes";
 import { useAnswerDiff } from "@/hooks/useAnswerDiff";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
 import { reconcileMessages } from "@/lib/messages";
@@ -347,6 +349,22 @@ export default function Home() {
         : null,
     [reply.replyModel, reply.canAskAll, reply.askAll, reply.setAskAll, selectedModels],
   );
+  // Moving around a big tree: folded and hoisted subtrees, and what the
+  // person writes on nodes (names, bookmarks, subtree summaries).
+  const treeView = useTreeView(threadId);
+  const { revealNode: revealIn } = treeView;
+  const revealNode = useCallback((id: string) => revealIn(edges, id), [revealIn, edges]);
+  const refreshTree = useCallback(() => {
+    if (threadId) fetchHistory(threadId, shown ?? undefined);
+  }, [threadId, fetchHistory, shown]);
+  const nodeNotes = useNodeNotes({
+    threadId,
+    refresh: refreshTree,
+    pushToast,
+    summarizer,
+    collapse: treeView.setCollapsed,
+  });
+
   // What the next message would send whoever answers it, from the branch point.
   const nextTurnContext = useNextTurnContext(threadId, chosen, isLoading ? null : head, reply.responders);
   const chatMessages = useMemo(
@@ -498,6 +516,12 @@ export default function Home() {
                       answering={isLoading}
                       loading={isHistoryLoading}
                       onSynthesizeSelection={(ids, request) => synthesis.request(ids, null, request)}
+                      collapsed={treeView.collapsed}
+                      hoisted={treeView.hoisted}
+                      onSetCollapsed={treeView.setCollapsed}
+                      onHoist={treeView.hoistNode}
+                      onReveal={revealNode}
+                      notes={nodeNotes}
                     />
                   )}
                 </motion.div>

@@ -312,3 +312,97 @@ describe("TreeCanvas picking answers to combine", () => {
     expect(screen.queryByRole("toolbar", { name: "Picked answers" })).not.toBeInTheDocument();
   });
 });
+
+describe("TreeCanvas: moving around a big tree", () => {
+  // q → a → q2, and q → b
+  const tree = () => [
+    { ...node("q", 0, 0, "The question"), metadata: { role: "user" } },
+    node("a", 0, 150),
+    node("b", 260, 150),
+    { ...node("q2", 0, 300, "Follow-up"), metadata: { role: "user" } },
+  ];
+  const treeEdges: Edge[] = [
+    { id: "e1", source: "q", target: "a" },
+    { id: "e2", source: "q", target: "b" },
+    { id: "e3", source: "a", target: "q2" },
+  ];
+  const notes = () => ({
+    rename: jest.fn(),
+    setBookmark: jest.fn(),
+    summarize: jest.fn(),
+    clearSummary: jest.fn(),
+    summarizing: [] as string[],
+  });
+  const shown = (container: HTMLElement) =>
+    [...container.querySelectorAll<HTMLElement>(".react-flow__node")].map((n) => n.dataset.id).sort();
+
+  it("draws a collapsed node without what it holds, with the summary and a way back", () => {
+    const onSetCollapsed = jest.fn();
+    const nodes = tree();
+    nodes[1] = { ...nodes[1], metadata: { ...nodes[1].metadata, subtree_summary: { text: "They chose Postgres.", model: "m", nodes: 2 } } };
+    const { container } = renderCanvas({
+      nodes, edges: treeEdges, collapsed: new Set(["a"]), onSetCollapsed, notes: notes(),
+    });
+    expect(shown(container)).toEqual(["a", "b", "q"]);
+    expect(screen.getByTestId("subtree-summary")).toHaveTextContent("They chose Postgres.");
+    act(() => measureNodes());
+    fireEvent.click(screen.getByRole("button", { name: "Show 1 hidden message" }));
+    expect(onSetCollapsed).toHaveBeenCalledWith("a", false);
+  });
+
+  it("shows a hoisted branch alone, with the way back to the whole tree", () => {
+    const onHoist = jest.fn();
+    const { container } = renderCanvas({ nodes: tree(), edges: treeEdges, hoisted: "a", onHoist, notes: notes() });
+    expect(shown(container)).toEqual(["a", "q2"]);
+    fireEvent.click(within(screen.getByTestId("hoist-bar")).getByText("Show whole tree"));
+    expect(onHoist).toHaveBeenCalledWith(null);
+  });
+
+  it("moves a focus with the arrow keys without choosing anything, and Enter chooses it", () => {
+    const onNodeClick = jest.fn();
+    const { container } = renderCanvas({ nodes: tree(), edges: treeEdges, activeNodeId: "q", onNodeClick, notes: notes() });
+    const canvas = screen.getByTestId("tree-canvas");
+    const focused = () => container.querySelector<HTMLElement>(".react-flow__node > div[style*='dashed']")?.parentElement?.dataset.id;
+    fireEvent.keyDown(canvas, { key: "ArrowDown" }); // first press lands on the active node
+    expect(focused()).toBe("q");
+    fireEvent.keyDown(canvas, { key: "ArrowDown" });
+    fireEvent.keyDown(canvas, { key: "ArrowRight" });
+    expect(focused()).toBe("b");
+    expect(onNodeClick).not.toHaveBeenCalled();
+    fireEvent.keyDown(canvas, { key: "Enter" });
+    expect(onNodeClick).toHaveBeenCalledWith("b");
+  });
+
+  it("names, bookmarks, collapses and summarizes from a node's menu, and jumps to bookmarks", () => {
+    const n = notes();
+    const onSetCollapsed = jest.fn();
+    const onReveal = jest.fn();
+    const onNodeClick = jest.fn();
+    const nodes = tree();
+    nodes[3] = { ...nodes[3], metadata: { role: "user", bookmarked: true, name: "Cost question" } };
+    renderCanvas({ nodes, edges: treeEdges, activeNodeId: "a", notes: n, onSetCollapsed, onReveal, onNodeClick });
+    act(() => measureNodes());
+
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Collapse/ }));
+    expect(onSetCollapsed).toHaveBeenCalledWith("a", true);
+
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Compress into a summary/ }));
+    expect(n.summarize).toHaveBeenCalledWith("a");
+
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Bookmark" }));
+    expect(n.setBookmark).toHaveBeenCalledWith("a", true);
+
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Name this branch/ }));
+    fireEvent.change(screen.getByLabelText("Branch name"), { target: { value: "Postgres line" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(n.rename).toHaveBeenCalledWith("a", "Postgres line");
+
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Bookmarks" })).getByText("Cost question"));
+    expect(onReveal).toHaveBeenCalledWith("q2");
+    expect(onNodeClick).toHaveBeenCalledWith("q2");
+  });
+});

@@ -17,6 +17,14 @@ export interface Thread {
   updated_at?: string | null;
 }
 
+/** A node's subtree, summarized by the summarizer model (services/subtree.py). */
+export interface SubtreeSummary {
+  text: string;
+  model: string | null;
+  /** How many messages it covers. */
+  nodes: number | null;
+}
+
 export interface Message {
   /** Stable client-side key: the tree node id once the server has one, so a refresh doesn't remount it. */
   id: string;
@@ -93,6 +101,11 @@ export interface TreeNode {
     metrics?: ReplyMetrics | null;
     /** What a reply was written from (lib/context); null for older replies. */
     context?: ReplyContext | null;
+    /** The person's notes on the node (PATCH /history/{thread}/nodes/{node}). */
+    name?: string | null;
+    bookmarked?: boolean;
+    /** A summary of the node and everything below it, shown when it is collapsed. */
+    subtree_summary?: SubtreeSummary | null;
     [key: string]: unknown;
   };
   /** "synthesis" renders the node as a SynthesisTreeNode. */

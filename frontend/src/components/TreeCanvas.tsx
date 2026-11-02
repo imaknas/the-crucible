@@ -20,6 +20,8 @@ import ReactFlow, {
 } from "reactflow";
 import CustomTreeNode, { LOD_THRESHOLD, type CustomNodeData } from "./CustomTreeNode";
 import SelectionBar from "./tree/SelectionBar";
+import { NodeMenu, RenameDialog, TreeNavBar, type NodeNoteActions } from "./tree/TreeNavigation";
+import { bookmarks, descendants, neighbor, treeShape, visibleTree, type TreeKey } from "@/lib/treeView";
 import type { SynthesisRequest } from "@/lib/synthesis";
 import { shouldFitWholeTree } from "@/lib/treeFit";
 import SynthesisTreeNode from "./SynthesisTreeNode";
@@ -41,6 +43,9 @@ export interface CustomNode extends Node {
     lane_index?: number;
     round_num?: number;
     model_color?: string;
+    name?: string | null;
+    bookmarked?: boolean;
+    subtree_summary?: { text: string; model: string | null; nodes: number | null } | null;
   };
 }
 
@@ -70,7 +75,19 @@ interface TreeCanvasProps {
   loading?: boolean;
   /** Chat trees: combine answers picked anywhere on the tree (Shift/Cmd-click or a node's Pick). */
   onSynthesizeSelection?: (ids: string[], request: SynthesisRequest) => void;
+  /** Chat trees: folded subtrees and the one shown alone (useTreeView). */
+  collapsed?: ReadonlySet<string>;
+  hoisted?: string | null;
+  onSetCollapsed?: (id: string, folded: boolean) => void;
+  onHoist?: (id: string | null) => void;
+  /** Open whatever hides a node, before jumping to it (a bookmark). */
+  onReveal?: (id: string) => void;
+  /** Chat trees: names, bookmarks and subtree summaries (useNodeNotes). */
+  notes?: NodeNoteActions;
 }
+
+const NO_COLLAPSED: ReadonlySet<string> = new Set();
+const TREE_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home"]);
 
 const selector = (s: any) => ({
   width: s.width,
@@ -166,8 +183,8 @@ function miniMapColor(node: Node, isDark: boolean): string {
 }
 
 function TreeViewInner({
-  nodes: externalNodes,
-  edges: externalEdges,
+  nodes: allNodes,
+  edges: allEdges,
   onNodeClick,
   onNodeDragStop,
   onLayoutPositions,
@@ -182,8 +199,31 @@ function TreeViewInner({
   answering = false,
   loading = false,
   onSynthesizeSelection,
+  collapsed = NO_COLLAPSED,
+  hoisted = null,
+  onSetCollapsed,
+  onHoist,
+  onReveal,
+  notes,
 }: TreeCanvasProps) {
   const isDark = useTheme().palette.mode === "dark";
+  // What is drawn: a hoisted subtree alone, collapsed subtrees folded into
+  // their top node (lib/treeView). Positions stay where they are.
+  const view = React.useMemo(
+    () => visibleTree(allNodes, allEdges, collapsed, hoisted),
+    [allNodes, allEdges, collapsed, hoisted],
+  );
+  const externalNodes = view.nodes;
+  const externalEdges = view.edges;
+  const shape = React.useMemo(() => treeShape(allEdges), [allEdges]);
+  // The keyboard's place in the tree: arrows move it, Enter makes it the
+  // branch point. Moving it alone never changes what the next message
+  // continues or who answers (only a click or Enter does).
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ id: string; anchor: HTMLElement } | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const openMenu = useCallback((id: string, anchor: HTMLElement) => setMenu({ id, anchor }), []);
+  const expand = useCallback((id: string) => onSetCollapsed?.(id, false), [onSetCollapsed]);
   // Answers picked to combine. Separate from the active node: picking never
   // moves the branch point or changes who answers next.
   const [picked, setPicked] = useState<string[]>([]);
@@ -195,7 +235,7 @@ function TreeViewInner({
   const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  const { fitView, setViewport, getNodes } = useReactFlow();
+  const { fitView, setViewport, getNodes, setCenter } = useReactFlow();
   const { width, height, transform, storeNodeCount, storeNodesMeasured } =
     useStore(selector);
 
@@ -256,6 +296,11 @@ function TreeViewInner({
           onRead: role === "ai" && !isPending ? onReadNode : undefined,
           onPick: pickable && role === "ai" && !isPending ? togglePick : undefined,
           picked: picked.includes(n.id),
+          onMenu: notes && !debateMode && (role === "user" || role === "ai") ? openMenu : undefined,
+          hiddenCount: view.hidden.get(n.id),
+          onExpand: expand,
+          focused: n.id === focusedId,
+          summarizing: !!notes?.summarizing.includes(n.id),
           metadata: n.metadata,
           styling: {
             background: isActive ? (isDark ? "#2563eb" : "#3b82f6") : colors.bg,
@@ -278,7 +323,8 @@ function TreeViewInner({
         selected: isActive,
       };
     });
-  }, [externalNodes, activeNodeId, isDark, onDeleteNode, onBranchNode, onReadNode, pickable, picked, togglePick]);
+  }, [externalNodes, activeNodeId, isDark, onDeleteNode, onBranchNode, onReadNode, pickable, picked, togglePick,
+      notes, debateMode, openMenu, view.hidden, expand, focusedId]);
 
   const processedEdges = React.useMemo(() => {
     return externalEdges.map((e) => {
@@ -457,13 +503,100 @@ function TreeViewInner({
     },
     [onNodeClick, pickable, togglePick],
   );
+  // Arrow keys walk the tree before React Flow sees them: with a node
+  // focused it would otherwise nudge that node's position.
+  const handleKeyDownCapture = useCallback(
+    (e: React.KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest("input, textarea, button, [role=menu], [role=dialog]")) return;
+      if (!externalNodes.length) return;
+      const visible = (id: string | null | undefined) => !!id && externalNodes.some((n) => n.id === id);
+      const current = visible(focusedId) ? focusedId! : visible(activeNodeId) ? activeNodeId! : externalNodes[0].id;
+      if (e.key === "Escape" && focusedId) {
+        setFocusedId(null);
+        return;
+      }
+      if (e.key === "Enter" && visible(focusedId)) {
+        e.preventDefault();
+        e.stopPropagation();
+        onNodeClick?.(focusedId!);
+        return;
+      }
+      if (!TREE_KEYS.has(e.key)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const next = visible(focusedId) ? neighbor(externalNodes, externalEdges, current, e.key as TreeKey) : current;
+      setFocusedId(next);
+      const node = getNodes().find((n) => n.id === next);
+      if (node) {
+        setCenter(node.position.x + (node.width ?? 220) / 2, node.position.y + (node.height ?? 80) / 2, {
+          zoom: transform[2],
+          duration: 200,
+        });
+      }
+    },
+    [externalNodes, externalEdges, focusedId, activeNodeId, onNodeClick, getNodes, setCenter, transform],
+  );
+
+  const jumpTo = useCallback(
+    (id: string) => {
+      onReveal?.(id);
+      setFocusedId(id);
+      onNodeClick?.(id);
+    },
+    [onReveal, onNodeClick],
+  );
+  const marks = React.useMemo(() => (notes && !debateMode ? bookmarks(allNodes) : []), [notes, debateMode, allNodes]);
+  const hoistedNode = hoisted ? allNodes.find((n) => n.id === hoisted) : undefined;
+  const menuNode = menu ? allNodes.find((n) => n.id === menu.id) : undefined;
+
   const handleNodeDragStop = useCallback(
     (_: any, node: Node) => onNodeDragStop?.(node.id, node.position),
     [onNodeDragStop],
   );
 
   return (
-    <div className="w-full h-full relative min-h-[400px] bg-transparent">
+    <div
+      className="w-full h-full relative min-h-[400px] bg-transparent"
+      tabIndex={0}
+      aria-label="Conversation tree. Arrow keys move between messages; Enter continues from the one marked."
+      onKeyDownCapture={handleKeyDownCapture}
+      data-testid="tree-canvas"
+    >
+      {notes && !debateMode && (
+        <TreeNavBar
+          hoistedLabel={hoistedNode ? (hoistedNode.metadata?.name || hoistedNode.data.label || "Message") : null}
+          onUnhoist={() => onHoist?.(null)}
+          marks={marks}
+          onJump={jumpTo}
+        />
+      )}
+      {notes && menu && menuNode && (
+        <NodeMenu
+          anchor={menu.anchor}
+          onClose={() => setMenu(null)}
+          name={menuNode.metadata?.name ?? null}
+          bookmarked={!!menuNode.metadata?.bookmarked}
+          hasSummary={!!menuNode.metadata?.subtree_summary}
+          below={descendants(shape, menuNode.id).length}
+          collapsed={collapsed.has(menuNode.id)}
+          hoisted={hoisted === menuNode.id}
+          summarizing={notes.summarizing.includes(menuNode.id)}
+          onRename={() => setRenaming({ id: menuNode.id, name: menuNode.metadata?.name ?? "" })}
+          onBookmark={(b) => notes.setBookmark(menuNode.id, b)}
+          onCollapse={(c) => onSetCollapsed?.(menuNode.id, c)}
+          onHoist={(h) => onHoist?.(h ? menuNode.id : null)}
+          onSummarize={() => notes.summarize(menuNode.id)}
+          onClearSummary={() => notes.clearSummary(menuNode.id)}
+        />
+      )}
+      {notes && renaming && (
+        <RenameDialog
+          initial={renaming.name}
+          onSave={(name) => notes.rename(renaming.id, name)}
+          onClose={() => setRenaming(null)}
+        />
+      )}
       {debateMode && lanes.length > 0 && isViewportValid && (
         <DebateRoundBands
           maxRound={maxRound}

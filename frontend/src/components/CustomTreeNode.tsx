@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Handle, Position, NodeProps, useStore } from "reactflow";
-import { Trash2, Brain, GitBranch, BookOpen } from "lucide-react";
+import { Trash2, Brain, GitBranch, BookOpen, MoreHorizontal, Star, ChevronsDown } from "lucide-react";
 import { useTheme, Box, Typography } from "@mui/material";
 import { RADIUS } from "@/theme";
 
@@ -14,6 +14,15 @@ export type CustomNodeData = {
   /** Chat trees: pick this answer to combine with others (TreeCanvas's selection bar). */
   onPick?: (nodeId: string) => void;
   picked?: boolean;
+  /** Chat trees: open the node's menu (rename, bookmark, collapse, show alone, summarize). */
+  onMenu?: (nodeId: string, anchor: HTMLElement) => void;
+  /** Collapsed: how many messages it hides, and how to show them again. */
+  hiddenCount?: number;
+  onExpand?: (nodeId: string) => void;
+  /** The keyboard focus (arrow keys) is here; not the branch point. */
+  focused?: boolean;
+  /** Its subtree is being summarized. */
+  summarizing?: boolean;
   styling?: any;
   metadata?: {
     role?: string;
@@ -23,6 +32,9 @@ export type CustomNodeData = {
     has_thoughts?: boolean;
     preview?: string;
     round_num?: number;
+    name?: string | null;
+    bookmarked?: boolean;
+    subtree_summary?: { text: string; model: string | null; nodes: number | null } | null;
   };
 };
 
@@ -81,8 +93,12 @@ const CustomTreeNode = React.memo(
     // the chip's label, so the exemption made the one node you care about the
     // hardest to read while breaking the overview's consistency. Selection
     // still reads: the chip inherits the active background and glow.
+    const branchName = data.metadata?.name;
+    const bookmarked = !!data.metadata?.bookmarked;
+    const focusRing = data.focused ? { outline: "2px dashed #f59e0b", outlineOffset: 3 } : {};
+
     if (zoom < LOD_THRESHOLD && (modelName || role === "user")) {
-      const label = role === "user" ? "You" : modelName;
+      const label = `${bookmarked ? "★ " : ""}${branchName || (role === "user" ? "You" : modelName)}`;
       const words = wordCount(data.metadata?.preview || data.label || "");
       const boost = chipScale(zoom);
       // Far out there is no room for both lines; the name is what matters.
@@ -113,6 +129,7 @@ const CustomTreeNode = React.memo(
               boxShadow: data.styling?.boxShadow,
               outline: `1px solid ${accent || (isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.12)")}`,
               outlineOffset: -1,
+              ...focusRing,
             }}
           >
             <div
@@ -142,7 +159,7 @@ const CustomTreeNode = React.memo(
               >
                 {label}
               </div>
-              {showMeta && words > 0 && (
+              {showMeta && (words > 0 || !!data.hiddenCount) && (
                 <div
                   style={{
                     fontSize: 12,
@@ -152,7 +169,7 @@ const CustomTreeNode = React.memo(
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {words} words
+                  {data.hiddenCount ? `+${data.hiddenCount} hidden` : `${words} words`}
                 </div>
               )}
             </div>
@@ -191,6 +208,7 @@ const CustomTreeNode = React.memo(
           overflow: "visible",
           transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           transform: isHovered ? "translateY(-2px)" : "none",
+          ...focusRing,
         }}
       >
         <Handle
@@ -276,7 +294,8 @@ const CustomTreeNode = React.memo(
         {/* Shown on hover and on the selected node: a keyboard (Tab, then
             Enter) or a touch screen has no hover, and used to have no way to
             branch or delete. */}
-        {(isHovered || selected || data.picked) && (data.onDelete || data.onBranch || data.onRead || data.onPick) && (
+        {(isHovered || selected || data.picked || data.focused) &&
+          (data.onDelete || data.onBranch || data.onRead || data.onPick || data.onMenu) && (
           <div
             style={{
               position: "absolute",
@@ -376,6 +395,32 @@ const CustomTreeNode = React.memo(
                 Branch
               </button>
             )}
+            {data.onMenu && (
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onMenu?.(id, e.currentTarget);
+                }}
+                title="Name, bookmark, collapse or summarize this branch"
+                aria-label="More actions"
+                aria-haspopup="menu"
+                style={{
+                  background: isDark ? "#1e293b" : "#ffffff",
+                  border: `1px solid ${isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)"}`,
+                  borderRadius: RADIUS.md,
+                  height: 24,
+                  width: 28,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: isDark ? "#e2e8f0" : "#334155",
+                }}
+              >
+                <MoreHorizontal size={14} />
+              </button>
+            )}
             {data.onDelete && (
             <button
               onMouseDown={(e) => {
@@ -408,6 +453,18 @@ const CustomTreeNode = React.memo(
           </div>
         )}
 
+        {(branchName || bookmarked) && (
+          <div
+            style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4, fontWeight: 700, fontSize: 12 }}
+            title={branchName ? `Branch: ${branchName}` : "Bookmarked"}
+          >
+            {bookmarked && <Star size={12} fill="#f59e0b" color="#f59e0b" aria-label="Bookmarked" />}
+            {branchName && (
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{branchName}</span>
+            )}
+          </div>
+        )}
+
         {/* Selecting a node expands it into a longer excerpt — the 40-char
             label alone made the debate tree unreadable. */}
         <Typography
@@ -430,6 +487,63 @@ const CustomTreeNode = React.memo(
             ? data.metadata.preview
             : data.label}
         </Typography>
+
+        {/* Collapsed: what it hides, and the summary standing in for it. */}
+        {(!!data.hiddenCount || data.summarizing) && (
+          <div
+            style={{
+              marginTop: 8,
+              paddingTop: 8,
+              borderTop: `1px dashed ${isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)"}`,
+            }}
+          >
+            {data.summarizing ? (
+              <div style={{ fontSize: 11, opacity: 0.8 }}>Summarizing this branch…</div>
+            ) : (
+              <>
+                {data.metadata?.subtree_summary && (
+                  <div
+                    data-testid="subtree-summary"
+                    style={{
+                      fontSize: 11,
+                      lineHeight: 1.45,
+                      marginBottom: 6,
+                      display: "-webkit-box",
+                      WebkitLineClamp: selected ? 14 : 5,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {data.metadata.subtree_summary.text}
+                  </div>
+                )}
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    data.onExpand?.(id);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    color: "inherit",
+                    fontSize: 11,
+                    fontWeight: 700,
+                  }}
+                >
+                  <ChevronsDown size={12} />
+                  Show {data.hiddenCount} hidden message{data.hiddenCount === 1 ? "" : "s"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     );
   },
@@ -448,6 +562,11 @@ const CustomTreeNode = React.memo(
       a.onRead === b.onRead &&
       a.onPick === b.onPick &&
       a.picked === b.picked &&
+      a.onMenu === b.onMenu &&
+      a.hiddenCount === b.hiddenCount &&
+      a.onExpand === b.onExpand &&
+      a.focused === b.focused &&
+      a.summarizing === b.summarizing &&
       a.styling === b.styling &&
       a.metadata === b.metadata
     );

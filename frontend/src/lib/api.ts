@@ -67,6 +67,38 @@ export async function fetchNextTurnContext(
   return res.json();
 }
 
+/** Name a node's branch and/or bookmark it; an empty name clears it. */
+export async function labelNode(
+  threadId: string,
+  nodeId: string,
+  note: { name?: string; bookmarked?: boolean },
+): Promise<{ name: string | null; bookmarked: boolean }> {
+  const res = await fetch(`${API_BASE}/history/${encodeURIComponent(threadId)}/nodes/${encodeURIComponent(nodeId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(note),
+  });
+  await ensureOk(res, "Couldn't save the node's name or bookmark");
+  return res.json();
+}
+
+/** Summarize a node and everything below it (the summarizer model); stored on the node. */
+export async function summarizeSubtree(threadId: string, nodeId: string, model?: string | null): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/history/${encodeURIComponent(threadId)}/nodes/${encodeURIComponent(nodeId)}/summary`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: model ?? null }) },
+  );
+  await ensureOk(res, "Couldn't summarize the branch");
+}
+
+export async function clearSubtreeSummary(threadId: string, nodeId: string): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/history/${encodeURIComponent(threadId)}/nodes/${encodeURIComponent(nodeId)}/summary`,
+    { method: "DELETE" },
+  );
+  await ensureOk(res, "Couldn't remove the summary");
+}
+
 export async function searchHistory(
   threadId: string,
   query: string,
