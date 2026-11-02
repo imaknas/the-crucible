@@ -258,7 +258,8 @@ export default function BranchChip({
           </ButtonBase>
         )}
       </Box>
-      <InheritRow context={context} modelLabel={modelLabel} onStartFresh={point.fresh ? undefined : onStartFresh} />
+      {/* A fresh start's own line already says nothing earlier goes. */}
+      {!point.fresh && <InheritRow context={context} modelLabel={modelLabel} onStartFresh={onStartFresh} />}
     </Box>
   );
 }
