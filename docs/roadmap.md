@@ -17,7 +17,7 @@ Cheap changes that answer published criticism of multi-agent debate, plus the nu
    - Show the spread of the independent first-round answers.
    - Show who changed position after round 1, and from what to what.
    - The data is already in `debate_rounds()`. Sources: "Debate or Vote" (NeurIPS 2025), FREE-MAD.
-3. **De-bias the judge and the synthesizer.** _Done: the judge reads once per participant with the order rotated; the map is written from outside the debate when a family that isn't debating has a key (`REFEREE_MODELS`; xAI joins it once its key exists); a debating judge or synthesizer is named on start and in the banner._
+3. **De-bias the judge and the synthesizer.** _Done: the judge reads once per participant with the order rotated; the map is written from outside the debate when a family that isn't debating has a key (`REFEREE_MODELS`, with xAI's Grok 4.7 as the fourth family); a debating judge or synthesizer is named on start and in the banner._
    - The agreement judge runs twice with the label order reversed; agreement needs both runs.
    - Judge and synthesizer default to a family that is not debating, with a warning when they are a participant.
    - Sources: self-preference (Panickssery et al.), position bias (Shi et al.), lechmazur/debate.

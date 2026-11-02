@@ -63,7 +63,7 @@ cd frontend && npm run dev                  # terminal 2
 | **Frontend** | Next.js 16, React 19, MUI 7, React Flow, Framer Motion, react-markdown, KaTeX |
 | **Backend** | FastAPI, LangGraph, LangChain, SQLite, ChromaDB, tiktoken, Typer (CLI), FastMCP |
 | **Embeddings** | Local HuggingFace `all-MiniLM-L6-v2` |
-| **Providers** | OpenAI, Anthropic, Google (via `langchain-*`) |
+| **Providers** | OpenAI, Anthropic, Google, xAI (via `langchain-*`) |
 
 ## Testing
 

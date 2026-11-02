@@ -1260,7 +1260,7 @@
    "verification": {
     "chat_checked": "2026-11-02",
     "chat_ok": true,
-    "error": "web search: HTTP 429: Rate limit reached for gpt-5-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 378194, Requested 30628. Please try again in 1.323s. Visit https://platform.openai.com/account/rate-l",
+    "error": "web search: timed out (ReadTimeout)",
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -1330,7 +1330,7 @@
    "verification": {
     "chat_checked": "2026-11-02",
     "chat_ok": true,
-    "error": "web search: HTTP 429: Rate limit reached for gpt-5.2-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 391180, Requested 51981. Please try again in 6.474s. Visit https://platform.openai.com/account/rate",
+    "error": "web search: HTTP 429: Rate limit reached for gpt-5.2-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 376494, Requested 55086. Please try again in 4.737s. Visit https://platform.openai.com/account/rate",
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -1768,6 +1768,269 @@
     "chat_ok": true,
     "error": null,
     "web_search_checked": "2026-09-26",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "aliases": [
+     "grok-4.20-beta-0309-non-reasoning",
+     "grok-4.20-beta-latest-non-reasoning",
+     "grok-4.20-beta-non-reasoning",
+     "grok-4.20-experimental-beta-0304-non-reasoning",
+     "grok-4.20-experimental-beta-non-reasoning-latest",
+     "grok-4.20-non-reasoning",
+     "grok-4.20-non-reasoning-gv2",
+     "grok-4.20-non-reasoning-latest"
+    ],
+    "api": "chat_completions",
+    "image_input": true
+   },
+   "display_name": "grok-4.20-0309-non-reasoning",
+   "id": "grok-4.20-0309-non-reasoning",
+   "input_limit": 1000000,
+   "output_limit": null,
+   "provider": "xai",
+   "released": "2026-03-09",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "xai /v1/models context_length (shared by input and output; no output limit is reported): https://docs.x.ai/developers/rest-api-reference/inference/models"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-02",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-11-02",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "aliases": [
+     "grok-4.20",
+     "grok-4.20-0309",
+     "grok-4.20-beta",
+     "grok-4.20-beta-0309",
+     "grok-4.20-beta-0309-reasoning",
+     "grok-4.20-beta-latest",
+     "grok-4.20-beta-latest-reasoning",
+     "grok-4.20-beta-reasoning",
+     "grok-4.20-experimental-beta-0304",
+     "grok-4.20-experimental-beta-0304-reasoning",
+     "grok-4.20-experimental-beta-latest",
+     "grok-4.20-experimental-beta-reasoning-latest",
+     "grok-4.20-reasoning",
+     "grok-4.20-reasoning-gv2",
+     "grok-4.20-reasoning-latest"
+    ],
+    "api": "chat_completions",
+    "image_input": true
+   },
+   "display_name": "grok-4.20-0309-reasoning",
+   "id": "grok-4.20-0309-reasoning",
+   "input_limit": 1000000,
+   "output_limit": null,
+   "provider": "xai",
+   "released": "2026-03-09",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "xai /v1/models context_length (shared by input and output; no output limit is reported): https://docs.x.ai/developers/rest-api-reference/inference/models"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-02",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-11-02",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "aliases": [
+     "grok-4.20-multi-agent",
+     "grok-4.20-multi-agent-beta-0309",
+     "grok-4.20-multi-agent-beta-latest",
+     "grok-4.20-multi-agent-experimental-beta-0304",
+     "grok-4.20-multi-agent-experimental-beta-latest",
+     "grok-4.20-multi-agent-latest"
+    ],
+    "image_input": true
+   },
+   "display_name": "grok-4.20-multi-agent-0309",
+   "id": "grok-4.20-multi-agent-0309",
+   "input_limit": 1000000,
+   "output_limit": null,
+   "provider": "xai",
+   "released": "2026-03-09",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "xai /v1/models context_length (shared by input and output; no output limit is reported): https://docs.x.ai/developers/rest-api-reference/inference/models"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-02",
+    "chat_ok": false,
+    "error": "HTTP 400: Multi Agent requests are not allowed on chat completions",
+    "web_search_checked": null,
+    "web_search_ok": null
+   }
+  },
+  {
+   "capabilities": {
+    "aliases": [
+     "grok-4.3-latest"
+    ],
+    "api": "chat_completions",
+    "image_input": true,
+    "reasoning_effort": [
+     "none",
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
+   },
+   "display_name": "grok-4.3",
+   "id": "grok-4.3",
+   "input_limit": 1000000,
+   "output_limit": null,
+   "provider": "xai",
+   "released": "2026-04-17",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "xai /v1/models context_length (shared by input and output; no output limit is reported): https://docs.x.ai/developers/rest-api-reference/inference/models"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-02",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-11-02",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "aliases": [
+     "grok-4.5-latest",
+     "grok-build-latest"
+    ],
+    "api": "chat_completions",
+    "image_input": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
+   },
+   "display_name": "grok-4.5",
+   "id": "grok-4.5",
+   "input_limit": 500000,
+   "output_limit": null,
+   "provider": "xai",
+   "released": "2026-06-29",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "xai /v1/models context_length (shared by input and output; no output limit is reported): https://docs.x.ai/developers/rest-api-reference/inference/models"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-02",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-11-02",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions",
+    "image_input": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
+   },
+   "display_name": "grok-4.6",
+   "id": "grok-4.6",
+   "input_limit": 500000,
+   "output_limit": null,
+   "provider": "xai",
+   "released": "2026-08-06",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "xai /v1/models context_length (shared by input and output; no output limit is reported): https://docs.x.ai/developers/rest-api-reference/inference/models"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-02",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-11-02",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions",
+    "image_input": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
+   },
+   "display_name": "grok-4.7",
+   "id": "grok-4.7",
+   "input_limit": 500000,
+   "output_limit": null,
+   "provider": "xai",
+   "released": "2026-09-02",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "xai /v1/models context_length (shared by input and output; no output limit is reported): https://docs.x.ai/developers/rest-api-reference/inference/models"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-02",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-11-02",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "aliases": [
+     "grok-code-fast",
+     "grok-code-fast-1",
+     "grok-code-fast-1-0825"
+    ],
+    "api": "chat_completions",
+    "image_input": true
+   },
+   "display_name": "grok-build-0.1",
+   "id": "grok-build-0.1",
+   "input_limit": 256000,
+   "output_limit": null,
+   "provider": "xai",
+   "released": "2026-04-16",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "xai /v1/models context_length (shared by input and output; no output limit is reported): https://docs.x.ai/developers/rest-api-reference/inference/models"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-02",
+    "chat_ok": true,
+    "error": null,
+    "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
   }

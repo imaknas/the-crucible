@@ -93,7 +93,13 @@ def _probe(response: httpx.Response) -> ProbeResult:
         return ProbeResult(True)
     try:
         detail = response.json()
-        message = (detail.get("error") or {}).get("message") if isinstance(detail.get("error"), dict) else detail.get("error")
+        # OpenAI, Anthropic and Google answer {"error": {...}} or {"error": "..."};
+        # xAI's errors can be a bare JSON string.
+        if isinstance(detail, dict):
+            err = detail.get("error")
+            message = err.get("message") if isinstance(err, dict) else err
+        else:
+            message = detail
     except ValueError:
         message = response.text
     error = f"HTTP {response.status_code}: {_redact(str(message))[:200]}"

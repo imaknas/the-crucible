@@ -33,17 +33,17 @@ def test_xai_is_a_family_with_its_own_key_and_colour():
     assert "xai" in PROVIDERS and "xai" in SOURCES
 
 
-def test_xai_is_listed_before_it_has_models(monkeypatch):
-    """GET /models names the family (so the UI can take its key) even with no
-    registered model; the frontend leaves it out of the model picker."""
+def test_xai_is_listed_with_its_key_and_models(monkeypatch):
+    """GET /models names the family and its env key (so the UI can take the
+    key) and its verified Grok models."""
     from app.api.models import _build_families
     from app.services import keys as keys_svc
 
-    assert models_by_family()["xai"] == []
     monkeypatch.setenv("XAI_API_KEY", "xai-placeholder")
     xai = {f["key"]: f for f in _build_families()}["xai"]
-    assert xai == {"key": "xai", "label": "xAI", "color": FAMILY_META["xai"]["color"], "env_key": "XAI_API_KEY",
-                   "available": True, "models": []}
+    assert (xai["label"], xai["env_key"], xai["available"]) == ("xAI", "XAI_API_KEY", True)
+    assert xai["color"] == FAMILY_META["xai"]["color"]
+    assert {m["id"] for m in xai["models"]} == {m["id"] for m in models_by_family()["xai"]} >= {"grok-4.7"}
     assert "XAI_API_KEY" in keys_svc.KEY_NAMES
     assert keys_svc.key_status()["XAI_API_KEY"]["set"] is True
 
@@ -307,3 +307,14 @@ def test_xai_team_ids_are_redacted_from_errors():
     error = "The model grok-9 does not exist or your team 1b2c3d4e-0000-4abc-8def-0123456789ab does not have access to it."
     assert "1b2c3d4e" not in _redact(error)
     assert _redact("org-abcdef123456 says no") == "org-… says no"
+
+
+def test_a_probe_reads_an_error_whose_json_body_is_a_bare_string():
+    """xAI can answer an error with a JSON string instead of an object."""
+    import httpx
+
+    from app.catalog.sources import _probe
+
+    result = _probe(httpx.Response(400, json="Model not available for this team"))
+    assert not result.ok
+    assert "HTTP 400: Model not available" in result.error

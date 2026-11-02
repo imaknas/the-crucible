@@ -294,6 +294,32 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "limit": 800_000,
         "native_search": True,
     },
+    # xAI bills the whole request at double the rate once a prompt reaches
+    # 200k tokens (docs.x.ai pricing), so history is summarised before that.
+    "grok-4.7": {
+        "family": "xai",
+        "id": "grok-4.7",
+        "name": "Grok 4.7",
+        "desc": "Flagship",
+        "limit": 140_000,
+        "native_search": True,
+    },
+    "grok-4.3": {
+        "family": "xai",
+        "id": "grok-4.3",
+        "name": "Grok 4.3",
+        "desc": "Balanced",
+        "limit": 140_000,
+        "native_search": True,
+    },
+    "grok-4.20-0309-non-reasoning": {
+        "family": "xai",
+        "id": "grok-4.20-0309-non-reasoning",
+        "name": "Grok 4.20 (non-reasoning)",
+        "desc": "Fast",
+        "limit": 140_000,
+        "native_search": True,
+    },
 }
 
 # Single source of truth for defaults. These were previously duplicated across
@@ -308,8 +334,8 @@ DEFAULT_ARENA_MODELS = ["gpt-6.1-sol", "claude-sonnet-5-5", "gemini-3.1-pro-prev
 # of these with a key whose family isn't debating (debate.default_synthesizer).
 # Kept apart from DEFAULT_ARENA_MODELS on purpose: a referee is useful only
 # from a family that isn't debating, so this list wants one more family than
-# the default debate has (xAI's model joins it once the catalog verifies one).
-REFEREE_MODELS = [*DEFAULT_ARENA_MODELS]
+# the default debate has: Grok writes the map for the default three-family debate.
+REFEREE_MODELS = [*DEFAULT_ARENA_MODELS, "grok-4.7"]
 # Models used to summarise history when the context limit is hit: the first
 # offered one with an API key wins (a run may name another). Chosen with
 # recall on, as the app runs (experiments/NOTES.md, pilot 22): gpt-6-luna was
