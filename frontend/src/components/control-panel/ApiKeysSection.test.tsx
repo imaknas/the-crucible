@@ -2,7 +2,7 @@ import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import ApiKeysSection from "./ApiKeysSection";
 import * as api from "@/lib/api";
-import { FAMILIES } from "@/test/families";
+import { FAMILIES, XAI_NO_MODELS } from "@/test/families";
 
 jest.mock("@/lib/api", () => ({
   fetchKeyStatus: jest.fn(),
@@ -68,6 +68,18 @@ describe("ApiKeysSection", () => {
     // The typed value is gone and the status is read again.
     expect(field("Paste your Google API key").value).toBe("");
     expect(mocked.fetchKeyStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("takes the key of a family that offers no models yet", async () => {
+    mocked.saveApiKeys.mockResolvedValue(undefined);
+    render(<ApiKeysSection families={[...FAMILIES, XAI_NO_MODELS]} isDark={false} onSaved={jest.fn()} />);
+    await act(async () => {});
+    expect(screen.getByRole("button", { name: /^xAI/ })).toHaveTextContent("NOT SET");
+    fireEvent.change(field("Paste your xAI API key"), { target: { value: "xai-key" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save Keys" }));
+    });
+    expect(mocked.saveApiKeys).toHaveBeenCalledWith({ XAI_API_KEY: "xai-key" });
   });
 
   it("shows the backend's reason when a save is refused", async () => {

@@ -18,7 +18,7 @@ class Verification:
 @dataclass
 class CatalogEntry:
     id: str
-    provider: str  # "openai" | "anthropic" | "google"
+    provider: str  # "openai" | "anthropic" | "google" | "xai"
     display_name: str
     released: Optional[str] = None  # ISO date the provider published it
     input_limit: Optional[int] = None

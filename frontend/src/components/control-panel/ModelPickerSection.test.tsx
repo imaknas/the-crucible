@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import ModelPickerSection from "./ModelPickerSection";
-import { FAMILIES } from "@/test/families";
+import { FAMILIES, XAI_NO_MODELS } from "@/test/families";
 
 jest.mock("lucide-react", () => {
   const Icon = () => <div />;
@@ -61,6 +61,12 @@ describe("ModelPickerSection", () => {
     expect(gemini).toHaveAttribute("title", "Add a Google API key to use this model");
     fireEvent.click(gemini);
     expect(p.setSelectedModels).not.toHaveBeenCalled();
+  });
+
+  it("leaves out a family that offers no models yet", () => {
+    renderPicker({ families: [...FAMILIES, XAI_NO_MODELS] });
+    expect(screen.queryByRole("button", { name: /^xAI/ })).not.toBeInTheDocument();
+    expect(family(/^OpenAI/)).toBeInTheDocument();
   });
 
   it("says when the catalogue is loading or failed, and retries", () => {

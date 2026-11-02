@@ -11,13 +11,13 @@ class TestEndpointStructure:
     @patch.dict(os.environ, {}, clear=True)
     def test_response_has_families(self):
         families = _build_families()
-        assert len(families) == 3
+        assert len(families) == 4
 
     @patch.dict(os.environ, {}, clear=True)
     def test_family_keys(self):
         families = _build_families()
         keys = [f["key"] for f in families]
-        assert keys == ["openai", "anthropic", "google"]
+        assert keys == ["openai", "anthropic", "google", "xai"]
 
     @patch.dict(os.environ, {}, clear=True)
     def test_family_structure(self):
@@ -41,3 +41,4 @@ class TestEndpointStructure:
         assert fam_map["openai"]["available"] is True
         assert fam_map["anthropic"]["available"] is False
         assert fam_map["google"]["available"] is False
+        assert fam_map["xai"]["available"] is False

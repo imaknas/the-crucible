@@ -1,14 +1,16 @@
 """Provider strategies: how each model family is constructed.
 
 To add a provider family:
-  1. add its family to FAMILY_META (label, colour, env_key) in api/models.py
+  1. add its family to FAMILY_META (label, colour, env_key) in registry.py
   2. write a ChatProvider below and register it in PROVIDERS
-  3. add its models to MODEL_REGISTRY
+  3. write a ProviderSource in catalog/sources.py, so catalog-sync lists and
+     probes its models
+  4. add its models to MODEL_REGISTRY once the catalog has verified them
 Nothing else in the app branches on the provider.
 """
 
 import functools
-from typing import Optional, Any, Protocol
+from typing import Any, Callable, Mapping, Optional, Protocol
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import Runnable
@@ -174,9 +176,72 @@ class GoogleProvider:
         return llm.bind_tools([{"google_search": {}}])
 
 
+# xAI caches the longest run of leading messages that matches an earlier
+# request exactly (https://docs.x.ai/developers/advanced-api-usage/prompt-caching/how-it-works),
+# so a per-request block inside the question has the same effect as on
+# OpenAI: the next turn's copy of that message differs, and nothing after the
+# previous answer's prompt is reused. xAI accepts system messages anywhere in
+# a conversation ("No role order limitation", https://docs.x.ai/developers/models)
+# and documents only system/user/assistant roles, so the moved block is a
+# system message on both of its APIs.
+@functools.lru_cache(maxsize=1)
+def _caching_chat_xai():
+    from langchain_xai import ChatXAI
+
+    class CachingChatXAI(ChatXAI):
+        """ChatXAI whose requests keep the reusable prefix intact."""
+
+        def _get_request_payload(self, input_, *, stop=None, **kwargs):
+            payload = super()._get_request_payload(input_, stop=stop, **kwargs)
+            if isinstance(payload.get("messages"), list):
+                split_request_notes(payload["messages"])
+            elif isinstance(payload.get("input"), list):  # Responses API
+                split_request_notes(payload["input"])
+            return payload
+
+    return CachingChatXAI
+
+
+class XAIProvider:
+    """Grok models through langchain-xai. ChatXAI turns `stream_usage` on by
+    itself, so a streamed reply ends with its usage_metadata like the others.
+
+    Plain turns go to chat/completions (ChatXAI's default). A model the
+    catalog probe found answering only on the Responses API is sent there.
+    Web search binds xAI's search tool, which exists only on the Responses
+    API; binding a built-in tool makes langchain-openai, which ChatXAI
+    extends, send the request to api.x.ai/v1/responses."""
+
+    def __init__(self, catalog: Optional[Callable[[], Mapping[str, Any]]] = None):
+        # What the catalog knows about each model; the committed catalog by default.
+        self._catalog = catalog
+
+    def _entry(self, model_id: str) -> Any:
+        if self._catalog is None:
+            from app.catalog import load_catalog
+
+            return load_catalog().get(model_id)
+        return self._catalog().get(model_id)
+
+    def create(self, model_id: str, api_key: Optional[str] = None) -> BaseChatModel:
+        entry = self._entry(model_id)
+        responses_only = bool(entry and entry.capabilities.get("api") == "responses")
+        return _caching_chat_xai()(
+            model=model_id,
+            **_key("api_key", api_key),
+            **({"use_responses_api": True} if responses_only else {}),
+        )
+
+    def with_web_search(self, llm: Any) -> Runnable:
+        from app.catalog.sources import XAI_WEB_SEARCH_TOOL
+
+        return llm.bind_tools([dict(XAI_WEB_SEARCH_TOOL)])
+
+
 # Keyed by MODEL_REGISTRY[...]["family"].
 PROVIDERS: dict[str, ChatProvider] = {
     "openai": OpenAIProvider(),
     "anthropic": AnthropicProvider(),
     "google": GoogleProvider(),
+    "xai": XAIProvider(),
 }

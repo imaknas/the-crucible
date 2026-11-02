@@ -1336,7 +1336,7 @@ def catalog_sync(
     """
     [bold]📚 Catalog sync[/bold] — Refresh the model catalog from the providers' own APIs.
 
-    Lists models from OpenAI, Anthropic and Google, applies overrides.json,
+    Lists models from OpenAI, Anthropic, Google and xAI, applies overrides.json,
     probes models with a real one-token call (and a web search), and writes
     app/catalog/data/catalog.json. Probes cost a few cents; --probe none is free.
     """

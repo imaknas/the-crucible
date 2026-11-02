@@ -45,6 +45,12 @@ def anthropic_web_search_tool(code_execution: Optional[bool], max_uses: int = 3)
     return tool
 
 
+# xAI's own search tool, which exists only on its Responses API
+# (https://docs.x.ai/developers/tools/web-search). Shared by the app's
+# provider and the catalog probe.
+XAI_WEB_SEARCH_TOOL: dict[str, Any] = {"type": "web_search"}
+
+
 def guarded(call) -> ProbeResult:
     """Run one probe; transport failures are inconclusive, never a crash."""
     try:
@@ -73,10 +79,13 @@ class ProviderSource(Protocol):
 # Error text is committed with the catalog (a public file): keep account
 # identifiers out of it.
 _ACCOUNT_IDS = re.compile(r"\b(org|proj|user|acct)[-_][A-Za-z0-9]{6,}\b")
+# xAI names the account as a team, by UUID ("your team <uuid> does not have
+# access"); any UUID in an error is an identifier nobody reading the catalog needs.
+_UUIDS = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
 
 
 def _redact(text: str) -> str:
-    return _ACCOUNT_IDS.sub(lambda m: f"{m.group(1)}-…", text)
+    return _UUIDS.sub("…", _ACCOUNT_IDS.sub(lambda m: f"{m.group(1)}-…", text))
 
 
 def _probe(response: httpx.Response) -> ProbeResult:
@@ -315,6 +324,99 @@ class GoogleSource:
         }, timeout=SEARCH_TIMEOUT)
 
 
+# ─── xAI ─────────────────────────────────────────────────────────
+
+
+class XAISource:
+    """Two listings (https://docs.x.ai/developers/rest-api-reference/inference/models):
+    /v1/language-models lists the chat models with their modalities, aliases
+    and reasoning efforts; only /v1/models reports `context_length`. Both
+    report prices too, which stay in prices.json like every provider's.
+
+    xAI calls Chat Completions legacy and puts its tools (web search included)
+    on the Responses API only, so chat is probed on chat/completions — what
+    ChatXAI sends — with the Responses API as the fallback, and web search on
+    the Responses API."""
+
+    name = "xai"
+    env_key = "XAI_API_KEY"
+    base = "https://api.x.ai/v1"
+    docs = "https://docs.x.ai/developers/rest-api-reference/inference/models"
+    _not_chat = re.compile(r"imagine|image|video|voice|tts|transcribe|embed")
+
+    def _headers(self, key: str) -> dict[str, str]:
+        return {"Authorization": f"Bearer {key}"}
+
+    def list_models(self, client, key):
+        r = client.get(f"{self.base}/language-models", headers=self._headers(key))
+        r.raise_for_status()
+        models = r.json()["models"]
+        r = client.get(f"{self.base}/models", headers=self._headers(key))
+        r.raise_for_status()
+        windows = {m["id"]: m.get("context_length") for m in r.json().get("data", [])}
+        return [{**m, "context_length": windows.get(m["id"])} for m in models]
+
+    def is_chat_candidate(self, raw):
+        mid = raw["id"]
+        return (
+            mid.startswith("grok-")
+            and "text" in raw.get("output_modalities", [])
+            and not self._not_chat.search(mid)
+        )
+
+    def normalize(self, raw):
+        caps = raw.get("capabilities") or {}
+        capabilities: dict[str, Any] = {"image_input": "image" in raw.get("input_modalities", [])}
+        if caps.get("reasoning_effort"):
+            capabilities["reasoning_effort"] = list(caps["reasoning_effort"])
+        # A request may name a model by an alias, but the registry and the
+        # price list key on the id: knowing the aliases says which id that is.
+        if raw.get("aliases"):
+            capabilities["aliases"] = sorted(raw["aliases"])
+        entry = CatalogEntry(
+            id=raw["id"],
+            provider=self.name,
+            display_name=raw["id"],
+            released=_day(raw.get("created")),
+            input_limit=raw.get("context_length"),
+            capabilities=capabilities,
+        )
+        if entry.input_limit is not None:
+            entry.sources["input_limit"] = (
+                f"xai /v1/models context_length (shared by input and output; no output limit is reported): {self.docs}"
+            )
+        return entry
+
+    def _post(self, client, key, path, body, timeout=None):
+        return _probe(client.post(
+            f"{self.base}/{path}", headers=self._headers(key), json=body,
+            **({"timeout": timeout} if timeout else {}),
+        ))
+
+    def probe_chat(self, client, key, model_id):
+        chat = self._post(client, key, "chat/completions", {
+            "model": model_id,
+            "messages": [{"role": "user", "content": PROBE_PROMPT}],
+            "max_completion_tokens": 64,
+        })
+        if chat.ok or not chat.error or "HTTP 404" not in chat.error:
+            return ProbeResult(chat.ok, chat.error, {"api": "chat_completions"} if chat.ok else {})
+        responses = self._post(client, key, "responses", {
+            "model": model_id, "input": PROBE_PROMPT, "max_output_tokens": 64, "store": False,
+        })
+        if responses.ok:
+            return ProbeResult(True, None, {"api": "responses"})
+        return ProbeResult(False, f"{chat.error}; responses: {responses.error}")
+
+    def probe_web_search(self, client, key, entry):
+        return self._post(client, key, "responses", {
+            "model": entry.id,
+            "input": SEARCH_PROMPT,
+            "tools": [dict(XAI_WEB_SEARCH_TOOL)],
+            "store": False,
+        }, timeout=SEARCH_TIMEOUT)
+
+
 SOURCES: dict[str, ProviderSource] = {
-    s.name: s for s in (OpenAISource(), AnthropicSource(), GoogleSource())
+    s.name: s for s in (OpenAISource(), AnthropicSource(), GoogleSource(), XAISource())
 }

@@ -26,6 +26,7 @@ describe("readableOn", () => {
 describe("modelFamilyColor", () => {
   it("guesses a family before the catalogue loads", () => {
     expect(modelFamilyColor("claude-sonnet-5-5")).toBe(FAMILY_COLORS.anthropic);
+    expect(modelFamilyColor("grok-4.7")).toBe(FAMILY_COLORS.xai);
     expect(modelFamilyColor("mystery")).toBe(FAMILY_COLORS.unknown);
   });
 });

@@ -13,6 +13,7 @@ export const FAMILY_COLORS = {
   openai: "#10b981",
   anthropic: "#f59e0b",
   google: "#8b5cf6",
+  xai: "#0ea5e9",
   synthesis: "#8b5cf6",
   unknown: "#6366f1",
 } as const;
@@ -23,6 +24,7 @@ export function modelFamilyColor(modelId: string | undefined | null): string {
   if (m.includes("gpt") || m.includes("o1") || m.includes("o3")) return FAMILY_COLORS.openai;
   if (m.includes("claude")) return FAMILY_COLORS.anthropic;
   if (m.includes("gemini")) return FAMILY_COLORS.google;
+  if (m.includes("grok")) return FAMILY_COLORS.xai;
   return FAMILY_COLORS.unknown;
 }
 

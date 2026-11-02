@@ -36,3 +36,13 @@ export const GOOGLE_NO_KEY: ModelFamily = {
 };
 
 export const FAMILIES: ModelFamily[] = [OPENAI, ANTHROPIC, GOOGLE_NO_KEY];
+
+/** A family the backend knows (its key can be entered) but offers no model of yet. */
+export const XAI_NO_MODELS: ModelFamily = {
+  key: "xai",
+  label: "xAI",
+  color: "#0ea5e9",
+  env_key: "XAI_API_KEY",
+  available: false,
+  models: [],
+};

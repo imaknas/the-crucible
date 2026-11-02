@@ -28,17 +28,21 @@ class ModelFactory(Protocol):
         ...
 
 
-def normalize_model_id(model_id: str) -> str:
+def normalize_model_id(model_id: str, registry: Mapping[str, Mapping[str, Any]] = MODEL_REGISTRY) -> str:
     """Registry keys are lowercase; callers may pass padding or capitals."""
     key = model_id.strip().lower()
-    if key not in MODEL_REGISTRY:
+    if key not in registry:
         raise ValueError(f"Model '{model_id.strip()}' is not supported in the whitelist.")
     return key
 
 
-def has_credentials(model_id: str, env: Mapping[str, str] = os.environ) -> bool:
+def has_credentials(
+    model_id: str,
+    env: Mapping[str, str] = os.environ,
+    registry: Mapping[str, Mapping[str, Any]] = MODEL_REGISTRY,
+) -> bool:
     """Whether the API key for this model's provider family is set."""
-    family = MODEL_REGISTRY.get(model_id.strip().lower(), {}).get("family")
+    family = registry.get(model_id.strip().lower(), {}).get("family")
     meta = FAMILY_META.get(family) if isinstance(family, str) else None
     return bool(env.get(meta["env_key"])) if meta else True
 
@@ -66,10 +70,10 @@ class ProviderModelFactory:
         self._env = env
 
     def chat(self, model_id: str, toggles: Optional[Mapping[str, Any]] = None) -> Runnable:
-        key = normalize_model_id(model_id)
+        key = normalize_model_id(model_id, self._registry)
         config = self._registry[key]
         family = config["family"]
-        if not has_credentials(key, self._env):
+        if not has_credentials(key, self._env, self._registry):
             env_key = FAMILY_META[family]["env_key"]
             raise ValueError(f"{env_key} is not set in environment or .env file.")
 

@@ -75,7 +75,8 @@ export default function ModelPickerSection({
         </Box>
       )}
       <Stack spacing={1.5}>
-        {families.map((family) => {
+        {/* A family the app offers no model of yet has nothing to pick; API Keys still lists it. */}
+        {families.filter((family) => family.models.length > 0).map((family) => {
           const isExpanded = expandedFamilies.has(family.key);
           const count = selectedCount(family.key);
           const fc = getFamilyColors(family.color, isDark);
