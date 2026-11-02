@@ -296,6 +296,29 @@ describe("useDebateSession", () => {
     expect(sockets[0].closed).toBe(false);
   });
 
+  it("closing a running debate while its socket reattaches still stops it", async () => {
+    const { result, sockets } = setup();
+    await startDebate(result);
+    act(() => {
+      sockets[0].open();
+      sockets[0].emit({ type: "debate_round_start", round: 0 });
+      sockets[0].drop();
+    });
+    await act(async () => {
+      await result.current.close();
+    });
+    const stopper = sockets[1];
+    act(() => stopper.open());
+    expect(stopper.sent).toEqual([{ type: "debate_control", action: "stop" }]);
+    expect(stopper.closed).toBe(true);
+    expect(result.current.activeSessionId).toBeNull();
+    // The reattach that was pending is cancelled with the debate.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 600));
+    });
+    expect(sockets).toHaveLength(2);
+  });
+
   it("leaves a running debate for another without asking and without stopping it", async () => {
     const { result, sockets, opts } = setup();
     await startDebate(result);

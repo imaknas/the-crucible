@@ -79,15 +79,18 @@ class RunRegistry:
     def watch(self, key: str, deliver: Deliver) -> list[LiveRun]:
         """Deliver the key's frames from now on. ``deliver`` first gets the
         resume frame of every live run; nothing is awaited between those and
-        the subscription, so no frame is lost or doubled. Returns the live
-        runs."""
-        live = self.live(key)
-        for run in live:
+        the subscription, so no frame is lost or doubled. Returns the runs it
+        was caught up on: a run that has already said its last (its task
+        still finishing up) is not among them, so a client can treat a reply
+        missing from the list as ended."""
+        resumed = []
+        for run in self.live(key):
             frame = run.state.resume()
             if frame is not None:
                 deliver(frame)
+                resumed.append(run)
         self._watchers.setdefault(key, []).append(deliver)
-        return live
+        return resumed
 
     def unwatch(self, key: str, deliver: Deliver) -> None:
         watchers = self._watchers.get(key, [])

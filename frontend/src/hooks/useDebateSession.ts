@@ -726,11 +726,20 @@ export function useDebateSession({
   const close = useCallback(async () => {
     const warning = closeWarning(status);
     if (warning && !(await confirm("Stop the debate?", warning, { confirmLabel: "Stop and close" }))) return;
-    if (debateControls(status, true).stopOnClose && isOpen(wsRef.current)) {
-      send({ type: "debate_control", action: "stop" });
+    if (debateControls(status, true).stopOnClose) {
+      const stop = { type: "debate_control", action: "stop" };
+      if (isOpen(wsRef.current)) send(stop);
+      else if (activeSessionId) {
+        // Between a dropped socket and its reattach: a socket of its own carries the stop.
+        const ws = openSocket(api.createDebateWebSocketUrl(activeSessionId));
+        ws.onopen = () => {
+          ws.send(JSON.stringify(stop));
+          ws.close();
+        };
+      }
     }
     clear();
-  }, [confirm, status, send, clear]);
+  }, [confirm, status, send, clear, activeSessionId, openSocket]);
 
   const remove = useCallback(
     async (sessionId: string) => {

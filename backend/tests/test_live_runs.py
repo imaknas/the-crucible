@@ -242,6 +242,29 @@ async def test_a_watcher_that_fails_is_dropped_and_the_run_goes_on():
     assert [f["type"] for f in seen] == ["x", "y"]
 
 
+@pytest.mark.asyncio
+async def test_a_run_that_has_said_its_last_is_not_reported_as_caught_up():
+    """A chat run titles a new thread after its stream_end: still a task, but
+    a reconnecting tab must not wait for a stream_end that already went."""
+    registry = RunRegistry()
+    turn = ChatTurn("turn-1", models=[A])
+    where = {"model": A, "parent_checkpoint_id": "cp", "turn_id": "turn-1"}
+    release = asyncio.Event()
+
+    async def body(run):
+        run.emit({"type": "stream_start", **where})
+        run.emit({"type": "stream_end", **where})
+        await release.wait()  # e.g. naming the thread
+
+    run = registry.start("t", ChatRunState(turn, A, where, message="Q", kind=None), body)
+    await asyncio.sleep(0)
+    seen: list[dict] = []
+    assert registry.live("t") == [run]
+    assert registry.watch("t", seen.append) == [] and seen == []
+    release.set()
+    await run.task
+
+
 def test_a_debate_resume_says_pausing_until_the_round_ends():
     state = DebateRunState("s")
     state.record({"type": "debate_session_created", "question": "Q"})
