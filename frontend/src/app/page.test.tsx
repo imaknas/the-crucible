@@ -26,6 +26,7 @@ jest.mock("@/lib/api", () => ({
   runAnswerReview: jest.fn(),
   listAnswerComponents: jest.fn(),
   fetchHistory: jest.fn(),
+  fetchNextTurnContext: jest.fn(),
   fetchKeyStatus: jest.fn(),
   fetchModels: jest.fn(),
   listDebateSessions: jest.fn(),
@@ -170,6 +171,20 @@ beforeEach(() => {
   mocked.fetchDebateTranscript.mockResolvedValue({ question: "", rounds: [], synthesis: null } as never);
   mocked.searchHistory.mockResolvedValue({ results: [] });
   mocked.listAnswerReviews.mockResolvedValue([]);
+  mocked.fetchNextTurnContext.mockImplementation(async (_t, _c, models) => ({
+    checkpoint_id: null,
+    models: models.map((model) => ({
+      model,
+      tokens: 40,
+      history_tokens: 40,
+      messages: 2,
+      summarized: false,
+      from_summary: false,
+      summarizes_next: false,
+      soft_limit: 1000,
+      context_window: 2000,
+    })),
+  }));
 });
 
 describe("Home: the view never switches itself", () => {
@@ -261,6 +276,45 @@ describe("Home: the view never switches itself", () => {
     expect(mocked.createDebateSession.mock.calls[0][0]).toMatchObject({ parent_thread_id: "t1", participants: MODELS });
     await waitFor(() => expect(storedView()).toBe("tree"));
     expect(screen.queryByPlaceholderText(/Ask the arena/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("Home: what the next turn inherits", () => {
+  const history = {
+    nodes: [
+      { id: "root", position: { x: 0, y: 0 }, data: { label: "Start" }, metadata: { role: "system" } },
+      { id: "u1", position: { x: 0, y: 150 }, data: { label: "The question" }, metadata: { role: "user" } },
+      {
+        id: "a1",
+        position: { x: 0, y: 300 },
+        data: { label: "The answer" },
+        metadata: { role: "ai", active_peer: "gpt-a", model_name: "GPT A" },
+      },
+    ],
+    edges: [
+      { id: "e0", source: "root", target: "u1" },
+      { id: "e1", source: "u1", target: "a1" },
+    ],
+    messages: [
+      { role: "user", content: "The question", type: "human", checkpoint_id: "u1" },
+      { role: "assistant", content: "The answer", type: "ai", model: "gpt-a", checkpoint_id: "a1" },
+    ],
+    current_checkpoint: "a1",
+  };
+
+  it("measures the next turn for whoever answers, and Start fresh branches from the start", async () => {
+    mocked.fetchHistory.mockResolvedValue(history as never);
+    renderPage({ view: "arena" });
+    expect(await screen.findByTestId("branch-inherits")).toHaveTextContent("Sends 2 messages · ~40 tokens");
+    expect(mocked.fetchNextTurnContext).toHaveBeenCalledWith("t1", null, MODELS);
+
+    mocked.fetchHistory.mockClear();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Start fresh/ }));
+    });
+    expect(mocked.fetchHistory).toHaveBeenCalledWith("t1", "root");
+    expect(await screen.findByText(/Starting fresh/)).toBeInTheDocument();
+    await waitFor(() => expect(mocked.fetchNextTurnContext).toHaveBeenLastCalledWith("t1", "root", MODELS));
   });
 });
 

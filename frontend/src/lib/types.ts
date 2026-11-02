@@ -2,6 +2,7 @@
 // Single source of truth for all shared data types across the frontend.
 
 import type { ReplyMetrics } from "@/lib/metrics";
+import type { ReplyContext } from "@/lib/context";
 
 /** A row of the session list (GET /threads). */
 export interface Thread {
@@ -44,6 +45,8 @@ export interface Message {
   round?: number;
   /** A reply's time, tokens and cost (stream_end and path messages); null if it recorded none. */
   metrics?: ReplyMetrics | null;
+  /** What a reply was written from: the summary, what recall brought back (lib/context). */
+  context?: ReplyContext | null;
 }
 
 /** One model's failed turn, shown inline with a Retry instead of a modal. */
@@ -83,11 +86,13 @@ export interface TreeNode {
     kind?: string;
     /** The person's message and every reply sent with it share one; absent on older threads. */
     turn_id?: string;
-    /** A reply's time, tokens and cost; null if it recorded none. */
     /** Synthesis nodes: how it was asked for (lib/synthesis), and the question for "ask". */
     synthesis_mode?: string | null;
     synthesis_question?: string | null;
+    /** A reply's time, tokens and cost; null if it recorded none. */
     metrics?: ReplyMetrics | null;
+    /** What a reply was written from (lib/context); null for older replies. */
+    context?: ReplyContext | null;
     [key: string]: unknown;
   };
   /** "synthesis" renders the node as a SynthesisTreeNode. */

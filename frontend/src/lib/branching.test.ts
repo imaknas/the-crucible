@@ -1,4 +1,4 @@
-import { branchPoint } from "./branching";
+import { branchPoint, startNode } from "./branching";
 import type { TreeNode } from "./types";
 
 const node = (id: string, role: string, label: string): TreeNode => ({
@@ -38,5 +38,33 @@ describe("branchPoint", () => {
   it("has nothing to say for an empty tree, the root, or no head", () => {
     expect(branchPoint([nodes[0]], null, "root")).toBeNull();
     expect(branchPoint(nodes, null, null)).toBeNull();
+  });
+});
+
+describe("starting fresh", () => {
+  const nodes: TreeNode[] = [
+    {
+      id: "root",
+      data: { label: "Start" },
+      position: { x: 0, y: 0 },
+      metadata: { role: "system" },
+    },
+    {
+      id: "u1",
+      data: { label: "Hi" },
+      position: { x: 0, y: 0 },
+      metadata: { role: "user" },
+    },
+  ];
+
+  it("is the tree's start node, chosen", () => {
+    expect(startNode(nodes)?.id).toBe("root");
+    expect(branchPoint(nodes, "root", "u1")).toMatchObject({
+      fresh: true,
+      isLatest: false,
+      preview: "",
+    });
+    // The start as the head is no branch point at all (an empty thread).
+    expect(branchPoint(nodes, null, "root")).toBeNull();
   });
 });

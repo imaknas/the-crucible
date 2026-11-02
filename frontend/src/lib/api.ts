@@ -1,4 +1,5 @@
 import { ensureOk } from "@/lib/errors";
+import type { NextTurnContext } from "@/lib/context";
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -46,6 +47,23 @@ export async function fetchHistory(
     : `${API_BASE}/history/${encodeURIComponent(threadId)}`;
   const res = await fetch(url);
   await ensureOk(res, "Failed to fetch history");
+  return res.json();
+}
+
+/**
+ * What the next turn from a branch point would send each model (default:
+ * the answered head), and whether it answers from a summary. Approximate.
+ */
+export async function fetchNextTurnContext(
+  threadId: string,
+  checkpointId: string | null,
+  models: string[],
+): Promise<{ checkpoint_id: string | null; models: NextTurnContext[] }> {
+  const params = new URLSearchParams();
+  if (checkpointId) params.set("checkpoint_id", checkpointId);
+  for (const m of models) params.append("models", m);
+  const res = await fetch(`${API_BASE}/history/${encodeURIComponent(threadId)}/context?${params}`);
+  await ensureOk(res, "Failed to measure the next turn");
   return res.json();
 }
 

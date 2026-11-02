@@ -9,6 +9,7 @@ import type { TurnCard } from "@/lib/turns";
 import type { ModelError } from "@/lib/types";
 import { turnTotal } from "@/lib/metrics";
 import { ReplyMetricsLine, TurnMetricsLine } from "./ReplyMetrics";
+import { ReplyContextNote } from "./ContextNotes";
 
 const actionSx = (color: string) => ({
   px: 1,
@@ -179,6 +180,7 @@ export const CompareCard = React.memo(function CompareCard({
       {!card.streaming && !failed && (
         <Box sx={{ mb: 1.5 }}>
           <ReplyMetricsLine metrics={card.metrics} />
+          <ReplyContextNote context={card.context} modelLabel={modelLabel} />
         </Box>
       )}
 

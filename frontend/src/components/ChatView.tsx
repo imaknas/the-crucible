@@ -8,6 +8,8 @@ import { MessageBubble } from "./MessageBubble";
 import { Message, ModelError } from "@/lib/types";
 import ModelErrorBubble from "./ModelErrorBubble";
 import BranchChip, { type AnswerChoice } from "./BranchChip";
+import SummaryMarker from "./SummaryMarker";
+import type { NextTurnContext } from "@/lib/context";
 import type { BranchPoint } from "@/lib/branching";
 import { buildTranscript, synthesizableIds, type LiveTurn, type TurnCard } from "@/lib/turns";
 import TurnCards from "./TurnCards";
@@ -69,6 +71,10 @@ interface ChatViewProps {
   onResetBranch?: () => void;
   /** Who answers a clicked reply, switchable on the branch chip. */
   answerChoice?: AnswerChoice | null;
+  /** What the next turn would send each answering model (useNextTurnContext). */
+  nextTurnContext?: NextTurnContext[] | null;
+  /** Branch from the thread's empty start: the next message goes without earlier ones. */
+  onStartFresh?: () => void;
   /** The backend's message limit. */
   maxPromptChars?: number;
   /** What else goes with each message (system prompt, web search, document search). */
@@ -119,6 +125,8 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   branchPoint,
   onResetBranch,
   answerChoice = null,
+  nextTurnContext = null,
+  onStartFresh,
   maxPromptChars,
   contextNotes,
   replyTexts = EMPTY_TEXTS,
@@ -561,6 +569,12 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
               const { msg, index: i } = item;
               const isUser = msg.role === "user" || msg.type === "human";
 
+              // Where the history was summarized. Not a message: the scroll
+              // map leaves it out.
+              if (msg.kind === "summary") {
+                return <SummaryMarker key={msg.id || `summary-${i}`} msg={msg} isDark={isDark} />;
+              }
+
               // Debate round separator
               if (msg.type === "round_header") {
                 return (
@@ -828,6 +842,8 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
               onReset={() => onResetBranch?.()}
               modelLabel={modelLabel}
               answer={answerChoice}
+              context={nextTurnContext}
+              onStartFresh={onStartFresh}
             />
           ) : undefined
         }

@@ -1,5 +1,6 @@
 import type { Message, TreeEdge, TreeNode } from "@/lib/types";
 import type { ReplyMetrics } from "@/lib/metrics";
+import type { ReplyContext } from "@/lib/context";
 import { cardExcerpt, isSynthesisNode, orderSiblings, turnSiblings } from "@/lib/arenaCompare";
 
 /**
@@ -97,6 +98,8 @@ export interface TurnCard {
   shown: boolean;
   /** What the answer took; null until known, or for a reply that recorded none. */
   metrics: ReplyMetrics | null;
+  /** What it was written from (lib/context); null until the turn settles, or for older replies. */
+  context?: ReplyContext | null;
 }
 
 export type TranscriptItem =
@@ -128,6 +131,7 @@ function liveCard(r: LiveReply): TurnCard {
     error: r.error ?? null,
     shown: false,
     metrics: r.metrics ?? null,
+    context: null,
   };
 }
 
@@ -178,6 +182,7 @@ export function buildTranscript({ messages, nodes, edges, selected, replyTexts, 
         shown: own,
         // Live numbers first (stream_end), then the stored ones.
         metrics: (own ? msg.metrics : null) ?? liveReply?.metrics ?? node.metadata?.metrics ?? null,
+        context: (own ? msg.context : null) ?? node.metadata?.context ?? null,
       };
     });
     // A model that failed this turn has no node; its card stays, saying so.

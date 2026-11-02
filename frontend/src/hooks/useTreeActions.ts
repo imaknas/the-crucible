@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import * as api from "@/lib/api";
 import { errorMessage } from "@/lib/errors";
 import type { TreeEdge, TreeNode } from "@/lib/types";
-import { branchPoint } from "@/lib/branching";
+import { branchPoint, startNode } from "@/lib/branching";
 import { lastUserText } from "@/lib/messages";
 import type { Confirm } from "@/hooks/useConfirm";
 import type { PushToast } from "@/hooks/useToasts";
@@ -95,6 +95,16 @@ export function useTreeActions({
     setChosen(null);
     if (threadId) fetchHistory(threadId);
   }, [setChosen, threadId, fetchHistory]);
+
+  /**
+   * "Start fresh": the next message goes from the thread's empty start, with
+   * none of the conversation, as a new branch of the same tree. The
+   * transcript empties to match; "Latest" brings the conversation back.
+   */
+  const fresh = useMemo(() => startNode(nodes), [nodes]);
+  const startFresh = useCallback(() => {
+    if (fresh) selectCheckpoint(fresh.id);
+  }, [fresh, selectCheckpoint]);
 
   /**
    * "Branch from here" on a tree node: it becomes the parent of the next
@@ -202,5 +212,7 @@ export function useTreeActions({
     branch,
     resetToLatest,
     branchFrom,
+    /** Absent while the tree has no start node to branch from. */
+    startFresh: fresh ? startFresh : undefined,
   };
 }

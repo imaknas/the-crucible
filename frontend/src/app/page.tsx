@@ -36,6 +36,7 @@ import { useToggles } from "@/hooks/useToggles";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useTreeActions } from "@/hooks/useTreeActions";
 import { useReplyTarget } from "@/hooks/useReplyTarget";
+import { useNextTurnContext } from "@/hooks/useNextTurnContext";
 import { useAnswerDiff } from "@/hooks/useAnswerDiff";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
 import { reconcileMessages } from "@/lib/messages";
@@ -280,6 +281,7 @@ export default function Home() {
     branch,
     resetToLatest,
     branchFrom,
+    startFresh,
   } = useTreeActions({
     threadId,
     nodes,
@@ -345,6 +347,8 @@ export default function Home() {
         : null,
     [reply.replyModel, reply.canAskAll, reply.askAll, reply.setAskAll, selectedModels],
   );
+  // What the next message would send whoever answers it, from the branch point.
+  const nextTurnContext = useNextTurnContext(threadId, chosen, isLoading ? null : head, reply.responders);
   const chatMessages = useMemo(
     () => (inDebate && debateHasTranscript ? [...debate.messages, ...afterDebateRecord(messages)] : messages),
     [inDebate, debateHasTranscript, debate.messages, messages],
@@ -541,6 +545,8 @@ export default function Home() {
                     branchPoint={inDebate ? null : branch}
                     onResetBranch={resetToLatest}
                     answerChoice={answerChoice}
+                    nextTurnContext={inDebate ? null : nextTurnContext}
+                    onStartFresh={messages.length ? startFresh : undefined}
                     replyTexts={replyTexts}
                     maxPromptChars={limits.max_prompt_chars}
                     contextNotes={contextNotes}

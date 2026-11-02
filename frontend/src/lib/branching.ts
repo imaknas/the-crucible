@@ -21,6 +21,8 @@ export interface BranchPoint {
   preview: string;
   /** Nothing was chosen: the next message continues the latest turn. */
   isLatest: boolean;
+  /** The thread's start was chosen: the next message goes without any earlier ones. */
+  fresh?: boolean;
 }
 
 const PREVIEW_CHARS = 60;
@@ -29,10 +31,20 @@ function isMessageNode(n: TreeNode) {
   return n.metadata?.role === "user" || n.metadata?.role === "ai";
 }
 
+/**
+ * The thread's empty start (the tree's "system" root). Branching from it
+ * sends the next message with no earlier ones: "Start fresh", in the same
+ * tree as the conversation it sets aside.
+ */
+export function startNode(nodes: TreeNode[]): TreeNode | undefined {
+  return nodes.find((n) => n.metadata?.role === "system");
+}
+
 export function branchPoint(nodes: TreeNode[], chosenId: string | null, headId: string | null): BranchPoint | null {
   const id = chosenId ?? headId;
   if (!id) return null;
   const node = nodes.find((n) => n.id === id);
+  if (node && chosenId && node === startNode(nodes)) return { node, preview: "", isLatest: false, fresh: true };
   if (!node || !isMessageNode(node)) return null;
   const text = (node.metadata?.preview || node.data.label || "").replace(/\s+/g, " ").trim();
   return {
