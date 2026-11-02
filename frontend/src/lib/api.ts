@@ -257,3 +257,18 @@ export async function saveApiKeys(keys: Record<string, string>): Promise<void> {
   // The backend explains rejections (e.g. localhost-only, invalid characters).
   await ensureOk(res, "Failed to save API keys");
 }
+
+/** A synthesis checklist's parts (POST /synthesis/components); nothing is written to the thread. */
+export async function listAnswerComponents(
+  threadId: string,
+  checkpointIds: string[],
+  model?: string | null,
+): Promise<{ text: string; sources: string[] }[]> {
+  const res = await fetch(`${API_BASE}/synthesis/components`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ thread_id: threadId, checkpoint_ids: checkpointIds, model: model ?? null }),
+  });
+  await ensureOk(res, "Couldn't split the answers into parts");
+  return (await res.json()).components;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTheme } from "@mui/material";
 import ReactFlow, {
   Background,
@@ -18,7 +18,9 @@ import ReactFlow, {
   Position,
   getNodesBounds,
 } from "reactflow";
-import CustomTreeNode, { LOD_THRESHOLD } from "./CustomTreeNode";
+import CustomTreeNode, { LOD_THRESHOLD, type CustomNodeData } from "./CustomTreeNode";
+import SelectionBar from "./tree/SelectionBar";
+import type { SynthesisRequest } from "@/lib/synthesis";
 import { shouldFitWholeTree } from "@/lib/treeFit";
 import SynthesisTreeNode from "./SynthesisTreeNode";
 import { DebateLaneHeaders, DebateRoundBands } from "./tree/DebateOverlays";
@@ -66,6 +68,8 @@ interface TreeCanvasProps {
   answering?: boolean;
   /** The tree is being fetched: an empty canvas is "not loaded yet", not "no messages". */
   loading?: boolean;
+  /** Chat trees: combine answers picked anywhere on the tree (Shift/Cmd-click or a node's Pick). */
+  onSynthesizeSelection?: (ids: string[], request: SynthesisRequest) => void;
 }
 
 const selector = (s: any) => ({
@@ -177,8 +181,17 @@ function TreeViewInner({
   maxRound = 0,
   answering = false,
   loading = false,
+  onSynthesizeSelection,
 }: TreeCanvasProps) {
   const isDark = useTheme().palette.mode === "dark";
+  // Answers picked to combine. Separate from the active node: picking never
+  // moves the branch point or changes who answers next.
+  const [picked, setPicked] = useState<string[]>([]);
+  const pickable = !debateMode && !!onSynthesizeSelection;
+  const togglePick = useCallback(
+    (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])),
+    [],
+  );
   const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
@@ -241,6 +254,8 @@ function TreeViewInner({
           // Only message nodes can be replied from; the empty root can't.
           onBranch: role === "user" || role === "ai" ? onBranchNode : undefined,
           onRead: role === "ai" && !isPending ? onReadNode : undefined,
+          onPick: pickable && role === "ai" && !isPending ? togglePick : undefined,
+          picked: picked.includes(n.id),
           metadata: n.metadata,
           styling: {
             background: isActive ? (isDark ? "#2563eb" : "#3b82f6") : colors.bg,
@@ -251,9 +266,11 @@ function TreeViewInner({
             padding: "14px",
             fontSize: "12px",
             lineHeight: "1.4",
-            boxShadow: isActive
-              ? `0 0 20px ${isDark ? "rgba(37, 99, 235, 0.3)" : "rgba(59, 130, 246, 0.2)"}`
-              : "0 4px 20px -8px rgba(0, 0, 0, 0.15)",
+            boxShadow: picked.includes(n.id)
+              ? "0 0 0 3px #7c3aed"
+              : isActive
+                ? `0 0 20px ${isDark ? "rgba(37, 99, 235, 0.3)" : "rgba(59, 130, 246, 0.2)"}`
+                : "0 4px 20px -8px rgba(0, 0, 0, 0.15)",
             animation: isPending ? "pulse 1.5s ease-in-out infinite" : undefined,
             opacity: isPending ? 0.7 : 1,
           },
@@ -261,7 +278,7 @@ function TreeViewInner({
         selected: isActive,
       };
     });
-  }, [externalNodes, activeNodeId, isDark, onDeleteNode, onBranchNode, onReadNode]);
+  }, [externalNodes, activeNodeId, isDark, onDeleteNode, onBranchNode, onReadNode, pickable, picked, togglePick]);
 
   const processedEdges = React.useMemo(() => {
     return externalEdges.map((e) => {
@@ -425,9 +442,20 @@ function TreeViewInner({
     }
   }, [fitView, activeNodeId]);
 
+  // Picks of nodes that left the tree (a deleted branch) drop out.
+  const livePicks = picked.filter((id) => externalNodes.some((n) => n.id === id));
+
   const handleNodeClick = useCallback(
-    (_: any, node: Node) => onNodeClick?.(node.id),
-    [onNodeClick],
+    (event: React.MouseEvent, node: Node) => {
+      // A modified click picks an answer to combine; only a plain click
+      // chooses where the next message goes.
+      if (pickable && (event.shiftKey || event.metaKey || event.ctrlKey)) {
+        if ((node.data as CustomNodeData)?.onPick) togglePick(node.id);
+        return;
+      }
+      onNodeClick?.(node.id);
+    },
+    [onNodeClick, pickable, togglePick],
   );
   const handleNodeDragStop = useCallback(
     (_: any, node: Node) => onNodeDragStop?.(node.id, node.position),
@@ -521,6 +549,16 @@ function TreeViewInner({
           Models answering… their replies join the tree when they finish.
         </div>
       )}
+      {pickable && livePicks.length > 0 && (
+        <SelectionBar
+          count={livePicks.length}
+          onClear={() => setPicked([])}
+          onRun={(request) => {
+            onSynthesizeSelection?.(livePicks, request);
+            setPicked([]);
+          }}
+        />
+      )}
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -528,6 +566,9 @@ function TreeViewInner({
         onEdgesChange={onEdgesChange}
         onNodeClick={handleNodeClick}
         onNodeDragStop={handleNodeDragStop}
+        // Modified clicks are ours (picking answers), not React Flow's own multi-select.
+        multiSelectionKeyCode={null}
+        selectionKeyCode={null}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         minZoom={0.01}

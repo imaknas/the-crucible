@@ -1,3 +1,4 @@
+import { SYNTHESIS_MODES, type SynthesisMode, type SynthesisRequest } from "@/lib/synthesis";
 import React from "react";
 import { Box, ButtonBase, CircularProgress, Divider, MenuItem, Paper, Select, Stack, Typography } from "@mui/material";
 import { AlertTriangle, CheckCircle2, Scale, Sparkles } from "lucide-react";
@@ -229,7 +230,7 @@ interface TurnProps {
     disabled: boolean;
     options: string[];
     firstSelected: string | null;
-    onSynthesize: (ids: string[], model: string | null) => void;
+    onSynthesize: (ids: string[], model: string | null, request?: SynthesisRequest) => void;
   } | null;
   errors?: ModelError[];
   onRetry?: (errorId: string) => void;
@@ -252,6 +253,10 @@ export default function TurnCards({
 }: TurnProps) {
   // "" = the first selected model, the original behaviour.
   const [synthesizer, setSynthesizer] = React.useState("");
+  const [mode, setMode] = React.useState<SynthesisMode>("merge");
+  const [question, setQuestion] = React.useState("");
+  const action = SYNTHESIS_MODES.find((m) => m.mode === mode) ?? SYNTHESIS_MODES[0];
+  const asks = mode === "ask";
   const columns = cards.length === 2 ? "repeat(2, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))";
   // Shown once every answer is in (a total of half a turn would read as the
   // whole), under the cards, so its arrival doesn't move them.
@@ -269,9 +274,50 @@ export default function TurnCards({
           </Box>
           {synthesis && (
             <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 1 }}>
+              <Select
+                size="small"
+                variant="standard"
+                disableUnderline
+                value={mode}
+                onChange={(e) => setMode(e.target.value as SynthesisMode)}
+                inputProps={{ "aria-label": "How to combine the answers" }}
+                sx={{ fontSize: "0.75rem", fontWeight: 600 }}
+              >
+                {SYNTHESIS_MODES.map((m) => (
+                  <MenuItem key={m.mode} value={m.mode} sx={{ fontSize: "0.8rem", display: "block" }}>
+                    {m.action}
+                    <Typography component="span" sx={{ display: "block", fontSize: "0.72rem", color: "text.secondary", whiteSpace: "normal", maxWidth: 320 }}>
+                      {m.description}
+                    </Typography>
+                  </MenuItem>
+                ))}
+              </Select>
+              {asks && (
+                <Box
+                  component="input"
+                  type="text"
+                  aria-label="Your question about these answers"
+                  placeholder="Your question about these answers"
+                  value={question}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuestion(e.target.value)}
+                  sx={{
+                    minWidth: 220,
+                    px: 1.25,
+                    py: 0.5,
+                    borderRadius: 2,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "transparent",
+                    color: "text.primary",
+                    fontSize: "0.8rem",
+                  }}
+                />
+              )}
               <ButtonBase
-                onClick={() => synthesis.onSynthesize(synthesis.ids, synthesizer || null)}
-                disabled={synthesis.disabled}
+                onClick={() =>
+                  synthesis.onSynthesize(synthesis.ids, synthesizer || null, asks ? { mode, question: question.trim() } : { mode })
+                }
+                disabled={synthesis.disabled || (asks && !question.trim())}
                 sx={{
                   px: 2,
                   py: 0.75,
@@ -288,7 +334,7 @@ export default function TurnCards({
                 }}
               >
                 <Sparkles width={12} height={12} />
-                Synthesize answers
+                {mode === "merge" ? "Synthesize answers" : mode === "compare" ? "Compare answers" : mode === "checklist" ? "Pick parts" : "Ask"}
               </ButtonBase>
               <Typography component="label" htmlFor="synthesizer-select" sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
                 written by

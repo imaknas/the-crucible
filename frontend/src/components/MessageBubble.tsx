@@ -1,3 +1,4 @@
+import { synthesisLabel } from "@/lib/synthesis";
 import React from "react";
 import {
   Box,
@@ -562,9 +563,14 @@ export const MessageBubble = React.memo(
                 lineHeight: 1,
               }}
             >
-              {isUser ? "You" : isSynthesis ? `Synthesis · ${author}` : author}
+              {isUser ? "You" : isSynthesis ? `${synthesisLabel(msg.synthesis_mode)} · ${author}` : author}
             </Typography>
           </Box>
+          {isSynthesis && msg.synthesis_question && (
+            <Typography sx={{ mb: 1.5, fontSize: "0.9rem", fontWeight: 600, color: "text.primary" }}>
+              Asked: {msg.synthesis_question}
+            </Typography>
+          )}
           <MessageBody msg={msg} isDark={isDark} />
           {!isUser && !msg.streaming && msg.metrics && (
             <Box sx={{ mt: 1.5 }}>

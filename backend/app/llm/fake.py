@@ -73,6 +73,12 @@ class ScriptedChatModel(BaseChatModel):
         if f"[[fail:{self.model_id}]]" in prompt:
             raise RuntimeError(f"{self.model_id} failed (scripted by [[fail:{self.model_id}]])")
         digest = hashlib.sha1(prompt.encode()).hexdigest()[:6]
+        if "List the distinct components of these answers" in prompt:
+            # A checklist synthesis's first step (synthesis.component_request).
+            return (
+                f"1. [all answers] Scripted part one from {self.model_id} ({digest}).\n"
+                f"2. [all answers] Scripted part two from {self.model_id} ({digest})."
+            )
         return (
             f"Scripted answer from {self.model_id} ({digest}). "
             "The point under discussion has two sides worth weighing carefully, "

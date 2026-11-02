@@ -37,6 +37,9 @@ export interface Message {
   turn_id?: string | null;
   /** The model family's colour, from the backend. */
   model_color?: string | null;
+  /** Synthesis replies: how it was asked for (lib/synthesis), and the question for "ask". */
+  synthesis_mode?: string | null;
+  synthesis_question?: string | null;
   /** Debate transcripts: the round this reply answered (0-based). */
   round?: number;
   /** A reply's time, tokens and cost (stream_end and path messages); null if it recorded none. */
@@ -81,6 +84,9 @@ export interface TreeNode {
     /** The person's message and every reply sent with it share one; absent on older threads. */
     turn_id?: string;
     /** A reply's time, tokens and cost; null if it recorded none. */
+    /** Synthesis nodes: how it was asked for (lib/synthesis), and the question for "ask". */
+    synthesis_mode?: string | null;
+    synthesis_question?: string | null;
     metrics?: ReplyMetrics | null;
     [key: string]: unknown;
   };

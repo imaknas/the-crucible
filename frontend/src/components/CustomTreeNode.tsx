@@ -11,6 +11,9 @@ export type CustomNodeData = {
   onBranch?: (nodeId: string) => void;
   /** Debate trees: open the reply in full (the node shows an excerpt). */
   onRead?: (nodeId: string) => void;
+  /** Chat trees: pick this answer to combine with others (TreeCanvas's selection bar). */
+  onPick?: (nodeId: string) => void;
+  picked?: boolean;
   styling?: any;
   metadata?: {
     role?: string;
@@ -273,7 +276,7 @@ const CustomTreeNode = React.memo(
         {/* Shown on hover and on the selected node: a keyboard (Tab, then
             Enter) or a touch screen has no hover, and used to have no way to
             branch or delete. */}
-        {(isHovered || selected) && (data.onDelete || data.onBranch || data.onRead) && (
+        {(isHovered || selected || data.picked) && (data.onDelete || data.onBranch || data.onRead || data.onPick) && (
           <div
             style={{
               position: "absolute",
@@ -284,6 +287,35 @@ const CustomTreeNode = React.memo(
               gap: 4,
             }}
           >
+            {data.onPick && (
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onPick?.(id);
+                }}
+                title={data.picked ? "Unpick this answer" : "Pick this answer to combine it with others (or Shift-click)"}
+                aria-label="Pick to combine"
+                aria-pressed={!!data.picked}
+                style={{
+                  background: data.picked ? "#7c3aed" : isDark ? "#1e293b" : "#ffffff",
+                  border: "1px solid #7c3aed",
+                  borderRadius: RADIUS.md,
+                  height: 24,
+                  padding: "0 8px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  color: data.picked ? "white" : isDark ? "#c4b5fd" : "#6d28d9",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {data.picked ? "Picked" : "Pick"}
+              </button>
+            )}
             {data.onRead && (
               <button
                 onMouseDown={(e) => e.stopPropagation()}
@@ -414,6 +446,8 @@ const CustomTreeNode = React.memo(
       a.onDelete === b.onDelete &&
       a.onBranch === b.onBranch &&
       a.onRead === b.onRead &&
+      a.onPick === b.onPick &&
+      a.picked === b.picked &&
       a.styling === b.styling &&
       a.metadata === b.metadata
     );

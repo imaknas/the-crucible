@@ -13,6 +13,7 @@ import { buildTranscript, synthesizableIds, type LiveTurn } from "@/lib/turns";
 import TurnCards from "./TurnCards";
 import PositionShiftPanel from "./PositionShiftPanel";
 import { positionShifts } from "@/lib/debateTranscript";
+import type { SynthesisRequest } from "@/lib/synthesis";
 
 interface ChatViewProps {
   messages: Message[];
@@ -28,7 +29,7 @@ interface ChatViewProps {
   /** Continue from a reply: it becomes the branch point and its model answers. */
   onContinueReply: (id: string) => void;
   /** Merge the answers at these checkpoints; `model` writes it (null = first selected). */
-  onSynthesize: (checkpointIds: string[], model?: string | null) => void;
+  onSynthesize: (checkpointIds: string[], model?: string | null, request?: SynthesisRequest) => void;
   /** Models a synthesis can be written by (those with a key). */
   synthesizerOptions?: string[];
   onDeliberate: (text: string) => void;

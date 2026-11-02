@@ -332,6 +332,62 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.locator(".react-flow__node-synthesis")).toContainText(/Synthesis · Claude Sonnet 5\.5/i);
   });
 
+  test("answers can be compared in a table", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, "Postgres or SQLite?");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    await page.getByLabel("How to combine the answers").click();
+    await page.getByRole("option", { name: /^Compare in a table/ }).click();
+    await page.getByText("Compare answers").click();
+    await expect(page.getByText(/^Comparison · /i)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+  });
+
+  test("answers can be merged from just the parts you keep", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, "Tabs or spaces?");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    await page.getByLabel("How to combine the answers").click();
+    await page.getByRole("option", { name: /^Pick the parts to keep/ }).click();
+    await page.getByText("Pick parts").click();
+    const dialog = page.getByRole("dialog", { name: "Pick the parts to keep" });
+    const second = dialog.getByRole("checkbox", { name: /Scripted part two/ });
+    await expect(second).toBeChecked();
+    await second.uncheck();
+    await dialog.getByRole("button", { name: "Merge 1 part" }).click();
+    await expect(page.getByText(/^Synthesis of kept parts · /i)).toBeVisible();
+  });
+
+  test("answers picked on different branches are combined from the tree, without moving the branch point", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, "First question?");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+    await send(page, "Second question?");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    await showTree(page);
+    await ensureDetailZoom(page);
+    const answers = nodes(page).filter({ hasText: /Scripted answer/ });
+    await expect(answers).toHaveCount(4);
+    await answers.first().click({ modifiers: ["Shift"] });
+    await answers.last().click({ modifiers: ["Shift"] });
+    const bar = page.getByRole("toolbar", { name: "Picked answers" });
+    await expect(bar).toContainText("2 answers picked");
+    // Picking left the next message on the latest turn (the Control Panel's status).
+    await expect(page.getByText("Latest turn", { exact: true })).toBeVisible();
+
+    await page.getByRole("toolbar", { name: "Picked answers" }).getByRole("button", { name: "Ask about them…" }).click();
+    await page.getByRole("textbox", { name: "Your question about the picked answers" }).fill("Which is shorter?");
+    await page.getByRole("button", { name: "Ask", exact: true }).click();
+    await expect(page.locator(".react-flow__node-synthesis")).toHaveCount(1, { timeout: 20_000 });
+    await expect(page.locator(".react-flow__node-synthesis")).toContainText(/Answer about the selection/i);
+  });
+
   test("a model that fails is shown inline with a Retry, not a modal over the other replies", async ({ page }) => {
     const sent: { model?: string; parent_checkpoint_id?: string | null }[] = [];
     page.on("websocket", (ws) => {

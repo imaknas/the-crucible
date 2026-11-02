@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ThemeProvider, createTheme } from "@mui/material";
 import dagre from "dagre";
 import type { Edge } from "reactflow";
@@ -264,5 +264,51 @@ describe("TreeCanvas empty state", () => {
     const nodes = twoNodes();
     renderCanvas({ nodes, edges: edgesFor(nodes), loading: true });
     expect(screen.queryByText(/Loading the conversation/)).not.toBeInTheDocument();
+  });
+});
+
+describe("TreeCanvas picking answers to combine", () => {
+  it("a modified click picks an answer without moving the branch point; the bar combines the picks", () => {
+    const onNodeClick = jest.fn();
+    const onSynthesizeSelection = jest.fn();
+    const nodes = twoNodes();
+    const { container } = renderCanvas({ nodes, edges: edgesFor(nodes), onNodeClick, onSynthesizeSelection });
+
+    fireEvent.click(container.querySelector('.react-flow__node[data-id="a"]')!, { shiftKey: true });
+    expect(onNodeClick).not.toHaveBeenCalled();
+    expect(screen.getByRole("toolbar", { name: "Picked answers" })).toHaveTextContent("1 answer picked");
+
+    fireEvent.click(container.querySelector('.react-flow__node[data-id="b"]')!, { metaKey: true });
+    const bar = screen.getByRole("toolbar", { name: "Picked answers" });
+    expect(bar).toHaveTextContent("2 answers picked");
+    fireEvent.click(within(bar).getByRole("button", { name: "Compare in a table" }));
+    expect(onSynthesizeSelection).toHaveBeenCalledWith(["a", "b"], { mode: "compare" });
+    expect(screen.queryByRole("toolbar", { name: "Picked answers" })).not.toBeInTheDocument();
+    expect(onNodeClick).not.toHaveBeenCalled();
+  });
+
+  it("a plain click still chooses the branch point, and ask takes a question", () => {
+    const onNodeClick = jest.fn();
+    const onSynthesizeSelection = jest.fn();
+    const nodes = twoNodes();
+    const { container } = renderCanvas({ nodes, edges: edgesFor(nodes), onNodeClick, onSynthesizeSelection });
+    fireEvent.click(container.querySelector('.react-flow__node[data-id="a"]')!);
+    expect(onNodeClick).toHaveBeenCalledWith("a");
+
+    fireEvent.click(container.querySelector('.react-flow__node[data-id="a"]')!, { shiftKey: true });
+    fireEvent.click(container.querySelector('.react-flow__node[data-id="b"]')!, { shiftKey: true });
+    fireEvent.click(screen.getByRole("button", { name: "Ask about them…" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Your question about the picked answers" }), {
+      target: { value: "Which is cheaper?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    expect(onSynthesizeSelection).toHaveBeenCalledWith(["a", "b"], { mode: "ask", question: "Which is cheaper?" });
+  });
+
+  it("offers no picking in debate trees", () => {
+    const nodes = twoNodes();
+    const { container } = renderCanvas({ nodes, edges: edgesFor(nodes), debateMode: true, onSynthesizeSelection: jest.fn() });
+    fireEvent.click(container.querySelector('.react-flow__node[data-id="a"]')!, { shiftKey: true });
+    expect(screen.queryByRole("toolbar", { name: "Picked answers" })).not.toBeInTheDocument();
   });
 });

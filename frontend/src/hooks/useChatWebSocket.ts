@@ -1,3 +1,4 @@
+import { synthesisFrameFields, type SynthesisRequest } from "@/lib/synthesis";
 import { useState, useRef, useEffect, useCallback } from "react";
 import * as api from "@/lib/api";
 import { Message, ModelError, Toggles } from "@/lib/types";
@@ -454,7 +455,7 @@ export function useChatWebSocket({
    * tree and the transcript. Replies sent together may sit on different
    * branches, so no parent is named here.
    */
-  const synthesizeBranches = async (checkpointIds: string[], model?: string | null) => {
+  const synthesizeBranches = async (checkpointIds: string[], model?: string | null, request?: SynthesisRequest) => {
     if (!threadId || isLoading || checkpointIds.length < 2) return;
     const synthesizer = model || selectedModels[0];
     if (!synthesizer || !isOpen(wsRef.current)) return;
@@ -472,6 +473,7 @@ export function useChatWebSocket({
       document_names: documentNames,
       parent_checkpoint_id: null,
       type: "synthesis",
+      ...synthesisFrameFields(request),
     });
     clearDocuments();
   };

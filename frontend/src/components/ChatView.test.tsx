@@ -184,7 +184,7 @@ describe("ChatView synthesis", () => {
     // The path's own reply is its card, whole, not also a bubble above.
     expect(screen.getAllByText("GPT's whole reply")).toHaveLength(1);
     fireEvent.click(screen.getByText("Synthesize answers"));
-    expect(onSynthesize).toHaveBeenCalledWith(["a1", "b1"], null);
+    expect(onSynthesize).toHaveBeenCalledWith(["a1", "b1"], null, { mode: "merge" });
   });
 
   it("reads another answer without changing who answers next, and continues it only on request", () => {

@@ -1,5 +1,7 @@
 "use client";
 
+import ChecklistDialog from "@/components/ChecklistDialog";
+import { useSynthesisChecklist } from "@/hooks/useSynthesisChecklist";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Box } from "@mui/material";
@@ -179,6 +181,8 @@ export default function Home() {
     pushToast,
     onThreadsChanged: fetchThreads,
   });
+  // A checklist synthesis asks which parts to keep first (ChecklistDialog).
+  const synthesis = useSynthesisChecklist(synthesizeBranches);
 
   useEffect(() => {
     setMessagesRef.current = setMessages;
@@ -496,6 +500,7 @@ export default function Home() {
                       onBranchNode={branchFrom}
                       answering={isLoading}
                       loading={isHistoryLoading}
+                      onSynthesizeSelection={(ids, request) => synthesis.request(ids, null, request)}
                     />
                   )}
                 </motion.div>
@@ -518,7 +523,7 @@ export default function Home() {
                     onSendMessage={handleSendMessage}
                     onViewReply={viewCheckpoint}
                     onContinueReply={selectCheckpoint}
-                    onSynthesize={synthesizeBranches}
+                    onSynthesize={synthesis.request}
                     synthesizerOptions={availableModelIds}
                     onDeliberate={handleDeliberate}
                     stopStreaming={stopStreaming}
@@ -612,6 +617,17 @@ export default function Home() {
         participants={selectedModels}
       />
 
+      {synthesis.checklist && (
+        <ChecklistDialog
+          key={synthesis.checklist.ids.join(",")}
+          open
+          threadId={threadId}
+          ids={synthesis.checklist.ids}
+          model={synthesis.checklist.model}
+          onClose={synthesis.close}
+          onMerge={synthesis.merge}
+        />
+      )}
       <ConfirmDialog request={confirmRequest} onAnswer={answerConfirm} />
 
       {errorModals.map((err) => (

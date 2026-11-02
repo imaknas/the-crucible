@@ -1,5 +1,6 @@
 "use client";
 
+import { synthesisLabel } from "@/lib/synthesis";
 import React, { useState } from "react";
 import { Handle, Position } from "reactflow";
 import { BookOpen, GitBranch, Sparkles, Trash2 } from "lucide-react";
@@ -8,7 +9,14 @@ import { RADIUS } from "@/theme";
 
 interface SynthesisNodeData {
   label: string;
-  metadata?: { pending?: boolean; preview?: string; model_name?: string; active_peer?: string };
+  metadata?: {
+    pending?: boolean;
+    preview?: string;
+    model_name?: string;
+    active_peer?: string;
+    synthesis_mode?: string | null;
+    synthesis_question?: string | null;
+  };
   /** Chat trees only: debate synthesis nodes are read-only. */
   onDelete?: (nodeId: string) => void;
   onBranch?: (nodeId: string) => void;
@@ -75,7 +83,7 @@ export default function SynthesisTreeNode({
               textOverflow: "ellipsis",
             }}
           >
-            {author ? `Synthesis · ${author}` : "Synthesis"}
+            {author ? `${synthesisLabel(data.metadata?.synthesis_mode)} · ${author}` : synthesisLabel(data.metadata?.synthesis_mode)}
           </div>
           <div
             style={{
