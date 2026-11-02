@@ -1,4 +1,4 @@
-import { buildTranscript, startLiveTurn, stopLiveTurn, synthesizableIds, updateLiveReply } from "./turns";
+import { adoptLiveReply, buildTranscript, startLiveTurn, stopLiveTurn, synthesizableIds, updateLiveReply } from "./turns";
 import type { Message, TreeNode } from "./types";
 
 const node = (id: string, model: string, turn: string, extra: Partial<TreeNode> = {}): TreeNode => ({
@@ -41,6 +41,16 @@ describe("live turns", () => {
     const stopped = stopLiveTurn(t)!;
     expect(stopped.replies.map((r) => !!r.stopped)).toEqual([false, true]);
     expect(stopLiveTurn(null)).toBeNull();
+    expect(stopLiveTurn(startLiveTurn(["a", "b"], "k"), "b")!.replies.map((r) => !!r.stopped)).toEqual([false, true]);
+  });
+
+  it("adopts the replies of a turn this tab didn't send, in the order they arrive", () => {
+    const old = startLiveTurn(["a"], "k");
+    let t = adoptLiveReply(old, "t9", { model: "b", content: "x", streaming: true });
+    expect(t).toEqual({ key: "live-t9", turnId: "t9", replies: [{ model: "b", content: "x", streaming: true }] });
+    t = adoptLiveReply(t, "t9", { model: "a", content: "y", streaming: true });
+    t = adoptLiveReply(t, "t9", { model: "b", content: "xx", streaming: true });
+    expect(t.replies.map((r) => [r.model, r.content])).toEqual([["b", "xx"], ["a", "y"]]);
   });
 });
 

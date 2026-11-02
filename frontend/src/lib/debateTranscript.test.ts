@@ -14,7 +14,7 @@ import {
   debatingRoleWarning,
   transcriptReducer,
   type Transcript,
-  type TranscriptAction, debateCallEstimate, debateReplyFor, debateReplyTitle, transcriptIncomplete, leaveWarning, sessionAge, transcriptMessages } from "./debateTranscript";
+  type TranscriptAction, debateCallEstimate, debateReplyFor, debateReplyTitle, transcriptIncomplete, closeWarning, mayBeLive, resumedMessages, type DebateResume, sessionAge, transcriptMessages } from "./debateTranscript";
 
 const run = (actions: TranscriptAction[], start: Transcript = EMPTY_TRANSCRIPT) =>
   actions.reduce(transcriptReducer, start);
@@ -113,10 +113,16 @@ describe("transcriptReducer", () => {
 });
 
 describe("debate status helpers", () => {
-  it("a session loaded from the server is never running here", () => {
+  it("a stored session is running only while a socket attaches to its run", () => {
+    expect(restoredDebateStatus("running", true)).toBe("running");
+    expect(restoredDebateStatus("paused", true)).toBe("paused");
+    // Nothing runs it: the server restarted, or the attach found it gone.
     expect(restoredDebateStatus("running")).toBe("interrupted");
-    expect(restoredDebateStatus("paused")).toBe("interrupted");
-    expect(restoredDebateStatus("completed")).toBe("completed");
+    expect(restoredDebateStatus("interrupted", true)).toBe("interrupted");
+    expect(restoredDebateStatus("completed", true)).toBe("completed");
+    expect(["running", "paused", "interrupted", "completed", "pending"].map((x) => mayBeLive(x as never))).toEqual([
+      true, true, false, false, false,
+    ]);
   });
 
   it("calls an early stop agreement only when a judge decided it", () => {
@@ -249,12 +255,76 @@ describe("sessionAge", () => {
   });
 });
 
-describe("leaveWarning", () => {
-  it("warns only when leaving would stop a debate this tab is driving", () => {
-    expect(leaveWarning("running", true)).toMatch(/stops it/);
-    expect(leaveWarning("paused", true)).toMatch(/holds only while this tab/);
-    expect(leaveWarning("running", false)).toBeNull();
-    expect(leaveWarning("completed", true)).toBeNull();
+describe("closeWarning", () => {
+  it("warns only when closing would stop a running or paused debate, and says how to keep it", () => {
+    expect(closeWarning("running")).toMatch(/stops the debate.*open another session instead/);
+    expect(closeWarning("pausing")).toMatch(/stops the debate/);
+    expect(closeWarning("paused")).toMatch(/stops the paused debate/);
+    expect(closeWarning("completed")).toBeNull();
+    expect(closeWarning("interrupted")).toBeNull();
+  });
+});
+
+describe("attaching to a live debate", () => {
+  const stored: DebateTranscript = {
+    question: "Tabs?",
+    rounds: [
+      { round: 0, question: "Tabs?", responses: { a: "A0", b: "B0" } },
+      { round: 1, question: "Tabs?", responses: { b: "B1" } },
+      // Stored after the resume frame was taken: the live stream adds it.
+      { round: 2, question: "Tabs?", responses: { a: "A2" } },
+    ],
+    synthesis: { model: "a", content: "old map" },
+    injected: [{ round: 1, message: "cost?" }],
+  };
+  const resume = (over: Partial<DebateResume> = {}): DebateResume => ({
+    status: "running",
+    round: 1,
+    question: "Tabs?",
+    answers: [
+      { model: "a", content: "A1 so far", done: false },
+      { model: "b", content: "B1", done: true, checkpoint_id: "cp-b1" },
+    ],
+    synthesis: null,
+    convergence_score: null,
+    ...over,
+  });
+
+  it("shows the stored rounds up to the one in progress, then that round as the backend has it", () => {
+    const base = resumedMessages(stored, ["a", "b"], resume());
+    const t = transcriptReducer({ messages: base, streaming: {} }, { kind: "resume", resume: resume(), now: 7 });
+    expect(t.messages.map((m) => m.content)).toEqual([
+      "Tabs?", "Round 1 · independent answers", "A0", "B0", "cost?", "Round 2", "B1", "A1 so far",
+    ]);
+    // b's stored answer isn't doubled; a's streams on.
+    expect(t.streaming).toEqual({ a: "debate-a-r1-7" });
+    expect(t.messages.at(-1)).toMatchObject({ streaming: true, round: 1, model: "a" });
+    const more = transcriptReducer(t, { kind: "tokens", chunks: { a: " and more" } });
+    expect(more.messages.at(-1)?.content).toBe("A1 so far and more");
+  });
+
+  it("heads a round with no stored answer yet, under its new question after a redirect", () => {
+    const base = resumedMessages(stored, ["a", "b"], resume({ round: 3, question: "Spaces?", answers: [] }));
+    expect(base.slice(-2).map((m) => [m.type, m.content])).toEqual([
+      ["redirect", "Spaces?"],
+      ["round_header", "Round 4"],
+    ]);
+  });
+
+  it("picks up a synthesis being written", () => {
+    const r = resume({ round: null, answers: [], synthesis: { model: "a", content: "map so", done: false } });
+    const base = resumedMessages(stored, ["a", "b"], r);
+    expect(base.some((m) => m.content === "old map")).toBe(false);
+    const t = transcriptReducer({ messages: base, streaming: {} }, { kind: "resume", resume: r, now: 1 });
+    expect(t.messages.at(-1)).toMatchObject({ type: "synthesis", content: "map so", streaming: true });
+    const ended = transcriptReducer(t, { kind: "event", now: 2, event: { type: "debate_synthesis_end", model: "a", content: "map" } });
+    expect(ended.messages.at(-1)).toMatchObject({ content: "map", streaming: false });
+  });
+
+  it("closes an answer that failed", () => {
+    const r = resume({ answers: [{ model: "a", content: "", done: true, error: "timeout" }] });
+    const t = transcriptReducer({ messages: [], streaming: {} }, { kind: "resume", resume: r, now: 1 });
+    expect(t.messages[0]).toMatchObject({ content: "_(no response: timeout)_", streaming: false });
   });
 });
 

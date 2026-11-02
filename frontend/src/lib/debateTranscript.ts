@@ -27,8 +27,24 @@ export type TranscriptEvent =
   | { type: "debate_synthesis_end"; model?: string; content?: string }
   | { type: "error"; model?: string; message?: string };
 
+/**
+ * `debate_resume`: where a live debate stands when a socket attaches to it
+ * (a reload, another tab). Rounds before `round` are the transcript's.
+ */
+export interface DebateResume {
+  status: "running" | "pausing" | "paused" | "completed";
+  /** The round in progress; null before the first. */
+  round: number | null;
+  question: string | null;
+  answers: { model: string; content: string; done: boolean; checkpoint_id?: string | null; error?: string | null }[];
+  synthesis: { model: string | null; content: string; done: boolean; error?: string | null } | null;
+  convergence_score: number | null;
+}
+
 export type TranscriptAction =
   | { kind: "event"; event: TranscriptEvent; now: number }
+  /** A live debate's round in progress, after `resumedMessages` (debate_resume). */
+  | { kind: "resume"; resume: DebateResume; now: number }
   /** Batched tokens, keyed by the model (or synthesizer) that produced them. */
   | { kind: "tokens"; chunks: Record<string, string> }
   | { kind: "user"; entry: "inject" | "redirect"; content: string; now: number }
@@ -146,6 +162,24 @@ export function transcriptMessages(t: DebateTranscript, participants: string[]):
     });
   }
   return out;
+}
+
+/**
+ * The stored part of a debate that a socket has just attached to: every
+ * round up to the one in progress (read now, so it may already hold some of
+ * that round's answers), and that round's heading even before any answer is
+ * stored. What comes after is the live stream's to add, so a later round or
+ * a synthesis stored meanwhile is left out rather than shown twice.
+ */
+export function resumedMessages(t: DebateTranscript, participants: string[], resume: DebateResume): Message[] {
+  if (resume.round === null) return transcriptMessages({ ...t, synthesis: null }, participants);
+  const r = resume.round;
+  const rounds = t.rounds.filter((x) => x.round <= r);
+  if (!rounds.some((x) => x.round === r)) {
+    const asked = [...rounds].sort((a, b) => a.round - b.round).at(-1)?.question || t.question;
+    rounds.push({ round: r, question: resume.question || asked, responses: {} });
+  }
+  return transcriptMessages({ ...t, rounds, synthesis: null }, participants);
 }
 
 /** One participant's first and last answer to the question now being debated. */
@@ -313,7 +347,51 @@ export function transcriptReducer(state: Transcript, action: TranscriptAction): 
 
     case "event":
       return applyEvent(state, action.event, action.now);
+
+    case "resume":
+      return applyResume(state, action.resume, action.now);
   }
+}
+
+/** The round in progress as the backend has it: answers not stored yet, streaming ones still open. */
+function applyResume(state: Transcript, resume: DebateResume, now: number): Transcript {
+  const messages = [...state.messages];
+  const streaming = { ...state.streaming };
+  if (resume.round !== null) {
+    const r = resume.round;
+    for (const a of resume.answers) {
+      if (messages.some((m) => m.id === `restored-${a.model}-r${r}`)) continue;
+      const id = `debate-${a.model}-r${r}-${now}`;
+      const content = a.error ? (a.content ? `${a.content}\n\n_(stopped: ${a.error})_` : `_(no response: ${a.error})_`) : a.content;
+      messages.push({
+        id,
+        role: "assistant",
+        model: a.model,
+        content,
+        round: r,
+        streaming: !a.done,
+        ...(a.checkpoint_id ? { checkpoint_id: a.checkpoint_id } : {}),
+      });
+      if (!a.done) streaming[a.model] = id;
+    }
+  }
+  const synthesis = resume.synthesis;
+  if (synthesis) {
+    const id = `debate-synthesis-${now}`;
+    messages.push({
+      id,
+      role: "assistant",
+      type: "synthesis",
+      ...(synthesis.model ? { model: synthesis.model } : {}),
+      content: synthesis.content,
+      streaming: !synthesis.done,
+    });
+    if (!synthesis.done) {
+      streaming[SYNTHESIS_KEY] = id;
+      if (synthesis.model) streaming[synthesis.model] = id;
+    }
+  }
+  return { messages, streaming };
 }
 
 function applyEvent(state: Transcript, event: TranscriptEvent, now: number): Transcript {
@@ -411,24 +489,35 @@ export function sessionRowStatus(
 }
 
 /**
- * A session loaded from the server has no socket in this tab, so it cannot be
- * running here: the backend cancels a debate when its socket closes.
+ * Whether a stored session may have a run on the backend to attach to. The
+ * backend owns its debates, so leaving or reloading a tab doesn't stop one;
+ * only a server restart does, and it records the debate as interrupted.
  */
-export function restoredDebateStatus(status: DebateSession["status"]): DebateUiStatus {
-  return status === "completed" ? "completed" : "interrupted";
+export function mayBeLive(status: DebateSession["status"]): boolean {
+  return status === "running" || status === "paused";
 }
 
 /**
- * What leaving a debate would cost, or null when nothing is lost: a debate
- * runs only while the tab driving it is connected, so leaving a running,
- * pausing or paused one stops it.
+ * The status to show for a session loaded from the server. `live`: a socket
+ * is attaching to its run (the backend's debate_resume then says exactly);
+ * otherwise a debate that didn't complete has nothing running.
  */
-export function leaveWarning(status: DebateUiStatus, connected: boolean): string | null {
-  if (!connected) return null;
+export function restoredDebateStatus(status: DebateSession["status"], live = false): DebateUiStatus {
+  if (status === "completed") return "completed";
+  if (live && mayBeLive(status)) return status as DebateUiStatus;
+  return "interrupted";
+}
+
+/**
+ * What closing the debate on screen would cost, or null when nothing is
+ * lost. Closing stops a running or paused debate; leaving it (another
+ * session or thread, a reload) doesn't, so that is what to do to keep it.
+ */
+export function closeWarning(status: DebateUiStatus): string | null {
   if (status === "running" || status === "pausing")
-    return "The debate is still running in this tab. Leaving stops it after the current answers; you can resume it later.";
+    return "Closing stops the debate after the current answers; you can resume it later. To keep it running, open another session instead: it carries on and shows as running in the sidebar.";
   if (status === "paused")
-    return "The debate is paused, which holds only while this tab stays on it. Leaving stops it; you can resume it later.";
+    return "Closing stops the paused debate; you can resume it later. To keep it, open another session instead.";
   return null;
 }
 

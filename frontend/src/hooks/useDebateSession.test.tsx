@@ -183,16 +183,40 @@ describe("useDebateSession", () => {
     expect(opts.pushToast).toHaveBeenCalledWith("timed out", "error", "B failed");
   });
 
-  it("a dropped socket marks the debate interrupted", async () => {
+  it("a dropped socket attaches to the debate again instead of calling it interrupted", async () => {
     const { result, sockets } = setup();
     await startDebate(result);
     act(() => {
       sockets[0].open();
       sockets[0].emit({ type: "debate_round_start", round: 0 });
+      sockets[0].emit({ type: "stream_start", model: "a", round: 0 });
+      sockets[0].emit({ type: "stream_token", model: "a", token: "Tab" });
       sockets[0].drop();
     });
-    expect(result.current.status).toBe("interrupted");
-    expect(result.current.controls.synthesize).toBe(true);
+    // The run goes on on the backend.
+    expect(result.current.status).toBe("running");
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 600));
+    });
+    const again = sockets[1];
+    expect(again.url).toBe("ws://test/debate/s1");
+    (api.fetchDebateTranscript as jest.Mock).mockResolvedValueOnce({ question: "Question?", rounds: [], synthesis: null });
+    await act(async () => {
+      again.open();
+      // Attaching sends nothing: no start, no continue.
+      expect(again.sent).toEqual([]);
+      again.emit({
+        type: "debate_resume", session_id: "s1", status: "running", round: 0, question: "Question?",
+        answers: [{ model: "a", content: "Tabs so far", done: false }], synthesis: null, convergence_score: null,
+      });
+      again.emit({ type: "attached", session_id: "s1", live: true });
+    });
+    await waitFor(() => expect(result.current.messages.at(-1)).toMatchObject({ content: "Tabs so far", streaming: true }));
+    // One bubble for a's answer, caught up on what streamed while away.
+    expect(result.current.messages.filter((m) => m.model === "a")).toHaveLength(1);
+    act(() => again.emit({ type: "stream_end", model: "a", round: 0, content: "Tabs win", checkpoint_id: "c1" }));
+    expect(result.current.messages.at(-1)).toMatchObject({ content: "Tabs win", streaming: false });
+    expect(result.current.connected).toBe(true);
   });
 
   it("starting another debate closes the old socket and ignores its frames", async () => {
@@ -265,58 +289,122 @@ describe("useDebateSession", () => {
     await act(async () => {
       await result.current.close();
     });
-    expect(opts.confirm).toHaveBeenCalledWith("Leave the debate?", expect.stringMatching(/stops it/), {
-      confirmLabel: "Stop and leave",
+    expect(opts.confirm).toHaveBeenCalledWith("Stop the debate?", expect.stringMatching(/stops the debate/), {
+      confirmLabel: "Stop and close",
     });
     expect(result.current.activeSessionId).toBe("s1");
     expect(sockets[0].closed).toBe(false);
   });
 
-  it("leaves a stopped debate without asking", async () => {
+  it("leaves a running debate for another without asking and without stopping it", async () => {
     const { result, sockets, opts } = setup();
-    await startDebate(result);
-    act(() => {
-      sockets[0].open();
-      sockets[0].emit({ type: "debate_session_status", status: "completed" });
-    });
-    opts.confirm.mockClear();
-    await expect(result.current.confirmLeave()).resolves.toBe(true);
-    expect(opts.confirm).not.toHaveBeenCalled();
-  });
-
-  it("resumes an interrupted debate with the rounds it has left", async () => {
-    const { result, sockets } = setup();
     await startDebate(result);
     act(() => {
       sockets[0].open();
       sockets[0].emit({ type: "debate_round_start", round: 0 });
-      sockets[0].drop();
     });
-    expect(result.current.status).toBe("interrupted");
-    expect(result.current.controls.continue).toBe(true);
-
-    act(() => result.current.continueDebate());
-    const ws = sockets[1];
-    act(() => ws.open());
-    // The default 2 rounds, round 1 of them done.
-    expect(ws.sent[0]).toEqual({ type: "debate_continue", rounds: 1 });
-    expect(result.current.status).toBe("running");
+    (api.fetchDebateSession as jest.Mock).mockResolvedValue({
+      session_id: "s2", parent_thread_id: "t1", participants: ["a", "b"], current_round: 1, status: "completed",
+      termination_policy: { max_rounds: 2 },
+    });
+    await act(async () => {
+      await result.current.switchTo("s2");
+    });
+    expect(opts.confirm).not.toHaveBeenCalled();
+    expect(sockets[0].sent.some((f) => f.type === "debate_control")).toBe(false);
+    expect(sockets[0].closed).toBe(true);
+    expect(result.current.activeSessionId).toBe("s2");
   });
 
-  it("goes back to interrupted when the backend refuses a resume", async () => {
-    const { result, sockets, opts } = setup();
-    await startDebate(result);
+  it("reopening a running debate attaches to it, holding live frames until its stored rounds are read", async () => {
+    localStorage.setItem("crucible_active_debate", "s4");
+    (api.fetchDebateSession as jest.Mock).mockResolvedValue({
+      session_id: "s4", parent_thread_id: "t1", participants: ["a", "b"], current_round: 1, status: "running",
+      question: "Tabs?", termination_policy: { max_rounds: 3 },
+    });
+    let release: (t: unknown) => void = () => {};
+    (api.fetchDebateTranscript as jest.Mock).mockReturnValueOnce(new Promise((r) => (release = r)));
+    const { result, sockets } = setup();
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    expect(result.current.status).toBe("running");
     act(() => {
       sockets[0].open();
-      sockets[0].drop();
+      sockets[0].emit({
+        type: "debate_resume", session_id: "s4", status: "pausing", round: 1, question: "Tabs?",
+        answers: [{ model: "a", content: "A1", done: false }, { model: "b", content: "B1", done: true }],
+        synthesis: null, convergence_score: 0.4,
+      });
+      // Arrives while the stored rounds load: applied after them, not lost.
+      sockets[0].emit({ type: "stream_token", model: "a", token: " more" });
     });
-    act(() => result.current.continueDebate());
-    act(() => {
-      sockets[1].open();
-      sockets[1].emit({ type: "error", message: "Another tab is running this debate." });
+    expect(sockets[0].sent).toEqual([]);
+    await act(async () => {
+      release({ question: "Tabs?", rounds: [{ round: 0, question: "Tabs?", responses: { a: "A0", b: "B0" } }], synthesis: null });
     });
+    expect(result.current.status).toBe("pausing");
+    expect(result.current.round).toBe(1);
+    expect(result.current.convergenceScore).toBe(0.4);
+    expect(result.current.messages.map((m) => m.content)).toEqual([
+      "Tabs?", "Round 1 · independent answers", "A0", "B0", "Round 2", "A1 more", "B1",
+    ]);
+    // Still running on the backend: Resume isn't offered, the live controls are.
+    expect(result.current.controls.continue).toBe(false);
+    expect(result.current.controls.inject).toBe(true);
+  });
+
+  it("shows a debate as stored when the attach finds nothing running it", async () => {
+    localStorage.setItem("crucible_active_debate", "s6");
+    (api.fetchDebateSession as jest.Mock)
+      .mockResolvedValueOnce({
+        session_id: "s6", parent_thread_id: "t1", participants: ["a", "b"], current_round: 1, status: "running",
+        question: "Q", termination_policy: { max_rounds: 3 },
+      })
+      // The server restarted meanwhile.
+      .mockResolvedValueOnce({
+        session_id: "s6", parent_thread_id: "t1", participants: ["a", "b"], current_round: 1, status: "interrupted",
+        question: "Q", termination_policy: { max_rounds: 3 },
+      });
+    (api.fetchDebateTranscript as jest.Mock).mockResolvedValue({
+      question: "Q", rounds: [{ round: 0, question: "Q", responses: { a: "A", b: "B" } }], synthesis: null,
+    });
+    const { result, sockets } = setup();
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    await act(async () => {
+      sockets[0].open();
+      sockets[0].emit({ type: "attached", session_id: "s6", live: false });
+    });
+    await waitFor(() => expect(result.current.messages.map((m) => m.content)).toContain("B"));
     expect(result.current.status).toBe("interrupted");
-    expect(opts.pushToast).toHaveBeenCalledWith("Another tab is running this debate.", "error", undefined);
+    expect(sockets[0].closed).toBe(true);
+    expect(result.current.connected).toBe(false);
+    expect(result.current.controls.continue).toBe(true);
+  });
+
+  it("resumes an interrupted debate with the rounds it has left", async () => {
+    localStorage.setItem("crucible_active_debate", "s3");
+    (api.fetchDebateSession as jest.Mock).mockResolvedValue({
+      session_id: "s3", parent_thread_id: "t1", participants: ["a", "b"], current_round: 0, status: "interrupted",
+      question: "Q", termination_policy: { max_rounds: 2 },
+    });
+    (api.fetchDebateTranscript as jest.Mock).mockResolvedValue({
+      question: "Q", rounds: [{ round: 0, question: "Q", responses: { a: "A", b: "B" } }], synthesis: null,
+    });
+    const { result, sockets } = setup();
+    await waitFor(() => expect(result.current.controls.continue).toBe(true));
+    // A stored session that isn't running opens no socket.
+    expect(sockets).toHaveLength(0);
+    expect(result.current.status).toBe("interrupted");
+
+    act(() => result.current.continueDebate());
+    const ws = sockets[0];
+    act(() => ws.open());
+    // The 2 rounds, round 1 of them done.
+    expect(ws.sent[0]).toEqual({ type: "debate_continue", rounds: 1 });
+    expect(result.current.status).toBe("running");
+
+    // The backend refuses (another client runs it): back to interrupted.
+    act(() => ws.emit({ type: "error", message: "Another tab is running this debate." }));
+    expect(result.current.status).toBe("interrupted");
   });
 
   it("restores a debate from its transcript and synthesizes it with its question", async () => {
@@ -326,7 +414,7 @@ describe("useDebateSession", () => {
       parent_thread_id: "t1",
       participants: ["a", "b"],
       current_round: 1,
-      status: "running",
+      status: "interrupted",
       question: "Tabs or spaces?",
       termination_policy: { max_rounds: 3 },
     });
@@ -437,7 +525,7 @@ describe("useDebateSession", () => {
       termination_policy: { max_rounds: 3 },
     });
     (api.fetchDebateTranscript as jest.Mock)
-      // Read while the backend was still stopping the run: no rounds yet.
+      // Read while the round's checkpoints were still being written: no rounds yet.
       .mockResolvedValueOnce({ question: "Vim or Emacs?", rounds: [], synthesis: null })
       .mockResolvedValueOnce({
         question: "Vim or Emacs?",

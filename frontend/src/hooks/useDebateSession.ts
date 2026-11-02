@@ -5,25 +5,29 @@ import {
   EMPTY_TRANSCRIPT,
   debateControls,
   debateReplyFor,
+  closeWarning,
   earlyStopStatus,
-  leaveWarning,
+  mayBeLive,
   questionMessage,
   restoredDebateStatus,
+  resumedMessages,
   transcriptIncomplete,
   transcriptMessages,
   transcriptReducer,
+  type DebateResume,
   type TranscriptEvent,
 } from "@/lib/debateTranscript";
 import type { DebateDefaults, DebateSession, DebateUiStatus, Toggles } from "@/lib/types";
 import { useDebateTree } from "@/hooks/useDebateTree";
 import { useDebateSessions } from "@/hooks/useDebateSessions";
 import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
-import { isOpen, useSocketFactory } from "@/lib/transport";
+import { isOpen, reconnectDelay, useSocketFactory } from "@/lib/transport";
 import { contextFields, type RunContext } from "@/lib/runContext";
 import type { Confirm } from "@/hooks/useConfirm";
 import type { PushToast } from "@/hooks/useToasts";
 
 const STORAGE_KEY = "crucible_active_debate";
+const LIVE: DebateUiStatus[] = ["running", "pausing", "paused"];
 const TRANSCRIPT_RETRIES = 3;
 const TRANSCRIPT_RETRY_MS = 600;
 
@@ -89,8 +93,13 @@ function usePersistedSession() {
  * - Code that loads a session itself marks restoredRef, so the restore effect
  *   doesn't replace a live stream with a server snapshot.
  * - A restored session is only honoured for the thread it belongs to.
- * - A debate runs only while its socket is open, so leaving a live one asks
- *   first (confirmLeave); an interrupted one can be resumed (debate_continue).
+ * - A debate runs on the backend whether or not a tab watches it: leaving
+ *   one (another session or thread, a reload) asks nothing and stops
+ *   nothing, and reopening a running or paused one attaches to it (a socket
+ *   with no first frame; the backend answers debate_resume). A dropped
+ *   socket reattaches the same way. Closing the debate stops it, so that
+ *   asks first. One interrupted by a server restart can be resumed
+ *   (debate_continue).
  */
 export function useDebateSession({
   threadId,
@@ -139,6 +148,22 @@ export function useDebateSession({
   const restoredRef = useRef<string | null>(null);
   // Status before a Resume, restored if the backend refuses it.
   const beforeResumeRef = useRef<DebateUiStatus | null>(null);
+  // The session whose stored transcript may be applied: a load for any other
+  // (one still in flight when the person switched) is dropped.
+  const adoptingRef = useRef<string | null>(null);
+  // The session a socket is attaching to, until the backend says whether it runs.
+  const attachingRef = useRef<string | null>(null);
+  // Frames that arrive while a resumed debate's stored rounds load; applied after them.
+  const syncQueueRef = useRef<any[] | null>(null);
+  // A dropped socket's reattach: unexpected closes in a row, and the pending timer.
+  const attemptRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // What an attach that finds nothing running shows (loadStored, below).
+  const loadStoredRef = useRef<(s: DebateSession) => void>(() => {});
+  const statusRef = useRef(status);
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   // ─── Token batching ──────────────────────────────────────────
   const flushTokens = useCallback(() => {
@@ -160,6 +185,10 @@ export function useDebateSession({
     const ws = wsRef.current;
     wsRef.current = null;
     setConnected(false);
+    attachingRef.current = null;
+    syncQueueRef.current = null;
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+    reconnectTimerRef.current = null;
     if (ws) {
       ws.onmessage = null;
       ws.onclose = null;
@@ -178,9 +207,57 @@ export function useDebateSession({
   );
 
   // ─── Incoming events ─────────────────────────────────────────
+  // The current handleEvent (set below): sockets and replayed frames call it.
+  const handleEventRef = useRef<(msg: any, sessionId: string) => void>(() => {});
   const handleEvent = useCallback(
     (msg: any, sessionId: string) => {
       switch (msg.type) {
+        case "debate_resume": {
+          // Attached to a live debate: its stored rounds, then the round in
+          // progress as the backend has it. Frames arriving meanwhile wait.
+          attachingRef.current = null;
+          const resume = msg as DebateResume;
+          if (resume.round !== null) setRound(resume.round);
+          setStatus(resume.status);
+          if (resume.convergence_score != null) setConvergenceScore(resume.convergence_score);
+          if (resume.question) promptRef.current = resume.question;
+          syncQueueRef.current = [];
+          api
+            .fetchDebateTranscript(sessionId)
+            .catch(() => null)
+            .then((t) => {
+              if (adoptingRef.current !== sessionId || syncQueueRef.current === null) return;
+              const queued = syncQueueRef.current;
+              syncQueueRef.current = null;
+              const stored = t ?? { question: resume.question ?? "", rounds: [], synthesis: null };
+              dispatch({ kind: "reset", messages: resumedMessages(stored, participantsRef.current, resume) });
+              dispatch({ kind: "resume", resume, now: Date.now() });
+              if (resume.round !== null) {
+                for (const a of resume.answers) {
+                  if (a.done) continue;
+                  const lane = Math.max(0, participantsRef.current.indexOf(a.model));
+                  addPendingNode(a.model, resume.round, lane, modelColor(a.model), modelLabel(a.model));
+                }
+              }
+              for (const m of queued) handleEventRef.current(m, sessionId);
+            });
+          break;
+        }
+
+        case "attached":
+          if (!msg.live && attachingRef.current === sessionId) {
+            // Nothing runs it any more (it finished meanwhile, or the server
+            // restarted): show it as stored.
+            closeSocket();
+            api
+              .fetchDebateSession(sessionId)
+              .then((s) => {
+                if (adoptingRef.current === sessionId) loadStoredRef.current(s);
+              })
+              .catch(() => {});
+          }
+          break;
+
         case "debate_session_created":
           participantsRef.current = msg.participants ?? participantsRef.current;
           // The backend has just titled the parent thread; list it (and the
@@ -273,6 +350,7 @@ export function useDebateSession({
       }
     },
     [
+      closeSocket,
       fetchThreads,
       refreshSessions,
       transcriptEvent,
@@ -291,26 +369,32 @@ export function useDebateSession({
   );
 
   // Sockets outlive renders; they call whatever handler is current.
-  const handleEventRef = useRef(handleEvent);
   useEffect(() => {
     handleEventRef.current = handleEvent;
   }, [handleEvent]);
 
-  // One socket per debate session. firstFrame is sent once it opens.
+  // A dropped socket reattaches through this (defined below, after connect).
+  const attachRef = useRef<(sessionId: string) => void>(() => {});
+
+  // One socket per debate session. firstFrame, if any, is sent once it opens;
+  // without one the socket only attaches to whatever runs.
   const connect = useCallback(
-    (sessionId: string, firstFrame: Record<string, unknown>) => {
+    (sessionId: string, firstFrame: Record<string, unknown> | null) => {
       const ws = openSocket(api.createDebateWebSocketUrl(sessionId));
       wsRef.current = ws;
 
       ws.onopen = () => {
         setConnected(true);
-        ws.send(JSON.stringify(firstFrame));
+        attemptRef.current = 0;
+        if (firstFrame) ws.send(JSON.stringify(firstFrame));
       };
       ws.onmessage = (ev) => {
         // Same guard as onclose: a replaced socket must not touch this debate.
         if (wsRef.current !== ws) return;
         try {
-          handleEventRef.current(JSON.parse(ev.data), sessionId);
+          const msg = JSON.parse(ev.data);
+          if (syncQueueRef.current && msg.type !== "debate_resume") syncQueueRef.current.push(msg);
+          else handleEventRef.current(msg, sessionId);
         } catch {}
       };
       ws.onerror = () => console.error("[Debate WS] connection error");
@@ -318,33 +402,54 @@ export function useDebateSession({
         if (wsRef.current !== ws) return;
         wsRef.current = null;
         setConnected(false);
+        syncQueueRef.current = null;
         clearPendingNodes();
-        setStatus((prev) => (prev === "completed" || prev === "converged" || prev === "stable" ? prev : "interrupted"));
         refreshSessions();
+        // The debate goes on without this socket: attach to it again.
+        if (LIVE.includes(statusRef.current)) {
+          const delay = reconnectDelay(attemptRef.current);
+          attemptRef.current += 1;
+          reconnectTimerRef.current = setTimeout(() => attachRef.current(sessionId), delay);
+        }
       };
       return ws;
     },
     [openSocket, clearPendingNodes, refreshSessions],
   );
 
+  /** Watch the session's run, if it has one (debate_resume, else attached {live: false}). */
+  const attach = useCallback(
+    (sessionId: string) => {
+      closeSocket();
+      attachingRef.current = sessionId;
+      connect(sessionId, null);
+    },
+    [closeSocket, connect],
+  );
+  useEffect(() => {
+    attachRef.current = attach;
+  }, [attach]);
+
   // ─── Loading an existing session ─────────────────────────────
-  // The session whose stored transcript may be applied: a load for any other
-  // (one still in flight when the person switched) is dropped.
-  const adoptingRef = useRef<string | null>(null);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelRetry = useCallback(() => {
     if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     retryTimerRef.current = null;
   }, []);
   useEffect(() => cancelRetry, [cancelRetry]);
-  const adoptSession = useCallback((s: DebateSession) => {
+  const adoptFields = useCallback((s: DebateSession, live: boolean) => {
     cancelRetry();
     adoptingRef.current = s.session_id;
     setRound(s.current_round);
     setMaxRounds(s.termination_policy.max_rounds);
-    setStatus(restoredDebateStatus(s.status));
+    setStatus(restoredDebateStatus(s.status, live));
     participantsRef.current = s.participants;
     promptRef.current = s.question ?? "";
+  }, [cancelRetry]);
+
+  /** A stored session with nothing running: its transcript as the server has it. */
+  const loadStored = useCallback((s: DebateSession) => {
+    adoptFields(s, false);
     const load = (attempt: number) =>
       api
         .fetchDebateTranscript(s.session_id)
@@ -352,16 +457,33 @@ export function useDebateSession({
           if (adoptingRef.current !== s.session_id) return;
           if (!promptRef.current) promptRef.current = t.question;
           dispatch({ kind: "reset", messages: transcriptMessages(t, s.participants) });
-          // Read right after a reload, while the backend is still stopping
-          // the run this tab left, a transcript can come back without rounds
-          // the session says were finished; ask again shortly.
+          // A transcript read while a round's checkpoints are still being
+          // written can come back without rounds the session says were
+          // finished; ask again shortly.
           if (transcriptIncomplete(t, s) && attempt < TRANSCRIPT_RETRIES) {
             retryTimerRef.current = setTimeout(() => load(attempt + 1), TRANSCRIPT_RETRY_MS);
           }
         })
         .catch(() => {});
     load(0);
-  }, [cancelRetry]);
+  }, [adoptFields]);
+  useEffect(() => {
+    loadStoredRef.current = loadStored;
+  }, [loadStored]);
+
+  /**
+   * A session from the server: a running or paused one is attached to (its
+   * transcript then comes with the backend's debate_resume), anything else
+   * is shown as stored.
+   */
+  const adoptSession = useCallback(
+    (s: DebateSession) => {
+      if (!mayBeLive(s.status)) return loadStored(s);
+      adoptFields(s, true);
+      attach(s.session_id);
+    },
+    [loadStored, adoptFields, attach],
+  );
 
   // Restore whenever the active session is set by something that didn't load
   // it itself (initial adoption from localStorage). Only for its own thread.
@@ -442,17 +564,6 @@ export function useDebateSession({
     wsRef.current?.send(JSON.stringify(frame));
   }, []);
 
-  /**
-   * Ask before something takes the live debate off screen: its socket
-   * closing stops it. Resolves true when nothing is lost or the person
-   * agreed.
-   */
-  const confirmLeave = useCallback(async () => {
-    const warning = leaveWarning(status, isOpen(wsRef.current));
-    if (!warning) return true;
-    return confirm("Leave the debate?", warning, { confirmLabel: "Stop and leave" });
-  }, [status, confirm]);
-
   const openDialog = useCallback((prompt: string) => {
     dialogPromptRef.current = prompt;
     setDialogPrompt(prompt);
@@ -465,7 +576,6 @@ export function useDebateSession({
     async (config: DebateDefaults, ctx: Omit<DebateStartContext, "prompt">): Promise<boolean> => {
       setDialogOpen(false);
       if (!threadId) return false;
-      if (!(await confirmLeave())) return false;
       const prompt = dialogPromptRef.current;
       try {
         const session = await api.createDebateSession({
@@ -482,7 +592,8 @@ export function useDebateSession({
           peer_labels: config.peer_labels,
         });
 
-        // A new debate replaces whatever was on screen.
+        // A new debate replaces whatever was on screen (which, if it runs,
+        // runs on: the sidebar shows it).
         closeSocket();
         cancelRetry();
         adoptingRef.current = session.session_id;
@@ -515,7 +626,7 @@ export function useDebateSession({
         return false;
       }
     },
-    [threadId, confirmLeave, closeSocket, cancelRetry, setActiveSessionId, fetchTree, refreshSessions, setShowTree, connect, pushToast],
+    [threadId, closeSocket, cancelRetry, setActiveSessionId, fetchTree, refreshSessions, setShowTree, connect, pushToast],
   );
 
   const inject = useCallback(
@@ -608,14 +719,18 @@ export function useDebateSession({
     clearTree();
   }, [closeSocket, cancelRetry, setActiveSessionId, clearTree]);
 
-  /** The banner's close button: ask if the debate is live, stop it, then drop it. */
+  /**
+   * The banner's close button: stops a debate that is running or paused, so
+   * it asks first. (Leaving one without closing it keeps it running.)
+   */
   const close = useCallback(async () => {
-    if (!(await confirmLeave())) return;
+    const warning = closeWarning(status);
+    if (warning && !(await confirm("Stop the debate?", warning, { confirmLabel: "Stop and close" }))) return;
     if (debateControls(status, true).stopOnClose && isOpen(wsRef.current)) {
       send({ type: "debate_control", action: "stop" });
     }
     clear();
-  }, [confirmLeave, status, send, clear]);
+  }, [confirm, status, send, clear]);
 
   const remove = useCallback(
     async (sessionId: string) => {
@@ -646,7 +761,7 @@ export function useDebateSession({
         setShowTree(true);
         return;
       }
-      if (!(await confirmLeave())) return;
+      // The debate on screen runs on if it runs; this tab stops watching it.
       closeSocket();
       restoredRef.current = sessionId;
       setActiveSessionId(sessionId);
@@ -659,7 +774,7 @@ export function useDebateSession({
         .catch((e) => pushToast(errorMessage(e, "Couldn't open the debate"), "error"));
       setShowTree(true);
     },
-    [activeSessionId, confirmLeave, fetchTree, setShowTree, closeSocket, setActiveSessionId, adoptSession, pushToast],
+    [activeSessionId, fetchTree, setShowTree, closeSocket, setActiveSessionId, adoptSession, pushToast],
   );
 
   // A node from another debate (the tree was cleared or replaced) reads as closed.
@@ -714,7 +829,6 @@ export function useDebateSession({
     continueDebate,
     synthesize,
     close,
-    confirmLeave,
     remove,
     switchTo,
   };

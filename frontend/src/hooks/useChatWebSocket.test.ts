@@ -1,5 +1,6 @@
 import { renderHook, act } from "@testing-library/react";
 import { useChatWebSocket } from "./useChatWebSocket";
+import { reconnectDelay } from "@/lib/transport";
 import * as api from "@/lib/api";
 
 jest.mock("@/lib/api", () => ({
@@ -16,6 +17,7 @@ class MockWebSocket {
   readyState: number = 1; // OPEN
   onmessage: ((event: any) => void) | null = null;
   onclose: ((event: any) => void) | null = null;
+  onopen: (() => void) | null = null;
   send = jest.fn();
   close = jest.fn();
 
@@ -314,15 +316,147 @@ describe("useChatWebSocket", () => {
     expect(result.current.isLoading).toBe(false);
   });
 
-  it("marks a reply cut off by a dropped connection as incomplete", async () => {
+  it("keeps a reply streaming through a dropped connection and catches up when the socket returns", async () => {
+    const { result } = renderHook(() => useChatWebSocket(mockProps));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const ws = MockWebSocket.instances[0];
+    act(() => {
+      ws.onmessage?.({ data: JSON.stringify({ type: "stream_start", model: "gpt-4o", turn_id: "t1" }) });
+      ws.onmessage?.({ data: JSON.stringify({ type: "stream_token", model: "gpt-4o", token: "Hel" }) });
+    });
+    // The run goes on without the socket: nothing is marked stopped.
+    act(() => ws.onclose?.({ wasClean: false, code: 1006 }));
+    expect(result.current.messages.at(-1)).toMatchObject({ streaming: true });
+    expect(result.current.messages.at(-1)?.stopped).toBeFalsy();
+    expect(result.current.isLoading).toBe(true);
+
+    act(() => jest.advanceTimersByTime(600));
+    const again = MockWebSocket.instances[1];
+    act(() => {
+      again.onmessage?.({
+        data: JSON.stringify({ type: "stream_resume", model: "gpt-4o", turn_id: "t1", content_so_far: "Hello the", message: "Hello", turn_models: ["gpt-4o"] }),
+      });
+      again.onmessage?.({ data: JSON.stringify({ type: "attached", runs: [{ model: "gpt-4o", turn_id: "t1" }] }) });
+      again.onmessage?.({ data: JSON.stringify({ type: "stream_token", model: "gpt-4o", token: "re" }) });
+      jest.advanceTimersByTime(50);
+    });
+    // One bubble, its text what the backend has (tokens sent while away included).
+    expect(result.current.messages.filter((m) => m.role === "assistant")).toHaveLength(1);
+    expect(result.current.messages.at(-1)).toMatchObject({ content: "Hello there", streaming: true });
+
+    act(() => again.onmessage?.({ data: JSON.stringify({ type: "stream_end", model: "gpt-4o", checkpoint_id: "n1", turn_id: "t1" }) }));
+    expect(result.current.isLoading).toBe(false);
+    expect(mockProps.onTurnSettled).toHaveBeenCalledWith("thread_1");
+  });
+
+  it("marks a reply stopped when the socket returns and its run is gone, and reloads the thread", async () => {
+    const { result } = renderHook(() => useChatWebSocket(mockProps));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const ws = MockWebSocket.instances[0];
+    act(() => ws.onmessage?.({ data: JSON.stringify({ type: "stream_start", model: "gpt-4o", turn_id: "t1" }) }));
+    act(() => {
+      ws.onclose?.({ wasClean: false, code: 1006 });
+      jest.advanceTimersByTime(600);
+    });
+    // The backend restarted (or the reply finished meanwhile): no live run.
+    act(() => MockWebSocket.instances[1].onmessage?.({ data: JSON.stringify({ type: "attached", runs: [] }) }));
+    expect(result.current.messages.at(-1)).toMatchObject({ streaming: false, stopped: true });
+    expect(result.current.isLoading).toBe(false);
+    expect(mockProps.onTurnSettled).toHaveBeenCalledWith("thread_1");
+  });
+
+  it("shows a turn it didn't send (a reload, another tab) as it stands, then streams it to the end", () => {
+    const onThreadsChanged = jest.fn();
+    const { result } = renderHook(() =>
+      useChatWebSocket({ ...mockProps, selectedModels: ["gpt-4o"], onThreadsChanged }),
+    );
+    const ws = MockWebSocket.instances[0];
+    const frame = (data: object) => ws.onmessage?.({ data: JSON.stringify(data) });
+    act(() => {
+      for (const [model, text] of [["claude-x", "Partial B"], ["gpt-4o", "Partial A"]]) {
+        frame({
+          type: "stream_resume", model, turn_id: "t9", parent_checkpoint_id: "p", content_so_far: text,
+          message: "Compare", kind: null, turn_models: ["gpt-4o", "claude-x"], model_color: "#111",
+        });
+      }
+      frame({ type: "attached", runs: [{ model: "claude-x", turn_id: "t9" }, { model: "gpt-4o", turn_id: "t9" }] });
+    });
+    expect(result.current.isLoading).toBe(true);
+    // The question the turn answers, then its cards, with the text so far.
+    expect(result.current.messages).toEqual([expect.objectContaining({ role: "user", content: "Compare", turn_id: "t9" })]);
+    expect(result.current.liveTurn).toMatchObject({ key: "live-t9", turnId: "t9" });
+    expect(result.current.liveTurn?.replies.map((r) => [r.model, r.content, r.streaming])).toEqual([
+      ["claude-x", "Partial B", true],
+      ["gpt-4o", "Partial A", true],
+    ]);
+
+    act(() => {
+      frame({ type: "stream_token", model: "gpt-4o", token: " more" });
+      jest.advanceTimersByTime(50);
+    });
+    expect(result.current.liveTurn?.replies[1].content).toBe("Partial A more");
+    act(() => {
+      frame({ type: "stream_end", model: "gpt-4o", checkpoint_id: "na", turn_id: "t9" });
+      frame({ type: "stream_end", model: "claude-x", checkpoint_id: "nb", turn_id: "t9" });
+    });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.replyTexts).toEqual({ na: "Partial A more", nb: "Partial B" });
+    expect(mockProps.onTurnSettled).toHaveBeenCalledWith("thread_1");
+  });
+
+  it("resumes a one-model turn as a bubble after its question", () => {
+    const { result } = renderHook(() => useChatWebSocket(mockProps));
+    const ws = MockWebSocket.instances[0];
+    act(() =>
+      ws.onmessage?.({
+        data: JSON.stringify({ type: "stream_resume", model: "gpt-4o", turn_id: "t2", content_so_far: "So far", message: "Q", turn_models: ["gpt-4o"] }),
+      }),
+    );
+    expect(result.current.liveTurn).toBeNull();
+    expect(result.current.messages).toEqual([
+      expect.objectContaining({ role: "user", content: "Q" }),
+      expect.objectContaining({ role: "assistant", content: "So far", streaming: true, model: "gpt-4o" }),
+    ]);
+  });
+
+  it("marks a reply stopped when another tab stops the turn", async () => {
+    const { result } = renderHook(() => useChatWebSocket({ ...mockProps, selectedModels: ["gpt-4o", "claude-x"] }));
+    await act(async () => {
+      await result.current.sendInteractiveMessage("Hello");
+    });
+    const ws = MockWebSocket.instances[0];
+    const frame = (data: object) => ws.onmessage?.({ data: JSON.stringify(data) });
+    act(() => {
+      frame({ type: "stream_start", model: "gpt-4o", turn_id: "t1" });
+      frame({ type: "stream_start", model: "claude-x", turn_id: "t1" });
+      frame({ type: "stream_stopped", model: "gpt-4o", turn_id: "t1" });
+      frame({ type: "stream_stopped", model: "claude-x", turn_id: "t1" });
+    });
+    expect(result.current.liveTurn?.replies.map((r) => r.stopped)).toEqual([true, true]);
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it("sends a Stop pressed while disconnected once the socket is back", async () => {
     const { result } = renderHook(() => useChatWebSocket(mockProps));
     await act(async () => {
       await result.current.sendInteractiveMessage("Hello");
     });
     const ws = MockWebSocket.instances[0];
     act(() => ws.onmessage?.({ data: JSON.stringify({ type: "stream_start", model: "gpt-4o" }) }));
-    act(() => ws.onclose?.({ wasClean: false, code: 1006 }));
+    act(() => {
+      ws.readyState = 3;
+      ws.onclose?.({ wasClean: false, code: 1006 });
+    });
+    act(() => result.current.stopStreaming());
     expect(result.current.messages.at(-1)).toMatchObject({ stopped: true });
+    act(() => jest.advanceTimersByTime(600));
+    const again = MockWebSocket.instances[1];
+    act(() => again.onopen?.());
+    expect(again.send.mock.calls.map((c) => JSON.parse(c[0]))).toEqual([{ type: "stop" }]);
   });
 
   it("sends an ordinary turn from the chosen checkpoint", async () => {
@@ -371,16 +505,34 @@ describe("useChatWebSocket", () => {
     expect(mockProps.pushToast).not.toHaveBeenCalled();
   });
 
-  it("reconnects after an unexpected close", () => {
+  it("reconnects after an unexpected close, backing off while it keeps failing", () => {
     renderHook(() => useChatWebSocket(mockProps));
     expect(MockWebSocket.instances).toHaveLength(1);
 
     act(() => {
       MockWebSocket.instances[0].onclose?.({ wasClean: false, code: 1006 });
-      jest.advanceTimersByTime(2000);
+      jest.advanceTimersByTime(500);
     });
-
     expect(MockWebSocket.instances).toHaveLength(2);
+    act(() => {
+      MockWebSocket.instances[1].onclose?.({ wasClean: false, code: 1006 });
+      jest.advanceTimersByTime(500);
+    });
+    // The second try waits twice as long.
+    expect(MockWebSocket.instances).toHaveLength(2);
+    act(() => jest.advanceTimersByTime(500));
+    expect(MockWebSocket.instances).toHaveLength(3);
+    expect([0, 1, 2, 10].map(reconnectDelay)).toEqual([500, 1000, 2000, 10_000]);
+  });
+
+  it("does not reconnect a socket it closed itself on a thread switch", () => {
+    const { rerender } = renderHook((props) => useChatWebSocket(props), { initialProps: mockProps });
+    rerender({ ...mockProps, threadId: "thread_2" });
+    act(() => {
+      MockWebSocket.instances[0].onclose?.({ wasClean: true, code: 1000 });
+      jest.advanceTimersByTime(20_000);
+    });
+    expect(MockWebSocket.instances.map((w) => w.url)).toEqual(["ws://localhost/test-ws/thread_1", "ws://localhost/test-ws/thread_2"]);
   });
 
   it("refreshes the thread list when a turn finishes and when the thread is titled", async () => {

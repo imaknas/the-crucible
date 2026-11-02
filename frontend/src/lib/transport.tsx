@@ -46,3 +46,12 @@ export async function whenOpen(
   }
   return isOpen(current());
 }
+
+/**
+ * How long to wait before reopening a socket that closed unexpectedly, after
+ * `attempt` failures in a row: doubling from half a second, at most ten.
+ * The backend's runs carry on meanwhile, and the new socket catches up.
+ */
+export function reconnectDelay(attempt: number): number {
+  return Math.min(10_000, 500 * 2 ** attempt);
+}

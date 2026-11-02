@@ -35,8 +35,8 @@ const STATUS_LABEL: Partial<Record<DebateUiStatus, string>> = {
 
 /** What a status means, where the label alone doesn't say. */
 const STATUS_NOTE: Partial<Record<DebateUiStatus, string>> = {
-  paused: "Paused while this tab stays open; leaving it stops the debate.",
-  interrupted: "Stopped when the tab running it closed or lost its connection.",
+  paused: "Paused between rounds until someone resumes it, here or in another tab.",
+  interrupted: "Stopped when the server restarted, or by a cancelled command.",
 };
 
 export interface DebateBannerProps {

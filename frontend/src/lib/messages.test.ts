@@ -1,4 +1,4 @@
-import { lastUserText, markStopped, reconcileMessages } from "./messages";
+import { lastUserText, markStopped, reconcileMessages, withResumedQuestion } from "./messages";
 import type { Message } from "./types";
 
 describe("reconcileMessages", () => {
@@ -51,5 +51,50 @@ describe("markStopped", () => {
     ]);
     expect(out[0]).toEqual({ id: "a", role: "assistant", content: "done" });
     expect(out[1]).toMatchObject({ streaming: false, stopped: true, content: "half" });
+  });
+
+  it("marks only one model's reply when named", () => {
+    const out = markStopped([
+      { id: "a", role: "assistant", content: "x", model: "a", streaming: true },
+      { id: "b", role: "assistant", content: "y", model: "b", streaming: true },
+    ], "b");
+    expect(out.map((m) => !!m.stopped)).toEqual([false, true]);
+  });
+});
+
+describe("a turn attached to after a reload", () => {
+  const path: Message[] = [
+    { id: "", role: "user", content: "Q1", checkpoint_id: "n1", turn_id: "t1" },
+    { id: "", role: "assistant", content: "A1", checkpoint_id: "n2", turn_id: "t1" },
+  ];
+
+  it("puts the question after the messages, once", () => {
+    const once = withResumedQuestion([], "t2", "Q2");
+    expect(once).toEqual([{ id: "resumed-q-t2", role: "user", content: "Q2", type: "human", turn_id: "t2" }]);
+    expect(withResumedQuestion(once, "t2", "Q2")).toBe(once);
+    // Not when this tab sent it, or the path already holds the turn.
+    const sent: Message[] = [{ id: "user-1", role: "user", content: "Q2" }];
+    expect(withResumedQuestion(sent, "t2", "Q2")).toBe(sent);
+    expect(withResumedQuestion(path, "t1", "Q1")).toBe(path);
+  });
+
+  it("keeps its question and bubble through a history load that doesn't hold the turn yet", () => {
+    const onScreen = [
+      ...withResumedQuestion([], "t2", "Q2"),
+      { id: "resumed-gpt-t2", role: "assistant", content: "so far", streaming: true, turn_id: "t2" } as Message,
+    ];
+    const loaded = reconcileMessages(onScreen, path);
+    expect(loaded.map((m) => m.content)).toEqual(["Q1", "A1", "Q2", "so far"]);
+    // Once the path holds the turn, the load's copy replaces them.
+    const settled: Message[] = [...path, { id: "", role: "user", content: "Q2", checkpoint_id: "n3", turn_id: "t2" }];
+    expect(reconcileMessages(loaded, settled).map((m) => m.content)).toEqual(["Q1", "A1", "Q2"]);
+  });
+
+  it("leaves ordinary loads alone", () => {
+    const onScreen: Message[] = [
+      { id: "user-5", role: "user", content: "Q" },
+      { id: "streaming-a", role: "assistant", content: "x", streaming: true },
+    ];
+    expect(reconcileMessages(onScreen, path)).toHaveLength(2);
   });
 });

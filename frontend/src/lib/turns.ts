@@ -18,7 +18,7 @@ export interface LiveReply {
   model: string;
   content: string;
   streaming: boolean;
-  /** Cut off by Stop or a dropped connection. */
+  /** Cut off by Stop, or no live run found for it on reattaching. */
   stopped?: boolean;
   /** Why the model failed, if it did. */
   error?: string | null;
@@ -53,10 +53,28 @@ export function updateLiveReply(turn: LiveTurn, model: string, patch: Partial<Li
   };
 }
 
-/** Stop or a dropped socket: whatever is still streaming is cut off. */
-export function stopLiveTurn(turn: LiveTurn | null): LiveTurn | null {
-  if (!turn || !turn.replies.some((r) => r.streaming)) return turn;
-  return { ...turn, replies: turn.replies.map((r) => (r.streaming ? { ...r, streaming: false, stopped: true } : r)) };
+/**
+ * A reply of a turn this tab didn't start (it reloaded, or another tab sent
+ * it), as the server reports it: added to that turn's cards, or starting
+ * them when the turn on screen is another.
+ */
+export function adoptLiveReply(turn: LiveTurn | null, turnId: string, reply: LiveReply): LiveTurn {
+  if (turn && turn.turnId === turnId) {
+    return turn.replies.some((r) => r.model === reply.model)
+      ? updateLiveReply(turn, reply.model, reply)
+      : { ...turn, replies: [...turn.replies, reply] };
+  }
+  return { key: `live-${turnId}`, turnId, replies: [reply] };
+}
+
+/**
+ * Stop, or no live run found for it on reattaching: whatever is still
+ * streaming (or only `model`'s reply) is cut off.
+ */
+export function stopLiveTurn(turn: LiveTurn | null, model?: string): LiveTurn | null {
+  const hit = (r: LiveReply) => r.streaming && (model === undefined || r.model === model);
+  if (!turn || !turn.replies.some(hit)) return turn;
+  return { ...turn, replies: turn.replies.map((r) => (hit(r) ? { ...r, streaming: false, stopped: true } : r)) };
 }
 
 /** What one compare card shows. */

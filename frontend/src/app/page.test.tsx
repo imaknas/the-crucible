@@ -300,29 +300,14 @@ describe("Home: attachments", () => {
 });
 
 describe("Home: leaving a thread while models answer", () => {
-  it("asks first; declining stays, accepting opens the other thread", async () => {
+  it("leaves without asking: the turn runs on on the backend, and coming back reattaches to it", async () => {
     renderPage({ view: "arena" });
     await send("Hello");
     const other = await screen.findByRole("button", { name: "Thread two" });
-
     await act(async () => {
       fireEvent.click(other);
     });
-    let dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("Leave while models answer?")).toBeInTheDocument();
-    await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-    });
-    expect(mocked.fetchHistory).not.toHaveBeenCalledWith("t2", undefined);
-    expect(localStorage.getItem("crucible_thread_id")).toBe("t1");
-
-    await act(async () => {
-      fireEvent.click(other);
-    });
-    dialog = await screen.findByRole("dialog");
-    await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "Stop and leave" }));
-    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await waitFor(() => expect(mocked.fetchHistory).toHaveBeenCalledWith("t2", undefined));
     expect(localStorage.getItem("crucible_thread_id")).toBe("t2");
   });

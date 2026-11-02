@@ -39,7 +39,6 @@ import { useReplyTarget } from "@/hooks/useReplyTarget";
 import { useAnswerDiff } from "@/hooks/useAnswerDiff";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
 import { reconcileMessages } from "@/lib/messages";
-import { mayLeaveThread } from "@/lib/leaveGuard";
 import { RADIUS } from "@/theme";
 
 /**
@@ -103,12 +102,6 @@ export default function Home() {
     clearTree,
   } = useHistoryTree(handleMessagesLoaded, pushToast);
 
-  // Leaving the open thread stops whatever runs on it (its sockets close).
-  // The guard is composed further down from the chat and the debate, which
-  // need the thread id first; the ref breaks that cycle.
-  const leaveGuardRef = useRef<() => Promise<boolean>>(async () => true);
-  const beforeLeave = useCallback(() => leaveGuardRef.current(), []);
-
   const handleThreadCleared = useCallback(() => {
     clearTree();
     setMessagesRef.current?.([]);
@@ -128,7 +121,6 @@ export default function Home() {
     onThreadSwitch: fetchHistory,
     confirm: showConfirm,
     pushToast,
-    beforeLeave,
   });
 
   // The node the next message continues: the chosen one, else the head.
@@ -275,12 +267,6 @@ export default function Home() {
       continueDebate,
     ],
   );
-
-  const { confirmLeave: confirmLeaveDebate } = debate;
-  useEffect(() => {
-    leaveGuardRef.current = () =>
-      mayLeaveThread({ answering: isLoading, confirm: showConfirm, confirmLeaveDebate });
-  }, [isLoading, showConfirm, confirmLeaveDebate]);
 
   // ─── Tree node & composer actions ───────────────────────────────
   const {

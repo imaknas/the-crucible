@@ -13,7 +13,7 @@ import type { Message } from "@/lib/types";
  * to the position, when the message there has the same author.
  */
 export function reconcileMessages(prev: Message[], next: Message[]): Message[] {
-  return next.map((msg, idx) => {
+  const merged = next.map((msg, idx) => {
     const there = prev[idx];
     if (there?.id && there.role === "user" && msg.role === "user" && there.content === msg.content && there.id !== msg.checkpoint_id) {
       return { ...msg, id: there.id };
@@ -23,6 +23,36 @@ export function reconcileMessages(prev: Message[], next: Message[]): Message[] {
     const sameAuthor = there && there.role === msg.role && (there.model === msg.model || !msg.model);
     return { ...msg, id: sameAuthor && there.id ? there.id : `stable-${idx}` };
   });
+  return [...merged, ...turnInFlight(prev, next)];
+}
+
+/** Id prefix of what a tab shows for a run it attached to (useChatWebSocket). */
+export const RESUMED = "resumed-";
+
+/**
+ * A turn this tab attached to (a reload, another tab) is not on any loaded
+ * path yet: the history ends at the last answered turn. Its question and
+ * single-model bubble stay after a load until the path holds the turn.
+ */
+function turnInFlight(prev: Message[], next: Message[]): Message[] {
+  const tail: Message[] = [];
+  for (let i = prev.length - 1; i >= 0 && prev[i].id?.startsWith(RESUMED); i--) tail.unshift(prev[i]);
+  if (!tail.length) return [];
+  const loaded = new Set(next.map((m) => m.turn_id).filter(Boolean));
+  return tail.filter((m) => !m.turn_id || !loaded.has(m.turn_id));
+}
+
+/**
+ * The question of a turn this tab attached to, after the messages on
+ * screen: unless it is already there (this tab sent it, or the path holds
+ * the turn).
+ */
+export function withResumedQuestion(messages: Message[], turnId: string, question: string): Message[] {
+  const id = `${RESUMED}q-${turnId}`;
+  if (messages.some((m) => m.id === id || m.turn_id === turnId)) return messages;
+  const last = messages[messages.length - 1];
+  if (last?.role === "user" && last.content === question) return messages;
+  return [...messages, { id, role: "user", content: question, type: "human", turn_id: turnId }];
 }
 
 /** The person's last message on a path: what Edit & fork puts back in the composer. */
@@ -33,9 +63,12 @@ export function lastUserText(messages: Pick<Message, "role" | "content">[]): str
   return null;
 }
 
-/** Replies still streaming are marked cut off: Stop or a dropped socket ended them. */
-export function markStopped(messages: Message[]): Message[] {
-  return messages.some((m) => m.streaming)
-    ? messages.map((m) => (m.streaming ? { ...m, streaming: false, stopped: true } : m))
-    : messages;
+/**
+ * Replies still streaming (or only `model`'s) are marked cut off: Stop
+ * ended them, or a reattached socket found no live run for them. A dropped
+ * socket alone doesn't: the run goes on without it.
+ */
+export function markStopped(messages: Message[], model?: string): Message[] {
+  const hit = (m: Message) => !!m.streaming && (model === undefined || m.model === model);
+  return messages.some(hit) ? messages.map((m) => (hit(m) ? { ...m, streaming: false, stopped: true } : m)) : messages;
 }
