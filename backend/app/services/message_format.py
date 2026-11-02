@@ -81,3 +81,16 @@ def message_sources(msg: Any) -> Optional[List[Dict[str, str]]]:
 
     unique = list({s["filename"]: s for s in found}.values())
     return unique or None
+
+
+# On a reply: what its drafting call saw (tokens, summary jump, recalled excerpts).
+CONTEXT_KEY = "crucible_context"
+
+
+def reply_context(message) -> Optional[dict]:
+    """What a reply's drafting call saw (``CONTEXT_KEY``), or None for a reply
+    written before it was recorded: {tokens, soft_limit, context_window,
+    pruned, kept_verbatim?, hidden?, recalled: [{role, author, excerpt}]}."""
+    kwargs = getattr(message, "additional_kwargs", None) or {}
+    value = kwargs.get(CONTEXT_KEY)
+    return value if isinstance(value, dict) else None

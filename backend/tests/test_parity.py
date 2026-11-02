@@ -37,6 +37,7 @@ ROUTES: dict = {
     ("GET", "/history/{thread_id}"): (("tree", None), ("get_thread_tree", None)),
     ("DELETE", "/history/{thread_id}/checkpoints/{checkpoint_id}"): (("delete-branch", None), ("delete_branch", None)),
     ("GET", "/history/{thread_id}/search"): (("search", None), ("search_thread", None)),
+    ("GET", "/history/{thread_id}/context"): (("context", None), ("get_thread_context", None)),
     ("POST", "/upload"): (("upload", None), ("upload_document", None)),
     ("GET", "/models"): (("models", None), ("list_models", None)),
     ("GET", "/graph/{thread_id}/topology"): (("tree", None), ("get_thread_tree", None)),

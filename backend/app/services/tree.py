@@ -3,9 +3,9 @@ from collections import deque
 from typing import List, Dict, Optional, Any, Set, Tuple
 from app.core import database as db
 from app.core.database import load_node_positions
-from app.core.schema import is_summary_message
+from app.core.schema import SUMMARY_MARKER, is_summary_message
 from app.registry import SYNTHESIS_COLOR, display_name, model_color
-from app.services.message_format import message_model, message_sources
+from app.services.message_format import message_model, message_sources, reply_context
 from app.services.metrics import message_metrics, snapshot_day
 from app.services.runs import (
     DEBATE_RECORD_KEY,
@@ -497,6 +497,7 @@ def build_graph_layout(
                     "metrics": message_metrics(m_list[-1], day=snapshot_day(state))
                     if visual_role == "ai" and m_list
                     else None,
+                    "context": reply_context(m_list[-1]) if visual_role == "ai" and m_list else None,
                 },
             }
         # A synthesis reply hangs off the same prompt as the answers it merged;
@@ -561,13 +562,15 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
             content = _content_of(msg)
             key = (role, id(msg) if not content else content)
 
-            is_technical = (
-                is_summary_message(msg)
-                or is_synthesis_prompt(msg)
-                or getattr(msg, "type", "") == "remove"
-            )
+            is_technical = is_synthesis_prompt(msg) or getattr(msg, "type", "") == "remove"
             if is_technical or not content.strip():
                 key = None
+            elif is_summary_message(msg):
+                # Where the history was summarized, shown as a marker: later
+                # replies were written from this summary, not the messages
+                # above it. It is not a tree node, so it names none.
+                if key != previous_key:
+                    path_messages.append(summary_entry(msg, curr_id))
             elif key == previous_key and path_messages:
                 # The same message one checkpoint up: its node is further up.
                 path_messages[-1]["checkpoint_id"] = curr_id
@@ -605,6 +608,8 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
                         "metrics": message_metrics(msg, day=snapshot_day(state))
                         if role == "assistant" and not debate_record
                         else None,
+                        # What the reply was written from (graph.reply_context).
+                        "context": reply_context(msg) if role == "assistant" else None,
                         "checkpoint_id": curr_id,
                         "turn_id": _turn_id(state),
                         **(synthesis_details(state) if role == "assistant" and is_synthesis_reply(state) else {}),
@@ -619,6 +624,25 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
         )
 
     return list(reversed(path_messages))
+
+
+def summary_entry(msg, checkpoint_id: Optional[str]) -> Dict[str, Any]:
+    """A summary on a path, as the transcript shows it: its text without the
+    marker it starts with."""
+    text = extract_text(getattr(msg, "content", "") if hasattr(msg, "content") else msg.get("content", ""))
+    if text.startswith(SUMMARY_MARKER):
+        text = text[len(SUMMARY_MARKER):].lstrip()
+    return {
+        "id": f"summary-{checkpoint_id}",
+        "role": "system",
+        "type": "system",
+        "kind": "summary",
+        "content": text,
+        "model": None,
+        "model_name": None,
+        "checkpoint_id": None,
+        "turn_id": None,
+    }
 
 
 def _turn_id(state) -> Optional[str]:

@@ -70,6 +70,9 @@ async def test_the_rewriter_call_never_streams_into_the_reply(compacting_graph):
                 streamed.append(event["token"])
             elif event["type"] == "end":
                 parent = event["checkpoint_id"]
-                assert MARKER not in str(event)
+                # The summarizer is the same fake, so the summary marker may
+                # carry its words; nothing else may.
+                assert MARKER not in str({k: v for k, v in event.items() if k != "messages"})
+                assert all(MARKER not in m["content"] for m in event["messages"] if m.get("kind") != "summary")
     assert rewrites, "recall never ran: the test did not reach the path it guards"
     assert MARKER not in "".join(streamed)

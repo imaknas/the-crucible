@@ -764,13 +764,44 @@ async def get_thread_tree(thread_id: str, excerpt_chars: int = 300) -> Dict[str,
 
 @mcp.tool()
 @_quiet
+async def get_thread_context(
+    thread_id: str, checkpoint_id: Optional[str] = None, models: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """How much of the conversation the next turn from a branch point would
+    send each model, and whether it would answer from a summary. Approximate:
+    one tokenizer for every provider, before the new message, recalled
+    excerpts and attached documents.
+
+    Returns {thread_id, checkpoint_id, models: [{model, tokens (sent),
+    history_tokens (the whole path), messages, summarized (a summary
+    exists), from_summary (the turn jumps to it), summarizes_next (the turn
+    writes a new one first), soft_limit, context_window}]}.
+
+    Args:
+        thread_id: The thread.
+        checkpoint_id: The branch point. Default: where the thread continues.
+        models: Models to measure for. Default: the model that answered there.
+    """
+    async with arena_svc.open_graph() as graph_app:
+        try:
+            return await history.context_report(graph_app, thread_id, checkpoint_id, models or [])
+        except ValueError as e:
+            raise _tool_error(e)
+
+
+@mcp.tool()
+@_quiet
 async def get_thread_messages(thread_id: str, checkpoint_id: Optional[str] = None) -> Dict[str, Any]:
     """The conversation on one path of a thread, oldest first, as the chat
-    view shows it (synthesis prompts and summaries left out).
+    view shows it (synthesis prompts left out). A summary of earlier history
+    is a message with role "system" and kind "summary": replies after it were
+    written from it, not from the messages above it.
 
-    Returns {thread_id, checkpoint_id, messages: [{role (user | assistant),
-    content, model, model_name, kind, checkpoint_id, turn_id, sources,
-    metrics (a reply's time, tokens and cost, as in invoke_arena)}]}.
+    Returns {thread_id, checkpoint_id, messages: [{role (user | assistant |
+    system), content, model, model_name, kind, checkpoint_id, turn_id,
+    sources, metrics (a reply's time, tokens and cost, as in invoke_arena),
+    context (what a reply's call saw: tokens, pruned, recalled excerpts;
+    null for older replies)}]}.
 
     Args:
         thread_id: The thread.
@@ -785,7 +816,7 @@ async def get_thread_messages(thread_id: str, checkpoint_id: Optional[str] = Non
                 messages = (await history.thread_tree(graph_app, thread_id))["messages"]
         except ValueError as e:
             raise _tool_error(e)
-    keep = ("role", "content", "model", "model_name", "kind", "checkpoint_id", "turn_id", "sources", "metrics")
+    keep = ("role", "content", "model", "model_name", "kind", "checkpoint_id", "turn_id", "sources", "metrics", "context")
     return {"thread_id": thread_id, "checkpoint_id": checkpoint_id,
             "messages": [{k: m.get(k) for k in keep} for m in messages]}
 

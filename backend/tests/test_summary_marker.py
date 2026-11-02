@@ -144,6 +144,9 @@ def _path(messages):
 
 def test_the_chat_view_shows_a_user_message_quoting_the_marker():
     raw = _history() + [HumanMessage(content=QUOTE), summary_message("gist")]
-    shown = [m["content"] for m in format_messages(*_path(raw))]
+    path = format_messages(*_path(raw))
+    shown = [m["content"] for m in path if m.get("kind") != "summary"]
     assert QUOTE in shown
     assert not any("gist" == c or c.startswith(SUMMARY_MARKER) for c in shown)
+    # The real summary is a marker, its text without the marker sentence.
+    assert [m["content"] for m in path if m.get("kind") == "summary"] == ["gist"]

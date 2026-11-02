@@ -1,5 +1,5 @@
 import asyncio
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -21,6 +21,20 @@ async def get_history(
     thread_id: str, checkpoint_id: Optional[str] = None, graph_app=Depends(get_graph_app)
 ):
     return await history.thread_tree(graph_app, thread_id, checkpoint_id)
+
+
+@router.get("/{thread_id}/context")
+async def get_context(
+    thread_id: str,
+    checkpoint_id: Optional[str] = None,
+    models: List[str] = Query(default=[]),
+    graph_app=Depends(get_graph_app),
+):
+    """How much the next turn would send each model (history.context_report)."""
+    try:
+        return await history.context_report(graph_app, thread_id, checkpoint_id, models)
+    except ValueError as e:
+        raise HTTPException(404 if "not found" in str(e) else 400, str(e))
 
 
 @router.post("/{thread_id}/positions")

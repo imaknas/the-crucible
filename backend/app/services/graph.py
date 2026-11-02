@@ -19,7 +19,7 @@ from app.services import rag as rag_service
 from app.llm import model_factory_from
 from app.llm.providers import REQUEST_NOTES_HEADER
 from app.services.documents import document_thread, documents_for_run
-from app.services.message_format import message_model
+from app.services.message_format import CONTEXT_KEY, message_model
 from app.services.metrics import ReplyTimer, clock_from
 from app.services.recall import INTERNAL_TAG
 from app.compaction import ContextSnapshot, DetailedBrief, EarlierMessage, KeepRecent, ModelBudget, ThresholdPolicy
@@ -125,9 +125,36 @@ def context_snapshot(messages: list) -> ContextSnapshot:
 
 
 
+def next_turn_context(messages: list, model_id: str, policy=None) -> dict:
+    """What ``model_id``'s next turn after ``messages`` would see, before the
+    new message is added: the same policy decisions drafting_node makes.
+
+    {model, tokens (sent after any jump to the summary; recall excerpts not
+    counted), history_tokens, messages (person + model messages on the
+    path), summarized (a summary exists), from_summary (the call jumps to
+    it), summarizes_next (the turn writes a new summary first), soft_limit,
+    context_window}."""
+    policy = policy or _DEFAULT_POLICY
+    snapshot = context_snapshot(messages)
+    budget = model_budget(model_id)
+    summarized = snapshot.messages_since_summary is not None
+    prune = bool(policy.should_prune(snapshot, budget))
+    return {
+        "model": model_id,
+        "tokens": count_tokens(sanitize_messages(list(messages), prune_history=prune)) if messages else 0,
+        "history_tokens": snapshot.total_tokens,
+        "messages": sum(1 for m in messages if getattr(m, "type", "") in ("human", "ai")),
+        "summarized": summarized,
+        "from_summary": prune and summarized,
+        "summarizes_next": bool(policy.should_summarize(snapshot, budget)),
+        "soft_limit": budget.soft_limit,
+        "context_window": budget.context_window,
+    }
+
+
 def sanitize_messages(
     messages: List[BaseMessage], prune_history: bool = True, retention=None, recall=None,
-    request_notes: Optional[List[str]] = None,
+    request_notes: Optional[List[str]] = None, trace: Optional[dict] = None,
 ) -> List[BaseMessage]:
     """
     Final Ironclad Sanitizer:
@@ -136,6 +163,10 @@ def sanitize_messages(
     3. Merges consecutive same-role messages.
     4. Guarantees User-first and strictly alternating roles.
     5. prune_history: If True, uses the LAST summary marker to jump context.
+
+    ``trace``, when given, is filled with what the call will see: whether it
+    jumped to a summary, how many earlier messages stayed verbatim, and the
+    excerpts recall brought back (drafting_node stores it on the reply).
     """
     from app.utils.helpers import extract_text
     from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
@@ -219,6 +250,8 @@ def sanitize_messages(
         ]
         kept = (retention or _DEFAULT_RETENTION).keep(described)
         recovery = [earlier[i] for i in kept]
+        if trace is not None:
+            trace.update(pruned=True, kept_verbatim=len(recovery), hidden=len(earlier) - len(recovery))
         log.info(f"[Sanitizer] Kept {len(recovery)} verbatim messages before the summary")
 
         # The run's HistoryRecall may bring back hidden messages relevant to
@@ -239,6 +272,12 @@ def sanitize_messages(
             if chosen:
                 lines = [f"[{'User' if earlier[i]['role'] == 'human' else earlier[i].get('name') or 'assistant'}]: {text}"
                          for i, text in chosen]
+                if trace is not None:
+                    trace["recalled"] = [
+                        {"role": "user" if earlier[i]["role"] == "human" else "assistant",
+                         "author": earlier[i].get("name"), "excerpt": text}
+                        for i, text in chosen
+                    ]
                 request_notes = list(request_notes or []) + [
                     "Earlier messages retrieved from the full conversation (oldest first):\n" + "\n".join(lines)
                 ]
@@ -569,9 +608,10 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
         f"[Selective Pruning] {'Active' if do_prune else 'High-fidelity mode'} for {active_peer} ({decision.reason})"
     )
 
+    trace: dict = {"pruned": False, "recalled": []}
     sanitized_messages = sanitize_messages(
         messages, prune_history=do_prune, retention=retention_from(config), recall=recall_from(config),
-        request_notes=[time_note],
+        request_notes=[time_note], trace=trace,
     )
     effective_tokens = count_tokens(sanitized_messages)
 
@@ -599,6 +639,16 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     response.name = active_peer
     response.additional_kwargs["model_id"] = active_peer
     timer.stamp(response)
+    # What this reply was written from, kept with it like its timing: the
+    # transcript can say it answered from a summary and what recall brought
+    # back, after a reload too.
+    budget = model_budget(active_peer)
+    response.additional_kwargs[CONTEXT_KEY] = {
+        "tokens": effective_tokens,
+        "soft_limit": budget.soft_limit,
+        "context_window": budget.context_window,
+        **trace,
+    }
 
     if state.get("retrieved_chunks"):
         response.additional_kwargs["sources"] = state["retrieved_chunks"]

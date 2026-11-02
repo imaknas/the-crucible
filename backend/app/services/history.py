@@ -51,6 +51,46 @@ async def thread_tree(graph_app, thread_id: str, checkpoint_id: Optional[str] = 
     }
 
 
+async def context_report(
+    graph_app, thread_id: str, checkpoint_id: Optional[str] = None, models: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """How much of the conversation the next turn from ``checkpoint_id``
+    (default: the answered head) would send each model, and whether it
+    answers from a summary: {thread_id, checkpoint_id, models:
+    [graph.next_turn_context]}. ``models`` defaults to the model that wrote
+    the reply there, else the default model.
+
+    Approximate: counted with one tokenizer for every provider, before the
+    new message, recall excerpts and attached documents. With no checkpoint
+    each model continues its own reply in the latest turn; the counts are
+    those of the head's path, which differs from a turn-mate's only by the
+    replies themselves. ValueError for an unknown thread, checkpoint or
+    model."""
+    from app.registry import DEFAULT_MODEL, MODEL_REGISTRY
+    from app.services.graph import next_turn_context
+
+    unknown = [m for m in models or [] if m not in MODEL_REGISTRY]
+    if unknown:
+        raise ValueError(f"Unknown model(s): {', '.join(unknown)}.")
+    if checkpoint_id:
+        state = await graph_app.aget_state(thread_config(thread_id, checkpoint_id))
+        if not state.values:
+            raise ValueError(f"Checkpoint {checkpoint_id} not found on thread {thread_id}.")
+    else:
+        state = await answered_head(graph_app, thread_id)
+        if not (state and state.values) and not await asyncio.to_thread(db.thread_exists, thread_id):
+            raise ValueError(f"Thread {thread_id} not found.")
+    values = (state.values if state else None) or {}
+    messages = values.get("messages") or []
+    chosen = list(dict.fromkeys(models or [])) or [values.get("active_peer") or DEFAULT_MODEL]
+    shown = state.config["configurable"].get("checkpoint_id") if state and state.values else None
+    return {
+        "thread_id": thread_id,
+        "checkpoint_id": shown,
+        "models": [next_turn_context(messages, m) for m in chosen],
+    }
+
+
 def topology(thread_id: str) -> Dict[str, Any]:
     """Every raw checkpoint of a thread and its parent link: {nodes: [{id,
     label, metadata}], edges: [{source, target}]}. Read from the checkpoint

@@ -1134,11 +1134,65 @@ def messages(
     from rich.markup import escape
 
     for m in msgs:
+        if m.get("kind") == "summary":
+            console.rule("[dim]Earlier history summarized: later replies were written from this[/dim]")
+            console.print(Markdown(m.get("content") or ""), style="dim")
+            continue
         who = "You" if m.get("role") == "user" else (m.get("model_name") or m.get("model") or "Assistant")
         if m.get("kind") == "synthesis":
             who = f"Synthesis · {who}"
         console.rule(f"{escape(who)}  [dim]{m.get('checkpoint_id') or ''}[/dim]")
         console.print(Markdown(m.get("content") or ""))
+        recalled = (m.get("context") or {}).get("recalled") or []
+        if recalled:
+            console.print(f"[dim]Recall brought back {len(recalled)} earlier message(s) for this reply.[/dim]")
+
+
+@app.command()
+def context(
+    thread: str = typer.Option(..., "--thread", "-t", help="Thread to measure."),
+    at: Optional[str] = typer.Option(None, "--at", help="Branch point to measure from (default: the latest answer)."),
+    models: Optional[List[str]] = typer.Option(
+        None, "--models", "-m", help="Models to measure for (repeat the flag; default: the model that answered there)."
+    ),
+    format_output: str = _opt_format(),
+):
+    """How much of the conversation the next turn would send each model, and
+    whether it answers from a summary (approximate: one tokenizer for all)."""
+    as_json = _check_format(format_output)
+    _load_env()
+
+    async def read():
+        from app.services import history
+        from app.services.arena import open_graph
+
+        async with open_graph() as graph_app:
+            return await history.context_report(graph_app, thread, at, models or [])
+
+    report = _run(read(), as_json)
+    if as_json:
+        _emit_json(report)
+        return
+    from rich.table import Table
+    from rich.text import Text
+
+    from app.registry import display_name
+
+    table = Table(title=f"Next turn from {report['checkpoint_id'] or 'the start'}")
+    for column in ("Model", "Messages", "Sent (~tokens)", "Soft limit", "Window", "Summary"):
+        table.add_column(column)
+    for row in report["models"]:
+        summary = (
+            "writes one first" if row["summarizes_next"]
+            else "answers from it" if row["from_summary"]
+            else "exists, not needed" if row["summarized"]
+            else "none"
+        )
+        table.add_row(
+            Text(display_name(row["model"])), str(row["messages"]), f"{row['tokens']:,}",
+            f"{row['soft_limit']:,}", f"{row['context_window']:,}" if row["context_window"] else "?", summary,
+        )
+    console.print(table)
 
 
 @app.command()
