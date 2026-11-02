@@ -59,6 +59,7 @@ or `backend/chroma_db`.
   so replies get metrics and a cost. Prompt hooks: `[[slow]]` holds a
   stream open (10× delay), `[[fail:<model_id>]]` makes that model raise. Never
   set the variable outside tests.
+- The fixture's "E2E Summarized Thread" is written with a 150-token `ThresholdPolicy` and `KeywordRecall` (no model call), so it has two summaries and replies with recalled excerpts: `e2e/tests/context.spec.ts` reads the summary marker, the reply's context note and the branch chip there.
 - Live tests write real checkpoints, which is why the suite re-seeds on every run
   and each live test starts from **New Session**.
 - One live test uses up a seeded fixture: "a debate interrupted by a server restart resumes…" resumes the seeded `E2E Interrupted Debate` (the harness can't restart its server, and nothing else interrupts a debate now), then skips until `npm run e2e:seed` runs again, e.g. on `--repeat-each`.
