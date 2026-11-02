@@ -65,7 +65,7 @@ Cheap changes that answer published criticism of multi-agent debate, plus the nu
     - Compress a subtree into one summary node, using the existing summarizer.
     - Sources: Loom, Canvas Branch Chat, branching-ai-chat, the CanvasConvo field study.
 13. **Branch from a highlighted span.** _Done: "Branch from this" over text selected in a reply quotes it in the composer and continues from that reply._ Select text in a reply and open a branch about exactly that claim. Sources: canvas-chat, treechat.
-14. **Add a model to a finished turn, and mark the primary reply.**
+14. **Add a model to a finished turn, and mark the primary reply.** _Done: "Add a model" on any finished turn (compare cards or a single reply) asks one more model that turn's question as one more answer of it (`join_turn`: also `crucible arena|chat --join-turn`, MCP `invoke_arena(join_turn=)`), and doesn't make that turn the latest; the chosen branch point is marked "Next message continues here", nothing while each model continues its own reply, and "Everyone continues from here" sits beside "Continue from this". No stored "primary" state: the branch point already is that choice._
     - A "+ model" button asks one more model the same question, without re-asking the others.
     - A "primary" mark says which reply the next message continues.
     - Sources: Chorus, TypingMind.
