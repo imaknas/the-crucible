@@ -54,6 +54,11 @@ DEBATE_THREAD_ID = "thread_e2e_debate"
 DEBATE_TITLE = "E2E Debate Thread"
 DEBATE_MODELS = ["gpt-5.4", "claude-sonnet-5"]
 
+# A debate a server restart cut off after its first round: the only thing
+# that interrupts a debate now, and the e2e harness can't restart its server.
+INTERRUPTED_THREAD_ID = "thread_e2e_interrupted"
+INTERRUPTED_TITLE = "E2E Interrupted Debate"
+
 # Long enough that the 40-char node preview truncates, which is what the
 # level-of-detail assertions care about.
 REPLIES = [
@@ -147,6 +152,17 @@ async def main():
             "gpt-5.4",
             "Synthesize the debate.",
         )
+
+        # ── A debate interrupted after round 1 of 2 ──
+        db.rename_thread(INTERRUPTED_THREAD_ID, INTERRUPTED_TITLE)
+        cut_off = debate_svc.create_session(
+            parent_thread_id=INTERRUPTED_THREAD_ID,
+            participants=DEBATE_MODELS,
+            termination_policy={"max_rounds": 2, "convergence_threshold": None, "llm_judge": None, "mode": "all"},
+        )
+        for model in DEBATE_MODELS:
+            await _invoke(app, cut_off["thread_ids"][model], model, "Spaces or tabs?")
+        db.update_debate_session(cut_off["session_id"], current_round=0, status="interrupted")
 
     counts = {
         "threads": len(db.list_threads()),

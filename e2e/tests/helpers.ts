@@ -3,6 +3,7 @@ import { Page, expect } from "@playwright/test";
 /** Matches the fixture built by e2e/seed_db.py. */
 export const MAIN_THREAD_TITLE = "E2E Reference Thread";
 export const DEBATE_THREAD_TITLE = "E2E Debate Thread";
+export const INTERRUPTED_THREAD_TITLE = "E2E Interrupted Debate";
 
 /** Mirrored from backend/app/services/tree.py and CustomTreeNode.tsx. */
 export const LOD_THRESHOLD = 0.6;

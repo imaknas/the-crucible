@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
   BACKEND_URL,
+  INTERRUPTED_THREAD_TITLE,
   MAIN_THREAD_TITLE,
   addModel,
   currentThreadId,
@@ -143,6 +144,32 @@ test.describe("live flows (scripted models)", () => {
     // Stored with the replies: a reload reads them back from the tree.
     await page.reload();
     await expectMetrics();
+  });
+
+  test("a multi-model turn carries on through a reload and finishes", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, "[[slow]] Survive a reload");
+    const cards = page.getByRole("article");
+    await expect(cards).toHaveCount(2);
+    await expect(cards.getByText(answerFrom(GPT))).toBeVisible();
+    await expect(cards.getByText(answerFrom(CLAUDE))).toBeVisible();
+
+    await page.reload();
+    // The turn kept running on the backend: its question, both cards with
+    // the text so far (one catch-up frame each), still streaming.
+    await expect(page.getByText("[[slow]] Survive a reload", { exact: true }).first()).toBeVisible();
+    await expect(cards).toHaveCount(2);
+    await expect(cards.getByText(answerFrom(GPT))).toBeVisible();
+    await expect(cards.getByText(answerFrom(CLAUDE))).toBeVisible();
+    await expect(page.locator('article[aria-busy="true"]').first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Stop generating" })).toBeVisible();
+
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0, { timeout: 30_000 });
+    await expect(cards).toHaveCount(2);
+    await expect(page.locator('article[aria-busy="true"]')).toHaveCount(0);
+    await expect(page.locator('article[data-state="stopped"]')).toHaveCount(0);
+    await expect(cards.getByText(/so the interface can be tested/)).toHaveCount(2);
   });
 
   test("Stop marks every card still streaming as cut off", async ({ page }) => {
@@ -484,21 +511,24 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.getByLabel("System prompt")).toHaveValue("Answer in one word.");
   });
 
-  test("switching threads mid-stream does not leave the new thread loading", async ({ page }) => {
+  test("switching threads mid-stream leaves the turn running, and coming back shows it", async ({ page }) => {
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     await send(page, "[[slow]] take your time");
     await expect(page.getByRole("button", { name: "Stop generating" })).toBeVisible();
+    const threadId = await currentThreadId(page);
 
-    // Leaving stops the models, so it asks first; declining stays put.
+    // Leaving stops nothing, so it asks nothing; the other thread is ready.
     await page.getByRole("button", { name: MAIN_THREAD_TITLE, exact: false }).first().click();
-    await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
-    await expect(page.getByRole("button", { name: "Stop generating" })).toBeVisible();
-
-    await page.getByRole("button", { name: MAIN_THREAD_TITLE, exact: false }).first().click();
-    await page.getByRole("dialog").getByRole("button", { name: "Stop and leave" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
     await page.getByPlaceholder(/Ask the arena/i).fill("ready?");
     await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled();
+
+    await page.goto(`/?thread=${threadId}`);
+    await expect(page.getByText(answerFrom(GPT)).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByText(/so the interface can be tested/).first()).toBeVisible();
+    await expect(page.getByText("Stopped before it finished: this reply is incomplete.")).toHaveCount(0);
   });
 
   test("a debate pauses between rounds, resumes, and completes", async ({ page }) => {
@@ -556,60 +586,71 @@ test.describe("live flows (scripted models)", () => {
     await expect(nodes(page).filter({ hasText: /Scripted answer/ })).toHaveCount(1);
   });
 
-  test("a debate cut off by a reload is restored as interrupted and can be synthesized", async ({
-    page,
-    request,
-  }) => {
+  test("a debate continues through a reload, and can be synthesized after", async ({ page, request }) => {
+    test.slow(); // two deliberately slow rounds, then the synthesis
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
-    await startDebate(page, "Tabs or spaces?", 3);
-    await expect(page.getByText("DEBATE · ROUND 2/3")).toBeVisible({ timeout: 20_000 });
+    await startDebate(page, "Tabs or spaces? [[slow]]", 2);
+    await expect(page.getByText(answerFrom(GPT)).first()).toBeVisible({ timeout: 20_000 });
     const sessionId = await page.evaluate(() => localStorage.getItem("crucible_active_debate"));
 
     await page.reload();
     await page.getByRole("button", { name: "Arena", exact: true }).click();
-    await expect(debateStatus(page)).toHaveText("interrupted");
-    // Nothing is running, so the composer must not offer to inject.
-    await expect(page.getByRole("button", { name: "Inject into debate" })).toHaveCount(0);
-    const before = await (await request.get(`${BACKEND_URL}/debate/sessions/${sessionId}`)).json();
-    expect(before.status).toBe("interrupted");
+    // Still running on the backend: the tab attached to it again, with the
+    // round in progress as far as it had got.
+    await expect(debateStatus(page)).toHaveText("running");
+    await expect(page.getByText("Round 1 · independent answers")).toBeVisible();
+    await expect(page.getByText(answerFrom(GPT)).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pause debate" })).toBeVisible();
+    const during = await (await request.get(`${BACKEND_URL}/debate/sessions/${sessionId}`)).json();
+    expect(during.status).toBe("running");
+
+    await expect(debateStatus(page)).toHaveText("completed", { timeout: 60_000 });
+    await expect(page.getByText("Round 2", { exact: true })).toBeVisible();
+    // The reload doubled nothing.
+    await expect(page.getByText("Round 1 · independent answers")).toHaveCount(1);
 
     await page.getByRole("button", { name: "Synthesize" }).click();
-    await expect(debateStatus(page)).toHaveText("completed", { timeout: 20_000 });
-    const after = await (await request.get(`${BACKEND_URL}/debate/sessions/${sessionId}/tree`)).json();
-    expect(after.nodes.some((n: { id: string }) => /synthesis/i.test(n.id))).toBe(true);
+    await expect.poll(async () => {
+      const tree = await (await request.get(`${BACKEND_URL}/debate/sessions/${sessionId}/tree`)).json();
+      return tree.nodes.some((n: { id: string; metadata?: { pending?: boolean } }) => /synthesis/i.test(n.id) && !n.metadata?.pending);
+    }, { timeout: 30_000 }).toBe(true);
   });
 
-  test("an interrupted debate resumes in this tab and finishes", async ({ page }) => {
-    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
-    await startDebate(page, "Vim or Emacs?", 3);
-    await expect(page.getByText("DEBATE · ROUND 2/3")).toBeVisible({ timeout: 20_000 });
+  test("a debate interrupted by a server restart resumes in this tab and finishes", async ({ page, request }) => {
+    const sessions = await (await request.get(`${BACKEND_URL}/debate/sessions`)).json();
+    const seeded = sessions.find((s: { parent_thread_id: string }) => s.parent_thread_id === "thread_e2e_interrupted");
+    test.skip(seeded?.status !== "interrupted", "the fixture's interrupted debate already ran; re-seed with npm run e2e:seed");
 
-    await page.reload();
+    await page.getByRole("button", { name: INTERRUPTED_THREAD_TITLE, exact: false }).first().click();
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     await expect(debateStatus(page)).toHaveText("interrupted");
-    await expect(page.getByText(/Stopped when the tab running it closed/)).toBeVisible();
+    await expect(page.getByText(/Stopped when the server restarted/)).toBeVisible();
     // The restored transcript comes aligned by round from the server.
     await expect(page.getByText("Round 1 · independent answers")).toBeVisible();
+    // Nothing is running, so the composer must not offer to inject.
+    await expect(page.getByRole("button", { name: "Inject into debate" })).toHaveCount(0);
 
     await page.getByRole("button", { name: "Resume the interrupted debate" }).click();
     await expect(debateStatus(page)).toHaveText("completed", { timeout: 30_000 });
-    await expect(page.getByText("Round 3", { exact: true })).toBeVisible();
+    await expect(page.getByText("Round 2", { exact: true })).toBeVisible();
   });
 
-  test("closing a running debate asks first, and declining keeps it running", async ({ page }) => {
+  test("closing a running debate stops it, so it asks first, and declining keeps it running", async ({ page, request }) => {
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await startDebate(page, "Slow one [[slow]]", 2);
     await expect(debateStatus(page)).toHaveText("running");
+    const sessionId = await page.evaluate(() => localStorage.getItem("crucible_active_debate"));
 
     await page.getByRole("button", { name: "Close debate" }).first().click();
     const dialog = page.getByRole("dialog");
-    await expect(dialog).toContainText("Leave the debate?");
+    await expect(dialog).toContainText("Stop the debate?");
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(debateStatus(page)).toHaveText("running");
 
     await page.getByRole("button", { name: "Close debate" }).first().click();
-    await page.getByRole("dialog").getByRole("button", { name: "Stop and leave" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Stop and close" }).click();
     await expect(page.getByText(/DEBATE · ROUND/)).toHaveCount(0);
+    await expect.poll(async () => (await (await request.get(`${BACKEND_URL}/debate/sessions/${sessionId}`)).json()).status).toBe("completed");
   });
 
   test("a debate with named participants shows no participant key", async ({ page, request }) => {
