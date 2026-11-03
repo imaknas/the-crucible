@@ -49,6 +49,11 @@ class PlantedFact:
     # wording: finding the fact then takes knowing what it is about, not
     # matching words. Empty for the hand-written pilot 1 facts.
     indirect_question: str = ""
+    # Why the value is what it is ("because the auditors flagged ..."), when
+    # the fact carries one (with_reasons); `reason_answers` are what must
+    # still be attached to the subject for the reason oracle.
+    reason: str = ""
+    reason_answers: tuple[str, ...] = ()
 
 
 DEFAULT_FACTS: tuple[PlantedFact, ...] = (
@@ -282,6 +287,50 @@ _NO_SHARED_DESCRIPTIONS = {
     "rate limiter": "the component that throttles clients who contact us too often",
     "feature-flag service": "the system for switching product capabilities on and off per customer",
 }
+
+
+# Reasons for with_reasons: each phrase distinctive enough to find by string
+# match, none containing a subject's name or a planted value.
+_REASONS = (
+    ("the auditors flagged the previous setup", "auditors flagged"),
+    ("the Lisbon office asked for it during the offsite", "lisbon office"),
+    ("the old choice failed the March load test", "march load test"),
+    ("legal wants a single point of accountability", "single point of accountability"),
+    ("the insurer requires it after last year's outage", "insurer requires"),
+    ("finance froze anything above the quarterly line", "quarterly line"),
+    ("the night shift complained about paging fatigue", "paging fatigue"),
+    ("the previous value collided with the VPN range", "vpn range"),
+    ("our biggest customer threatened to churn over it", "threatened to churn"),
+    ("the regulator's letter set that deadline", "regulator's letter"),
+    ("the contract with the old supplier ends in spring", "ends in spring"),
+    ("security found plaintext copies on a shared drive", "plaintext copies"),
+    ("the warehouse team cannot staff weekend cutovers", "weekend cutovers"),
+    ("benchmarks showed a twofold drop in tail latency", "twofold drop"),
+    ("the board asked for a cheaper option in October", "cheaper option"),
+    ("the Kyoto data centre is being decommissioned", "kyoto data centre"),
+    ("it was the only option with an on-premise licence", "on-premise licence"),
+    ("two incidents last quarter traced back to it", "two incidents"),
+    ("the mobile team needs it before the store review", "store review"),
+    ("support tickets doubled after the last change", "tickets doubled"),
+    ("it keeps us under the data residency rules", "data residency"),
+    ("the vendor's roadmap drops the feature we rely on", "vendor's roadmap"),
+    ("an intern's script deleted the staging copy", "intern's script"),
+    ("the CFO signed off on exactly that figure", "cfo signed off"),
+)
+
+
+def with_reasons(facts: Sequence[PlantedFact]) -> list[PlantedFact]:
+    """The same facts, each stated with a reason ("…, because the auditors
+    flagged the previous setup."), recorded for the relational oracle
+    (reason_attached). Values, subjects and positions are unchanged, so a
+    run with and without reasons differs only in the reasons."""
+    if len(facts) > len(_REASONS):
+        raise ValueError(f"at most {len(_REASONS)} facts have distinct reasons")
+    out = []
+    for f, (reason, key) in zip(facts, _REASONS):
+        statement = f"{f.statement.rstrip('.')}, because {reason}."
+        out.append(replace(f, statement=statement, reason=reason, reason_answers=(key,), variant=f"{f.variant}+reason"))
+    return out
 
 
 def no_shared_words(facts: Sequence[PlantedFact]) -> list[PlantedFact]:
@@ -759,11 +808,26 @@ def value_attached(context: str, fact: PlantedFact, subjects: Sequence[str] = SU
     its line mentions the subject, or the nearest subject mentioned before
     it is this one (the value sits in that subject's section, however long).
     Without a subject, presence anywhere counts."""
+    return _attached(context, fact.subject, fact.answers, subjects)
+
+
+def reason_attached(context: str, fact: PlantedFact, subjects: Sequence[str] = SUBJECTS) -> bool:
+    """The relational check: the value *and* the reason given for it are both
+    still attached to the fact's subject (value_attached for each). Keeping
+    "port 5592" while losing "because the old one clashed with the VPN" is
+    keeping a fact without what it takes to act on it. A fact without a
+    reason needs only its value."""
+    if not value_attached(context, fact, subjects):
+        return False
+    return not fact.reason_answers or _attached(context, fact.subject, fact.reason_answers, subjects)
+
+
+def _attached(context: str, subject: str, needles: Sequence[str], subjects: Sequence[str]) -> bool:
     text = _loose(context)
-    values = [_loose(a) for a in fact.answers]
-    if not fact.subject:
+    values = [_loose(a) for a in needles]
+    if not subject:
         return any(v in text for v in values)
-    own = _loose(fact.subject)
+    own = _loose(subject)
     mentions = sorted(
         (m.start(), name)
         for name in {_loose(x) for x in subjects} | {own}

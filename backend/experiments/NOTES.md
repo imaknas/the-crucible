@@ -1700,3 +1700,23 @@ synthetic conversations and this embedding model.
   replaced it needs to know what the value *is*, which word overlap
   doesn't. Not adopted; a dated note ("message 34 of 140") is only
   testable with a reader (tier D).
+
+## 2026-11-03 — A relational oracle: the value and its reason (instrument; roadmap 20)
+
+"Remembering a fact is not being able to continue the task" (Compact-Bench)
+has a part that needs no model: whether a summary kept a value *with the
+reason given for it*. `with_reasons` states every fact with a distinct
+reason ("…, because the auditors flagged the previous setup."), changing
+nothing else (same values, subjects and positions: tested), and
+`probe.reason_attached` passes only when both the value and the reason are
+still attached to the fact's subject, by the same rule as `value_attached`.
+`crucible compaction-eval --reasons` adds the pseudo-model `oracle-reason`
+beside `oracle` and `oracle-strict`.
+
+No result yet, by design: the stand-in summarizers keep or drop the whole
+planted sentence, so with them the three oracles agree (checked in a dry
+run: 1/8 each at a 3,000-token threshold). The gap between
+`oracle-strict` and `oracle-reason` is what a real summarizer drops when it
+keeps values and sheds their reasons: a tier C question, to run on cached
+summaries where they exist and on the cheapest summarizer of each
+generation otherwise.

@@ -2121,6 +2121,10 @@ def compaction_eval(
     rewriters: Optional[List[str]] = typer.Option(None, "--rewriter", help="Model that chooses search terms for --recall guided (repeat: one condition per model). Default: gpt-6-luna."),
     excerpts: Optional[List[str]] = typer.Option(None, "--excerpt", help="How recalled messages are shown (repeat to compare): 'message' (whole messages, the default) or 'sentences' (only the matching sentences)."),
     later_subject: str = typer.Option("unknown", "--later-subject", help="Task scenario only: what goal reminders say about the subject the conversation later switches to: 'unknown' (nothing), 'announced' (it is next) or 'mentioned' (named as often, as out of scope). Pair runs across values."),
+    reasons: bool = typer.Option(
+        False, "--reasons",
+        help="State every fact with a reason (dense only) and probe the reason oracle too: value and reason must both stay attached to the subject.",
+    ),
     asides: bool = typer.Option(False, "--asides", help="State every fact as a throwaway remark (dense only); pair with a run without it."),
     questions: str = typer.Option("direct", "--questions", help="Probe by the subject's name ('direct') or by what it does ('indirect'; dense only)."),
     fact_variants: str = typer.Option("plain,distractor,update", "--fact-variants", help="Variants the facts cycle through (dense only), e.g. 'plain' for plain facts only."),
@@ -2150,13 +2154,15 @@ def compaction_eval(
     the same probes on the same conversation. Real runs call the chosen
     models; results include raw token usage.
     """
-    from app.services.compaction_eval import ORACLE, ORACLES
+    from app.services.compaction_eval import ORACLE, ORACLE_MODES, ORACLES, REASON_ORACLE
 
     as_json = _check_format(format_output)
     if rescore:
         _rescore_eval(rescore, min_effect, as_json)
         return
     _load_env()
+    if reasons and scenario != "dense":
+        _fail("--reasons applies to the dense scenario only", as_json)
     if scenario not in ("dense", "task", "basic") or compaction not in ("live", "once"):
         _fail("--scenario is dense|task|basic and --compaction is live|once", as_json)
     if (not set(keeps or []) <= {"recent", "user"} or not set(instructions or []) <= {"brief", "handoff", "state", "index", "allsubjects"}
@@ -2169,6 +2175,8 @@ def compaction_eval(
     model_ids = [ORACLE] if dry_run else list(models or _cheapest_models())
     if oracle:
         model_ids += [o for o in ORACLES if o not in model_ids]
+        if reasons:
+            model_ids.append(REASON_ORACLE)
     if not dry_run:
         from app.services.compaction_eval import split_thinking
 
@@ -2176,7 +2184,7 @@ def compaction_eval(
             bases = [split_thinking(s)[0] for s in summarizers or []]
         except ValueError as e:
             _fail(str(e), as_json)
-        _validate_models([m for m in model_ids if m not in ORACLES] + bases + list(rewriters or []), as_json)
+        _validate_models([m for m in model_ids if m not in ORACLE_MODES] + bases + list(rewriters or []), as_json)
     options = {
         "scenario": scenario,
         "facts": facts,
@@ -2192,6 +2200,7 @@ def compaction_eval(
         "questions": questions,
         "rewriters": list(rewriters or ["gpt-6-luna"]),
         "asides": asides,
+        "reasons": reasons,
         "later_subject": later_subject,
         "excerpts": list(excerpts or ["message"]),
         "assistant_facts": assistant_facts,
@@ -2413,6 +2422,16 @@ def _eval_scenarios(options) -> dict:
 
     seeds = range(options["seeds"])
     if options["scenario"] == "dense":
+        if options.get("reasons"):
+            from app.compaction import generate_facts, with_reasons
+
+            return {str(s): build_dense_scenario(with_reasons(generate_facts(options["facts"], seed=s,
+                                                                             variants=options["fact_variants"])),
+                                                 exchanges=options["exchanges"], seed=s,
+                                                 assistant_facts=options["assistant_facts"],
+                                                 repeat_facts=options["repeat_facts"], questions=options["questions"],
+                                                 asides=options["asides"])
+                    for s in seeds}
         return {str(s): build_dense_scenario(n_facts=options["facts"], exchanges=options["exchanges"], seed=s,
                                              assistant_facts=options["assistant_facts"],
                                              variants=options["fact_variants"], repeat_facts=options["repeat_facts"],
@@ -2668,7 +2687,8 @@ def _rescore_eval(path: str, min_effect: float, as_json: bool) -> None:
 
     data = json.loads(Path(path).read_text())
     options = {"facts": 24, "exchanges": 140, "assistant_facts": 0.0, "fact_variants": ["plain", "distractor", "update"],
-               "repeat_facts": False, "questions": "direct", "asides": False, "later_subject": "unknown", **data}
+               "repeat_facts": False, "questions": "direct", "asides": False, "reasons": False, "later_subject": "unknown",
+               **data}
     results = ce.results_from_dicts(data["probes"])
     report, arms = _bounded(results, _eval_scenarios(options))
     conditions = list(dict.fromkeys(r.condition for r in results))

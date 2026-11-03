@@ -56,7 +56,7 @@ from app.compaction import (
     compare_recall,
     is_correct,
 )
-from app.compaction.probe import committed_answer, gives_value, is_stale, value_attached
+from app.compaction.probe import committed_answer, gives_value, is_stale, reason_attached, value_attached
 from app.services.graph import (
     INSTRUCTION_CONFIG_KEY,
     POLICY_CONFIG_KEY,
@@ -873,6 +873,8 @@ class AvailabilityOracle(BaseChatModel):
 
     facts: tuple[PlantedFact, ...]
     strict: bool = False
+    # With `strict`: the reason must be attached too (probe.reason_attached).
+    with_reason: bool = False
     # (scenario label, fact key) -> fact
     by_probe: dict = Field(default_factory=dict)
 
@@ -903,7 +905,8 @@ class AvailabilityOracle(BaseChatModel):
         else:
             context = _visible_text(messages)
             if self.strict:
-                found = next((f.answers[0] for f in candidates if value_attached(context, f)), None)
+                check = reason_attached if self.with_reason else value_attached
+                found = next((f.answers[0] for f in candidates if check(context, f)), None)
             else:
                 lowered = context.lower()
                 found = next((a for f in candidates for a in f.answers if a.lower() in lowered), None)
@@ -921,7 +924,12 @@ class AvailabilityOracle(BaseChatModel):
 
 ORACLE = "oracle"
 STRICT_ORACLE = "oracle-strict"
-# Pseudo-models answered by an AvailabilityOracle: strict or not.
+# The value and its reason, both attached to the subject (probe.reason_attached);
+# probed only when the facts carry reasons (--reasons).
+REASON_ORACLE = "oracle-reason"
+# Pseudo-models answered by an AvailabilityOracle, by how strict: anywhere,
+# attached, or attached with its reason. ORACLES are probed by default.
+ORACLE_MODES = {ORACLE: "anywhere", STRICT_ORACLE: "attached", REASON_ORACLE: "reason"}
 ORACLES = {ORACLE: False, STRICT_ORACLE: True}
 
 
@@ -939,8 +947,10 @@ class EvalModelFactory:
         self.by_probe = {(label, f.key): f for label, sc in (scenarios or {}).items() for f in sc.facts}
 
     def chat(self, model_id: str, toggles: Optional[Mapping[str, Any]] = None):
-        if model_id in ORACLES:
-            return AvailabilityOracle(facts=self.facts, strict=ORACLES[model_id], by_probe=self.by_probe)
+        if model_id in ORACLE_MODES:
+            mode = ORACLE_MODES[model_id]
+            return AvailabilityOracle(facts=self.facts, strict=mode != "anywhere", with_reason=mode == "reason",
+                                      by_probe=self.by_probe)
         if self.inner is None:
             return FirstSentenceSummarizer()
         base, level = split_thinking(model_id)
@@ -1191,7 +1201,7 @@ async def estimate_cost(
     """
     facts = [f for sc in scenarios.values() for f in sc.facts]
     branches = len(model_ids)  # every answering model, oracles included, probes each condition
-    real = [m for m in model_ids if m not in ORACLES]
+    real = [m for m in model_ids if m not in ORACLE_MODES]
     by_condition: dict[str, float] = {}
     by_model: dict[str, float] = {}
     summaries: dict[str, float] = {}
@@ -1389,7 +1399,7 @@ async def run_budgeted(
     grid = grid or run_live_grid
     spend, estimate = None, None
     if prices is not None:
-        real = [m for m in model_ids if m not in ORACLES]
+        real = [m for m in model_ids if m not in ORACLE_MODES]
         rewriting = sorted({rewriter_of(c).model_id for c in conditions if rewriter_of(c)})
         unpriced = sorted({m for m in real + rewriting + [split_thinking(summarizer_of(c))[0] for c in conditions]
                            if prices.price(m) is None})

@@ -105,3 +105,26 @@ def test_with_later_mentions_adds_the_newest_later_message_sharing_rare_terms():
 
     assert WithLaterMentions(First()).select("q", candidates) == [0, 2]
     assert WithLaterMentions(First()).name == "first+later"
+
+
+def test_reasons_change_only_the_statement_and_are_checked_attached_to_the_subject():
+    from app.compaction.probe import reason_attached, value_attached, with_reasons
+
+    plain = build_dense_scenario(n_facts=24, exchanges=120, seed=3)
+    reasoned = build_dense_scenario(with_reasons(generate_facts(24, seed=3)), exchanges=120, seed=3)
+    assert plain.positions == reasoned.positions
+    assert [f.answers for f in plain.facts] == [f.answers for f in reasoned.facts]
+    assert all(f.reason and f.reason in f.statement for f in reasoned.facts)
+    assert len({f.reason for f in reasoned.facts}) == 24
+
+    fact = next(f for f in reasoned.facts if f.kind == "port")
+    value = fact.answers[0]
+    reason = fact.reason_answers[0]
+    kept = f"- the {fact.subject}: port {value}, because {reason}."
+    assert value_attached(kept, fact) and reason_attached(kept, fact)
+    # The value survived, the reason didn't: a fact without what it takes to act on it.
+    assert value_attached(f"- the {fact.subject}: port {value}.", fact)
+    assert not reason_attached(f"- the {fact.subject}: port {value}.", fact)
+    # The reason survived, but under another subject.
+    other = next(s for s in SUBJECTS if s != fact.subject)
+    assert not reason_attached(f"- the {fact.subject}: port {value}.\n- the {other}: {reason}.", fact)
