@@ -84,7 +84,7 @@ Cheap changes that answer published criticism of multi-agent debate, plus the nu
 
 ## Phase 6 — Assigned sides
 
-17. **Assigned sides and a devil's advocate.**
+17. **Assigned sides and a devil's advocate.** _Done: "How they argue" in the debate dialog (also `crucible debate --side/--advocate`, MCP `run_debate(sides=, advocate=)`). Sides are shown to everyone; the advocate isn't named to the others. Both rule out the agreement judge, and the argument map is told what was assigned._
     - For contested questions: models argue an assigned side, or one attacks the emerging consensus.
     - This is the setup where debate measurably helps the judge, here the user.
     - It is a feature built on published results and needs no experiment of ours.
