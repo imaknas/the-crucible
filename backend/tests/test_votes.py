@@ -96,3 +96,57 @@ async def test_a_vote_is_stored_per_turn_replaced_and_deleted_with_its_thread():
 
     db.delete_thread_data("t-v")
     assert votes.votes_of("t-v") == []
+
+
+def test_cli_rest_and_mcp_vote_blind_and_read_the_win_rates(monkeypatch):
+    import asyncio
+    import json
+
+    from fastapi.testclient import TestClient
+    from fastmcp import Client
+    from typer.testing import CliRunner
+
+    from app.cli import app as cli_app
+    from app.main import server
+    from app.mcp_server import mcp
+
+    monkeypatch.setattr("app.cli._load_env", lambda: None)
+    runner = CliRunner()
+    assert runner.invoke(cli_app, ["arena", "Which?", "-m", A, "-m", B, "--no-synthesize", "-t", "t-cli"]).exit_code == 0
+
+    shown = runner.invoke(cli_app, ["vote", "-t", "t-cli", "--show", "--format", "json"])
+    assert shown.exit_code == 0, shown.stderr
+    blind = json.loads(shown.stdout)
+    assert [a["letter"] for a in blind["answers"]] == ["A", "B"]
+    assert all("model" not in a for a in blind["answers"])  # nothing names the model
+    text = runner.invoke(cli_app, ["vote", "-t", "t-cli", "--show"]).stdout
+    assert "Answer A" in text and "GPT" not in text and "Claude" not in text
+
+    letter_b = next(a["letter"] for a in blind["answers"] if a["content"].startswith(B))
+    voted = runner.invoke(cli_app, ["vote", "-t", "t-cli", "--best", letter_b, "--task", "coding", "--reason", "clearer"])
+    assert voted.exit_code == 0, voted.stderr
+    assert "Revealed:" in voted.stdout
+    assert runner.invoke(cli_app, ["vote", "-t", "t-cli", "--tie", "--all-bad"]).exit_code == 2
+
+    stats = json.loads(runner.invoke(cli_app, ["votes", "--task", "coding", "--format", "json"]).stdout)
+    assert [(r["model"], r["wins"]) for r in stats["models"]] == [(B, 1), (A, 0)]
+    assert "100%" in runner.invoke(cli_app, ["votes"]).stdout
+
+    with TestClient(server) as client:
+        listed = client.get("/votes", params={"thread_id": "t-cli"}).json()["votes"]
+        assert listed[0]["blind"] is True and listed[0]["reason"] == "clearer"
+        assert client.post("/votes", json={"thread_id": "t-cli", "outcome": "tie"}).json()["outcome"] == "tie"
+        assert client.post("/votes", json={"thread_id": "t-cli", "outcome": "best", "best": "Z"}).status_code == 400
+        assert client.get("/votes/stats", params={"task_type": "nope"}).status_code == 400
+        turn_id = listed[0]["turn_id"]
+
+    async def over_mcp():
+        async with Client(mcp) as c:
+            voted = (await c.call_tool("vote_answers", {"thread_id": "t-cli", "outcome": "all_bad"})).data
+            rates = (await c.call_tool("vote_stats", {})).data
+            gone = (await c.call_tool("delete_vote", {"thread_id": "t-cli", "turn": turn_id})).data
+            return voted, rates, gone
+
+    voted, rates, gone = asyncio.run(over_mcp())
+    assert voted["outcome"] == "all_bad" and rates["models"][0]["all_bad"] == 1 and gone["deleted"]
+    assert runner.invoke(cli_app, ["vote", "-t", "t-cli", "--delete"]).exit_code == 1

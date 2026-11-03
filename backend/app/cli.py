@@ -1349,6 +1349,133 @@ def search(
 
 
 @app.command()
+def vote(
+    thread: str = typer.Option(..., "--thread", "-t", help="The thread."),
+    turn: Optional[str] = typer.Option(None, "--turn", help="The turn's id or one of its replies' checkpoint (default: the latest turn)."),
+    show: bool = typer.Option(False, "--show", help="Show the turn's answers blind, as A/B/C without model names, to vote on."),
+    best: Optional[str] = typer.Option(None, "--best", help="The best answer: its letter (as --show printed it) or checkpoint."),
+    tie: bool = typer.Option(False, "--tie", help="The answers are equally good."),
+    all_bad: bool = typer.Option(False, "--all-bad", help="None of them is good."),
+    reason: Optional[str] = typer.Option(None, "--reason", help="Why (optional)."),
+    task: str = typer.Option("general", "--task", help="Kind of task: general, coding, writing, research, reasoning, other."),
+    delete: bool = typer.Option(False, "--delete", help="Remove the turn's vote."),
+    format_output: str = _opt_format(),
+):
+    """
+    [bold cyan]🗳 Vote[/bold cyan] — Judge a turn's answers: the best, a tie, or all bad.
+
+    `--show` prints them blind first (the letters are the web UI's); a vote
+    names the letter it saw. One vote per turn: voting again replaces it.
+    `crucible votes` adds them up into win rates.
+    """
+    as_json = _check_format(format_output)
+    chosen = [flag for flag, on in (("--show", show), ("--best", best), ("--tie", tie), ("--all-bad", all_bad), ("--delete", delete)) if on]
+    if len(chosen) != 1:
+        from app.cli_display import print_error
+
+        print_error("Give exactly one of --show, --best, --tie, --all-bad, --delete.")
+        raise typer.Exit(2)
+    _load_env()
+
+    async def run():
+        from app.core import database as db
+        from app.services import votes
+        from app.services.arena import open_graph
+
+        async with open_graph() as graph_app:
+            turn_id = turn or await votes.latest_turn(graph_app, thread)
+            if show:
+                data = await votes.turn_answers(graph_app, thread, turn_id)
+                order = votes.blind_order(data["turn_id"], [a["checkpoint_id"] for a in data["answers"]])
+                texts = {a["checkpoint_id"]: await _answer_text(graph_app, thread, a["checkpoint_id"]) for a in data["answers"]}
+                return {"thread_id": thread, "turn_id": data["turn_id"],
+                        "answers": [{"letter": chr(ord("A") + i), "content": texts[cid]} for i, cid in enumerate(order)]}
+            if delete:
+                resolved = (await votes.turn_answers(graph_app, thread, turn_id))["turn_id"]
+                if not db.delete_answer_vote(thread, resolved):
+                    raise ValueError(f"No vote on turn {resolved}.")
+                return {"thread_id": thread, "turn_id": resolved, "deleted": True}
+            outcome = "best" if best else "tie" if tie else "all_bad"
+            return await votes.vote_turn(graph_app, thread, turn_id, outcome, best=best, reason=reason,
+                                         task_type=task, blind=bool(best and len(best) == 1))
+
+    result = _run(run(), as_json)
+    if as_json:
+        _emit_json(result)
+        return
+    from rich.markdown import Markdown
+    from rich.text import Text
+
+    from app.cli_display import print_success
+
+    if show:
+        for a in result["answers"]:
+            console.rule(f"Answer {a['letter']}")
+            console.print(Markdown(a["content"]))
+        console.print(Text(f"Vote: crucible vote -t {thread} --turn {result['turn_id']} --best <letter> | --tie | --all-bad", style="dim"))
+    elif delete:
+        print_success("Vote removed.")
+    else:
+        names = {a["checkpoint_id"]: f"{a['letter']} = {a['model_name']}" for a in result["answers"]}
+        verdict = {"best": f"best: {names.get(result['winner_checkpoint_id'], '?').split(' = ')[0]}",
+                   "tie": "a tie", "all_bad": "all bad"}[result["outcome"]]
+        print_success(f"Voted {verdict} ({result['task_type']}).")
+        console.print(Text("Revealed: " + ", ".join(names.values())))
+
+
+async def _answer_text(graph_app, thread_id: str, checkpoint_id: str) -> str:
+    from app.services.arena import answer_at
+
+    return (await answer_at(graph_app, thread_id, checkpoint_id))["content"]
+
+
+@app.command()
+def votes(
+    task: Optional[str] = typer.Option(None, "--task", help="Only votes on this kind of task."),
+    list_votes: bool = typer.Option(False, "--list", help="List the votes instead of the win rates."),
+    thread: Optional[str] = typer.Option(None, "--thread", "-t", help="With --list: one thread's votes."),
+    format_output: str = _opt_format(),
+):
+    """Your win rates per model, from your votes (pairwise: a best answer
+    wins over each other answer; "all bad" is counted apart)."""
+    as_json = _check_format(format_output)
+    if thread and not list_votes:
+        from app.cli_display import print_error
+
+        print_error("--thread goes with --list.")
+        raise typer.Exit(2)
+    from app.services import votes as votes_svc
+
+    async def read():
+        return {"votes": votes_svc.votes_of(thread)} if list_votes else votes_svc.vote_stats(task)
+
+    result = _run(read(), as_json)
+    if as_json:
+        _emit_json(result)
+        return
+    from rich.table import Table
+    from rich.text import Text
+
+    if list_votes:
+        table = Table(title="Votes")
+        for col in ("When", "Thread", "Task", "Outcome", "Best", "Reason"):
+            table.add_column(col)
+        for v in result["votes"]:
+            best = next((a["model_name"] for a in v["answers"] if a["checkpoint_id"] == v["winner_checkpoint_id"]), "")
+            table.add_row(str(v["created_at"]), Text(v["thread_id"]), v["task_type"], v["outcome"].replace("_", " "),
+                          Text(best), Text(v["reason"] or ""))
+        console.print(table)
+        return
+    table = Table(title=f"Win rates ({result['votes']} votes{', ' + task if task else ''})")
+    for col in ("Model", "Win rate", "Wins", "Losses", "Ties", "All bad"):
+        table.add_column(col)
+    for r in result["models"]:
+        rate = f"{r['win_rate'] * 100:.0f}%" if r["win_rate"] is not None else "—"
+        table.add_row(Text(r["model_name"]), rate, str(r["wins"]), str(r["losses"]), str(r["ties"]), str(r["all_bad"]))
+    console.print(table)
+
+
+@app.command()
 def review(
     thread: str = typer.Option(..., "--thread", "-t", help="The thread whose answers to review."),
     answers: Optional[List[str]] = typer.Option(

@@ -108,6 +108,18 @@ async def turn_answers(graph_app, thread_id: str, turn: str) -> Dict[str, Any]:
     }
 
 
+async def latest_turn(graph_app, thread_id: str) -> str:
+    """The id of the thread's latest turn (the answered head's). ValueError
+    when the thread has none."""
+    from app.services.runs import TURN_ID_KEY, answered_head
+
+    head = await answered_head(graph_app, thread_id)
+    turn_id = (getattr(head, "metadata", None) or {}).get(TURN_ID_KEY) if head and head.values else None
+    if not turn_id:
+        raise ValueError(f"Thread {thread_id} has no turn to vote on.")
+    return turn_id
+
+
 async def vote_turn(
     graph_app,
     thread_id: str,

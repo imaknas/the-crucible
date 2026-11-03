@@ -837,6 +837,103 @@ async def summarize_subtree(
 
 @mcp.tool()
 @_quiet
+async def vote_answers(
+    thread_id: str,
+    outcome: Literal["best", "tie", "all_bad"],
+    turn: Optional[str] = None,
+    best: Optional[str] = None,
+    reason: Optional[str] = None,
+    task_type: str = "general",
+) -> Dict[str, Any]:
+    """Record a person's vote on a turn's answers: the best one, a tie, or
+    all bad (one vote per turn; voting again replaces it). Only a vote the
+    person gave belongs here; a model's judgment is review_answers.
+
+    Returns the stored vote: {thread_id, turn_id, outcome, winner_checkpoint_id,
+    answers: [{checkpoint_id, model, model_name, letter}], reason, task_type,
+    blind, created_at}.
+
+    Args:
+        thread_id: The thread.
+        outcome: "best", "tie" or "all_bad".
+        turn: The turn's id or one of its replies' checkpoint. Default: the latest turn.
+        best: With outcome "best": the best answer's checkpoint id, or its blind letter.
+        reason: Why (optional, at most 500 characters).
+        task_type: general, coding, writing, research, reasoning or other.
+    """
+    from app.services import votes
+
+    async with arena_svc.open_graph() as graph_app:
+        try:
+            turn_id = turn or await votes.latest_turn(graph_app, thread_id)
+            return await votes.vote_turn(graph_app, thread_id, turn_id, outcome, best=best, reason=reason,
+                                         task_type=task_type, blind=bool(best and len(best) == 1))
+        except ValueError as e:
+            raise _tool_error(e)
+
+
+@mcp.tool()
+@_quiet
+def list_votes(thread_id: Optional[str] = None) -> Dict[str, Any]:
+    """The person's votes, newest first (every thread's, or one's).
+
+    Returns {votes: [vote, as vote_answers returns it]}.
+
+    Args:
+        thread_id: Only this thread's votes.
+    """
+    from app.services import votes
+
+    return {"votes": votes.votes_of(thread_id)}
+
+
+@mcp.tool()
+@_quiet
+def vote_stats(task_type: Optional[str] = None) -> Dict[str, Any]:
+    """Win rates per model from the person's votes, pairwise (a best answer
+    wins over each other answer of its turn; a tie ties every pair; "all bad"
+    is counted apart, never as a loss).
+
+    Returns {task_type, task_types: {type: count}, votes, models: [{model,
+    model_name, wins, losses, ties, all_bad, votes, win_rate}]}.
+
+    Args:
+        task_type: Only votes on this kind of task.
+    """
+    from app.services import votes
+
+    try:
+        return votes.vote_stats(task_type)
+    except ValueError as e:
+        raise _tool_error(e)
+
+
+@mcp.tool()
+@_quiet
+async def delete_vote(thread_id: str, turn: str) -> Dict[str, Any]:
+    """Remove a turn's vote.
+
+    Returns {thread_id, turn_id, deleted: true}.
+
+    Args:
+        thread_id: The thread.
+        turn: The turn's id or one of its replies' checkpoint.
+    """
+    from app.core import database as db
+    from app.services import votes
+
+    async with arena_svc.open_graph() as graph_app:
+        try:
+            turn_id = (await votes.turn_answers(graph_app, thread_id, turn))["turn_id"]
+        except ValueError as e:
+            raise _tool_error(e)
+    if not db.delete_answer_vote(thread_id, turn_id):
+        raise ToolError(f"No vote on turn {turn_id}.")
+    return {"thread_id": thread_id, "turn_id": turn_id, "deleted": True}
+
+
+@mcp.tool()
+@_quiet
 async def get_thread_context(
     thread_id: str, checkpoint_id: Optional[str] = None, models: Optional[List[str]] = None
 ) -> Dict[str, Any]:

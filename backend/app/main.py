@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
-from app.api import chat, config, debate, graph, history, models, synthesis, threads, upload
+from app.api import chat, config, debate, graph, history, models, synthesis, threads, upload, votes
 from app.api.security import (
     OriginPolicy,
     SimpleRequestGuard,
@@ -33,7 +33,7 @@ from app.services.live import LiveRuns
 
 apply_langchain_patches()
 
-ROUTERS = (chat, threads, history, upload, models, graph, config, debate, synthesis)
+ROUTERS = (chat, threads, history, upload, models, graph, config, debate, synthesis, votes)
 
 
 def _report_configuration() -> None:
