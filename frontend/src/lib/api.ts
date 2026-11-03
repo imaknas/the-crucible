@@ -215,6 +215,7 @@ import type {
   DebateTranscript,
   DebateTreeResponse,
   PeerLabels,
+  DebateStance,
   TerminationPolicy,
   Thread,
   AnswerReview,
@@ -229,6 +230,7 @@ export async function createDebateSession(params: {
   auto_synthesize: boolean;
   synthesizer_model: string | null;
   peer_labels: PeerLabels;
+  stance?: DebateStance | null;
 }): Promise<DebateSession> {
   const res = await fetch(`${API_BASE}/debate/sessions`, {
     method: "POST",

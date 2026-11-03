@@ -27,7 +27,7 @@ import { shouldFitWholeTree } from "@/lib/treeFit";
 import SynthesisTreeNode from "./SynthesisTreeNode";
 import { DebateLaneHeaders, DebateRoundBands } from "./tree/DebateOverlays";
 import { Target, Wand2, GitBranch, Loader2 } from "lucide-react";
-import type { DebateLane } from "@/lib/types";
+import type { DebateLane, StanceMode } from "@/lib/types";
 import { FAMILY_COLORS, NEUTRAL_COLOR, modelFamilyColor, modelPalette } from "@/lib/colors";
 import dagre from "dagre";
 import "reactflow/dist/style.css";
@@ -69,6 +69,8 @@ interface TreeCanvasProps {
   /** Stability per round (each model vs its own previous answer), keyed by round number as a string. */
   roundScores?: Record<string, number>;
   maxRound?: number;
+  /** Debate trees: how the participants were told to argue (round 1 headings). */
+  stanceMode?: StanceMode | null;
   /** Models are answering: the tree gets their nodes once they finish, so say so meanwhile. */
   answering?: boolean;
   /** The tree is being fetched: an empty canvas is "not loaded yet", not "no messages". */
@@ -196,6 +198,7 @@ function TreeViewInner({
   lanes = [],
   roundScores = {},
   maxRound = 0,
+  stanceMode = null,
   answering = false,
   loading = false,
   onSynthesizeSelection,
@@ -618,6 +621,7 @@ function TreeViewInner({
         <DebateRoundBands
           maxRound={maxRound}
           roundScores={roundScores}
+          stance={stanceMode}
           transform={transform}
           laneCount={lanes.length}
         />

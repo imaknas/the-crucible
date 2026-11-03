@@ -539,6 +539,7 @@ export default function Home() {
                           lanes={debate.tree.lanes}
                           roundScores={debate.tree.sessionMeta?.round_scores}
                           maxRound={debate.tree.sessionMeta?.max_round ?? debate.round}
+                          stanceMode={debate.tree.sessionMeta?.stance ?? null}
                           activeNodeId={debate.activeNode || undefined}
                           onNodeClick={debate.setActiveNode}
                           onReadNode={debate.readNode}
@@ -547,6 +548,7 @@ export default function Home() {
                         <DebateReplyDialog
                           reading={debate.reading}
                           lanes={debate.tree.lanes}
+                          stance={debate.tree.sessionMeta?.stance ?? null}
                           onClose={debate.closeReading}
                         />
                       </div>

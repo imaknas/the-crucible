@@ -6,7 +6,7 @@
  * batching) and every side effect. Keeping the transformation pure is what
  * makes it testable without a socket or a page.
  */
-import type { DebateLane, DebateSession, DebateTranscript, DebateUiStatus, Message, TreeNode } from "@/lib/types";
+import type { DebateLane, DebateSession, DebateTranscript, DebateUiStatus, Message, StanceMode, TreeNode } from "@/lib/types";
 
 export interface Transcript {
   messages: Message[];
@@ -20,7 +20,7 @@ const SYNTHESIS_KEY = "__synthesis__";
 
 /** The subset of debate WebSocket events that change the transcript. */
 export type TranscriptEvent =
-  | { type: "debate_round_start"; round?: number }
+  | { type: "debate_round_start"; round?: number; stance?: StanceMode }
   | { type: "stream_start"; model: string; round?: number }
   | { type: "stream_end"; model: string; content?: string; checkpoint_id?: string }
   | { type: "debate_synthesis_start"; model?: string }
@@ -55,8 +55,10 @@ export type TranscriptAction =
  * written before it saw the others; marking it lets a reader compare those
  * answers with the ones written after debating. `short` is the tree's band.
  */
-export function roundLabel(round: number, form: "full" | "short" = "full"): string {
+export function roundLabel(round: number, form: "full" | "short" = "full", stance?: StanceMode | null): string {
   if (round !== 0) return `Round ${round + 1}`;
+  // With assigned sides the first round is each one's case for its side, not what it thinks.
+  if (stance === "sides") return form === "full" ? "Round 1 · opening cases" : "Round 1 · opening";
   return form === "full" ? "Round 1 · independent answers" : "Round 1 · independent";
 }
 
@@ -92,6 +94,8 @@ export interface PeerLegendEntry {
   name: string;
   modelId: string;
   color: string;
+  /** What it was told to argue, when the debate assigned it something. */
+  note?: string | null;
 }
 
 /**
@@ -101,12 +105,13 @@ export interface PeerLegendEntry {
  */
 export function peerLegend(lanes: DebateLane[] | undefined): PeerLegendEntry[] {
   return (lanes ?? [])
-    .filter((lane) => !!lane.peer_label)
+    .filter((lane) => !!lane.peer_label || !!lane.stance_note)
     .map((lane) => ({
-      label: lane.peer_label as string,
+      label: lane.peer_label || lane.label || lane.model_id,
       name: lane.label || lane.model_id,
       modelId: lane.model_id,
       color: lane.color,
+      note: lane.stance_note ?? null,
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
 }
@@ -135,7 +140,12 @@ export function transcriptMessages(t: DebateTranscript, participants: string[]):
     for (const [i, inj] of (t.injected ?? []).entries()) {
       if (inj.round === r.round) out.push({ id: `inject-r${r.round}-${i}`, role: "user", type: "inject", content: inj.message });
     }
-    out.push({ id: `round-header-${r.round}`, role: "system", type: "round_header", content: roundLabel(r.round) });
+    out.push({
+      id: `round-header-${r.round}`,
+      role: "system",
+      type: "round_header",
+      content: roundLabel(r.round, "full", t.session?.stance?.mode),
+    });
     const models = [...participants, ...Object.keys(r.responses).filter((m) => !participants.includes(m))];
     for (const model of models) {
       const text = r.responses[model];
@@ -241,14 +251,14 @@ export function debateReplyFor(node: TreeNode | undefined, messages: Message[]):
 }
 
 /** The heading of a node's reply read in full: who wrote it, and in which round. */
-export function debateReplyTitle(node: TreeNode, lanes: DebateLane[] | undefined): string {
+export function debateReplyTitle(node: TreeNode, lanes: DebateLane[] | undefined, stance?: StanceMode | null): string {
   const name = node.metadata?.model_name || node.metadata?.active_peer || "";
   if (node.metadata?.role === "synthesis" || node.type === "synthesis") {
     return name && name !== "synthesis" ? `Argument map · ${name}` : "Argument map";
   }
   const peer = (lanes ?? []).find((l) => l.model_id === node.metadata?.active_peer)?.peer_label;
   const who = peer ? `${name} (${peer})` : name;
-  return `${who} · ${roundLabel(node.metadata?.round_num ?? 0)}`;
+  return `${who} · ${roundLabel(node.metadata?.round_num ?? 0, "full", stance)}`;
 }
 
 /**
@@ -402,7 +412,7 @@ function applyEvent(state: Transcript, event: TranscriptEvent, now: number): Tra
         ...state,
         messages: [
           ...state.messages,
-          { id: `round-header-${r}`, role: "system", type: "round_header", content: roundLabel(r) },
+          { id: `round-header-${r}`, role: "system", type: "round_header", content: roundLabel(r, "full", event.stance) },
         ],
       };
     }

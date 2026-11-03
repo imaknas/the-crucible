@@ -128,7 +128,12 @@ export default function DebateBanner({
               sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.7rem", color: "text.secondary" }}
             >
               <Box component="span" sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: entry.color }} />
-              {entry.label.replace("Participant ", "")} = {entry.name}
+              {entry.label === entry.name ? entry.name : `${entry.label.replace("Participant ", "")} = ${entry.name}`}
+              {entry.note && (
+                <Box component="span" sx={{ fontWeight: 700, color: "warning.main" }}>
+                  {` · ${entry.note}`}
+                </Box>
+              )}
             </Typography>
           ))}
         </Box>

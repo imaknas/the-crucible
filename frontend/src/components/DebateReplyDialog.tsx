@@ -5,7 +5,7 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography }
 import { MessageBody } from "@/components/MessageBubble";
 import { useThemeMode } from "@/components/ThemeRegistry";
 import { debateReplyTitle } from "@/lib/debateTranscript";
-import type { DebateLane, Message, TreeNode } from "@/lib/types";
+import type { DebateLane, Message, StanceMode, TreeNode } from "@/lib/types";
 
 /**
  * One debate reply in full, opened from its tree node, which shows a
@@ -15,10 +15,12 @@ import type { DebateLane, Message, TreeNode } from "@/lib/types";
 export default function DebateReplyDialog({
   reading,
   lanes,
+  stance = null,
   onClose,
 }: {
   reading: { node: TreeNode; reply: Message | null } | null;
   lanes?: DebateLane[];
+  stance?: StanceMode | null;
   onClose: () => void;
 }) {
   const { isDark } = useThemeMode();
@@ -27,7 +29,7 @@ export default function DebateReplyDialog({
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth scroll="paper" aria-labelledby="debate-reply-title">
       <DialogTitle id="debate-reply-title" sx={{ fontSize: "1rem", fontWeight: 700 }}>
-        {debateReplyTitle(node, lanes)}
+        {debateReplyTitle(node, lanes, stance)}
       </DialogTitle>
       <DialogContent dividers>
         {reply ? (

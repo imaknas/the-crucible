@@ -456,3 +456,20 @@ describe("positionShifts", () => {
     expect(shift?.rows[0].first.content).toBe("a r2");
   });
 });
+
+describe("round labels under a stance", () => {
+  it("calls round 1 opening cases when the sides were assigned", () => {
+    expect(roundLabel(0, "full", "sides")).toBe("Round 1 · opening cases");
+    expect(roundLabel(0, "short", "sides")).toBe("Round 1 · opening");
+    expect(roundLabel(0, "full", "advocate")).toBe("Round 1 · independent answers");
+    expect(roundLabel(2, "full", "sides")).toBe("Round 3");
+  });
+
+  it("puts a participant's assignment in the legend, named peers included", () => {
+    const legend = peerLegend([
+      { model_id: "gpt", label: "GPT", peer_label: null, stance_note: "assigned to argue: Yes", lane_index: 0, color: "#000" },
+      { model_id: "claude", label: "Claude", peer_label: null, stance_note: null, lane_index: 1, color: "#111" },
+    ]);
+    expect(legend).toEqual([{ label: "GPT", name: "GPT", modelId: "gpt", color: "#000", note: "assigned to argue: Yes" }]);
+  });
+});

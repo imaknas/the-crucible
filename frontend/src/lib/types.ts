@@ -193,6 +193,30 @@ export interface DebateSession {
   peer_labels?: PeerLabels | null;
   /** The judge or synthesizer is also debating (it may favour its own arguments). */
   warnings?: string[];
+  /** How the participants were told to argue (backend services/stances.py). */
+  stance?: DebateStance;
+  /** Model id → what it was told to argue; empty in an open debate. */
+  stance_notes?: Record<string, string>;
+}
+
+/**
+ * How a debate's participants are told to argue: "open" (each says what it
+ * thinks), "sides" (each argues the side it was given, whatever it thinks),
+ * "advocate" (one argues against the others' common ground from round 2).
+ */
+export type StanceMode = "open" | "sides" | "advocate";
+
+export interface DebateStance {
+  mode: StanceMode;
+  /** "sides": model id → the side it argues. */
+  sides?: Record<string, string> | null;
+  /** "advocate": the participant that argues against the others. */
+  advocate?: string | null;
+}
+
+/** What starts a debate: the dialog's settings, and this debate's stance. */
+export interface DebateStartConfig extends DebateDefaults {
+  stance?: DebateStance | null;
 }
 
 /**
@@ -212,6 +236,7 @@ export type DebateUiStatus =
 /** GET /debate/sessions/{id}/transcript: the whole debate, rounds aligned by number. */
 export interface DebateTranscript {
   question: string;
+  session?: Pick<DebateSession, "stance" | "stance_notes">;
   /** Model id → "Participant A" when peers were anonymous. */
   labels?: Record<string, string>;
   rounds: {
@@ -244,6 +269,8 @@ export interface DebateLane {
    * argument map refer to participants by it.
    */
   peer_label?: string | null;
+  /** What it was told to argue ("assigned to argue: Yes", "devil's advocate from round 2"); null in an open debate. */
+  stance_note?: string | null;
   lane_index: number;
   color: string;
 }
@@ -259,6 +286,8 @@ export interface DebateTreeResponse {
     /** Stability per round (each model vs its own previous answer), keyed by round number as a string. */
     round_scores?: Record<string, number>;
     max_round?: number;
+    /** How the participants were told to argue. */
+    stance?: StanceMode;
   };
 }
 

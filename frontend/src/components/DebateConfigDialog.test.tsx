@@ -95,3 +95,43 @@ describe("DebateConfigDialog", () => {
     expect(rounds).toHaveAccessibleDescription(/More than 2 rounds/);
   });
 });
+
+describe("DebateConfigDialog: how they argue", () => {
+  it("starts an open debate unless told otherwise", () => {
+    const { onStart } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Start Debate" }));
+    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ stance: null }));
+  });
+
+  it("assigns sides, drops the agreement judge, and refuses sides that are all the same", () => {
+    const { onStart } = setup();
+    expect(screen.getByRole("combobox", { name: "Agreement judge" })).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "How they argue" }));
+    fireEvent.click(screen.getByRole("option", { name: "Assigned sides" }));
+    // Nobody is meant to agree, so there is no agreement judge to choose.
+    expect(screen.queryByRole("combobox", { name: "Agreement judge" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Side 1"), { target: { value: "It is a sandwich" } });
+    fireEvent.change(screen.getByLabelText("Side 2"), { target: { value: "It is not" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start Debate" }));
+    expect(onStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        llm_judge: null,
+        stance: { mode: "sides", sides: { "gpt-6.1-sol": "It is a sandwich", "claude-sonnet-5-5": "It is not" } },
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Side 2"), { target: { value: "it is a sandwich" } });
+    expect(screen.getByText(/at least two different sides/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start Debate" })).toBeDisabled();
+  });
+
+  it("names a devil's advocate among the participants", () => {
+    const { onStart } = setup();
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "How they argue" }));
+    fireEvent.click(screen.getByRole("option", { name: "With a devil's advocate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start Debate" }));
+    expect(onStart).toHaveBeenCalledWith(
+      expect.objectContaining({ stance: { mode: "advocate", advocate: "claude-sonnet-5-5" } }),
+    );
+  });
+});

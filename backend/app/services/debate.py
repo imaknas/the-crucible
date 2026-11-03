@@ -567,7 +567,10 @@ async def _run_rounds(
             yield {"type": "debate_session_status", "session_id": session_id, "status": "running"}
 
         await asyncio.to_thread(db.update_debate_session, session_id, current_round=round_num, status="running")
-        yield {"type": "debate_round_start", "session_id": session_id, "round": round_num}
+        # The stance's mode says what a question's first round is (an opening
+        # case with assigned sides), for the round's heading.
+        yield {"type": "debate_round_start", "session_id": session_id, "round": round_num,
+               "stance": session_stance(session).mode}
 
         curr_round_responses = {}
         injected = control.take_injected()
@@ -1100,6 +1103,7 @@ async def debate_tree(graph_app, session: Mapping[str, Any]) -> dict[str, Any]:
     notes = stance_notes(session)
     for lane_entry in tree.get("lanes", []):
         lane_entry["stance_note"] = notes.get(lane_entry["model_id"])
+    tree["session_metadata"]["stance"] = session_stance(session).mode
     return tree
 
 

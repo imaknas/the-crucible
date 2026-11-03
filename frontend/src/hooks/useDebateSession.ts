@@ -17,7 +17,7 @@ import {
   type DebateResume,
   type TranscriptEvent,
 } from "@/lib/debateTranscript";
-import type { DebateDefaults, DebateSession, DebateUiStatus, Toggles } from "@/lib/types";
+import type { DebateSession, DebateStartConfig, DebateUiStatus, Toggles } from "@/lib/types";
 import { useDebateTree } from "@/hooks/useDebateTree";
 import { useDebateSessions } from "@/hooks/useDebateSessions";
 import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
@@ -573,7 +573,7 @@ export function useDebateSession({
   const closeDialog = useCallback(() => setDialogOpen(false), []);
 
   const start = useCallback(
-    async (config: DebateDefaults, ctx: Omit<DebateStartContext, "prompt">): Promise<boolean> => {
+    async (config: DebateStartConfig, ctx: Omit<DebateStartContext, "prompt">): Promise<boolean> => {
       setDialogOpen(false);
       if (!threadId) return false;
       const prompt = dialogPromptRef.current;
@@ -590,6 +590,7 @@ export function useDebateSession({
           auto_synthesize: config.auto_synthesize,
           synthesizer_model: config.synthesizer_model,
           peer_labels: config.peer_labels,
+          stance: config.stance ?? null,
         });
 
         // A new debate replaces whatever was on screen (which, if it runs,

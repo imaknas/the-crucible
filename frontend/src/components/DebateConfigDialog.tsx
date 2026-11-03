@@ -17,14 +17,16 @@ import {
   useTheme,
 } from "@mui/material";
 import { Swords } from "lucide-react";
-import type { DebateDefaults, PeerLabels } from "@/lib/types";
+import type { DebateDefaults, DebateStartConfig, PeerLabels } from "@/lib/types";
+import { initialStance, stanceProblem, toStance, type StanceChoice } from "@/lib/stances";
+import StanceSettings from "./StanceSettings";
 import { DEFAULT_DEBATE_ROUNDS, MAX_DEBATE_ROUNDS, clampRounds } from "@/hooks/useDebateDefaults";
 import { debateCallEstimate, debatingRoleWarning, roundsAdvice } from "@/lib/debateTranscript";
 
 interface DebateConfigDialogProps {
   open: boolean;
   onClose: () => void;
-  onStart: (config: DebateDefaults) => void;
+  onStart: (config: DebateStartConfig) => void;
   defaults: DebateDefaults;
   availableModels: string[];
   /** Display name for a model ID; the ID itself goes in a tooltip. */
@@ -92,13 +94,19 @@ export default function DebateConfigDialog({
   // The field's raw text: clamped on blur and on start, not per keystroke.
   const [roundsText, setRoundsText] = useState(String(defaults.max_rounds));
 
+  // How they argue belongs to this debate only; it isn't a default.
+  const [stance, setStance] = useState<StanceChoice>(() => initialStance(participants));
+
   // Each opening starts from the current defaults (the Control Panel's).
   const [syncedFor, setSyncedFor] = useState({ defaults, open });
   if (syncedFor.defaults !== defaults || syncedFor.open !== open) {
     setSyncedFor({ defaults, open });
     setConfig(defaults);
     setRoundsText(String(defaults.max_rounds));
+    if (open) setStance(initialStance(participants));
   }
+  const open_ = stance.mode === "open";
+  const problem = stanceProblem(stance, participants);
 
   const commitRounds = () => {
     // Clamped here, on blur and on start, never per keystroke: clamping while
@@ -117,7 +125,7 @@ export default function DebateConfigDialog({
   const estimate = debateCallEstimate({
     rounds,
     participants: participants.length,
-    judge: !!config.llm_judge,
+    judge: open_ && !!config.llm_judge,
     synthesize: config.auto_synthesize,
   });
 
@@ -198,6 +206,15 @@ export default function DebateConfigDialog({
             </Typography>
           </Box>
 
+          <StanceSettings
+            choice={stance}
+            onChange={setStance}
+            participants={participants}
+            modelLabel={modelLabel}
+            problem={problem}
+            labelSx={labelSx}
+          />
+
           {/* Max rounds */}
           <Setting help={advice.help} helpId="debate-rounds-help" warning={advice.warning}>
             <Typography sx={labelSx}>Max rounds</Typography>
@@ -255,7 +272,8 @@ export default function DebateConfigDialog({
             )}
           </Setting>
 
-          {/* LLM Judge */}
+          {/* LLM Judge: nobody is meant to agree with assigned sides or an advocate */}
+          {open_ && (
           <Setting
             help="A model reads each round's answers by participant label, once per participant with the order rotated so each answer takes each position, and stops the debate once every reading finds they agree. Agreement reached by debating isn't evidence by itself."
             helpId="debate-judge-help"
@@ -287,9 +305,10 @@ export default function DebateConfigDialog({
               ))}
             </Select>
           </Setting>
+          )}
 
           {/* How the two stop conditions combine; meaningless with only one */}
-          {config.convergence_threshold !== null && config.llm_judge && (
+          {open_ && config.convergence_threshold !== null && config.llm_judge && (
             <Setting help="Any: either condition ends the debate. All: both must hold at once." helpId="debate-mode-help">
               <Typography sx={labelSx}>Stop when</Typography>
               <Select
@@ -403,7 +422,15 @@ export default function DebateConfigDialog({
           Cancel
         </Button>
         <Button
-          onClick={() => onStart({ ...config, max_rounds: commitRounds() })}
+          onClick={() =>
+            onStart({
+              ...config,
+              llm_judge: open_ ? config.llm_judge : null,
+              max_rounds: commitRounds(),
+              stance: toStance(stance, participants),
+            })
+          }
+          disabled={!!problem}
           variant="contained"
           size="small"
           sx={{

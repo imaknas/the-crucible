@@ -1,6 +1,6 @@
 import React from "react";
 import { useTheme } from "@mui/material";
-import type { DebateLane } from "@/lib/types";
+import type { DebateLane, StanceMode } from "@/lib/types";
 import { LANE_WIDTH, ROUND_HEIGHT } from "@/hooks/useDebateTree";
 import { roundLabel } from "@/lib/debateTranscript";
 
@@ -94,6 +94,24 @@ export function DebateLaneHeaders({
                 {lane.peer_label}
               </span>
             )}
+            {lane.stance_note && (
+              // What it was told to argue: its replies are that, not what it thinks.
+              <span
+                data-testid="lane-stance"
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: isDark ? "#fbbf24" : "#b45309",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: 160,
+                }}
+                title={lane.stance_note}
+              >
+                {lane.stance_note}
+              </span>
+            )}
           </div>
         );
       })}
@@ -113,11 +131,14 @@ export function DebateRoundBands({
   roundScores,
   transform,
   laneCount,
+  stance = null,
 }: {
   maxRound: number;
   roundScores: Record<string, number>;
   transform: number[];
   laneCount: number;
+  /** How the participants were told to argue: round 1 is an opening case with assigned sides. */
+  stance?: StanceMode | null;
 }) {
   const isDark = useTheme().palette.mode === "dark";
   const [, panY, zoom] = transform;
@@ -155,7 +176,7 @@ export function DebateRoundBands({
             whiteSpace: "nowrap",
           }}
         >
-          {roundLabel(r, "short")}
+          {roundLabel(r, "short", stance)}
         </span>
         {score != null && (
           <span
