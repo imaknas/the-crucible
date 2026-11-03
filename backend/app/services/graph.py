@@ -245,7 +245,7 @@ def sanitize_messages(
         # The run's Retention may keep more (e.g. every user message).
         earlier = processed[:summary_index]
         described = [
-            EarlierMessage(_ROLE.get(p["role"], "system"), _text_tokens(str(p["content"])))
+            EarlierMessage(_ROLE.get(p["role"], "system"), _text_tokens(str(p["content"])), str(p["content"]))
             for p in earlier
         ]
         kept = (retention or _DEFAULT_RETENTION).keep(described)

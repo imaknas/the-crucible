@@ -1,8 +1,8 @@
 """What stays verbatim once history is pruned to its latest summary.
 
 When a call jumps to the summary, everything written before it is gone
-unless a Retention keeps it. The host describes each earlier message by role
-and size only; a Retention returns which of them to show verbatim.
+unless a Retention keeps it. The host describes each earlier message by
+role, size and text; a Retention returns which of them to show verbatim.
 """
 
 from dataclasses import dataclass
@@ -13,6 +13,9 @@ from typing import Protocol, Sequence
 class EarlierMessage:
     role: str  # "user" | "assistant" | "system"
     tokens: int
+    # What it says, for a retention that keeps messages by content
+    # (constraints.KeepConstraints); the others ignore it.
+    text: str = ""
 
 
 class Retention(Protocol):

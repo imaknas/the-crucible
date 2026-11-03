@@ -33,6 +33,7 @@ from app.compaction.recall import (
     WithLaterMentions,
 )
 from app.compaction.retention import EarlierMessage, KeepRecent, KeepUserMessages, Retention
+from app.compaction.constraints import KeepConstraints, is_constraint
 from app.compaction.judge import compare_recall, recall_rate
 from app.compaction.probe import (
     DEFAULT_FACTS,
@@ -67,6 +68,8 @@ __all__ = [
     "EmbeddingRecall",
     "EarlierMessage",
     "KeepRecent",
+    "KeepConstraints",
+    "is_constraint",
     "KeepUserMessages",
     "Retention",
     "LengthTarget",

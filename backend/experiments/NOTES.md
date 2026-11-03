@@ -1720,3 +1720,37 @@ run: 1/8 each at a 3,000-token threshold). The gap between
 keeps values and sheds their reasons: a tier C question, to run on cached
 summaries where they exist and on the cheapest summarizer of each
 generation otherwise.
+
+## 2026-11-03 — Pinned constraints (tier A and B; roadmap 18)
+
+`KeepConstraints` (app/compaction/constraints.py, `--keep constraints`)
+keeps the person's messages that state a rule verbatim beside the summary,
+newest first within 2,000 tokens, on top of the recent window.
+
+- **Tier A, by construction:** a pinned rule is in the context whatever the
+  summary says. `test_a_pinned_rule_survives_pruning_whatever_the_summary_says`:
+  a rule 60 messages back survives pruning with `KeepConstraints` and is
+  gone with the default `KeepRecent`.
+- **Tier B, the detector** (`crucible constraint-eval`): a regex over marker
+  phrases. 30 phrasings were written before it, 15 with a marker word and
+  15 without, plus 10 ordinary remarks that use a marker word but state no
+  rule. It caught **15/15 with markers, 0/15 without** ("Leave the billing
+  tables alone", "Prod is off limits", "Customer data stays in the EU"),
+  all 9 of the scenarios' planted negations, none of 312 synthetic filler
+  messages — and **9 of 10 marker-word remarks** ("Never mind, that was my
+  mistake"). It reads wording, not intent: it misses rules said plainly
+  and flags remarks that sound like rules. The synthetic filler never uses
+  a marker word loosely, so its 0% says nothing about real chat.
+- **The harness, stand-in summaries** (`--dry-run`, first-sentence
+  summarizer, oracle readers, 3 × 24 facts, 6,000-token threshold;
+  `results/constraints-dryrun-2026-11-03.json`): recall 0.01 → 0.22, the
+  difference entirely in what the detector flags — negations 0/9 → 9/9,
+  identifiers 0/9 → 6/9 (planted as "exports *must* be encrypted with…";
+  the 3 left are updates worded "its exports now use…"), every other kind
+  unchanged. Each call read ~480 more tokens (6,268 → 6,751).
+
+So the guarantee holds for whatever is detected, and detection by wording
+is the weak half. Two ways past it, neither tested here: the person pins a
+rule explicitly (model-free and certain), or a model labels rules (tier
+C/D: its catch rate on these same 30 phrasings is the first measurement).
+Not made the default.

@@ -2109,7 +2109,7 @@ def compaction_eval(
         None, "--length", "-l", help="Summary length targets in tokens (repeat); one condition per threshold, summarizer and length. Default: no limit (the app's brief)."
     ),
     keeps: Optional[List[str]] = typer.Option(
-        None, "--keep", help="What stays verbatim after pruning (repeat): 'recent' (the last 5 messages, the app's rule) or 'user' (also every user message within --user-budget, as Codex CLI does). Default: recent."
+        None, "--keep", help="What stays verbatim after pruning (repeat): 'recent' (the last 5 messages, the app's rule), 'user' (also every user message within --user-budget, as Codex CLI does) or 'constraints' (also the user's messages that state a rule, within 2,000 tokens). Default: recent."
     ),
     user_budget: int = typer.Option(20_000, "--user-budget", help="Token budget for --keep user (Codex CLI uses 20,000)."),
     instructions: Optional[List[str]] = typer.Option(
@@ -2165,11 +2165,11 @@ def compaction_eval(
         _fail("--reasons applies to the dense scenario only", as_json)
     if scenario not in ("dense", "task", "basic") or compaction not in ("live", "once"):
         _fail("--scenario is dense|task|basic and --compaction is live|once", as_json)
-    if (not set(keeps or []) <= {"recent", "user"} or not set(instructions or []) <= {"brief", "handoff", "state", "index", "allsubjects"}
+    if (not set(keeps or []) <= {"recent", "user", "constraints"} or not set(instructions or []) <= {"brief", "handoff", "state", "index", "allsubjects"}
             or not set(recalls or []) <= {"none", "keyword", "embedding", "guided"} or questions not in ("direct", "indirect")
             or later_subject not in ("unknown", "announced", "mentioned")
             or not set(excerpts or []) <= {"message", "sentences"}):
-        _fail("--keep is recent|user, --instruction brief|handoff|state|index|allsubjects, --recall none|keyword|embedding|guided, --questions direct|indirect, --later-subject unknown|announced|mentioned, --excerpt message|sentences", as_json)
+        _fail("--keep is recent|user|constraints, --instruction brief|handoff|state|index|allsubjects, --recall none|keyword|embedding|guided, --questions direct|indirect, --later-subject unknown|announced|mentioned, --excerpt message|sentences", as_json)
     if not dry_run and budget is None and not estimate_only:
         _fail("a real run needs --budget (USD); use --estimate to see what it would cost", as_json)
     model_ids = [ORACLE] if dry_run else list(models or _cheapest_models())
@@ -2320,6 +2320,51 @@ def _print_estimate(est, budget) -> None:
     if budget is not None:
         lines.append(f"  budget: ${budget:.2f}")
     typer.echo("\n".join(lines), err=True)
+
+
+@app.command("constraint-eval")
+def constraint_eval(
+    seeds: int = typer.Option(3, "--seeds", help="Scenarios whose ordinary messages count as false positives."),
+    format_output: str = _opt_format(),
+):
+    """How well the constraint detector behind `--keep constraints` finds
+    the rules a person states: its catch rate on 15 phrasings with a marker
+    word ("never", "must not") and 15 without ("leave the billing tables
+    alone"), written before the detector, and how often it flags ordinary
+    messages. A regex, so the numbers are about wording, not models; costs
+    nothing (app/compaction/constraints.py)."""
+    as_json = _check_format(format_output)
+    from dataclasses import asdict
+
+    from app.compaction import build_dense_scenario
+    from app.compaction.constraints import measure_detector
+
+    ordinary, planted = [], []
+    for seed in range(seeds):
+        scenario = build_dense_scenario(n_facts=24, exchanges=140, seed=seed)
+        kinds = {f.key: f.kind for f in scenario.facts}
+        for turn in scenario.turns:
+            if turn.role != "user":
+                continue
+            if turn.fact_key and kinds.get(turn.fact_key) == "negation":
+                planted.append(turn.text)
+            elif not turn.fact_key:
+                ordinary.append(turn.text)
+    report = measure_detector(ordinary)
+    from app.compaction import is_constraint
+
+    negations = round(sum(map(is_constraint, planted)) / len(planted), 3) if planted else None
+    result = {**asdict(report), "scenario_negations": negations, "scenario_negation_messages": len(planted)}
+    if as_json:
+        _emit_json(result)
+        return
+    console.print(f"Constraints with a marker word: caught {report.with_markers:.0%}")
+    console.print(f"Constraints without one: caught {report.without_markers:.0%}")
+    console.print(f"Scenario negations (\"we agreed not to use …\"): caught {negations:.0%} of {len(planted)}")
+    console.print(f"Ordinary scenario messages flagged: {report.false_positives:.0%} of {report.ordinary_messages}")
+    console.print(f"Ordinary remarks that use a marker word, flagged: {report.false_positives_with_markers:.0%}")
+    for text in report.missed:
+        console.print(f"  missed: {text}", markup=False)
 
 
 @app.command("recall-eval")
@@ -2485,7 +2530,9 @@ async def _run_compaction_eval(model_ids, options, min_effect, db_path, out, dry
     conditions = [ce.Condition("never", NeverCompact())] if options["baseline"] else []
     all_facts = [f for sc in scenarios.values() for f in sc.facts]
     factory = ce.EvalModelFactory(all_facts, inner=None if dry_run else default_model_factory(), scenarios=scenarios)
-    retentions = {"recent": None, "user": KeepUserMessages(options["user_budget"])}
+    from app.compaction import KeepConstraints
+
+    retentions = {"recent": None, "user": KeepUserMessages(options["user_budget"]), "constraints": KeepConstraints()}
     bases = {"brief": None, "handoff": HandoffBrief(), "state": StateAndIndex(), "index": IndexOnly(), "allsubjects": AllSubjects()}
     recallers = {"none": None, "keyword": KeywordRecall()}
     if "embedding" in options["recalls"]:
