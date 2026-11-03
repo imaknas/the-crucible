@@ -27,6 +27,9 @@ jest.mock("@/lib/api", () => ({
   listAnswerComponents: jest.fn(),
   fetchHistory: jest.fn(),
   fetchNextTurnContext: jest.fn(),
+  listVotes: jest.fn(),
+  voteTurn: jest.fn(),
+  fetchVoteStats: jest.fn(),
   fetchKeyStatus: jest.fn(),
   fetchModels: jest.fn(),
   listDebateSessions: jest.fn(),
@@ -171,6 +174,8 @@ beforeEach(() => {
   mocked.fetchDebateTranscript.mockResolvedValue({ question: "", rounds: [], synthesis: null } as never);
   mocked.searchHistory.mockResolvedValue({ results: [] });
   mocked.listAnswerReviews.mockResolvedValue([]);
+  mocked.listVotes.mockResolvedValue([]);
+  mocked.fetchVoteStats.mockResolvedValue({ task_type: null, task_types: {}, votes: 0, models: [] });
   mocked.fetchNextTurnContext.mockImplementation(async (_t, _c, models) => ({
     checkpoint_id: null,
     models: models.map((model) => ({

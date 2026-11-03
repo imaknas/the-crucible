@@ -46,6 +46,8 @@ interface CardProps {
   answerers?: string;
   /** Make this reply the branch point with every selected model answering; absent when that is only its own model. */
   onContinueAll?: (id: string) => void;
+  /** A blind comparison: no model colour or id anywhere on the card (its label is "Answer A"). */
+  blind?: boolean;
 }
 
 /** A finished answer whose whole text can be had: shown in full, or read from its node. */
@@ -73,8 +75,9 @@ export const CompareCard = React.memo(function CompareCard({
   primary = false,
   answerers = "",
   onContinueAll,
+  blind = false,
 }: CardProps) {
-  const color = getModelColor(card.model, isDark, card.color);
+  const color = getModelColor(blind ? "" : card.model, isDark, card.color);
   const label = card.label || modelLabel(card.model);
   // Whole replies start open, excerpts clamped, until the person flips it.
   const [toggled, setToggled] = React.useState<boolean | null>(null);
@@ -114,7 +117,7 @@ export const CompareCard = React.memo(function CompareCard({
         <Box sx={{ width: 8, height: 8, flexShrink: 0, borderRadius: "50%", bgcolor: color.dot }} />
         <Typography
           variant="overline"
-          title={card.model}
+          title={blind ? undefined : card.model}
           sx={{
             fontSize: "0.75rem",
             fontWeight: 800,
@@ -253,7 +256,7 @@ export const CompareCard = React.memo(function CompareCard({
                   {others.map((other) => (
                     <MenuItem
                       key={other.key}
-                      title={other.model}
+                      title={blind ? undefined : other.model}
                       onClick={() => {
                         setCompareAnchor(null);
                         onCompare?.(card, other);
@@ -323,6 +326,8 @@ interface TurnProps {
   selectedModels?: string[];
   /** "+ Add a model": ask one more model this turn's question. */
   addModel?: { options: string[]; disabled: boolean; onAdd: (model: string) => void } | null;
+  /** A blind comparison (lib/blind): lettered cards, nothing that names a model until the vote. */
+  blind?: boolean;
 }
 
 /** One turn's answers side by side, from the first token to the settled tree. */
@@ -344,6 +349,7 @@ export default function TurnCards({
   onContinueAll,
   selectedModels = [],
   addModel = null,
+  blind = false,
 }: TurnProps) {
   // "" = the first selected model, the original behaviour.
   const [synthesizer, setSynthesizer] = React.useState("");
@@ -354,7 +360,8 @@ export default function TurnCards({
   const columns = cards.length === 2 ? "repeat(2, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))";
   // Shown once every answer is in (a total of half a turn would read as the
   // whole), under the cards, so its arrival doesn't move them.
-  const total = cards.some((c) => c.streaming) ? null : turnTotal(cards.map((c) => c.metrics));
+  // Hidden while blind: time and cost fingerprint a model.
+  const total = blind || cards.some((c) => c.streaming) ? null : turnTotal(cards.map((c) => c.metrics));
   return (
     <Box data-testid="turn-cards" sx={{ display: "flex", flexDirection: "column", gap: 2, width: "100%" }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -482,7 +489,8 @@ export default function TurnCards({
             peers={cards}
             onCompare={onCompare}
             primary={!!primaryId && card.id === primaryId}
-            answerers={answerers}
+            answerers={blind ? "" : answerers}
+            blind={blind}
             onContinueAll={
               onContinueAll && selectedModels.some((m) => m !== card.model) ? onContinueAll : undefined
             }

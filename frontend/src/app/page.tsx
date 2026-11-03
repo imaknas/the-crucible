@@ -38,6 +38,8 @@ import { useTreeActions } from "@/hooks/useTreeActions";
 import { useReplyTarget } from "@/hooks/useReplyTarget";
 import { useNextTurnContext } from "@/hooks/useNextTurnContext";
 import { useTreeView } from "@/hooks/useTreeView";
+import { useVotes } from "@/hooks/useVotes";
+import { useVoteStats } from "@/hooks/useVoteStats";
 import { useNodeNotes } from "@/hooks/useNodeNotes";
 import { useAnswerDiff } from "@/hooks/useAnswerDiff";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
@@ -370,6 +372,20 @@ export default function Home() {
         : null,
     [reply.replyModel, reply.canAskAll, reply.askAll, reply.setAskAll, selectedModels],
   );
+  // A person's votes on a turn's answers, and blind comparison.
+  const votes = useVotes(threadId, pushToast);
+  const voteStats = useVoteStats(votes.version);
+  const votesPanel = useMemo(
+    () => ({
+      blind: votes.blind,
+      onBlindChange: votes.setBlind,
+      stats: voteStats.stats,
+      taskType: voteStats.taskType,
+      onTaskTypeChange: voteStats.setTaskType,
+    }),
+    [votes.blind, votes.setBlind, voteStats.stats, voteStats.taskType, voteStats.setTaskType],
+  );
+
   // Moving around a big tree: folded and hoisted subtrees, and what the
   // person writes on nodes (names, bookmarks, subtree summaries).
   const treeView = useTreeView(threadId);
@@ -591,6 +607,10 @@ export default function Home() {
                     onResetBranch={resetToLatest}
                     answerChoice={answerChoice}
                     onBranchFromSpan={inDebate ? undefined : branchFromSpan}
+                    blind={votes.blind}
+                    votesByTurn={votes.byTurn}
+                    lastVoteTask={votes.lastTask}
+                    onVote={votes.vote}
                     nextTurnContext={inDebate ? null : nextTurnContext}
                     onStartFresh={messages.length ? startFresh : undefined}
                     replyTexts={replyTexts}
@@ -610,6 +630,7 @@ export default function Home() {
       </Box>
 
       <ControlPanel
+        votes={votesPanel}
         toggles={toggles}
         setToggles={setToggles}
         families={families}

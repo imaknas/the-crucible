@@ -217,6 +217,8 @@ import type {
   TerminationPolicy,
   Thread,
   AnswerReview,
+  AnswerVote,
+  VoteStats,
 } from "@/lib/types";
 
 export async function createDebateSession(params: {
@@ -322,6 +324,37 @@ export async function listAnswerComponents(
   });
   await ensureOk(res, "Couldn't split the answers into parts");
   return (await res.json()).components;
+}
+
+/** Record a vote on a turn's answers; the best answer by checkpoint or blind letter. */
+export async function voteTurn(vote: {
+  thread_id: string;
+  turn: string;
+  outcome: "best" | "tie" | "all_bad";
+  best?: string | null;
+  reason?: string | null;
+  task_type: string;
+  blind: boolean;
+}): Promise<AnswerVote> {
+  const res = await fetch(`${API_BASE}/votes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(vote),
+  });
+  await ensureOk(res, "Couldn't save the vote");
+  return res.json();
+}
+
+export async function listVotes(threadId: string): Promise<AnswerVote[]> {
+  const res = await fetch(`${API_BASE}/votes?thread_id=${encodeURIComponent(threadId)}`);
+  await ensureOk(res, "Couldn't load the votes");
+  return (await res.json()).votes;
+}
+
+export async function fetchVoteStats(taskType?: string | null): Promise<VoteStats> {
+  const res = await fetch(`${API_BASE}/votes/stats${taskType ? `?task_type=${encodeURIComponent(taskType)}` : ""}`);
+  await ensureOk(res, "Couldn't load the win rates");
+  return res.json();
 }
 
 /** Have the answers' authors score each other's anonymously (POST /synthesis/reviews); stored on the thread. */

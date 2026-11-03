@@ -17,6 +17,36 @@ export interface Thread {
   updated_at?: string | null;
 }
 
+/** A person's vote on one turn's answers (services/votes.py). */
+export interface AnswerVote {
+  thread_id: string;
+  turn_id: string;
+  outcome: "best" | "tie" | "all_bad";
+  winner_checkpoint_id: string | null;
+  answers: { checkpoint_id: string; model: string; model_name: string; letter: string }[];
+  reason: string | null;
+  task_type: string;
+  blind: boolean;
+  created_at: string;
+}
+
+/** Win rates from the person's votes (GET /votes/stats). */
+export interface VoteStats {
+  task_type: string | null;
+  task_types: Record<string, number>;
+  votes: number;
+  models: {
+    model: string;
+    model_name: string;
+    wins: number;
+    losses: number;
+    ties: number;
+    all_bad: number;
+    votes: number;
+    win_rate: number | null;
+  }[];
+}
+
 /** A node's subtree, summarized by the summarizer model (services/subtree.py). */
 export interface SubtreeSummary {
   text: string;

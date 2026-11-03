@@ -14,8 +14,11 @@ import DebateDefaultsSection from "./control-panel/DebateDefaultsSection";
 import ApiKeysSection from "./control-panel/ApiKeysSection";
 import SummarizerSection from "./control-panel/SummarizerSection";
 import SystemPromptSection from "./control-panel/SystemPromptSection";
+import BlindVotesSection from "./control-panel/BlindVotesSection";
 
 interface ControlPanelProps {
+  /** Blind comparison and the win rates (useVotes, useVoteStats). */
+  votes?: Omit<React.ComponentProps<typeof BlindVotesSection>, "isDark">;
   toggles: Toggles;
   setToggles: React.Dispatch<React.SetStateAction<Toggles>>;
   families: ModelFamily[];
@@ -58,6 +61,7 @@ export const RAIL_WIDTH = 44;
  */
 const ControlPanel: React.FC<ControlPanelProps> = React.memo(
   ({
+    votes,
     toggles,
     setToggles,
     families,
@@ -216,6 +220,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             setSelectedModels={setSelectedModels}
           />
           <ParametersSection isDark={isDark} toggles={toggles} setToggles={setToggles} />
+          {votes && <BlindVotesSection isDark={isDark} {...votes} />}
           <SystemPromptSection value={systemPrompt} onChange={onSystemPromptChange} maxChars={limits.max_system_prompt_chars} />
           <SummarizerSection
             families={families}

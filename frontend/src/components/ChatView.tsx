@@ -10,6 +10,10 @@ import ModelErrorBubble from "./ModelErrorBubble";
 import BranchChip, { type AnswerChoice } from "./BranchChip";
 import SummaryMarker from "./SummaryMarker";
 import { replyNodeAt } from "@/lib/spanBranch";
+import { maskCards } from "@/lib/blind";
+import VoteBar from "./VoteBar";
+import type { VoteInput } from "@/hooks/useVotes";
+import type { AnswerVote } from "@/lib/types";
 import type { NextTurnContext } from "@/lib/context";
 import type { BranchPoint } from "@/lib/branching";
 import { addableModels, buildTranscript, synthesizableIds, type LiveTurn, type TurnCard } from "@/lib/turns";
@@ -19,6 +23,8 @@ import PositionShiftPanel from "./PositionShiftPanel";
 import { positionShifts } from "@/lib/debateTranscript";
 import type { SynthesisRequest } from "@/lib/synthesis";
 import type { AnswerReview } from "@/lib/types";
+
+const NO_VOTES: Record<string, AnswerVote> = {};
 
 interface ChatViewProps {
   messages: Message[];
@@ -73,6 +79,12 @@ interface ChatViewProps {
   onResetBranch?: () => void;
   /** Who answers a clicked reply, switchable on the branch chip. */
   answerChoice?: AnswerChoice | null;
+  /** Blind comparison: multi-model turns show lettered answers until voted on. */
+  blind?: boolean;
+  /** The thread's votes by turn id (useVotes). */
+  votesByTurn?: Record<string, AnswerVote>;
+  lastVoteTask?: string;
+  onVote?: (turnId: string, input: VoteInput) => Promise<boolean>;
   /** Text selected in a reply: continue from that reply with the text quoted in the composer. */
   onBranchFromSpan?: (nodeId: string, text: string) => void;
   /** What the next turn would send each answering model (useNextTurnContext). */
@@ -140,6 +152,10 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onResetBranch,
   answerChoice = null,
   onBranchFromSpan,
+  blind = false,
+  votesByTurn = NO_VOTES,
+  lastVoteTask = "general",
+  onVote,
   nextTurnContext = null,
   onStartFresh,
   maxPromptChars,
@@ -650,6 +666,14 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
             {/* Messages, with each multi-model turn as its cards (lib/turns) */}
             {items.map((item) => {
               if (item.kind === "turn") {
+                // Blind: lettered cards with nothing naming the model, until
+                // the person votes (lib/blind). The vote is what reveals.
+                const vote = item.turnId ? votesByTurn[item.turnId] : undefined;
+                const hidden = blind && chat && !vote;
+                const cards = hidden ? maskCards(item.cards, item.turnId ?? item.key) : item.cards;
+                const votable =
+                  !!onVote && chat && !!item.turnId && !item.live && cards.length > 1 &&
+                  cards.every((c) => c.id && !c.streaming && !c.error);
                 return (
                   <Box
                     key={item.key}
@@ -657,7 +681,8 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                     ref={(el: HTMLDivElement | null) => registerMessageRef(el, item.index)}
                   >
                     <TurnCards
-                      cards={item.cards}
+                      blind={hidden}
+                      cards={cards}
                       isDark={isDark}
                       modelLabel={modelLabel}
                       onViewReply={onViewReply}
@@ -677,18 +702,32 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       onRetry={onRetryModel}
                       onDismiss={onDismissModelError}
                       retryDisabled={isLoading}
-                      review={turnReview(item.cards)}
+                      review={hidden ? null : turnReview(item.cards)}
                       onCompare={onCompareAnswers}
                       primaryId={chat ? primaryId : null}
                       answerers={answerers}
                       onContinueAll={chat ? onContinueReplyAll : undefined}
                       selectedModels={selectedModels}
-                      addModel={addModelTo(
-                        item.turnId,
-                        (item.cards.find((c) => c.shown) ?? item.cards.find((c) => c.id))?.id,
-                        item.cards.map((c) => c.model),
-                      )}
+                      addModel={
+                        // Its list of models would say which ones already answered.
+                        hidden
+                          ? null
+                          : addModelTo(
+                              item.turnId,
+                              (item.cards.find((c) => c.shown) ?? item.cards.find((c) => c.id))?.id,
+                              item.cards.map((c) => c.model),
+                            )
+                      }
                     />
+                    {votable && (
+                      <VoteBar
+                        cards={cards}
+                        blind={hidden}
+                        vote={vote ?? null}
+                        lastTask={lastVoteTask}
+                        onVote={(input) => onVote!(item.turnId!, input)}
+                      />
+                    )}
                   </Box>
                 );
               }

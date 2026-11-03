@@ -183,3 +183,27 @@ describe("reply bubble metrics", () => {
     expect(screen.queryByTestId("reply-metrics")).toBeNull();
   });
 });
+
+describe("blind comparison", () => {
+  it("names no model anywhere on the cards: no id tooltip, no metrics, no turn total", () => {
+    const { container } = render(
+      <TurnCards
+        {...props}
+        blind
+        cards={[card("gpt-5.4", { label: "Answer B" }), card("claude-sonnet-5", { label: "Answer A" })].map((c) => ({
+          ...c,
+          metrics: null,
+        }))}
+        addModel={null}
+      />,
+    );
+    expect(screen.getByText("Answer A")).toBeInTheDocument();
+    // What a person can see: text and tooltips (a data attribute for text selection is not shown).
+    const tooltips = [...container.querySelectorAll("[title], [aria-label]")].map(
+      (el) => `${el.getAttribute("title") ?? ""} ${el.getAttribute("aria-label") ?? ""}`,
+    );
+    expect(tooltips.join(" ")).not.toMatch(/gpt|claude/i);
+    expect(container.textContent).not.toMatch(/GPT|Claude/);
+    expect(screen.queryByText(/Total/)).not.toBeInTheDocument();
+  });
+});
