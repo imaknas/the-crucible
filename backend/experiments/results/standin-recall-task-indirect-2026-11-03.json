@@ -1,0 +1,7808 @@
+{
+ "run": "compaction-eval-20261103T133115",
+ "models": [
+  "oracle",
+  "oracle-strict"
+ ],
+ "scenario": "task",
+ "facts": 24,
+ "seeds": 3,
+ "exchanges": 140,
+ "thresholds": [
+  6000
+ ],
+ "summarizers": [],
+ "lengths": [],
+ "keeps": [],
+ "user_budget": 20000,
+ "instructions": [],
+ "recalls": [
+  "none",
+  "keyword",
+  "embedding"
+ ],
+ "questions": "indirect",
+ "rewriters": [
+  "gpt-6-luna"
+ ],
+ "asides": false,
+ "reasons": false,
+ "later_subject": "unknown",
+ "excerpts": [
+  "message"
+ ],
+ "assistant_facts": 0.0,
+ "fact_variants": [
+  "plain",
+  "distractor",
+  "update"
+ ],
+ "repeat_facts": false,
+ "compaction": "live",
+ "baseline": false,
+ "concurrency": 4,
+ "dry_run": true,
+ "recall": {
+  "t6000 / oracle": {
+   "n": 48,
+   "correct": 0,
+   "stale": 0,
+   "by_kind": {
+    "number": [
+     0,
+     6
+    ],
+    "name": [
+     0,
+     6
+    ],
+    "identifier": [
+     0,
+     6
+    ],
+    "negation": [
+     0,
+     6
+    ],
+    "date": [
+     0,
+     6
+    ],
+    "port": [
+     0,
+     6
+    ],
+    "quote": [
+     0,
+     6
+    ],
+    "choice": [
+     0,
+     6
+    ]
+   },
+   "by_variant": {
+    "on-goal": [
+     0,
+     24
+    ],
+    "off-goal": [
+     0,
+     24
+    ]
+   },
+   "by_compactions": {
+    "5": [
+     0,
+     5
+    ],
+    "4": [
+     0,
+     15
+    ],
+    "3": [
+     0,
+     13
+    ],
+    "2": [
+     0,
+     11
+    ],
+    "1": [
+     0,
+     4
+    ]
+   },
+   "by_stated_by": {
+    "user": [
+     0,
+     48
+    ]
+   },
+   "recall": 0.0
+  },
+  "t6000 / oracle-strict": {
+   "n": 48,
+   "correct": 0,
+   "stale": 0,
+   "by_kind": {
+    "number": [
+     0,
+     6
+    ],
+    "name": [
+     0,
+     6
+    ],
+    "identifier": [
+     0,
+     6
+    ],
+    "negation": [
+     0,
+     6
+    ],
+    "date": [
+     0,
+     6
+    ],
+    "port": [
+     0,
+     6
+    ],
+    "quote": [
+     0,
+     6
+    ],
+    "choice": [
+     0,
+     6
+    ]
+   },
+   "by_variant": {
+    "on-goal": [
+     0,
+     24
+    ],
+    "off-goal": [
+     0,
+     24
+    ]
+   },
+   "by_compactions": {
+    "5": [
+     0,
+     5
+    ],
+    "4": [
+     0,
+     15
+    ],
+    "3": [
+     0,
+     13
+    ],
+    "2": [
+     0,
+     11
+    ],
+    "1": [
+     0,
+     4
+    ]
+   },
+   "by_stated_by": {
+    "user": [
+     0,
+     48
+    ]
+   },
+   "recall": 0.0
+  },
+  "t6000-recallkeyword / oracle": {
+   "n": 48,
+   "correct": 18,
+   "stale": 0,
+   "by_kind": {
+    "number": [
+     0,
+     6
+    ],
+    "name": [
+     0,
+     6
+    ],
+    "identifier": [
+     6,
+     6
+    ],
+    "negation": [
+     0,
+     6
+    ],
+    "date": [
+     0,
+     6
+    ],
+    "port": [
+     6,
+     6
+    ],
+    "quote": [
+     6,
+     6
+    ],
+    "choice": [
+     0,
+     6
+    ]
+   },
+   "by_variant": {
+    "on-goal": [
+     9,
+     24
+    ],
+    "off-goal": [
+     9,
+     24
+    ]
+   },
+   "by_compactions": {
+    "5": [
+     1,
+     5
+    ],
+    "4": [
+     3,
+     15
+    ],
+    "3": [
+     5,
+     13
+    ],
+    "2": [
+     9,
+     11
+    ],
+    "1": [
+     0,
+     4
+    ]
+   },
+   "by_stated_by": {
+    "user": [
+     18,
+     48
+    ]
+   },
+   "recall": 0.375
+  },
+  "t6000-recallkeyword / oracle-strict": {
+   "n": 48,
+   "correct": 18,
+   "stale": 0,
+   "by_kind": {
+    "number": [
+     0,
+     6
+    ],
+    "name": [
+     0,
+     6
+    ],
+    "identifier": [
+     6,
+     6
+    ],
+    "negation": [
+     0,
+     6
+    ],
+    "date": [
+     0,
+     6
+    ],
+    "port": [
+     6,
+     6
+    ],
+    "quote": [
+     6,
+     6
+    ],
+    "choice": [
+     0,
+     6
+    ]
+   },
+   "by_variant": {
+    "on-goal": [
+     9,
+     24
+    ],
+    "off-goal": [
+     9,
+     24
+    ]
+   },
+   "by_compactions": {
+    "5": [
+     1,
+     5
+    ],
+    "4": [
+     3,
+     15
+    ],
+    "3": [
+     5,
+     13
+    ],
+    "2": [
+     9,
+     11
+    ],
+    "1": [
+     0,
+     4
+    ]
+   },
+   "by_stated_by": {
+    "user": [
+     18,
+     48
+    ]
+   },
+   "recall": 0.375
+  },
+  "t6000-recallembedding / oracle": {
+   "n": 48,
+   "correct": 19,
+   "stale": 0,
+   "by_kind": {
+    "number": [
+     4,
+     6
+    ],
+    "name": [
+     0,
+     6
+    ],
+    "identifier": [
+     3,
+     6
+    ],
+    "negation": [
+     0,
+     6
+    ],
+    "date": [
+     6,
+     6
+    ],
+    "port": [
+     3,
+     6
+    ],
+    "quote": [
+     3,
+     6
+    ],
+    "choice": [
+     0,
+     6
+    ]
+   },
+   "by_variant": {
+    "on-goal": [
+     8,
+     24
+    ],
+    "off-goal": [
+     11,
+     24
+    ]
+   },
+   "by_compactions": {
+    "5": [
+     3,
+     5
+    ],
+    "4": [
+     4,
+     15
+    ],
+    "3": [
+     6,
+     13
+    ],
+    "2": [
+     6,
+     11
+    ],
+    "1": [
+     0,
+     4
+    ]
+   },
+   "by_stated_by": {
+    "user": [
+     19,
+     48
+    ]
+   },
+   "recall": 0.396
+  },
+  "t6000-recallembedding / oracle-strict": {
+   "n": 48,
+   "correct": 19,
+   "stale": 0,
+   "by_kind": {
+    "number": [
+     4,
+     6
+    ],
+    "name": [
+     0,
+     6
+    ],
+    "identifier": [
+     3,
+     6
+    ],
+    "negation": [
+     0,
+     6
+    ],
+    "date": [
+     6,
+     6
+    ],
+    "port": [
+     3,
+     6
+    ],
+    "quote": [
+     3,
+     6
+    ],
+    "choice": [
+     0,
+     6
+    ]
+   },
+   "by_variant": {
+    "on-goal": [
+     8,
+     24
+    ],
+    "off-goal": [
+     11,
+     24
+    ]
+   },
+   "by_compactions": {
+    "5": [
+     3,
+     5
+    ],
+    "4": [
+     4,
+     15
+    ],
+    "3": [
+     6,
+     13
+    ],
+    "2": [
+     6,
+     11
+    ],
+    "1": [
+     0,
+     4
+    ]
+   },
+   "by_stated_by": {
+    "user": [
+     19,
+     48
+    ]
+   },
+   "recall": 0.396
+  }
+ },
+ "comparisons": [
+  {
+   "model": "oracle",
+   "a": "t6000",
+   "b": "t6000-recallkeyword",
+   "outcome": "b_better",
+   "effect": 0.375,
+   "interval": [
+    0.232,
+    0.516
+   ],
+   "reason": "B better: effect +0.375, interval [0.232, 0.516] above +0 (pairs=48, only A=0, only B=18)"
+  },
+  {
+   "model": "oracle",
+   "a": "t6000",
+   "b": "t6000-recallembedding",
+   "outcome": "b_better",
+   "effect": 0.396,
+   "interval": [
+    0.25,
+    0.537
+   ],
+   "reason": "B better: effect +0.396, interval [0.25, 0.537] above +0 (pairs=48, only A=0, only B=19)"
+  },
+  {
+   "model": "oracle",
+   "a": "t6000-recallkeyword",
+   "b": "t6000-recallembedding",
+   "outcome": "no_detectable_diff",
+   "effect": 0.021,
+   "interval": [
+    -0.157,
+    0.196
+   ],
+   "reason": "interval [-0.157, 0.196] overlaps ±0.1 (pairs=48, only A=9, only B=10); last checkpoint (1/1) reached"
+  },
+  {
+   "model": "oracle-strict",
+   "a": "t6000",
+   "b": "t6000-recallkeyword",
+   "outcome": "b_better",
+   "effect": 0.375,
+   "interval": [
+    0.232,
+    0.516
+   ],
+   "reason": "B better: effect +0.375, interval [0.232, 0.516] above +0 (pairs=48, only A=0, only B=18)"
+  },
+  {
+   "model": "oracle-strict",
+   "a": "t6000",
+   "b": "t6000-recallembedding",
+   "outcome": "b_better",
+   "effect": 0.396,
+   "interval": [
+    0.25,
+    0.537
+   ],
+   "reason": "B better: effect +0.396, interval [0.25, 0.537] above +0 (pairs=48, only A=0, only B=19)"
+  },
+  {
+   "model": "oracle-strict",
+   "a": "t6000-recallkeyword",
+   "b": "t6000-recallembedding",
+   "outcome": "no_detectable_diff",
+   "effect": 0.021,
+   "interval": [
+    -0.157,
+    0.196
+   ],
+   "reason": "interval [-0.157, 0.196] overlaps ±0.1 (pairs=48, only A=9, only B=10); last checkpoint (1/1) reached"
+  }
+ ],
+ "usage": {
+  "t6000 / availability-oracle": {
+   "input_tokens": 559084,
+   "output_tokens": 96,
+   "cache_read": 0
+  },
+  "t6000-recallkeyword / availability-oracle": {
+   "input_tokens": 580082,
+   "output_tokens": 96,
+   "cache_read": 0
+  },
+  "t6000-recallembedding / availability-oracle": {
+   "input_tokens": 587476,
+   "output_tokens": 96,
+   "cache_read": 0
+  }
+ },
+ "probes": [
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4401,
+     "output_tokens": 1,
+     "total_tokens": 4402
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4401,
+     "output_tokens": 1,
+     "total_tokens": 4402
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4399,
+     "output_tokens": 1,
+     "total_tokens": 4400
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4399,
+     "output_tokens": 1,
+     "total_tokens": 4400
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4400,
+     "output_tokens": 1,
+     "total_tokens": 4401
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4400,
+     "output_tokens": 1,
+     "total_tokens": 4401
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4398,
+     "output_tokens": 1,
+     "total_tokens": 4399
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4398,
+     "output_tokens": 1,
+     "total_tokens": 4399
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4399,
+     "output_tokens": 1,
+     "total_tokens": 4400
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4399,
+     "output_tokens": 1,
+     "total_tokens": 4400
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4401,
+     "output_tokens": 1,
+     "total_tokens": 4402
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4401,
+     "output_tokens": 1,
+     "total_tokens": 4402
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4404,
+     "output_tokens": 1,
+     "total_tokens": 4405
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4404,
+     "output_tokens": 1,
+     "total_tokens": 4405
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4398,
+     "output_tokens": 1,
+     "total_tokens": 4399
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4398,
+     "output_tokens": 1,
+     "total_tokens": 4399
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6656,
+     "output_tokens": 1,
+     "total_tokens": 6657
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6658,
+     "output_tokens": 1,
+     "total_tokens": 6659
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6654,
+     "output_tokens": 1,
+     "total_tokens": 6655
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6656,
+     "output_tokens": 1,
+     "total_tokens": 6657
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6655,
+     "output_tokens": 1,
+     "total_tokens": 6656
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6657,
+     "output_tokens": 1,
+     "total_tokens": 6658
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6652,
+     "output_tokens": 1,
+     "total_tokens": 6653
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6655,
+     "output_tokens": 1,
+     "total_tokens": 6656
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6653,
+     "output_tokens": 1,
+     "total_tokens": 6654
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6656,
+     "output_tokens": 1,
+     "total_tokens": 6657
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6655,
+     "output_tokens": 1,
+     "total_tokens": 6656
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6658,
+     "output_tokens": 1,
+     "total_tokens": 6659
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6658,
+     "output_tokens": 1,
+     "total_tokens": 6659
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6661,
+     "output_tokens": 1,
+     "total_tokens": 6662
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6652,
+     "output_tokens": 1,
+     "total_tokens": 6653
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6655,
+     "output_tokens": 1,
+     "total_tokens": 6656
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6417,
+     "output_tokens": 1,
+     "total_tokens": 6418
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6417,
+     "output_tokens": 1,
+     "total_tokens": 6418
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6415,
+     "output_tokens": 1,
+     "total_tokens": 6416
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6415,
+     "output_tokens": 1,
+     "total_tokens": 6416
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6416,
+     "output_tokens": 1,
+     "total_tokens": 6417
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6416,
+     "output_tokens": 1,
+     "total_tokens": 6417
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6414,
+     "output_tokens": 1,
+     "total_tokens": 6415
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6413,
+     "output_tokens": 1,
+     "total_tokens": 6414
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6415,
+     "output_tokens": 1,
+     "total_tokens": 6416
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6414,
+     "output_tokens": 1,
+     "total_tokens": 6415
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6417,
+     "output_tokens": 1,
+     "total_tokens": 6418
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6416,
+     "output_tokens": 1,
+     "total_tokens": 6417
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6420,
+     "output_tokens": 1,
+     "total_tokens": 6421
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6419,
+     "output_tokens": 1,
+     "total_tokens": 6420
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6414,
+     "output_tokens": 1,
+     "total_tokens": 6415
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6413,
+     "output_tokens": 1,
+     "total_tokens": 6414
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4401,
+     "output_tokens": 1,
+     "total_tokens": 4402
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4401,
+     "output_tokens": 1,
+     "total_tokens": 4402
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4399,
+     "output_tokens": 1,
+     "total_tokens": 4400
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4399,
+     "output_tokens": 1,
+     "total_tokens": 4400
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4400,
+     "output_tokens": 1,
+     "total_tokens": 4401
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4400,
+     "output_tokens": 1,
+     "total_tokens": 4401
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4398,
+     "output_tokens": 1,
+     "total_tokens": 4399
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4398,
+     "output_tokens": 1,
+     "total_tokens": 4399
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4399,
+     "output_tokens": 1,
+     "total_tokens": 4400
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4399,
+     "output_tokens": 1,
+     "total_tokens": 4400
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4401,
+     "output_tokens": 1,
+     "total_tokens": 4402
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4401,
+     "output_tokens": 1,
+     "total_tokens": 4402
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4404,
+     "output_tokens": 1,
+     "total_tokens": 4405
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4404,
+     "output_tokens": 1,
+     "total_tokens": 4405
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4398,
+     "output_tokens": 1,
+     "total_tokens": 4399
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4398,
+     "output_tokens": 1,
+     "total_tokens": 4399
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6656,
+     "output_tokens": 1,
+     "total_tokens": 6657
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6658,
+     "output_tokens": 1,
+     "total_tokens": 6659
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6654,
+     "output_tokens": 1,
+     "total_tokens": 6655
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6656,
+     "output_tokens": 1,
+     "total_tokens": 6657
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6655,
+     "output_tokens": 1,
+     "total_tokens": 6656
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6657,
+     "output_tokens": 1,
+     "total_tokens": 6658
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6652,
+     "output_tokens": 1,
+     "total_tokens": 6653
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6655,
+     "output_tokens": 1,
+     "total_tokens": 6656
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6653,
+     "output_tokens": 1,
+     "total_tokens": 6654
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6656,
+     "output_tokens": 1,
+     "total_tokens": 6657
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6655,
+     "output_tokens": 1,
+     "total_tokens": 6656
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6658,
+     "output_tokens": 1,
+     "total_tokens": 6659
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6658,
+     "output_tokens": 1,
+     "total_tokens": 6659
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6661,
+     "output_tokens": 1,
+     "total_tokens": 6662
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6652,
+     "output_tokens": 1,
+     "total_tokens": 6653
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6655,
+     "output_tokens": 1,
+     "total_tokens": 6656
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6417,
+     "output_tokens": 1,
+     "total_tokens": 6418
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6417,
+     "output_tokens": 1,
+     "total_tokens": 6418
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6415,
+     "output_tokens": 1,
+     "total_tokens": 6416
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6415,
+     "output_tokens": 1,
+     "total_tokens": 6416
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6416,
+     "output_tokens": 1,
+     "total_tokens": 6417
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6416,
+     "output_tokens": 1,
+     "total_tokens": 6417
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6414,
+     "output_tokens": 1,
+     "total_tokens": 6415
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6413,
+     "output_tokens": 1,
+     "total_tokens": 6414
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6415,
+     "output_tokens": 1,
+     "total_tokens": 6416
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6414,
+     "output_tokens": 1,
+     "total_tokens": 6415
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6417,
+     "output_tokens": 1,
+     "total_tokens": 6418
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6416,
+     "output_tokens": 1,
+     "total_tokens": 6417
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6420,
+     "output_tokens": 1,
+     "total_tokens": 6421
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6419,
+     "output_tokens": 1,
+     "total_tokens": 6420
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6414,
+     "output_tokens": 1,
+     "total_tokens": 6415
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6413,
+     "output_tokens": 1,
+     "total_tokens": 6414
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4612,
+     "output_tokens": 1,
+     "total_tokens": 4613
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4633,
+     "output_tokens": 1,
+     "total_tokens": 4634
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4606,
+     "output_tokens": 1,
+     "total_tokens": 4607
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4606,
+     "output_tokens": 1,
+     "total_tokens": 4607
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "orchid-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4671,
+     "output_tokens": 1,
+     "total_tokens": 4672
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "orchid-2",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4671,
+     "output_tokens": 1,
+     "total_tokens": 4672
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4398,
+     "output_tokens": 1,
+     "total_tokens": 4399
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4729,
+     "output_tokens": 1,
+     "total_tokens": 4730
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4399,
+     "output_tokens": 1,
+     "total_tokens": 4400
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4730,
+     "output_tokens": 1,
+     "total_tokens": 4731
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9422",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4624,
+     "output_tokens": 1,
+     "total_tokens": 4625
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9172",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4624,
+     "output_tokens": 1,
+     "total_tokens": 4625
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "simplicity first, security second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4654,
+     "output_tokens": 1,
+     "total_tokens": 4655
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, polish second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4667,
+     "output_tokens": 1,
+     "total_tokens": 4668
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4398,
+     "output_tokens": 1,
+     "total_tokens": 4399
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4729,
+     "output_tokens": 1,
+     "total_tokens": 4730
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6892,
+     "output_tokens": 1,
+     "total_tokens": 6893
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6894,
+     "output_tokens": 1,
+     "total_tokens": 6895
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6917,
+     "output_tokens": 1,
+     "total_tokens": 6918
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6920,
+     "output_tokens": 1,
+     "total_tokens": 6921
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "basalt-4",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6953,
+     "output_tokens": 1,
+     "total_tokens": 6954
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "obsidian-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6955,
+     "output_tokens": 1,
+     "total_tokens": 6956
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6975,
+     "output_tokens": 1,
+     "total_tokens": 6976
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6655,
+     "output_tokens": 1,
+     "total_tokens": 6656
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6976,
+     "output_tokens": 1,
+     "total_tokens": 6977
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6656,
+     "output_tokens": 1,
+     "total_tokens": 6657
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "7314",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6926,
+     "output_tokens": 1,
+     "total_tokens": 6927
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9025",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6928,
+     "output_tokens": 1,
+     "total_tokens": 6929
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "features first, security second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6929,
+     "output_tokens": 1,
+     "total_tokens": 6930
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "accuracy first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6931,
+     "output_tokens": 1,
+     "total_tokens": 6932
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6975,
+     "output_tokens": 1,
+     "total_tokens": 6976
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6655,
+     "output_tokens": 1,
+     "total_tokens": 6656
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6648,
+     "output_tokens": 1,
+     "total_tokens": 6649
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6647,
+     "output_tokens": 1,
+     "total_tokens": 6648
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6664,
+     "output_tokens": 1,
+     "total_tokens": 6665
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6639,
+     "output_tokens": 1,
+     "total_tokens": 6640
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "spruce-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6717,
+     "output_tokens": 1,
+     "total_tokens": 6718
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "juniper-3",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6708,
+     "output_tokens": 1,
+     "total_tokens": 6709
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6707,
+     "output_tokens": 1,
+     "total_tokens": 6708
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6413,
+     "output_tokens": 1,
+     "total_tokens": 6414
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6708,
+     "output_tokens": 1,
+     "total_tokens": 6709
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6414,
+     "output_tokens": 1,
+     "total_tokens": 6415
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6573",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6676,
+     "output_tokens": 1,
+     "total_tokens": 6677
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "5577",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6662,
+     "output_tokens": 1,
+     "total_tokens": 6663
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, security second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6733,
+     "output_tokens": 1,
+     "total_tokens": 6734
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "reliability first, speed second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6697,
+     "output_tokens": 1,
+     "total_tokens": 6698
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6707,
+     "output_tokens": 1,
+     "total_tokens": 6708
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6413,
+     "output_tokens": 1,
+     "total_tokens": 6414
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4612,
+     "output_tokens": 1,
+     "total_tokens": 4613
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4633,
+     "output_tokens": 1,
+     "total_tokens": 4634
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4606,
+     "output_tokens": 1,
+     "total_tokens": 4607
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4606,
+     "output_tokens": 1,
+     "total_tokens": 4607
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "orchid-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4671,
+     "output_tokens": 1,
+     "total_tokens": 4672
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "orchid-2",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4671,
+     "output_tokens": 1,
+     "total_tokens": 4672
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4398,
+     "output_tokens": 1,
+     "total_tokens": 4399
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4729,
+     "output_tokens": 1,
+     "total_tokens": 4730
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4399,
+     "output_tokens": 1,
+     "total_tokens": 4400
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4730,
+     "output_tokens": 1,
+     "total_tokens": 4731
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9422",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4624,
+     "output_tokens": 1,
+     "total_tokens": 4625
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9172",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4624,
+     "output_tokens": 1,
+     "total_tokens": 4625
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "simplicity first, security second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4654,
+     "output_tokens": 1,
+     "total_tokens": 4655
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, polish second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4667,
+     "output_tokens": 1,
+     "total_tokens": 4668
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4398,
+     "output_tokens": 1,
+     "total_tokens": 4399
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4729,
+     "output_tokens": 1,
+     "total_tokens": 4730
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6892,
+     "output_tokens": 1,
+     "total_tokens": 6893
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6894,
+     "output_tokens": 1,
+     "total_tokens": 6895
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6917,
+     "output_tokens": 1,
+     "total_tokens": 6918
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6920,
+     "output_tokens": 1,
+     "total_tokens": 6921
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "basalt-4",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6953,
+     "output_tokens": 1,
+     "total_tokens": 6954
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "obsidian-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6955,
+     "output_tokens": 1,
+     "total_tokens": 6956
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6975,
+     "output_tokens": 1,
+     "total_tokens": 6976
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6655,
+     "output_tokens": 1,
+     "total_tokens": 6656
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6976,
+     "output_tokens": 1,
+     "total_tokens": 6977
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6656,
+     "output_tokens": 1,
+     "total_tokens": 6657
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "7314",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6926,
+     "output_tokens": 1,
+     "total_tokens": 6927
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9025",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6928,
+     "output_tokens": 1,
+     "total_tokens": 6929
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "features first, security second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6929,
+     "output_tokens": 1,
+     "total_tokens": 6930
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "accuracy first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6931,
+     "output_tokens": 1,
+     "total_tokens": 6932
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6975,
+     "output_tokens": 1,
+     "total_tokens": 6976
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6655,
+     "output_tokens": 1,
+     "total_tokens": 6656
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6648,
+     "output_tokens": 1,
+     "total_tokens": 6649
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6647,
+     "output_tokens": 1,
+     "total_tokens": 6648
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6664,
+     "output_tokens": 1,
+     "total_tokens": 6665
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6639,
+     "output_tokens": 1,
+     "total_tokens": 6640
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "spruce-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6717,
+     "output_tokens": 1,
+     "total_tokens": 6718
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "juniper-3",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6708,
+     "output_tokens": 1,
+     "total_tokens": 6709
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6707,
+     "output_tokens": 1,
+     "total_tokens": 6708
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6413,
+     "output_tokens": 1,
+     "total_tokens": 6414
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6708,
+     "output_tokens": 1,
+     "total_tokens": 6709
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6414,
+     "output_tokens": 1,
+     "total_tokens": 6415
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "6573",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6676,
+     "output_tokens": 1,
+     "total_tokens": 6677
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "5577",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6662,
+     "output_tokens": 1,
+     "total_tokens": 6663
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, security second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6733,
+     "output_tokens": 1,
+     "total_tokens": 6734
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "reliability first, speed second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6697,
+     "output_tokens": 1,
+     "total_tokens": 6698
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6707,
+     "output_tokens": 1,
+     "total_tokens": 6708
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallkeyword",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6413,
+     "output_tokens": 1,
+     "total_tokens": 6414
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "89,400",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4659,
+     "output_tokens": 1,
+     "total_tokens": 4660
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "40,800",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4694,
+     "output_tokens": 1,
+     "total_tokens": 4695
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4746,
+     "output_tokens": 1,
+     "total_tokens": 4747
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4762,
+     "output_tokens": 1,
+     "total_tokens": 4763
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "orchid-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4686,
+     "output_tokens": 1,
+     "total_tokens": 4687
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4733,
+     "output_tokens": 1,
+     "total_tokens": 4734
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4613,
+     "output_tokens": 1,
+     "total_tokens": 4614
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4761,
+     "output_tokens": 1,
+     "total_tokens": 4762
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "22 may",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4657,
+     "output_tokens": 1,
+     "total_tokens": 4658
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "16 march",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4716,
+     "output_tokens": 1,
+     "total_tokens": 4717
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4637,
+     "output_tokens": 1,
+     "total_tokens": 4638
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4698,
+     "output_tokens": 1,
+     "total_tokens": 4699
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4618,
+     "output_tokens": 1,
+     "total_tokens": 4619
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4728,
+     "output_tokens": 1,
+     "total_tokens": 4729
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4630,
+     "output_tokens": 1,
+     "total_tokens": 4631
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4762,
+     "output_tokens": 1,
+     "total_tokens": 4763
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6901,
+     "output_tokens": 1,
+     "total_tokens": 6902
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "39,500",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6919,
+     "output_tokens": 1,
+     "total_tokens": 6920
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6890,
+     "output_tokens": 1,
+     "total_tokens": 6891
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7039,
+     "output_tokens": 1,
+     "total_tokens": 7040
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6908,
+     "output_tokens": 1,
+     "total_tokens": 6909
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "obsidian-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6946,
+     "output_tokens": 1,
+     "total_tokens": 6947
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6882,
+     "output_tokens": 1,
+     "total_tokens": 6883
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6909,
+     "output_tokens": 1,
+     "total_tokens": 6910
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "18 november",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6900,
+     "output_tokens": 1,
+     "total_tokens": 6901
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "20 december",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6962,
+     "output_tokens": 1,
+     "total_tokens": 6963
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "7314",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6952,
+     "output_tokens": 1,
+     "total_tokens": 6953
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9025",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6928,
+     "output_tokens": 1,
+     "total_tokens": 6929
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6903,
+     "output_tokens": 1,
+     "total_tokens": 6904
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "accuracy first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6939,
+     "output_tokens": 1,
+     "total_tokens": 6940
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6887,
+     "output_tokens": 1,
+     "total_tokens": 6888
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6906,
+     "output_tokens": 1,
+     "total_tokens": 6907
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "61,800",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6733,
+     "output_tokens": 1,
+     "total_tokens": 6734
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6747,
+     "output_tokens": 1,
+     "total_tokens": 6748
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6761,
+     "output_tokens": 1,
+     "total_tokens": 6762
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6789,
+     "output_tokens": 1,
+     "total_tokens": 6790
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6689,
+     "output_tokens": 1,
+     "total_tokens": 6690
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "juniper-3",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6723,
+     "output_tokens": 1,
+     "total_tokens": 6724
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6759,
+     "output_tokens": 1,
+     "total_tokens": 6760
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6724,
+     "output_tokens": 1,
+     "total_tokens": 6725
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "15 february",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6703,
+     "output_tokens": 1,
+     "total_tokens": 6704
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 december",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6721,
+     "output_tokens": 1,
+     "total_tokens": 6722
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6758,
+     "output_tokens": 1,
+     "total_tokens": 6759
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "5577",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6741,
+     "output_tokens": 1,
+     "total_tokens": 6742
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, security second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6769,
+     "output_tokens": 1,
+     "total_tokens": 6770
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "reliability first, speed second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6735,
+     "output_tokens": 1,
+     "total_tokens": 6736
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6780,
+     "output_tokens": 1,
+     "total_tokens": 6781
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6735,
+     "output_tokens": 1,
+     "total_tokens": 6736
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "89,400",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4659,
+     "output_tokens": 1,
+     "total_tokens": 4660
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "40,800",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4694,
+     "output_tokens": 1,
+     "total_tokens": 4695
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4746,
+     "output_tokens": 1,
+     "total_tokens": 4747
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4762,
+     "output_tokens": 1,
+     "total_tokens": 4763
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "orchid-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4686,
+     "output_tokens": 1,
+     "total_tokens": 4687
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 5,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4733,
+     "output_tokens": 1,
+     "total_tokens": 4734
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4613,
+     "output_tokens": 1,
+     "total_tokens": 4614
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4761,
+     "output_tokens": 1,
+     "total_tokens": 4762
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "22 may",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4657,
+     "output_tokens": 1,
+     "total_tokens": 4658
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "16 march",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4716,
+     "output_tokens": 1,
+     "total_tokens": 4717
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4637,
+     "output_tokens": 1,
+     "total_tokens": 4638
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4698,
+     "output_tokens": 1,
+     "total_tokens": 4699
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4618,
+     "output_tokens": 1,
+     "total_tokens": 4619
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4728,
+     "output_tokens": 1,
+     "total_tokens": 4729
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4630,
+     "output_tokens": 1,
+     "total_tokens": 4631
+    }
+   },
+   "scenario": "0",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 4762,
+     "output_tokens": 1,
+     "total_tokens": 4763
+    }
+   },
+   "scenario": "0",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 4387,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6901,
+     "output_tokens": 1,
+     "total_tokens": 6902
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "39,500",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6919,
+     "output_tokens": 1,
+     "total_tokens": 6920
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6890,
+     "output_tokens": 1,
+     "total_tokens": 6891
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 7039,
+     "output_tokens": 1,
+     "total_tokens": 7040
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6908,
+     "output_tokens": 1,
+     "total_tokens": 6909
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "obsidian-7",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6946,
+     "output_tokens": 1,
+     "total_tokens": 6947
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6882,
+     "output_tokens": 1,
+     "total_tokens": 6883
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6909,
+     "output_tokens": 1,
+     "total_tokens": 6910
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "18 november",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6900,
+     "output_tokens": 1,
+     "total_tokens": 6901
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "20 december",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6962,
+     "output_tokens": 1,
+     "total_tokens": 6963
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "7314",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6952,
+     "output_tokens": 1,
+     "total_tokens": 6953
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "9025",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6928,
+     "output_tokens": 1,
+     "total_tokens": 6929
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6903,
+     "output_tokens": 1,
+     "total_tokens": 6904
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "accuracy first, latency second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6939,
+     "output_tokens": 1,
+     "total_tokens": 6940
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6887,
+     "output_tokens": 1,
+     "total_tokens": 6888
+    }
+   },
+   "scenario": "1",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6906,
+     "output_tokens": 1,
+     "total_tokens": 6907
+    }
+   },
+   "scenario": "1",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3742,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-number",
+   "kind": "number",
+   "planted_turn": 22,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "61,800",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6733,
+     "output_tokens": 1,
+     "total_tokens": 6734
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-number",
+   "kind": "number",
+   "planted_turn": 36,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6747,
+     "output_tokens": 1,
+     "total_tokens": 6748
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-name",
+   "kind": "name",
+   "planted_turn": 48,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6761,
+     "output_tokens": 1,
+     "total_tokens": 6762
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-name",
+   "kind": "name",
+   "planted_turn": 62,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6789,
+     "output_tokens": 1,
+     "total_tokens": 6790
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 76,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6689,
+     "output_tokens": 1,
+     "total_tokens": 6690
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 4,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-identifier",
+   "kind": "identifier",
+   "planted_turn": 90,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "juniper-3",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6723,
+     "output_tokens": 1,
+     "total_tokens": 6724
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-negation",
+   "kind": "negation",
+   "planted_turn": 102,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6759,
+     "output_tokens": 1,
+     "total_tokens": 6760
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-negation",
+   "kind": "negation",
+   "planted_turn": 116,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6724,
+     "output_tokens": 1,
+     "total_tokens": 6725
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-date",
+   "kind": "date",
+   "planted_turn": 130,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "15 february",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6703,
+     "output_tokens": 1,
+     "total_tokens": 6704
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-date",
+   "kind": "date",
+   "planted_turn": 144,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "14 december",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6721,
+     "output_tokens": 1,
+     "total_tokens": 6722
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 3,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-port",
+   "kind": "port",
+   "planted_turn": 156,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6758,
+     "output_tokens": 1,
+     "total_tokens": 6759
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-port",
+   "kind": "port",
+   "planted_turn": 170,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "5577",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6741,
+     "output_tokens": 1,
+     "total_tokens": 6742
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-quote",
+   "kind": "quote",
+   "planted_turn": 184,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "latency first, security second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6769,
+     "output_tokens": 1,
+     "total_tokens": 6770
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-quote",
+   "kind": "quote",
+   "planted_turn": 198,
+   "correct": true,
+   "pruned": true,
+   "summarized": true,
+   "answer": "reliability first, speed second",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6735,
+     "output_tokens": 1,
+     "total_tokens": 6736
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 2,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "on-goal-choice",
+   "kind": "choice",
+   "planted_turn": 210,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6780,
+     "output_tokens": 1,
+     "total_tokens": 6781
+    }
+   },
+   "scenario": "2",
+   "variant": "on-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  },
+  {
+   "condition": "t6000-recallembedding",
+   "model": "oracle-strict",
+   "fact": "off-goal-choice",
+   "kind": "choice",
+   "planted_turn": 224,
+   "correct": false,
+   "pruned": true,
+   "summarized": true,
+   "answer": "I don't know.",
+   "usage": {
+    "availability-oracle": {
+     "input_tokens": 6735,
+     "output_tokens": 1,
+     "total_tokens": 6736
+    }
+   },
+   "scenario": "2",
+   "variant": "off-goal",
+   "stale": false,
+   "compactions": 1,
+   "setup_usage": {},
+   "summary_tokens": 3734,
+   "stated_by": "user"
+  }
+ ]
+}

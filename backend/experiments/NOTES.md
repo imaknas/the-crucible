@@ -1754,3 +1754,31 @@ is the weak half. Two ways past it, neither tested here: the person pins a
 rule explicitly (model-free and certain), or a model labels rules (tier
 C/D: its catch rate on these same 30 phrasings is the first measurement).
 Not made the default.
+
+## 2026-11-03 — Recall with a summarizer that isn't a model (tier B; roadmap 21)
+
+What recall alone restores when the summary keeps nothing: the
+first-sentence stand-in keeps the first sentence of each line, and facts
+are planted mid-message, so its summaries keep ~0 of them. Dry runs
+(`--dry-run`: stand-in summarizer, oracle readers, no API call), 6,000-token
+threshold, 3 seeds; `results/standin-recall-*-2026-11-03.json`.
+
+| Scenario, questions | Summary alone | + keyword recall | + embedding recall |
+|---|---|---|---|
+| dense, direct | 1/72 | 66/72 | 33/72 |
+| dense, indirect | 1/72 | 25/72 | 25/72 |
+| goal switch (task), indirect | 0/48 | 18/48 | 19/48 |
+
+- This is a **lower bound for recall alone**, which no model generation can
+  move: nothing in it is a language model. It is *not* evidence for "with
+  recall, the summary only has to point to the originals" (conclusion 16):
+  a stand-in doesn't point to anything, so the summary's half of that claim
+  is untested here. Guided recall is left out on purpose — in a dry run the
+  stand-in would answer its rewriter, and the command now refuses that.
+- **It agrees with the model-free measurement** (recall-eval, entry above):
+  keyword direct 66/72 in both, indirect 25 vs 24, embedding direct 33 vs
+  31. The harness and the offline tool check each other.
+- With questions that name nothing, recall alone brings back about a third
+  of what a summary dropped, whichever of the two mechanisms; the rest is
+  what a summary (or a model choosing search terms, pilots 17–18) has to
+  provide.

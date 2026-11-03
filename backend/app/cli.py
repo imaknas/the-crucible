@@ -2126,10 +2126,10 @@ def compaction_eval(
         help="State every fact with a reason (dense only) and probe the reason oracle too: value and reason must both stay attached to the subject.",
     ),
     asides: bool = typer.Option(False, "--asides", help="State every fact as a throwaway remark (dense only); pair with a run without it."),
-    questions: str = typer.Option("direct", "--questions", help="Probe by the subject's name ('direct') or by what it does ('indirect'; dense only)."),
+    questions: str = typer.Option("direct", "--questions", help="Probe by the subject's name ('direct') or by what it does ('indirect'; dense and task)."),
     fact_variants: str = typer.Option("plain,distractor,update", "--fact-variants", help="Variants the facts cycle through (dense only), e.g. 'plain' for plain facts only."),
     repeat_facts: bool = typer.Option(False, "--repeat-facts", help="Restate every fact once more later with the same value (dense only); pair with a run without it."),
-    assistant_facts: float = typer.Option(0.0, "--assistant-facts", help="Share of planted facts stated by the assistant instead of the user (dense only)."),
+    assistant_facts: float = typer.Option(0.0, "--assistant-facts", help="Share of planted facts stated by the assistant instead of the user (dense and task)."),
     scenario: str = typer.Option("dense", "--scenario", help="dense: specifics everywhere, distractors and updates. task: a stated goal, facts on and off it, then a switch of goal. basic: pilot 1's generic filler."),
     facts: int = typer.Option(24, "--facts", help="Planted facts per scenario (dense only)."),
     seeds: int = typer.Option(3, "--seeds", help="Number of scenarios (different filler and ordering)."),
@@ -2170,6 +2170,10 @@ def compaction_eval(
             or later_subject not in ("unknown", "announced", "mentioned")
             or not set(excerpts or []) <= {"message", "sentences"}):
         _fail("--keep is recent|user|constraints, --instruction brief|handoff|state|index|allsubjects, --recall none|keyword|embedding|guided, --questions direct|indirect, --later-subject unknown|announced|mentioned, --excerpt message|sentences", as_json)
+    if dry_run and "guided" in (recalls or []):
+        # The stand-in would answer the rewriter too: guided recall's terms
+        # would be a first sentence, and its numbers would mean nothing.
+        _fail("--recall guided needs a model choosing the terms; leave it out of a dry run", as_json)
     if not dry_run and budget is None and not estimate_only:
         _fail("a real run needs --budget (USD); use --estimate to see what it would cost", as_json)
     model_ids = [ORACLE] if dry_run else list(models or _cheapest_models())
@@ -2733,7 +2737,8 @@ def _rescore_eval(path: str, min_effect: float, as_json: bool) -> None:
     from app.services import compaction_eval as ce
 
     data = json.loads(Path(path).read_text())
-    options = {"facts": 24, "exchanges": 140, "assistant_facts": 0.0, "fact_variants": ["plain", "distractor", "update"],
+    # Files from before the scenario option (pilot 1) used the basic scenario.
+    options = {"scenario": "basic", "facts": 24, "exchanges": 140, "assistant_facts": 0.0, "fact_variants": ["plain", "distractor", "update"],
                "repeat_facts": False, "questions": "direct", "asides": False, "reasons": False, "later_subject": "unknown",
                **data}
     results = ce.results_from_dicts(data["probes"])
