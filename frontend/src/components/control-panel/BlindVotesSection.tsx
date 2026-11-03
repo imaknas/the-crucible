@@ -46,6 +46,7 @@ export default function BlindVotesSection({
             size="small"
             value={taskType}
             onChange={(e) => onTaskTypeChange(e.target.value)}
+            displayEmpty
             inputProps={{ "aria-label": "Win rates for" }}
             sx={{ fontSize: "0.75rem", minWidth: 130 }}
           >
@@ -72,7 +73,7 @@ export default function BlindVotesSection({
                   <Box
                     component="th"
                     key={h}
-                    sx={{ textAlign: "left", fontWeight: 700, color: "text.secondary", pb: 0.5 }}
+                    sx={{ textAlign: "left", fontWeight: 700, color: "text.secondary", pb: 0.5, whiteSpace: "nowrap", pr: 1 }}
                   >
                     {h}
                   </Box>
