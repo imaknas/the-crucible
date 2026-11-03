@@ -92,6 +92,23 @@ def init_db():
         )
     """)
 
+    # A person's vote on one turn's answers (services/votes.py): the best
+    # answer, a tie or "all bad", read blind or not. One per turn; voting
+    # again replaces it. Deleted with the thread.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS answer_votes (
+            thread_id TEXT NOT NULL,
+            turn_id TEXT NOT NULL,
+            outcome TEXT NOT NULL,
+            winner_checkpoint_id TEXT,
+            answers TEXT NOT NULL,
+            reason TEXT,
+            task_type TEXT NOT NULL,
+            blind INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (thread_id, turn_id)
+        )
+    """)
     # What a person wrote on a tree node: a branch name, a bookmark, and the
     # summary of the subtree below it (services/subtree.py). Keyed by the
     # node's checkpoint id; never part of the conversation itself.
@@ -346,6 +363,71 @@ def _purge_thread_rows(conn, thread_id: str) -> None:
     conn.execute("DELETE FROM thread_documents WHERE thread_id = ?", (thread_id,))
     conn.execute("DELETE FROM answer_reviews WHERE thread_id = ?", (thread_id,))
     conn.execute("DELETE FROM node_notes WHERE thread_id = ?", (thread_id,))
+    conn.execute("DELETE FROM answer_votes WHERE thread_id = ?", (thread_id,))
+
+
+VOTE_FIELDS = ("thread_id", "turn_id", "outcome", "winner_checkpoint_id", "answers", "reason", "task_type", "blind",
+               "created_at")
+
+
+def _vote_row(row) -> dict:
+    vote = dict(zip(VOTE_FIELDS, row))
+    vote["answers"] = json.loads(vote["answers"])
+    vote["blind"] = bool(vote["blind"])
+    return vote
+
+
+def save_answer_vote(thread_id: str, turn_id: str, *, outcome: str, winner_checkpoint_id: Optional[str],
+                     answers: list, reason: Optional[str], task_type: str, blind: bool) -> dict:
+    """Store a turn's vote, replacing an earlier one. ``answers`` is
+    [{checkpoint_id, model}]. Blocking: call from async code through
+    asyncio.to_thread."""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO answer_votes (thread_id, turn_id, outcome, winner_checkpoint_id, answers, reason, "
+            "task_type, blind) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (thread_id, turn_id, outcome, winner_checkpoint_id, json.dumps(answers), reason, task_type, int(blind)),
+        )
+        conn.commit()
+        row = conn.execute(f"SELECT {', '.join(VOTE_FIELDS)} FROM answer_votes WHERE thread_id = ? AND turn_id = ?",
+                           (thread_id, turn_id)).fetchone()
+    finally:
+        conn.close()
+    return _vote_row(row)
+
+
+def get_answer_vote(thread_id: str, turn_id: str) -> Optional[dict]:
+    """A turn's vote, or None."""
+    conn = get_db_connection()
+    try:
+        row = conn.execute(f"SELECT {', '.join(VOTE_FIELDS)} FROM answer_votes WHERE thread_id = ? AND turn_id = ?",
+                           (thread_id, turn_id)).fetchone()
+    finally:
+        conn.close()
+    return _vote_row(row) if row else None
+
+
+def list_answer_votes(thread_id: Optional[str] = None) -> list[dict]:
+    """Every vote (or a thread's), newest first."""
+    conn = get_db_connection()
+    try:
+        sql = f"SELECT {', '.join(VOTE_FIELDS)} FROM answer_votes"
+        rows = conn.execute(sql + (" WHERE thread_id = ?" if thread_id else "") + " ORDER BY created_at DESC, rowid DESC",
+                            (thread_id,) if thread_id else ()).fetchall()
+    finally:
+        conn.close()
+    return [_vote_row(r) for r in rows]
+
+
+def delete_answer_vote(thread_id: str, turn_id: str) -> bool:
+    conn = get_db_connection()
+    try:
+        deleted = conn.execute("DELETE FROM answer_votes WHERE thread_id = ? AND turn_id = ?", (thread_id, turn_id)).rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    return bool(deleted)
 
 
 NOTE_FIELDS = ("name", "bookmarked", "summary", "summary_model", "summary_nodes")
