@@ -1628,7 +1628,7 @@ def cases_list(format_output: str = _opt_format()):
         table.add_column(col, overflow="fold")
     for c in rows:
         table.add_row(c["case_id"], Text(c["title"]), Text(", ".join(c["model_names"])), "yes" if c["voted"] else "",
-                      str(c["replay_count"]), (c["created_at"] or "")[:16])
+                      str(c["replay_count"]), (c["created_at"] or "")[:16].replace("T", " "))
     console.print(table)
 
 
@@ -1650,8 +1650,8 @@ def _print_replay(replay: Dict[str, Any], *, full: bool = False, show_diff: bool
 
     from app.cli_display import print_metrics, render_diff
 
-    console.print(Text(f"Replay {replay['replay_id']} · {(replay['created_at'] or '')[:16]} · thread {replay['thread_id']}",
-                       style="bold"))
+    when = (replay["created_at"] or "")[:16].replace("T", " ")
+    console.print(Text(f"Replay {replay['replay_id']} · {when} UTC · thread {replay['thread_id']}", style="bold"))
     for r in replay["results"]:
         console.print(Text(f"  {r['model_name']}", style="bold"), Text(r["model"], style="dim"))
         if full and r.get("content"):

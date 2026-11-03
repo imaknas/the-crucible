@@ -1,5 +1,6 @@
 import {
   baselineNote,
+  caseTime,
   defaultReplayModels,
   replayChoices,
   replayDiffSides,
@@ -33,6 +34,15 @@ describe("replayChoices", () => {
 
   it("starts from the case's own models that can still run", () => {
     expect(defaultReplayModels(["gemini-c", "claude-b"], ["gpt-a", "claude-b"])).toEqual(["claude-b"]);
+  });
+});
+
+describe("caseTime", () => {
+  it("reads a zoneless stored time as UTC, and an aware one as given", () => {
+    expect(caseTime("2026-11-03 06:13:00")).toBe(caseTime("2026-11-03T06:13:00+00:00"));
+    expect(caseTime("2026-11-03T06:13:00Z")).toBe(caseTime("2026-11-03T14:13:00+08:00"));
+    expect(caseTime(null)).toBe("");
+    expect(caseTime("not a time")).toBe("not a time");
   });
 });
 

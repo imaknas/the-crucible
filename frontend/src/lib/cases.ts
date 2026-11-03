@@ -93,6 +93,21 @@ export interface SavedCase {
   replays: CaseReplay[];
 }
 
+/** A stored time (ISO, with its zone) in the reader's own time: "Nov 3, 2026, 14:05". */
+export function caseTime(iso: string | null | undefined): string {
+  if (!iso) return "";
+  // A time without a zone is SQLite's CURRENT_TIMESTAMP: UTC.
+  const t = Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso.replace(" ", "T")}Z`);
+  if (Number.isNaN(t)) return iso;
+  return new Date(t).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 /**
  * The models a case can be replayed on: every model whose family has a key,
  * legacy ones only if the case itself has their answer (they are kept for old

@@ -105,7 +105,7 @@ async def test_a_case_copies_the_turn_and_outlives_its_thread():
     assert {a["model"]: a["content"] for a in case["answers"]} == {
         m: second["answers"][m]["content"] for m in (A, B)}
     assert case["vote"]["outcome"] == "best" and case["best_model"] == B
-    assert case["source_thread_id"] == "t-case" and case["replays"] == []
+    assert case["source_thread_id"] == "t-case" and case["replays"] == [] and case["created_at"].endswith("+00:00")
 
     db.delete_thread_data("t-case")
     kept = cases.get_case(case["case_id"])

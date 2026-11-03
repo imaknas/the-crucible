@@ -52,6 +52,13 @@ VOTED_BEST = "voted_best"
 Indexer = Callable[[str, str, str], Any]
 
 
+def _utc(stamp: Optional[str]) -> Optional[str]:
+    """A stored CURRENT_TIMESTAMP (UTC, no zone) as a timezone-aware ISO time."""
+    if isinstance(stamp, str) and stamp and "T" not in stamp:
+        return stamp.replace(" ", "T") + "+00:00"
+    return stamp
+
+
 # ─── Saving ──────────────────────────────────────────────────────
 
 
@@ -172,7 +179,7 @@ def case_view(case: Mapping[str, Any], replays: Sequence[Mapping[str, Any]]) -> 
         "case_id": case["case_id"],
         "title": case["title"],
         "question": case["question"],
-        "created_at": case["created_at"],
+        "created_at": _utc(case["created_at"]),
         "source_thread_id": case["source_thread_id"],
         "source_turn_id": case["source_turn_id"],
         "history": history,
@@ -222,7 +229,7 @@ def replay_view(data: Mapping[str, Any], replay: Mapping[str, Any]) -> Dict[str,
         "replay_id": replay["replay_id"],
         "case_id": replay["case_id"],
         "thread_id": replay["thread_id"],
-        "created_at": replay["created_at"],
+        "created_at": _utc(replay["created_at"]),
         "models": replay["models"],
         "total": turn_total(r.get("metrics") for r in replay["results"]),
         "results": results,
@@ -252,13 +259,13 @@ def list_cases() -> List[Dict[str, Any]]:
             "case_id": c["case_id"],
             "title": c["title"],
             "question": c["question"],
-            "created_at": c["created_at"],
+            "created_at": _utc(c["created_at"]),
             "source_thread_id": c["source_thread_id"],
             "models": models,
             "model_names": [display_name(m) for m in models],
             "voted": bool(c["data"].get("vote")),
             "replay_count": c["replay_count"],
-            "last_replayed_at": c["last_replayed_at"],
+            "last_replayed_at": _utc(c["last_replayed_at"]),
         })
     return out
 

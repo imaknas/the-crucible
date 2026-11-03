@@ -21,6 +21,7 @@ import { ArrowLeft, RotateCcw, Trash2 } from "lucide-react";
 import type { ModelFamily } from "@/lib/api";
 import {
   baselineNote,
+  caseTime,
   defaultReplayModels,
   replayChoices,
   replayDiffSides,
@@ -35,7 +36,7 @@ import { MessageBody } from "./MessageBubble";
 import { ReplyMetricsLine, TurnMetricsLine } from "./ReplyMetrics";
 import { DiffView } from "./AnswerDiff";
 
-const when = (iso: string | null | undefined) => (iso ? iso.slice(0, 16).replace("T", " ") : "");
+const when = caseTime;
 
 interface Props {
   open: boolean;

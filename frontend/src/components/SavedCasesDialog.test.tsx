@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import SavedCasesDialog from "./SavedCasesDialog";
-import type { CaseReplay, CaseSummary, SavedCase } from "@/lib/cases";
+import { caseTime, type CaseReplay, type CaseSummary, type SavedCase } from "@/lib/cases";
 import { FAMILIES } from "@/test/families";
 
 jest.mock("react-markdown", () => {
@@ -49,7 +49,7 @@ const replay: CaseReplay = {
   replay_id: "r1",
   case_id: "case-1",
   thread_id: "replay-1",
-  created_at: "2026-11-03 11:00:00",
+  created_at: "2026-11-03T11:00:00+00:00",
   models: ["gpt-a"],
   total: { ...metrics, answers: 1, unpriced: 0 },
   results: [
@@ -180,7 +180,7 @@ describe("SavedCasesDialog: a case", () => {
 
   it("shows each replay old against new, with its metrics and the diff on request", () => {
     renderDialog({ current: savedCase });
-    const section = screen.getByRole("region", { name: "Replay · 2026-11-03 11:00" });
+    const section = screen.getByRole("region", { name: `Replay · ${caseTime("2026-11-03T11:00:00+00:00")}` });
     const card = within(section).getByRole("article", { name: "GPT A's answer" });
     expect(card).toHaveTextContent("Against Claude B's answer, which you voted best: 1 sentence changed");
     expect(within(card).getByTestId("reply-metrics")).toBeInTheDocument();
