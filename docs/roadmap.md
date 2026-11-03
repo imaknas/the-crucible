@@ -72,7 +72,7 @@ Cheap changes that answer published criticism of multi-agent debate, plus the nu
 
 ## Phase 5 — Your own evaluation set
 
-15. **Blind comparison with votes.**
+15. **Blind comparison with votes.** _Done: "Blind comparison" in the Control Panel; a vote bar under every finished multi-model turn (best, tie, all bad, the task, a reason); win rates per model by task (also `crucible vote --show/--best`, `crucible votes`, MCP `vote_answers` / `vote_stats`). The task type is the person's choice: classifying it with a model would cost a call per vote and give labels nobody chose. The letters don't come from `peers.py` after all: debate labels are fixed per session and participant, blind letters per turn._
     - Arena cards can show as Answer A/B/C in shuffled order, and the models are revealed after a vote: better, tie or all bad, with an optional reason.
     - Votes build a private win rate by task type.
     - Reuses `services/peers.py`. Sources: LMArena, Open WebUI's arena model.
