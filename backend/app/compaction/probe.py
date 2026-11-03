@@ -258,6 +258,50 @@ _INDIRECT = {
 }
 
 
+# Like _INDIRECT, but worded to share no term at all with anything planted
+# for the fact (its statement and its extras), under keyword recall's own
+# tokenizer: the NoLiMa-style probe. Finding the fact then takes meaning,
+# not matching words; tests/test_recall_eval.py checks every subject, kind
+# and variant.
+_NO_SHARED = {
+    "number": "How much money may we put into {d}, in EUR?",
+    "name": "Who should look at it when {d} breaks at night?",
+    "identifier": "Which cipher label protects data leaving {d}?",
+    "negation": "Which technology did we rule out for {d}?",
+    "date": "From what day are migrations blocked for {d}?",
+    "port": "Which socket number should the firewall open for {d}?",
+    "quote": "How did the customer phrase their priorities for {d}, verbatim?",
+    "choice": "Which supplier are we going with for {d}?",
+}
+
+
+# Descriptions reworded for the no-shared-words probe only, where a word of
+# the description meets a word planted for some fact kind ("call us" and
+# "on-call", "switching features" and a quote naming features).
+_NO_SHARED_DESCRIPTIONS = {
+    "rate limiter": "the component that throttles clients who contact us too often",
+    "feature-flag service": "the system for switching product capabilities on and off per customer",
+}
+
+
+def no_shared_words(facts: Sequence[PlantedFact]) -> list[PlantedFact]:
+    """The same facts, each with a question that shares no term with what
+    was planted for it (``_NO_SHARED``), asked by scenarios built with
+    ``questions="indirect"``. Everything else is unchanged, so a run with
+    and without it isolates lexical overlap."""
+    out = []
+    for f in facts:
+        if not f.subject:
+            raise ValueError("no_shared_words needs generated facts (with a subject)")
+        # "app's" tokenizes to "app" and "s", and so does "client's" in a quote's
+        # statement: the description loses its possessive here instead of the
+        # tokenizer changing for every recall.
+        description = _NO_SHARED_DESCRIPTIONS.get(f.subject, SUBJECT_DESCRIPTIONS[f.subject]).replace("'s ", " ")
+        question = _NO_SHARED[f.kind].format(d=description)
+        out.append(replace(f, indirect_question=question, variant=f"{f.variant}+noshared"))
+    return out
+
+
 _MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
            "September", "October", "November", "December"]
 _FACT_FIRST = ["Ilse", "Tomasz", "Priya", "Joaquin", "Maren", "Oluwaseun", "Keiko", "Anders",

@@ -24,7 +24,14 @@ from app.compaction.policy import (
     fraction_of_limit,
 )
 from app.compaction.instructions import AllSubjects, DetailedBrief, HandoffBrief, IndexOnly, LengthTarget, StateAndIndex, SummaryInstruction
-from app.compaction.recall import EmbeddingRecall, GuidedRecall, HistoryRecall, KeywordRecall, SentenceRecall
+from app.compaction.recall import (
+    EmbeddingRecall,
+    GuidedRecall,
+    HistoryRecall,
+    KeywordRecall,
+    SentenceRecall,
+    WithLaterMentions,
+)
 from app.compaction.retention import EarlierMessage, KeepRecent, KeepUserMessages, Retention
 from app.compaction.judge import compare_recall, recall_rate
 from app.compaction.probe import (
@@ -36,6 +43,7 @@ from app.compaction.probe import (
     build_scenario,
     build_task_scenario,
     generate_facts,
+    no_shared_words,
     is_correct,
     is_stale,
     value_attached,
@@ -52,6 +60,7 @@ __all__ = [
     "GuidedRecall",
     "HistoryRecall",
     "KeywordRecall",
+    "WithLaterMentions",
     "SentenceRecall",
     "EmbeddingRecall",
     "EarlierMessage",
@@ -76,6 +85,7 @@ __all__ = [
     "build_dense_scenario",
     "build_task_scenario",
     "generate_facts",
+    "no_shared_words",
     "is_correct",
     "is_stale",
     "value_attached",

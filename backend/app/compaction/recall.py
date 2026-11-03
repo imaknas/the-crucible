@@ -88,6 +88,33 @@ class EmbeddingRecall(_WholeMessages):
         return sorted(best)
 
 
+class WithLaterMentions(_WholeMessages):
+    """Whatever ``inner`` returns, plus, for each returned message, the
+    newest later hidden message that shares at least ``min_shared`` of its
+    most distinctive terms (IDF-weighted, the ``top`` rarest): a superseded
+    value then comes back with what replaced it, so a reader isn't left
+    with the old one alone. Costs extra messages; measured in
+    recall_eval as stale-without-current against false positives."""
+
+    def __init__(self, inner: HistoryRecall, *, top: int = 4, min_shared: int = 2):
+        self.inner = inner
+        self.top = top
+        self.min_shared = min_shared
+        self.name = f"{inner.name}+later"
+
+    def select(self, query: str, candidates: Sequence[str], hint: str = "") -> list[int]:
+        base = list(self.inner.select(query, candidates, hint))
+        docs = [set(_terms(c)) for c in candidates]
+        df = Counter(t for d in docs for t in d)
+        chosen = set(base)
+        for i in base:
+            rare = sorted(docs[i], key=lambda t: (df[t], t))[: self.top]
+            later = [j for j in range(len(candidates) - 1, i, -1) if len(docs[j] & set(rare)) >= self.min_shared]
+            if later:
+                chosen.add(later[0])
+        return sorted(chosen)
+
+
 class GuidedRecall(_WholeMessages):
     """Lets a model decide what to look for: `rewrite(query, hint)` turns the
     request plus what is still visible (the summary, e.g. an index of topics)

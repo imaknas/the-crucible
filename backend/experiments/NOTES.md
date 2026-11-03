@@ -1645,3 +1645,58 @@ readers lose it too.
   paid run has been made on it yet, so absence of rejections says nothing
   so far.
 
+
+## 2026-11-03 — What recall brings back, with no model in the loop (tier B; roadmap 19–20)
+
+`crucible recall-eval` (app/compaction/recall_eval.py) runs a recall over a
+scenario's hidden history (every turn but the newest 5, what a pruned call
+can't see) and scores each probe by fact key, never by text: hit (the
+planted turn came back), false positives (other turns), stale (a turn with
+a superseded or rejected value came back) and stale without current (it
+came back and the current statement did not). Dense scenarios, 3 × 24
+facts, 140 exchanges, all variants; no API call (keys unset, Hugging Face
+offline; the embedding is the app's local all-MiniLM-L6-v2). Results:
+`results/recall-eval-2026-11-03.json`.
+
+These numbers describe mechanisms, not models: no language model reads or
+chooses anything, so no better model changes them. They hold for these
+synthetic conversations and this embedding model.
+
+| Questions | Recall | Hit | Precision | False pos./probe | Stale without current |
+|---|---|---|---|---|---|
+| direct (subject named) | keyword | 0.92 | 0.23 | 2.6 | 0.03 |
+| direct | embedding | 0.43 | 0.11 | 3.3 | 0.17 |
+| indirect (by what it does) | keyword | 0.33 | 0.10 | 2.8 | 0.03 |
+| indirect | embedding | 0.33 | 0.08 | 3.5 | 0.11 |
+| no shared words | keyword | 0.01 | 0.005 | 2.9 | 0.03 |
+| no shared words | embedding | 0.25 | 0.06 | 3.6 | 0.17 |
+
+- **Keyword recall is lexical, by construction:** it never returns a
+  message that shares no term with the request (its score is zero;
+  `test_keyword_recall_never_returns_a_message_sharing_no_term_with_the_request`).
+  Indirect questions split cleanly by overlap with the planted statement:
+  0 shared terms → 0.00 (36 probes), 1 → 0.54, 2+ → 1.00. With questions
+  that share nothing with anything planted (`no_shared_words`: tested for
+  every subject, kind and variant under keyword recall's own tokenizer),
+  it finds 1 of 72, and that one through filler words in the same message.
+- **The small embedding model is not lexical, but weak everywhere** (0.43
+  direct, 0.25 with no shared words), as conclusion 10 found with models in
+  the loop. Its strength is exactly where keyword recall is blind.
+- **What comes back is mostly noise:** even keyword recall's 0.92 on direct
+  questions arrives with 2.6 other messages; 23% of what it returns is the
+  fact's own turn. That is the price of a hit, and why guided recall (a
+  model choosing the terms) helps most when questions don't name things.
+- **Superseded values:** keyword recall brings the old and new statements
+  back together (stale 0.92, stale without current 0.03); the embedding
+  model more often brings the old one alone (0.22 of updates, direct;
+  0.33 with no shared words), the case where a perfect reader answers
+  wrong.
+- **A superseded note by word matching fails** (`WithLaterMentions`, the
+  `+later` conditions): adding the newest later message that shares a
+  returned message's rarest terms barely moved stale-without-current
+  (embedding direct 0.17 → 0.14; no shared words 0.17 → 0.22) and added
+  ~1.8 false positives per probe. The later message it finds is usually
+  filler about the same subject, not the update: linking a value to what
+  replaced it needs to know what the value *is*, which word overlap
+  doesn't. Not adopted; a dated note ("message 34 of 140") is only
+  testable with a reader (tier D).

@@ -2313,6 +2313,99 @@ def _print_estimate(est, budget) -> None:
     typer.echo("\n".join(lines), err=True)
 
 
+@app.command("recall-eval")
+def recall_eval(
+    recalls: Optional[List[str]] = typer.Option(
+        None, "--recall",
+        help="Recall to measure (repeat): keyword, embedding (a local model; no API), and either with '+later' (also the newest later message about the same thing). Default: keyword, embedding.",
+    ),
+    questions: Optional[List[str]] = typer.Option(
+        None, "--questions",
+        help="How probes ask (repeat): direct (by the subject's name), indirect (by what it does), noshared (no term in common with anything planted). Default: all three.",
+    ),
+    facts: int = typer.Option(24, "--facts", help="Planted facts per scenario."),
+    seeds: int = typer.Option(3, "--seeds", help="Scenarios (different filler and ordering)."),
+    exchanges: int = typer.Option(140, "--exchanges", help="User/assistant pairs per scenario."),
+    keep_verbatim: int = typer.Option(5, "--keep-verbatim", help="Newest turns a pruned call still sees (the app keeps 5)."),
+    out: Optional[str] = typer.Option(None, "--out", help="Write the summary and every probe as JSON here."),
+    format_output: str = _opt_format(),
+):
+    """What keyword and embedding recall bring back, with no language model:
+    per probe, whether the planted turn came back, what else came with it,
+    and whether a superseded value came back without the current one
+    (app/compaction/recall_eval.py). Costs nothing."""
+    as_json = _check_format(format_output)
+    from app.compaction import EmbeddingRecall, KeywordRecall, build_dense_scenario, generate_facts, no_shared_words
+    from app.compaction.recall_eval import measure
+
+    recall_names = recalls or ["keyword", "embedding"]
+    styles = questions or ["direct", "indirect", "noshared"]
+    unknown = [r for r in recall_names if r.removesuffix("+later") not in ("keyword", "embedding")] + [
+        q for q in styles if q not in ("direct", "indirect", "noshared")
+    ]
+    if unknown:
+        from app.cli_display import print_error
+
+        print_error(f"Unknown --recall or --questions: {', '.join(unknown)}")
+        raise typer.Exit(2)
+
+    from app.compaction import WithLaterMentions
+
+    embedder = None
+    recallers = []
+    for name in recall_names:
+        base = name.removesuffix("+later")
+        if base == "keyword":
+            recall = KeywordRecall()
+        else:
+            if embedder is None:
+                from app.services import compaction_eval as ce
+                from app.services import rag
+
+                embedder = ce.cached_embedder(rag.get_embeddings().embed_documents)
+            recall = EmbeddingRecall(embedder)
+        recallers.append(WithLaterMentions(recall) if name.endswith("+later") else recall)
+
+    results = {}
+    for style in styles:
+        scenarios = []
+        for seed in range(seeds):
+            planted = generate_facts(facts, seed=seed)
+            if style == "noshared":
+                planted = no_shared_words(planted)
+            scenarios.append(build_dense_scenario(planted, exchanges=exchanges, seed=seed,
+                                                  questions="direct" if style == "direct" else "indirect"))
+        results[style] = measure(scenarios, recallers, keep_verbatim=keep_verbatim, label=style)
+    document = {
+        "options": {"recalls": recall_names, "questions": styles, "facts": facts, "seeds": seeds,
+                    "exchanges": exchanges, "keep_verbatim": keep_verbatim},
+        "results": results,
+    }
+    if out:
+        from pathlib import Path
+
+        Path(out).write_text(json.dumps(document, indent=2))
+    if as_json:
+        _emit_json({**document, "results": {k: {r: v["summary"] for r, v in res["recalls"].items()}
+                                            for k, res in results.items()}})
+        return
+    from rich.table import Table
+
+    table = Table(title=f"Recall with no model: {seeds} scenarios × {facts} facts, last {keep_verbatim} turns visible")
+    for col in ("Questions", "Recall", "Hit rate", "Precision", "False pos./probe", "Stale", "Stale, no current",
+                "Hit rate at 0 / 1 / 2+ shared terms"):
+        table.add_column(col)
+    fmt = lambda x: "—" if x is None else f"{x:.2f}"  # noqa: E731
+    for style, res in results.items():
+        for name, entry in res["recalls"].items():
+            a, by = entry["summary"]["all"], entry["summary"]["by_overlap"]
+            buckets = " / ".join(fmt(by.get(b, {}).get("hit_rate")) for b in ("0", "1", "2+"))
+            table.add_row(style, name, fmt(a.get("hit_rate")), fmt(a.get("precision")),
+                          fmt(a.get("false_positives_per_probe")), fmt(a.get("stale_rate")),
+                          fmt(a.get("stale_without_current_rate")), buckets)
+    console.print(table)
+
+
 def _eval_scenarios(options) -> dict:
     """The conversations a compaction-eval run probes, from its options (as
     a results file records them)."""
