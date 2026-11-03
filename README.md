@@ -87,7 +87,7 @@ The Crucible doubles as a testbed for one question: when a long conversation is 
 - **Deciding at read time recovers it.** Keeping the originals and fetching the relevant ones once the question is known brought back 28–32 of 32, and the cheapest model chose what to fetch as well as the strongest.
 - **With recall on, a cheap summarizer comes close.** Its summaries plus recall kept 93/96 facts on the detail-heavy scenario and 62/64 after a change of plans, at about 1/25 of the cost per summary. A later fix to the harness weakened this: rescored, the best summarizer stays 2–3 facts ahead, so the cheap one is the app's default on cost, not because it matched.
 
-Read the write-up, [**What Survives Compaction?**](https://www.imaknas.com/writing/what-survives-compaction/), or the lab notes with every number and every mistake in [`backend/experiments/NOTES.md`](backend/experiments/NOTES.md). You can run the same measurements on your own models with `crucible compaction-eval` and `crucible scaffold-audit` ([CLI reference](docs/cli.md#measuring-context-management)).
+Read the write-up, [**What Survives Compaction?**](https://www.imaknas.com/writing/what-survives-compaction/), or the lab notes with every number and every mistake in [`backend/experiments/NOTES.md`](backend/experiments/NOTES.md). You can run the same measurements on your own models with `crucible compaction-eval` and `crucible scaffold-audit` ([CLI reference](docs/cli.md#measuring-context-management)); [the benchmark guide](docs/benchmark.md) explains the scenarios, the oracles, the free runs and how long each kind of result lasts.
 
 ## ❓ FAQ
 

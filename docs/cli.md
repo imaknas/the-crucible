@@ -72,3 +72,5 @@ uv run crucible scaffold-audit --estimate          # then --budget N to run; --r
 ```
 
 Every real run needs `--budget` (USD): it calibrates each model with one call, estimates the whole run, refuses to start if the estimate is over budget, and stops starting calls once the budget is spent. `--estimate` only estimates.
+
+What these measure, the runs that cost nothing (`--dry-run`, `--rescore`, `--report`) and what the results so far are worth: [the benchmark guide](benchmark.md).
