@@ -125,6 +125,35 @@ def init_db():
             PRIMARY KEY (thread_id, node_id)
         )
     """)
+    # A saved case (services/cases.py): one turn copied whole, so it can be
+    # replayed on other models. Deliberately NOT deleted with its thread
+    # (_purge_thread_rows): the source ids are a reference only. `data` is
+    # the question, history, settings, answers and vote; `documents` is kept
+    # apart so listing cases doesn't read files.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS saved_cases (
+            case_id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            question TEXT NOT NULL,
+            data TEXT NOT NULL,
+            documents TEXT NOT NULL,
+            source_thread_id TEXT,
+            source_turn_id TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    # A replay of a saved case: the thread it ran in and each model's answer,
+    # copied, so the record outlives that thread. Deleted with its case.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS case_replays (
+            replay_id TEXT PRIMARY KEY,
+            case_id TEXT NOT NULL,
+            thread_id TEXT NOT NULL,
+            models TEXT NOT NULL,
+            results TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
     # Backfill: ensure all debate parent threads appear in thread_metadata.
     # The row only lists the thread; its title stays NULL ("untitled") so the
@@ -866,3 +895,115 @@ def get_thread_checkpoint_graph(thread_id: str):
         return cursor.fetchall()
     finally:
         conn.close()
+
+
+# ─── Saved cases (services/cases.py) ─────────────────────────────
+
+CASE_FIELDS = ("case_id", "title", "question", "data", "source_thread_id", "source_turn_id", "created_at")
+REPLAY_FIELDS = ("replay_id", "case_id", "thread_id", "models", "results", "created_at")
+
+
+def _case_row(row, with_documents: bool = False) -> dict:
+    case = dict(zip(CASE_FIELDS, row))
+    case["data"] = json.loads(case["data"])
+    if with_documents:
+        case["documents"] = json.loads(row[len(CASE_FIELDS)])
+    return case
+
+
+def _replay_row(row) -> dict:
+    replay = dict(zip(REPLAY_FIELDS, row))
+    replay["models"] = json.loads(replay["models"])
+    replay["results"] = json.loads(replay["results"])
+    return replay
+
+
+def save_case(case_id: str, *, title: str, question: str, data: dict, documents: dict,
+              source_thread_id: Optional[str], source_turn_id: Optional[str]) -> dict:
+    """Store a saved case; returns it as get_case does. Blocking: call from
+    async code through asyncio.to_thread."""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "INSERT INTO saved_cases (case_id, title, question, data, documents, source_thread_id, source_turn_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (case_id, title, question, json.dumps(data), json.dumps(documents), source_thread_id, source_turn_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return get_case(case_id)
+
+
+def get_case(case_id: str) -> Optional[dict]:
+    """A saved case with its documents ({attached: {name: text}, searched: {...}}), or None."""
+    conn = get_db_connection()
+    try:
+        row = conn.execute(f"SELECT {', '.join(CASE_FIELDS)}, documents FROM saved_cases WHERE case_id = ?",
+                           (case_id,)).fetchone()
+    finally:
+        conn.close()
+    return _case_row(row, with_documents=True) if row else None
+
+
+def list_cases() -> list[dict]:
+    """Every saved case, newest first, without its documents' content, each
+    with how often it was replayed and when last."""
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            f"SELECT {', '.join('c.' + f for f in CASE_FIELDS)}, COUNT(r.replay_id), MAX(r.created_at) "
+            "FROM saved_cases c LEFT JOIN case_replays r ON r.case_id = c.case_id "
+            "GROUP BY c.case_id ORDER BY c.created_at DESC, c.rowid DESC"
+        ).fetchall()
+    finally:
+        conn.close()
+    cases = []
+    for row in rows:
+        case = _case_row(row[:len(CASE_FIELDS)])
+        case["replay_count"], case["last_replayed_at"] = row[len(CASE_FIELDS)], row[len(CASE_FIELDS) + 1]
+        cases.append(case)
+    return cases
+
+
+def delete_case(case_id: str) -> bool:
+    """Delete a saved case and its replay records (the replay threads are
+    ordinary threads and stay). False when there was no such case."""
+    conn = get_db_connection()
+    try:
+        deleted = conn.execute("DELETE FROM saved_cases WHERE case_id = ?", (case_id,)).rowcount
+        conn.execute("DELETE FROM case_replays WHERE case_id = ?", (case_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return bool(deleted)
+
+
+def save_case_replay(replay_id: str, case_id: str, thread_id: str, models: list, results: list) -> dict:
+    """Store one replay of a case; returns it. Blocking: see save_case."""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "INSERT INTO case_replays (replay_id, case_id, thread_id, models, results) VALUES (?, ?, ?, ?, ?)",
+            (replay_id, case_id, thread_id, json.dumps(models), json.dumps(results)),
+        )
+        conn.commit()
+        row = conn.execute(f"SELECT {', '.join(REPLAY_FIELDS)} FROM case_replays WHERE replay_id = ?",
+                           (replay_id,)).fetchone()
+    finally:
+        conn.close()
+    return _replay_row(row)
+
+
+def list_case_replays(case_id: str) -> list[dict]:
+    """A case's replays, newest first."""
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            f"SELECT {', '.join(REPLAY_FIELDS)} FROM case_replays WHERE case_id = ? "
+            "ORDER BY created_at DESC, rowid DESC",
+            (case_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [_replay_row(r) for r in rows]

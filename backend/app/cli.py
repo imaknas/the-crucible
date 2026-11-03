@@ -42,6 +42,9 @@ app = typer.Typer(
 )
 debates_app = typer.Typer(help="List, read, continue, redirect or delete debates.", no_args_is_help=True)
 app.add_typer(debates_app, name="debates")
+cases_app = typer.Typer(help="Save a turn as a case, list, read or delete cases (replay one with `replay`).",
+                        no_args_is_help=True)
+app.add_typer(cases_app, name="cases")
 
 
 @app.callback()
@@ -1561,6 +1564,241 @@ def diff(
     from app.cli_display import render_diff
 
     render_diff(result, unchanged=unchanged)
+
+
+# ─── SAVED CASES ─────────────────────────────────────────────────
+
+
+@cases_app.command("save")
+def cases_save(
+    turn: str = typer.Argument(
+        ..., help="The turn: its id, or one of its replies' checkpoints (both in `crucible tree --format json`). "
+        "The history is read from that reply's branch."
+    ),
+    thread: str = typer.Option(..., "--thread", "-t", help="The turn's thread."),
+    title: Optional[str] = typer.Option(None, "--title", help="Default: the question, shortened."),
+    format_output: str = _opt_format(),
+):
+    """Save a turn as a case: its question, the conversation before it, its
+    documents and settings, every answer and your vote, copied so the case
+    outlives the thread. Replay it on other models with `crucible replay`."""
+    as_json = _check_format(format_output)
+    _load_env()
+
+    async def go():
+        from app.services import cases
+        from app.services.arena import open_graph
+
+        async with open_graph() as graph_app:
+            return await cases.save_case(graph_app, thread, turn, title=title)
+
+    case = _run(go(), as_json)
+    if as_json:
+        _emit_json(case)
+        return
+    from app.cli_display import print_info, print_success
+
+    print_success(f"Saved case {case['case_id']}: {case['title']}")
+    print_info(f"Replay it: crucible replay {case['case_id']} -m <model>")
+
+
+@cases_app.command("list")
+def cases_list(format_output: str = _opt_format()):
+    """Saved cases, newest first."""
+    as_json = _check_format(format_output)
+    _load_env()
+    from rich.table import Table
+    from rich.text import Text
+
+    from app.core import database as db
+    from app.services import cases
+
+    db.init_db()
+    rows = cases.list_cases()
+    if as_json:
+        _emit_json({"cases": rows})
+        return
+    if not rows:
+        from app.cli_display import print_info
+
+        print_info("No saved cases. Save a turn with `crucible cases save -t <thread> <turn>`.")
+        return
+    table = Table(box=None)
+    for col in ("Case", "Title", "Models", "Vote", "Replays", "Saved"):
+        table.add_column(col, overflow="fold")
+    for c in rows:
+        table.add_row(c["case_id"], Text(c["title"]), Text(", ".join(c["model_names"])), "yes" if c["voted"] else "",
+                      str(c["replay_count"]), (c["created_at"] or "")[:16])
+    console.print(table)
+
+
+def _baseline_line(result: Dict[str, Any]) -> str:
+    base = result.get("baseline")
+    if result.get("error"):
+        return f"failed: {result['error']}"
+    if not base:
+        return "nothing to compare with: the case has no answer from this model and no answer voted best"
+    against = "its own answer in the case" if base["reason"] == "same_model" else f"{base['model_name']}'s answer, voted best"
+    return f"against {against}: {result['diff']['summary_text']}"
+
+
+def _print_replay(replay: Dict[str, Any], *, full: bool = False, show_diff: bool = False) -> None:
+    """One replay: each model's new answer (with ``full``), its metrics and
+    how it differs from the case's answer it is compared with."""
+    from rich.markdown import Markdown
+    from rich.text import Text
+
+    from app.cli_display import print_metrics, render_diff
+
+    console.print(Text(f"Replay {replay['replay_id']} · {(replay['created_at'] or '')[:16]} · thread {replay['thread_id']}",
+                       style="bold"))
+    for r in replay["results"]:
+        console.print(Text(f"  {r['model_name']}", style="bold"), Text(r["model"], style="dim"))
+        if full and r.get("content"):
+            console.print(Markdown(r["content"]))
+        print_metrics(r.get("metrics"))
+        console.print(Text(f"  {_baseline_line(r)}", style="red" if r.get("error") else ""))
+        if show_diff and r.get("diff"):
+            base = r["baseline"]
+            render_diff({"a": {"model": base["model"], "model_name": f"{base['model_name']} (case)", "checkpoint_id": ""},
+                         "b": {"model": r["model"], "model_name": f"{r['model_name']} (replay)",
+                               "checkpoint_id": r.get("checkpoint_id") or ""},
+                         **r["diff"]})
+    print_metrics(replay.get("total"), label="replay total")
+
+
+@cases_app.command("show")
+def cases_show(
+    case_id: str = typer.Argument(..., help="The case."),
+    format_output: str = _opt_format(),
+):
+    """A case: its question, settings, documents, answers with their metrics,
+    your vote, and every replay against it."""
+    as_json = _check_format(format_output)
+    _load_env()
+    from app.core import database as db
+    from app.services import cases
+
+    db.init_db()
+    try:
+        case = cases.get_case(case_id)
+    except ValueError as e:
+        _fail(str(e), as_json)
+    if as_json:
+        _emit_json(case)
+        return
+    from rich.markdown import Markdown
+    from rich.text import Text
+
+    from app.cli_display import print_metrics
+
+    console.print(Text(f"{case['title']}  ({case['case_id']})", style="bold"))
+    console.print(Text(f"Question: {case['question']}"))
+    s = case["settings"]
+    used = [label for label, on in (("web search", s["use_web_search"]), ("document search", s["use_rag"]),
+                                    ("Deliberation", s["is_deliberation"])) if on]
+    if s.get("system_prompt"):
+        used.append("a system prompt")
+    if s.get("summarizer"):
+        from app.registry import display_name
+
+        used.append(f"summarizer {display_name(s['summarizer'])}")
+    console.print(Text(f"Settings: {', '.join(used) or 'none'}", style="dim"))
+    history = f"{len(case['history'])} earlier message(s)" + (" (summarized)" if case["summarized"] else "")
+    console.print(Text(f"Context: {history}; documents: {', '.join(d['name'] for d in case['documents']) or 'none'}",
+                       style="dim"))
+    vote = case.get("vote")
+    if vote:
+        outcome = {"best": f"best: {next((a['model_name'] for a in case['answers'] if a['model'] == case['best_model']), '?')}",
+                   "tie": "a tie", "all_bad": "all bad"}.get(vote["outcome"], vote["outcome"])
+        console.print(Text(f"Your vote: {outcome}" + (f" ({vote['reason']})" if vote.get("reason") else "")))
+    for a in case["answers"]:
+        console.rule(Text(a["model_name"]))
+        console.print(Markdown(a["content"] or ""))
+        print_metrics(a.get("metrics"))
+    print_metrics(case.get("total"), label="turn")
+    for replay in case["replays"]:
+        console.rule("Replay")
+        _print_replay(replay)
+
+
+@cases_app.command("delete")
+def cases_delete(
+    case_id: str = typer.Argument(..., help="The case."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Don't ask first."),
+    format_output: str = _opt_format(),
+):
+    """Delete a case and its replay records (the threads replays ran in stay)."""
+    as_json = _check_format(format_output)
+    _load_env()
+    from app.core import database as db
+    from app.services import cases
+
+    db.init_db()
+    if not db.get_case(case_id):
+        _fail(f"Case {case_id} not found.", as_json)
+    if not yes and not typer.confirm(f"Delete case {case_id} and its replays? This cannot be undone.", err=True):
+        return
+    cases.delete_case(case_id)
+    if as_json:
+        _emit_json({"deleted": case_id})
+    else:
+        from app.cli_display import print_success
+
+        print_success(f"Deleted {case_id}")
+
+
+@app.command()
+def replay(
+    case_id: str = typer.Argument(..., help="The saved case (`crucible cases list`)."),
+    models: Optional[List[str]] = typer.Option(
+        None, "--model", "-m", help="Model to answer the case (repeat the flag). Default: the case's own models."
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Don't ask first."),
+    show_diff: bool = typer.Option(False, "--diff", help="Print each new answer's full diff, not only its summary."),
+    format_output: str = _opt_format(),
+):
+    """
+    [bold cyan]Replay[/bold cyan] — Ask today's models a saved case again.
+
+    The case's question goes to each model in a new thread, with the case's
+    history, documents and settings; the source thread is never touched. Each
+    new answer is compared with the case's answer from the same model, or the
+    one you voted best. Every model costs a call: it asks first unless --yes.
+    """
+    as_json = _check_format(format_output)
+    _load_env()
+    from app.core import database as db
+    from app.services import cases
+
+    db.init_db()
+    try:
+        plan = cases.replay_plan(case_id, models)
+    except ValueError as e:
+        _fail(str(e), as_json)
+    names = ", ".join(f"{n} ({m})" for n, m in zip(plan["model_names"], plan["models"]))
+    typer.echo(f"Replay \"{plan['title']}\" on: {names}", err=True)
+    if not yes and not typer.confirm(f"Each of the {len(plan['models'])} model(s) answers once, at its provider's "
+                                     "price. Run it?", err=True):
+        typer.echo("Not replayed.", err=True)
+        return
+
+    async def go():
+        from app.services.arena import open_graph
+
+        async with open_graph() as graph_app:
+            return await cases.replay_case(graph_app, case_id, plan["models"])
+
+    result = _run(go(), as_json)
+    if as_json:
+        _emit_json(result)
+    else:
+        _print_replay(result, full=True, show_diff=show_diff)
+        from app.cli_display import print_info
+
+        print_info(f"Read it in full: crucible cases show {case_id} · crucible tree -t {result['thread_id']}")
+    if any(r.get("error") for r in result["results"]):
+        raise typer.Exit(1)
 
 
 @app.command("delete-branch")

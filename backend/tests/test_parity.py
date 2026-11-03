@@ -61,6 +61,11 @@ ROUTES: dict = {
     ("POST", "/synthesis/components"): (("synthesize", "--mode"), ("list_answer_components", None)),
     ("POST", "/synthesis/reviews"): (("review", None), ("review_answers", None)),
     ("GET", "/synthesis/reviews/{thread_id}"): (("review", "--list"), ("list_answer_reviews", None)),
+    ("POST", "/cases"): (("cases save", None), ("save_case", None)),
+    ("GET", "/cases"): (("cases list", None), ("list_cases", None)),
+    ("GET", "/cases/{case_id}"): (("cases show", None), ("get_case", None)),
+    ("DELETE", "/cases/{case_id}"): (("cases delete", None), ("delete_case", None)),
+    ("POST", "/cases/{case_id}/replay"): (("replay", "--model"), ("replay_case", "models")),
 }
 
 # The debate socket's commands. A live control maps to running a debate in

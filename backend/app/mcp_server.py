@@ -1040,6 +1040,125 @@ async def diff_answers(thread_id: str, checkpoint_a: str, checkpoint_b: str) -> 
             raise _tool_error(e)
 
 
+# ─── Saved cases ─────────────────────────────────────────────────
+
+
+@mcp.tool()
+@_quiet
+async def save_case(thread_id: str, turn: str, title: Optional[str] = None) -> Dict[str, Any]:
+    """Save one turn as a case to replay on other models later: its
+    question, the conversation before it, its attached documents, the
+    settings that shaped its answers (web search, document search, system
+    prompt, summarizer, Deliberation), every answer with its metrics, and
+    the person's vote on them. Everything is copied: the case outlives the
+    thread.
+
+    Returns the case: {case_id, title, question, created_at,
+    source_thread_id, source_turn_id, history: [{role, kind, content, model,
+    model_name}], summarized, documents: [{name, characters}], settings,
+    answers: [{model, model_name, content, metrics, checkpoint_id}], total,
+    vote, best_model, replays: []}.
+
+    Args:
+        thread_id: The turn's thread.
+        turn: The turn's id, or one of its replies' checkpoint ids (get_thread_tree); the history is read from that reply's branch.
+        title: A title for the case. Default: the question, shortened.
+    """
+    from app.services import cases
+
+    try:
+        async with arena_svc.open_graph() as graph_app:
+            return await cases.save_case(graph_app, thread_id, turn, title=title)
+    except ValueError as e:
+        raise _tool_error(e)
+
+
+@mcp.tool()
+@_quiet
+def list_cases() -> Dict[str, Any]:
+    """Every saved case, newest first.
+
+    Returns {cases: [{case_id, title, question, created_at,
+    source_thread_id, models, model_names, voted, replay_count,
+    last_replayed_at}]}.
+    """
+    from app.services import cases
+
+    db.init_db()
+    return {"cases": cases.list_cases()}
+
+
+@mcp.tool()
+@_quiet
+def get_case(case_id: str) -> Dict[str, Any]:
+    """A saved case and every replay of it, newest first.
+
+    Returns the case as save_case does, with replays: [{replay_id,
+    thread_id, created_at, models, total, results: [{model, model_name,
+    content, checkpoint_id, error, metrics, baseline, diff}]}] (as
+    replay_case returns them).
+
+    Args:
+        case_id: The case (list_cases).
+    """
+    from app.services import cases
+
+    db.init_db()
+    try:
+        return cases.get_case(case_id)
+    except ValueError as e:
+        raise _tool_error(e)
+
+
+@mcp.tool()
+@_quiet
+def delete_case(case_id: str) -> Dict[str, Any]:
+    """Delete a saved case and its replay records; the threads its replays
+    ran in stay. Cannot be undone. Returns {deleted: case_id}.
+
+    Args:
+        case_id: The case (list_cases).
+    """
+    from app.services import cases
+
+    db.init_db()
+    try:
+        cases.delete_case(case_id)
+    except ValueError as e:
+        raise _tool_error(e)
+    return {"deleted": case_id}
+
+
+@mcp.tool()
+@_quiet
+async def replay_case(case_id: str, models: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Ask models a saved case's question again, in a new thread seeded
+    with the case's history, documents and settings (the source thread is
+    never touched), and compare: each new answer is diffed against the
+    case's answer from the same model, or against the answer the person
+    voted best when the model is new to the case. Costs one model call per
+    model; the result names the cost. Stored with the case.
+
+    Returns {replay_id, case_id, title, question, thread_id, created_at,
+    models, total (time, tokens and cost summed), results: [{model,
+    model_name, content, checkpoint_id, error, metrics, baseline: {model,
+    model_name, reason: same_model | voted_best} | null, diff: {summary_text,
+    summary, identical, rows} | null}]}. A model that failed has an error
+    and no diff; a new model in a case nobody voted on has no baseline.
+
+    Args:
+        case_id: The case (list_cases).
+        models: Models to answer (list_models ids). Default: the case's own models.
+    """
+    from app.services import cases
+
+    try:
+        async with arena_svc.open_graph() as graph_app:
+            return await cases.replay_case(graph_app, case_id, models)
+    except ValueError as e:
+        raise _tool_error(e)
+
+
 @mcp.tool()
 @_quiet
 async def delete_branch(thread_id: str, checkpoint_id: str) -> Dict[str, Any]:
