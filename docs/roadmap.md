@@ -110,23 +110,23 @@ There is no research budget, so money goes first to conclusions that should hold
 
 **Tier A and B ($0)**
 
-18. **Pinned constraints.**
+18. **Pinned constraints.** _Done (tier A and B): `--keep constraints` keeps the person's stated rules beside the summary; the guarantee is tested, and `crucible constraint-eval` shows the keyword detector finds rules worded with a marker (15/15) and none without (0/15), while flagging remarks that use one (9/10). Not a default: the dependable routes are an explicit pin or a model detector (tier C/D)._
     - A retention that keeps process constraints ("never touch X") verbatim outside the summary.
     - Tested with the oracle on cached and stand-in summaries.
     - Source: "Benchmarks Are Surprisingly Compaction-Friendly", Governance Decay.
-19. **What recall brings back, measured with no model in the loop.**
+19. **What recall brings back, measured with no model in the loop.** _Done: `crucible recall-eval` (precision, false positives, stale values with and without the current one); a superseded note by word overlap (`+later`) was measured and failed._
     - For keyword and embedding recall, record the precision of each recall. Also record:
       - the false positives;
       - how often a superseded value comes back.
     - Then test dated or "superseded" notes.
     - Source: Context Rot, NoLiMa.
-20. **Harder facts and a relational oracle.**
+20. **Harder facts and a relational oracle.** _Done: `no_shared_words` questions (zero shared terms, tested) defeat keyword recall, not embedding recall; `oracle-reason` (`compaction-eval --reasons`) is ready, its measurement needs real summaries (tier C)._
     - Facts reworded so they share no words with the question (NoLiMa-style). This shows which recall mechanisms depend on shared words, a property of the mechanism, not of any model.
     - An oracle that checks a fact *and* the reason attached to it. This is the model-free part of "remembering a fact is not being able to continue the task" (Compact-Bench).
-21. **Recall with a summarizer that isn't a model.**
+21. **Recall with a summarizer that isn't a model.** _Done: a lower bound for recall alone (keyword 66/72 direct, 25/72 indirect, 18/48 after a goal switch); not evidence for the summary-as-pointer claim, since a stand-in points to nothing._
     - How much of what a stand-in summarizer drops does recall bring back?
     - A lower bound for "with recall, the summary only has to point to the originals" that no model generation can move.
-22. **Publish the instrument, not just numbers.**
+22. **Publish the instrument, not just numbers.** _Done: [docs/benchmark.md](benchmark.md). The published set is the synthetic scenarios; a person's own conversations are personal data and are not published, and replaying one's own thread takes Python today (no command yet). The replay cache isn't published either, so re-running a pilot pays for its summaries again._
     - The harness, scenarios, oracles and `scaffold-audit` history, published as a benchmark anyone can re-run on any future model.
     - Includes real long conversations replayed through `run_live_grid`.
 
