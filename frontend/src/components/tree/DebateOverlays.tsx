@@ -56,6 +56,9 @@ export function DebateLaneHeaders({
               display: "flex",
               alignItems: "center",
               gap: 6,
+              // Within its own lane: a stance note made headers run into the next lane's.
+              maxWidth: Math.max(LANE_WIDTH * zoom - 12, 80),
+              overflow: "hidden",
             }}
           >
             <div
@@ -70,6 +73,7 @@ export function DebateLaneHeaders({
             <span
               title={lane.model_id}
               style={{
+                flexShrink: 0,
                 fontSize: 11,
                 fontWeight: 700,
                 color: lane.color,
@@ -85,6 +89,7 @@ export function DebateLaneHeaders({
               <span
                 title={`The other models saw ${lane.label || lane.model_id} as ${lane.peer_label}`}
                 style={{
+                  flexShrink: 0,
                   fontSize: 10,
                   fontWeight: 600,
                   color: isDark ? "#94a3b8" : "#64748b",
@@ -105,7 +110,8 @@ export function DebateLaneHeaders({
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
-                  maxWidth: 160,
+                  flex: "1 1 auto",
+                  minWidth: 0,
                 }}
                 title={lane.stance_note}
               >
