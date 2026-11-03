@@ -19,6 +19,7 @@ import DebateReplyDialog from "@/components/DebateReplyDialog";
 import DebateBanner, { type DebateBannerProps } from "@/components/DebateBanner";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import AnswerDiffDialog from "@/components/AnswerDiff";
+import SavedCasesDialog from "@/components/SavedCasesDialog";
 import type { Message } from "@/lib/types";
 import { useLayoutPanels } from "@/hooks/useLayoutPanels";
 import { useThreads } from "@/hooks/useThreads";
@@ -42,6 +43,7 @@ import { useVotes } from "@/hooks/useVotes";
 import { useVoteStats } from "@/hooks/useVoteStats";
 import { useNodeNotes } from "@/hooks/useNodeNotes";
 import { useAnswerDiff } from "@/hooks/useAnswerDiff";
+import { useSavedCases } from "@/hooks/useSavedCases";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
 import { reconcileMessages } from "@/lib/messages";
 import { answeringModelIds } from "@/lib/catalog";
@@ -200,6 +202,15 @@ export default function Home() {
 
   // "Compare with…" on a compare card: reads only, the path on screen stays.
   const answerDiff = useAnswerDiff({ threadId, replyTexts, modelLabel });
+  // Saved cases: a turn kept to replay on other models (the Sidebar opens the dialog).
+  const savedCases = useSavedCases(pushToast, showConfirm);
+  const { save: saveCase } = savedCases;
+  const handleSaveCase = useCallback(
+    (turn: string) => {
+      if (threadId) void saveCase(threadId, turn);
+    },
+    [threadId, saveCase],
+  );
 
   // ─── Debate ─────────────────────────────────────────────────────
   const clearChatMessages = useCallback(() => setMessages([]), [setMessages]);
@@ -455,6 +466,7 @@ export default function Home() {
         onClose={closeSidebar}
         collapsed={layout.sidebar.collapsed}
         onCollapsedChange={layout.sidebar.setCollapsed}
+        onOpenCases={savedCases.show}
       />
 
       <Box
@@ -621,6 +633,8 @@ export default function Home() {
                     onAddModel={addModelToTurn}
                     addableModels={answeringModels}
                     onContinueReplyAll={continueReplyAll}
+                    onSaveCase={inDebate ? undefined : handleSaveCase}
+                    savingCase={savedCases.saving}
                   />
                 </motion.div>
               )}
@@ -708,6 +722,21 @@ export default function Home() {
         labels={answerDiff.labels}
         error={answerDiff.error}
         onClose={answerDiff.close}
+      />
+
+      <SavedCasesDialog
+        open={savedCases.open}
+        list={savedCases.list}
+        loading={savedCases.loading}
+        current={savedCases.current}
+        replaying={savedCases.replaying}
+        families={families}
+        modelLabel={modelLabel}
+        onClose={savedCases.close}
+        onBack={savedCases.back}
+        onOpenCase={savedCases.openCase}
+        onDelete={savedCases.remove}
+        onReplay={savedCases.replay}
       />
 
       {errorModals.map((err) => (

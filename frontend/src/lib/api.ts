@@ -1,5 +1,6 @@
 import { ensureOk } from "@/lib/errors";
 import type { NextTurnContext } from "@/lib/context";
+import type { CaseReplay, CaseSummary, SavedCase } from "@/lib/cases";
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -373,4 +374,46 @@ export async function listAnswerReviews(threadId: string): Promise<AnswerReview[
   const res = await fetch(`${API_BASE}/synthesis/reviews/${encodeURIComponent(threadId)}`);
   await ensureOk(res, "Couldn't load the peer reviews");
   return (await res.json()).reviews;
+}
+
+// ─── Saved cases ────────────────────────────────────────────────
+
+/** Copy a turn into a saved case; `turn` is its id or one of its replies' node ids (whose branch is the history). */
+export async function saveCase(threadId: string, turn: string, title?: string): Promise<SavedCase> {
+  const res = await fetch(`${API_BASE}/cases`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ thread_id: threadId, turn, title: title ?? null }),
+  });
+  await ensureOk(res, "Couldn't save the case");
+  return res.json();
+}
+
+export async function listCases(): Promise<CaseSummary[]> {
+  const res = await fetch(`${API_BASE}/cases`);
+  await ensureOk(res, "Couldn't load the saved cases");
+  return (await res.json()).cases;
+}
+
+/** A case with its replays, newest first. */
+export async function fetchCase(caseId: string): Promise<SavedCase> {
+  const res = await fetch(`${API_BASE}/cases/${encodeURIComponent(caseId)}`);
+  await ensureOk(res, "Couldn't open the case");
+  return res.json();
+}
+
+export async function deleteCase(caseId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/cases/${encodeURIComponent(caseId)}`, { method: "DELETE" });
+  await ensureOk(res, "Couldn't delete the case");
+}
+
+/** Ask `models` the case's question again in a new thread; answers once every model has (one call each). */
+export async function replayCase(caseId: string, models: string[]): Promise<CaseReplay> {
+  const res = await fetch(`${API_BASE}/cases/${encodeURIComponent(caseId)}/replay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ models }),
+  });
+  await ensureOk(res, "Couldn't replay the case");
+  return res.json();
 }

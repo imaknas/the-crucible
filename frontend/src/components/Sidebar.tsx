@@ -28,6 +28,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  Archive,
 } from "lucide-react";
 import type { PanelMode } from "@/hooks/useLayoutPanels";
 import { searchHistory } from "@/lib/api";
@@ -61,6 +62,8 @@ interface SidebarProps {
   /** Docked mode: shrunk to a rail. */
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
+  /** Open the Saved cases dialog (turns kept to replay on other models). */
+  onOpenCases?: () => void;
 }
 
 const RAIL_WIDTH = 64;
@@ -85,6 +88,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
     onClose,
     collapsed = false,
     onCollapsedChange,
+    onOpenCases,
   }) => {
     // In the overlay, picking something closes the drawer so you see it.
     const closeOverlay = () => {
@@ -185,6 +189,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
           >
             <Plus width={18} height={18} />
           </IconButton>
+          {onOpenCases && (
+            <IconButton aria-label="Saved cases" title="Saved cases" onClick={onOpenCases}>
+              <Archive width={18} height={18} />
+            </IconButton>
+          )}
         </Box>
       );
     }
@@ -309,6 +318,20 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
           >
             New Session
           </Button>
+          {onOpenCases && (
+            <Button
+              fullWidth
+              size="small"
+              onClick={() => {
+                onOpenCases();
+                closeOverlay();
+              }}
+              startIcon={<Archive width={14} height={14} />}
+              sx={{ mt: 1, borderRadius: 3, fontWeight: 700, fontSize: "0.75rem", color: "text.secondary" }}
+            >
+              Saved cases
+            </Button>
+          )}
         </Box>
 
         {/* Main Content */}

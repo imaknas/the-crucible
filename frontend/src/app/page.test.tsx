@@ -42,6 +42,11 @@ jest.mock("@/lib/api", () => ({
   saveNodePositions: jest.fn(),
   createWebSocketUrl: (id: string) => `ws://test/ws/${id}`,
   createDebateWebSocketUrl: (id: string) => `ws://test/debate/${id}`,
+  saveCase: jest.fn(),
+  listCases: jest.fn(),
+  fetchCase: jest.fn(),
+  deleteCase: jest.fn(),
+  replayCase: jest.fn(),
 }));
 
 // ESM-only renderers Jest can't load, as in ChatView.test.
@@ -445,5 +450,87 @@ describe("Home: adding a model to a turn, and the reply the next message continu
       ["gpt-a", "b1"],
       ["claude-b", "b1"],
     ]);
+  });
+});
+
+describe("Home: saved cases", () => {
+  const question = { id: "u1", position: { x: 0, y: 0 }, data: { label: "The question" }, metadata: { role: "user" } };
+  const answer = (id: string, model: string, name: string) => ({
+    id,
+    position: { x: 0, y: 160 },
+    data: { label: `${name} says` },
+    metadata: { role: "ai", active_peer: model, model_name: name, turn_id: "T", preview: `${name} says` },
+  });
+  const twoAnswers = {
+    nodes: [question, answer("a1", "gpt-a", "GPT A"), answer("b1", "claude-b", "Claude B")],
+    edges: [
+      { id: "e-a1", source: "u1", target: "a1" },
+      { id: "e-b1", source: "u1", target: "b1" },
+    ],
+    messages: [
+      { role: "user", content: "The question", type: "human", checkpoint_id: "u1" },
+      { role: "assistant", content: "GPT A says", type: "ai", model: "gpt-a", checkpoint_id: "a1", turn_id: "T" },
+    ],
+    current_checkpoint: "a1",
+  };
+  const saved = {
+    case_id: "case-1",
+    title: "The question",
+    question: "The question",
+    created_at: "2026-11-03 10:00:00",
+    source_thread_id: "t1",
+    source_turn_id: "T",
+    history: [],
+    history_from: "gpt-a",
+    summarized: false,
+    documents: [],
+    searched_documents: [],
+    settings: { use_web_search: false, use_rag: false, system_prompt: null, summarizer: null, is_deliberation: false },
+    answers: [
+      { model: "gpt-a", model_name: "GPT A", content: "GPT A says", metrics: null, checkpoint_id: "a1" },
+      { model: "claude-b", model_name: "Claude B", content: "Claude B says", metrics: null, checkpoint_id: "b1" },
+    ],
+    total: null,
+    vote: null,
+    best_model: null,
+    replays: [],
+  };
+
+  it("saves the turn on screen by its shown reply, then opens and replays it from the sidebar", async () => {
+    mocked.fetchHistory.mockResolvedValue(twoAnswers as never);
+    mocked.saveCase.mockResolvedValue(saved as never);
+    mocked.listCases.mockResolvedValue([
+      {
+        ...saved,
+        models: ["gpt-a", "claude-b"],
+        model_names: ["GPT A", "Claude B"],
+        voted: false,
+        replay_count: 0,
+        last_replayed_at: null,
+      },
+    ] as never);
+    mocked.fetchCase.mockResolvedValue(saved as never);
+    mocked.replayCase.mockResolvedValue({ replay_id: "r1", results: [], total: null } as never);
+    renderPage({ view: "arena" });
+    await screen.findByRole("article", { name: "Claude B's answer" });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save as a case" }));
+    });
+    expect(mocked.saveCase).toHaveBeenCalledWith("t1", "a1");
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole("button", { name: "Saved cases" })[0]);
+    });
+    const dialog = await screen.findByRole("dialog", { name: "Saved cases" });
+    await act(async () => {
+      fireEvent.click(await within(dialog).findByRole("button", { name: /^The question/ }));
+    });
+    expect(mocked.fetchCase).toHaveBeenCalledWith("case-1");
+    const opened = await screen.findByRole("dialog", { name: "The question" });
+    await act(async () => {
+      fireEvent.click(within(opened).getByRole("button", { name: "Replay on 2 models" }));
+    });
+    expect(mocked.replayCase).toHaveBeenCalledWith("case-1", ["gpt-a", "claude-b"]);
   });
 });

@@ -328,6 +328,8 @@ interface TurnProps {
   addModel?: { options: string[]; disabled: boolean; onAdd: (model: string) => void } | null;
   /** A blind comparison (lib/blind): lettered cards, nothing that names a model until the vote. */
   blind?: boolean;
+  /** "Save as a case": keep this turn to replay on other models later. */
+  saveCase?: { disabled: boolean; saving: boolean; onSave: () => void } | null;
 }
 
 /** One turn's answers side by side, from the first token to the settled tree. */
@@ -350,6 +352,7 @@ export default function TurnCards({
   selectedModels = [],
   addModel = null,
   blind = false,
+  saveCase = null,
 }: TurnProps) {
   // "" = the first selected model, the original behaviour.
   const [synthesizer, setSynthesizer] = React.useState("");
@@ -498,6 +501,18 @@ export default function TurnCards({
         ))}
       </Box>
       <TurnMetricsLine total={total} />
+      {saveCase && !cards.some((c) => c.streaming) && (
+        <ButtonBase
+          onClick={saveCase.onSave}
+          disabled={saveCase.disabled || saveCase.saving}
+          aria-busy={saveCase.saving}
+          title="Keep this turn's question, context, answers and your vote, to replay on other models later"
+          sx={{ alignSelf: "center", px: 1.5, py: 0.5, borderRadius: 2, border: "1px solid", borderColor: "divider", fontSize: "0.75rem", fontWeight: 600, gap: 0.75, "&.Mui-disabled": { opacity: 0.5 } }}
+        >
+          {saveCase.saving && <CircularProgress size={10} />}
+          Save as a case
+        </ButtonBase>
+      )}
       {review && (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
           <ButtonBase

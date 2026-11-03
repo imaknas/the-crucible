@@ -110,6 +110,10 @@ interface ChatViewProps {
   addableModels?: string[];
   /** "Everyone continues from here": the reply becomes the branch point and every selected model answers. */
   onContinueReplyAll?: (id: string) => void;
+  /** "Save as a case" on a finished turn: `turn` is the reply on screen (its branch is the case's history), else the turn id. */
+  onSaveCase?: (turn: string) => void;
+  /** The turn being saved as a case (what onSaveCase was given), while it is. */
+  savingCase?: string | null;
 }
 
 
@@ -166,6 +170,8 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onAddModel,
   addableModels: addable = EMPTY_MODELS,
   onContinueReplyAll,
+  onSaveCase,
+  savingCase = null,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerContentRef = useRef<HTMLDivElement>(null);
@@ -419,6 +425,13 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
       disabled: isLoading,
       onAdd: (model: string) => onAddModel(reply, turnId, model),
     };
+  };
+
+  // "Save as a case" on a turn's cards: named by the reply on screen, so the case's history is that branch.
+  const saveCaseFor = (turnId: string | null | undefined, cards: TurnCard[]) => {
+    const turn = (cards.find((c) => c.shown) ?? cards.find((c) => c.id))?.id ?? turnId;
+    if (!chat || !onSaveCase || !turnId || !turn) return null;
+    return { disabled: isLoading, saving: savingCase === turn, onSave: () => onSaveCase(turn) };
   };
 
   return (
@@ -718,6 +731,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                               item.cards.map((c) => c.model),
                             )
                       }
+                      saveCase={saveCaseFor(item.turnId, item.cards)}
                     />
                     {votable && (
                       <VoteBar
