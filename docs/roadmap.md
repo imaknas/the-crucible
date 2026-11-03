@@ -76,7 +76,7 @@ Cheap changes that answer published criticism of multi-agent debate, plus the nu
     - Arena cards can show as Answer A/B/C in shuffled order, and the models are revealed after a vote: better, tie or all bad, with an optional reason.
     - Votes build a private win rate by task type.
     - Reuses `services/peers.py`. Sources: LMArena, Open WebUI's arena model.
-16. **Save a comparison and replay it on new models.**
+16. **Save a comparison and replay it on new models.** _Done: "Save as a case" under a finished turn's cards copies its question, the history on that branch (a summary kept), its documents, settings, answers with metrics and the vote, and outlives the thread; "Saved cases" in the sidebar, `crucible replay` and MCP `replay_case` ask chosen models again in a new seeded thread and show each answer's cost and its diff against the same model's answer, or the one voted best (also `crucible cases`, MCP `save_case`, `get_case`)._
     - A turn's prompt, attachments, context and votes become a saved case.
     - `crucible replay` (and an MCP tool) re-runs it on the current catalog and shows old against new, with diff and cost.
     - It fits the habit `scaffold-audit` and `catalog-sync` already have: re-measure when models change.
