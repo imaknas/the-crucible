@@ -1386,10 +1386,11 @@ def vote(
             turn_id = turn or await votes.latest_turn(graph_app, thread)
             if show:
                 data = await votes.turn_answers(graph_app, thread, turn_id)
-                order = votes.blind_order(data["turn_id"], [a["checkpoint_id"] for a in data["answers"]])
-                texts = {a["checkpoint_id"]: await _answer_text(graph_app, thread, a["checkpoint_id"]) for a in data["answers"]}
+                letters = votes.blind_letters(data["turn_id"], data["answers"])
+                shown = sorted(data["answers"], key=lambda a: letters[a["checkpoint_id"]])
                 return {"thread_id": thread, "turn_id": data["turn_id"],
-                        "answers": [{"letter": chr(ord("A") + i), "content": texts[cid]} for i, cid in enumerate(order)]}
+                        "answers": [{"letter": letters[a["checkpoint_id"]],
+                                     "content": await _answer_text(graph_app, thread, a["checkpoint_id"])} for a in shown]}
             if delete:
                 resolved = (await votes.turn_answers(graph_app, thread, turn_id))["turn_id"]
                 if not db.delete_answer_vote(thread, resolved):

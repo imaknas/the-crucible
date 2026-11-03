@@ -33,15 +33,19 @@ def _fnv1a(text: str) -> int:
     return h
 
 
-def blind_order(turn_id: str, checkpoint_ids: Sequence[str]) -> List[str]:
-    """The answers in the order a blind comparison shows them: fixed for the
-    turn (a reload shows the same letters), unrelated to who answered first."""
-    return sorted(dict.fromkeys(checkpoint_ids), key=lambda cid: (_fnv1a(f"{turn_id}:{cid}"), cid))
+def blind_order(turn_id: str, models: Sequence[str]) -> List[str]:
+    """A turn's answering models in the order a blind comparison shows them:
+    fixed for the turn (a reload shows the same letters), unrelated to who
+    answered first. By model, not checkpoint: the web UI letters the cards
+    while they stream, before the replies have checkpoints (a turn has one
+    answer per model)."""
+    return sorted(dict.fromkeys(models), key=lambda m: (_fnv1a(f"{turn_id}:{m}"), m))
 
 
-def blind_letters(turn_id: str, checkpoint_ids: Sequence[str]) -> Dict[str, str]:
-    """{checkpoint_id: "A" | "B" | …} in ``blind_order``."""
-    return {cid: chr(ord("A") + i) for i, cid in enumerate(blind_order(turn_id, checkpoint_ids))}
+def blind_letters(turn_id: str, answers: Sequence[Dict[str, Any]]) -> Dict[str, str]:
+    """{checkpoint_id: "A" | "B" | …} for answers [{checkpoint_id, model}], in ``blind_order``."""
+    order = blind_order(turn_id, [a["model"] for a in answers])
+    return {a["checkpoint_id"]: chr(ord("A") + order.index(a["model"])) for a in answers}
 
 
 def win_rates(votes: Iterable[Dict[str, Any]], task_type: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -147,7 +151,7 @@ async def vote_turn(
     answers = turn_data["answers"]
     if len(answers) < 2:
         raise ValueError("A vote needs a turn with at least two answers.")
-    letters = blind_letters(turn_data["turn_id"], [a["checkpoint_id"] for a in answers])
+    letters = blind_letters(turn_data["turn_id"], answers)
     winner = None
     if outcome == "best":
         if not best:
@@ -168,7 +172,7 @@ async def vote_turn(
 
 def with_names(vote: Dict[str, Any]) -> Dict[str, Any]:
     """A stored vote as clients read it: each answer with its display name and blind letter."""
-    letters = blind_letters(vote["turn_id"], [a["checkpoint_id"] for a in vote["answers"]])
+    letters = blind_letters(vote["turn_id"], vote["answers"])
     return {
         **vote,
         "answers": [
