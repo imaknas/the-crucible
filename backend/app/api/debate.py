@@ -37,6 +37,9 @@ class CreateSessionRequest(BaseModel):
     synthesizer_model: Optional[str] = None
     # How participants see each other: "anonymous" (default) or "named".
     peer_labels: str = debate_svc.DEFAULT_PEER_LABELS
+    # How they are told to argue (services/stances.py): {mode: open | sides |
+    # advocate, sides: {model: side}, advocate: model}. None: open.
+    stance: Optional[dict[str, Any]] = None
 
 
 @router.post("/sessions")
@@ -49,6 +52,7 @@ def create_session(req: CreateSessionRequest) -> dict[str, Any]:
             auto_synthesize=req.auto_synthesize,
             synthesizer_model=req.synthesizer_model,
             peer_labels=req.peer_labels,
+            stance=req.stance,
         )
         return {**session, "warnings": debate_svc.role_warnings(session)}
     except ValueError as e:

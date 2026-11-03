@@ -504,6 +504,14 @@ def debate(
     peer_labels: str = typer.Option(
         "anonymous", "--peers", help="How models see each other: anonymous (Participant A, B…) or named (model ids)."
     ),
+    sides: Optional[List[str]] = typer.Option(
+        None, "--side",
+        help="Assign a side to argue (repeat; given to the models in turn, so `--side Yes --side No` splits them). "
+        "Each argues its side whatever it thinks, and you judge the strongest case for each.",
+    ),
+    advocate: Optional[str] = typer.Option(
+        None, "--advocate", help="A participant that answers once for itself, then argues against what the others agree on."
+    ),
     threshold: Optional[float] = typer.Option(
         None, "--threshold", min=0.0, max=1.0,
         help="Stop early once every model's answer stops changing: similarity to its own previous round (0-1). Measures stability, not agreement.",
@@ -542,6 +550,15 @@ def debate(
         raise typer.BadParameter("must be 'anonymous' or 'named'", param_hint="--peers")
     if from_checkpoint and not thread:
         raise typer.BadParameter("--from needs --thread (the checkpoint's thread)", param_hint="--from")
+    if sides and advocate:
+        raise typer.BadParameter("choose --side or --advocate, not both", param_hint="--advocate")
+    if (sides or advocate) and convergence_judge:
+        raise typer.BadParameter(
+            "nobody is meant to agree with assigned sides or a devil's advocate; stop on --threshold or the rounds",
+            param_hint="--convergence-judge",
+        )
+    if advocate and models and advocate not in models:
+        raise typer.BadParameter("the devil's advocate must be one of the -m models", param_hint="--advocate")
     if models and len(set(models)) < len(models):
         raise typer.BadParameter("each model can take part once", param_hint="--models")
     resolved = _validate_models(models, as_json)
@@ -569,6 +586,7 @@ def debate(
             prompt, resolved, thread or _gen_thread_id("debate"), policy, synthesizer,
             _toggles(web_search, rag), as_json, peer_labels, context,
             parent=from_checkpoint, documents=documents, synthesize=not no_synthesize,
+            stance=_stance(resolved, sides, advocate),
         ),
         as_json,
     )
@@ -584,8 +602,14 @@ app.command("debate")(debate)
 app.command("deliberate", hidden=True)(debate)
 
 
+def _stance(models, sides, advocate):
+    from app.services.stances import stance_from_choices
+
+    return stance_from_choices(models, sides, advocate)
+
+
 async def _run_debate(prompt, models, thread_id, policy, synthesizer, toggles, as_json, peer_labels="anonymous",
-                      context=None, *, parent=None, documents=None, synthesize=True):
+                      context=None, *, parent=None, documents=None, synthesize=True, stance=None):
     from app.services import debate as debate_svc
     from app.services.arena import open_graph
     from app.services.runs import fork_point
@@ -601,6 +625,7 @@ async def _run_debate(prompt, models, thread_id, policy, synthesizer, toggles, a
             auto_synthesize=synthesize,
             synthesizer_model=synthesizer,
             peer_labels=peer_labels,
+            stance=stance,
         )
         events = debate_svc.run_debate(graph_app, session["session_id"], prompt, toggles, documents or {},
                                        parent_checkpoint_id=parent, context=context)

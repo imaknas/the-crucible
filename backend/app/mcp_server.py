@@ -460,6 +460,8 @@ async def run_debate(
     use_web_search: bool = False,
     system_prompt: Optional[str] = None,
     summarizer: Optional[str] = None,
+    sides: Optional[List[str]] = None,
+    advocate: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Run a multi-round structured debate between two or more models. Can
     take several minutes; rounds are numbered from 0 (round 0 is each
@@ -491,9 +493,17 @@ async def run_debate(
         use_web_search: Web search for models that support it.
         system_prompt: Sent to every participant (and the synthesizer); continuing and redirecting reuse it.
         summarizer: Model that summarizes long lanes; reused like system_prompt.
+        sides: Sides to argue, given to the models in turn (["Yes", "No"] splits them): each argues its side whatever it thinks, so the person judging sees the strongest case for each. Round 0 is then each one's opening case. No convergence_judge with sides.
+        advocate: One of the models: it answers round 0 for itself, then argues against what the others hold in common (they aren't told which one it is). No convergence_judge with it.
     """
     if len(set(models)) < 2:
         raise ToolError("A debate needs at least two different models.")
+    from app.services.stances import stance_from_choices
+
+    try:
+        stance = stance_from_choices(models, sides, advocate)
+    except ValueError as e:
+        raise _tool_error(e)
     if parent_checkpoint_id and not thread_id:
         raise ToolError("parent_checkpoint_id needs the thread_id it belongs to.")
     if thread_id:
@@ -528,6 +538,7 @@ async def run_debate(
                 auto_synthesize=bool(synthesizer),
                 synthesizer_model=synthesizer,
                 peer_labels=peer_labels,
+                stance=stance,
             )
         except ValueError as e:
             raise _tool_error(e)

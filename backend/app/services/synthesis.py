@@ -62,6 +62,48 @@ ARGUMENT_MAP = SynthesisFraming(
     ),
 )
 
+# A debate in which each participant argued a side it was given (stances.AssignedSides).
+ASSIGNED_SIDES_MAP = SynthesisFraming(
+    described_as=(
+        "A debate between {n} participants, participant by participant. Each was "
+        "assigned a side to argue, shown beside its label, whatever it thinks. "
+        "Round 1 is each participant's opening case for its side; every later round "
+        "was written after reading the others' previous round"
+    ),
+    instruction=(
+        "Write an argument map of this debate for a reader who will judge it "
+        "themselves. Refer to participants by their labels.\n"
+        "1. Sides: each side and who argued it.\n"
+        "2. The strongest case for each side: its arguments, and the evidence "
+        "offered, telling evidence a reader could check apart from bare assertion.\n"
+        "3. Clashes: where the sides answered each other directly, and which "
+        "arguments went unanswered.\n"
+        "4. Weak points: claims a side could not defend, conceded, or rested on "
+        "nothing.\n"
+        "5. Unresolved: what remains disputed, and what information would settle "
+        "each point.\n"
+        "The sides were assigned: a participant holding its side, or conceding a "
+        "point, says nothing about what it believes. Do not declare a winner; the "
+        "reader judges."
+    ),
+)
+
+# A debate in which one participant argued against the others' common ground
+# from Round 2 on (stances.DevilsAdvocate).
+ADVOCATE_MAP = SynthesisFraming(
+    described_as=(
+        ARGUMENT_MAP.described_as + ". The participant marked devil's advocate "
+        "answered Round 1 for itself like the others, then was asked to argue "
+        "against whatever the others held in common"
+    ),
+    instruction=(
+        ARGUMENT_MAP.instruction + "\nThe devil's advocate argues against the "
+        "majority by design after Round 1: weigh its objections, not its "
+        "persistence, and say which of them the others answered and which they "
+        "did not."
+    ),
+)
+
 
 def build_synthesis_prompt(
     question: str, answers: Iterable[Tuple[str, str]], framing: SynthesisFraming

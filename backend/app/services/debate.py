@@ -34,7 +34,8 @@ from app.services.peers import (
     labelled,
     peer_presentation,
 )
-from app.services.synthesis import ARGUMENT_MAP, build_synthesis_prompt
+from app.services.stances import OPEN, Stance, check_stance, noted, stance_from
+from app.services.synthesis import build_synthesis_prompt
 from app.services.runs import (
     DEBATE_RECORD_KEY,
     seed_thread,
@@ -120,6 +121,7 @@ def check_session_config(
     synthesizer_model: Optional[str] = None,
     known_models: Container[str] = MODEL_REGISTRY,
     peer_labels: str = DEFAULT_PEER_LABELS,
+    stance: Optional[Mapping[str, Any]] = None,
 ) -> None:
     """Raise ValueError (with a caller-facing message) if a debate can't run as asked.
 
@@ -142,6 +144,7 @@ def check_session_config(
         raise ValueError("mode must be 'all' or 'any'")
     if peer_labels not in PEER_PRESENTATIONS:
         raise ValueError(f"peer_labels must be one of: {', '.join(PEER_PRESENTATIONS)}")
+    check_stance(stance, participants, judge)
 
 
 def default_synthesizer(
@@ -193,8 +196,9 @@ def create_session(
     synthesizer_model: Optional[str] = None,
     known_models: Container[str] = MODEL_REGISTRY,
     peer_labels: str = DEFAULT_PEER_LABELS,
+    stance: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
-    check_session_config(participants, termination_policy, synthesizer_model, known_models, peer_labels)
+    check_session_config(participants, termination_policy, synthesizer_model, known_models, peer_labels, stance)
     # Resolved now and stored: a later synthesis of this session uses the same
     # model even if the keys change (sessions stored without one fall back to
     # their first participant in db.session_synthesizer).
@@ -217,6 +221,9 @@ def create_session(
         # Stored so a restored session (a redirect, a later synthesis) keeps
         # presenting peers the way its earlier rounds did.
         "peer_labels": peer_labels,
+        # How they were told to argue; every later call (redirect, continue,
+        # synthesis) reads it from here. None: an open debate.
+        "stance": stance_from(stance).describe() if stance and stance.get("mode") != "open" else None,
     }
     db.create_debate_session(session)
     return session
@@ -226,6 +233,18 @@ def session_peers(session: Mapping[str, Any]) -> PeerPresentation:
     """How this session's participants are shown to each other, the judge and the synthesizer."""
     participants = list(dict.fromkeys(session["participants"]))
     return peer_presentation(session.get("peer_labels"), session["session_id"], participants)
+
+
+def session_stance(session: Mapping[str, Any]) -> Stance:
+    """How this session's participants were told to argue (services/stances.py)."""
+    return stance_from(session.get("stance"))
+
+
+def stance_notes(session: Mapping[str, Any]) -> dict[str, str]:
+    """model id → what it was told to argue, for the person reading the
+    debate; empty for an open debate."""
+    stance = session_stance(session)
+    return {m: note for m in session["participants"] if (note := stance.note(m))}
 
 
 def peer_legend(session: Mapping[str, Any]) -> dict[str, str]:
@@ -563,6 +582,7 @@ async def _run_rounds(
             peers=peers,
             injected=injected,
             question_round=question_round,
+            stance=session_stance(session),
         )
 
         # Stream all models concurrently
@@ -690,14 +710,17 @@ def _build_round_prompts(
     peers: PeerPresentation,
     injected: Optional[list[str]] = None,
     question_round: int = 0,
+    stance: Stance = OPEN,
 ) -> dict[str, str]:
     """A question's first round (``question_round``: 0, or where a redirect
-    started): the question alone. Later rounds: each model sees all peers'
-    previous responses, labelled and ordered by `peers`.
+    started): the question, with the model's assigned side if it has one.
+    Later rounds: each model sees all peers' previous responses, labelled and
+    ordered by `peers` (with their public stance notes), and the stance's
+    closing instruction.
 
     Messages the user injected since the last round are appended to every prompt.
     """
-    prompts = _base_round_prompts(round_num, prompt, participants, prev_round_responses, peers, question_round)
+    prompts = _base_round_prompts(round_num, prompt, participants, prev_round_responses, peers, question_round, stance)
     if injected:
         note = "\n\n".join(injected)
         prompts = {
@@ -714,26 +737,34 @@ def _base_round_prompts(
     prev_round_responses: dict[str, str],
     peers: PeerPresentation,
     question_round: int = 0,
+    stance: Stance = OPEN,
 ) -> dict[str, str]:
     if round_num == question_round or not prev_round_responses:
-        return {m: prompt for m in participants}
+        return {m: f"{prompt}\n\n{brief}" if (brief := stance.first_round(m)) else prompt for m in participants}
+
+    def shown(peer: str) -> str:
+        note = stance.public_note(peer)
+        return f"{peers.label(peer)} — {note}" if note else peers.label(peer)
 
     # One order per round, shared by every participant's prompt.
     listed = peers.order(list(prev_round_responses), round_num)
     prompts: dict[str, str] = {}
     for model_id in participants:
         peer_context = "\n\n".join(
-            f"[{peers.label(peer)}]:\n{prev_round_responses[peer]}"
+            f"[{shown(peer)}]:\n{prev_round_responses[peer]}"
             for peer in listed
             if peer != model_id
         )
-        prompts[model_id] = (
-            f"Original question: {prompt}\n\n"
-            f"Other models' previous responses:\n{peer_context}\n\n"
+        closing = stance.closing(model_id, peers.introduce(model_id)) or (
             f"{peers.introduce(model_id)} Critically analyze the other models' arguments. "
             "Where do you agree? Where do you disagree? What are they missing? "
             "State your position now. If it changed, name the argument or evidence that "
             "changed it; agreement alone, or how many models hold a view, is not a reason."
+        )
+        prompts[model_id] = (
+            f"Original question: {prompt}\n\n"
+            f"Other models' previous responses:\n{peer_context}\n\n"
+            f"{closing}"
         )
     return prompts
 
@@ -914,16 +945,19 @@ def _question_at(questions: Sequence[Mapping[str, Any]], round_num: int) -> Mapp
     return next((q for q in reversed(questions) if q["round"] <= round_num), questions[0])
 
 
-def _participant_record(replies: Sequence[str], questions: Sequence[Mapping[str, Any]] = ()) -> str:
+def _participant_record(
+    replies: Sequence[str], questions: Sequence[Mapping[str, Any]] = (), first: str = "independent answer"
+) -> str:
     """One participant's debate as the synthesizer reads it. A round that
-    starts a new question (a redirect) says so."""
+    starts a new question (a redirect) says so; ``first`` is what a
+    question's first round was (the stance's ``first_round_label``)."""
     starts = {q["round"]: q["prompt"] for q in questions if q["round"] > 0}
     parts = []
     for i, text in enumerate(replies):
         if i in starts:
-            heading = f"Round {i + 1} (independent answer to a new question: {starts[i]})"
+            heading = f"Round {i + 1} ({first} to a new question: {starts[i]})"
         else:
-            heading = f"Round {i + 1}{' (independent answer)' if i == 0 else ''}"
+            heading = f"Round {i + 1}{f' ({first})' if i == 0 else ''}"
         parts.append(f"{heading}:\n{text or '(no answer this round)'}")
     return "\n\n".join(parts)
 
@@ -968,6 +1002,8 @@ def session_view(session: Mapping[str, Any]) -> dict[str, Any]:
         "peer_labels": session.get("peer_labels"),
         "parent_checkpoint_id": session.get("parent_checkpoint_id"),
         "round_scores": session.get("round_scores") or {},
+        "stance": session_stance(session).describe(),
+        "stance_notes": stance_notes(session),
         "created_at": created,
         "warnings": role_warnings(session),
     }
@@ -1021,13 +1057,16 @@ def debate_record_text(
     under the label the models used, which model that label was, each
     question it answered, and the synthesis if one was written."""
     peers = session_peers(session)
-    records = {m: _participant_record(replies, questions) for m, replies in rounds.items()}
+    stance = session_stance(session)
+    records = {m: _participant_record(replies, questions, stance.first_round_label) for m, replies in rounds.items()}
     who = ", ".join(
-        f"{peers.label(m)} = {display_name(m)}" if peers.label(m) != m else display_name(m)
+        noted(stance, f"{peers.label(m)} = {display_name(m)}" if peers.label(m) != m else display_name(m), m)
         for m in sorted(rounds, key=peers.label)
     )
     n_rounds = max((len(r) for r in rounds.values()), default=0)
     parts = [f"A debate between {who} ({n_rounds} rounds)."]
+    if stance.mode == "sides":
+        parts.append("The sides were assigned: what a participant argued is not what it believes.")
     if len(questions) > 1:
         parts.append("Questions: " + "; ".join(f"from round {q['round'] + 1}: {q['prompt']}" for q in questions))
     parts += [f"[{label}]:\n{record}" for label, record in labelled(peers, records)]
@@ -1052,12 +1091,16 @@ async def debate_tree(graph_app, session: Mapping[str, Any]) -> dict[str, Any]:
         asyncio.gather(*[lane(m) for m in session["participants"]]),
         load_thread_states(graph_app, db.synthesis_thread_id(dict(session))),
     )
-    return build_debate_tree(
+    tree = build_debate_tree(
         session=dict(session),
         all_thread_states={m: states for m, states in lanes if states},
         synthesis_states=synthesis_states,
         peer_labels=peer_legend(session),
     )
+    notes = stance_notes(session)
+    for lane_entry in tree.get("lanes", []):
+        lane_entry["stance_note"] = notes.get(lane_entry["model_id"])
+    return tree
 
 
 async def synthesis_text(graph_app, session: Mapping[str, Any]) -> str:
@@ -1184,8 +1227,13 @@ async def _stream_synthesis(
     yield {"type": "debate_synthesis_start", "session_id": session_id, "model": synthesizer}
 
     questions = await debate_questions(graph_app, session)
-    records = {m: _participant_record(replies, questions) for m, replies in rounds.items()}
-    synthesis_prompt = build_synthesis_prompt(prompt, labelled(session_peers(session), records), ARGUMENT_MAP)
+    stance = session_stance(session)
+    peers = session_peers(session)
+    records = {m: _participant_record(replies, questions, stance.first_round_label) for m, replies in rounds.items()}
+    by_label = {peers.label(m): m for m in records}
+    synthesis_prompt = build_synthesis_prompt(
+        prompt, [(noted(stance, label, by_label[label]), text) for label, text in labelled(peers, records)], stance.framing
+    )
 
     buffer = ""
     checkpoint_id = ""

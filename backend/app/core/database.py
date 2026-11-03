@@ -67,6 +67,10 @@ def init_db():
     for column in ("questions", "injected", "settings"):
         if column not in existing:
             conn.execute(f"ALTER TABLE debate_sessions ADD COLUMN {column} TEXT")
+    # Migration: how the participants were told to argue (services/stances.py:
+    # {mode, sides, advocate}). NULL: an open debate, as every session before it.
+    if "stance" not in existing:
+        conn.execute("ALTER TABLE debate_sessions ADD COLUMN stance TEXT")
 
     # Added later: documents attached to a thread, once per (thread, filename),
     # instead of in the graph state of every checkpoint.
@@ -210,8 +214,8 @@ def create_debate_session(session: dict[str, Any]) -> None:
             INSERT INTO debate_sessions
                 (session_id, parent_thread_id, participants, thread_ids,
                  current_round, status, termination_policy, auto_synthesize, synthesizer_model,
-                 peer_labels)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 peer_labels, stance)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session["session_id"],
@@ -224,6 +228,7 @@ def create_debate_session(session: dict[str, Any]) -> None:
                 int(session.get("auto_synthesize", False)),
                 session.get("synthesizer_model"),
                 session.get("peer_labels"),
+                json.dumps(session["stance"]) if session.get("stance") else None,
             ),
         )
         # Ensure the parent thread is listed even with no chat checkpoints. No
@@ -244,7 +249,7 @@ def _decode_session(cols, row) -> dict[str, Any]:
     data["termination_policy"] = json.loads(data["termination_policy"])
     data["auto_synthesize"] = bool(data["auto_synthesize"])
     data["round_scores"] = _decode_round_scores(data.get("round_scores"))
-    for column, empty in (("questions", []), ("injected", []), ("settings", {})):
+    for column, empty in (("questions", []), ("injected", []), ("settings", {}), ("stance", None)):
         try:
             data[column] = json.loads(data.get(column) or "null") or empty
         except ValueError:
