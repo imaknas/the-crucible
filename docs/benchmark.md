@@ -12,7 +12,7 @@ It is the instrument behind the research in [`backend/experiments/NOTES.md`](../
 - [What has been found so far](#what-has-been-found-so-far)
 - [Limits](#limits)
 - [Your own conversations](#your-own-conversations)
-- [Coming next](#coming-next)
+- [Tiers A and B, measured](#tiers-a-and-b-measured)
 
 ## What it measures
 
@@ -110,7 +110,7 @@ uv run crucible compaction-eval --dry-run --seeds 1 -t 8000 --no-baseline --reca
 uv run crucible compaction-eval --dry-run --scenario task --seeds 2 -t 8000 --no-baseline --recall none --recall keyword --questions indirect --out dry-task.json
 ```
 
-With seed 0 the second command gives, for both oracles: 2 of 24 facts with no recall, 22 of 24 with keyword recall, 12 of 24 with embedding recall. That is a sanity check of the stand-in (it should lose almost everything, and recall over the kept originals should bring most of it back), not a finding. `--recall embedding` runs the app's local embedding model (all-MiniLM-L6-v2, downloaded from Hugging Face on first use). Leave `--recall guided` out of dry runs: its rewriter is a model, which the dry run replaces with the same first-sentence stand-in, so its numbers there mean nothing.
+With seed 0 the second command gives, for both oracles: 2 of 24 facts with no recall, 22 of 24 with keyword recall, 12 of 24 with embedding recall. That is a sanity check of the stand-in (it should lose almost everything, and recall over the kept originals should bring most of it back), not a finding. `--recall embedding` runs the app's local embedding model (all-MiniLM-L6-v2, downloaded from Hugging Face on first use). `--recall guided` is refused in a dry run: its rewriter is a model, which the dry run would replace with the same first-sentence stand-in, so its numbers would mean nothing.
 
 The other stand-in, `sized-summarizer`, writes a summary of a fixed size; `--estimate` uses it to count what each probe will read and how many summaries a run will write. It is not selectable as a summarizer.
 
@@ -122,7 +122,7 @@ uv run crucible scaffold-audit --rescore experiments/audit/runs/scaffold-audit-2
 uv run crucible scaffold-audit --report    # the latest recorded verdict per scaffold and reader, and whether it is stale
 ```
 
-`--rescore` works on the result files from pilot 2 on; pilot 1's file predates the recorded scenario option. `--report` decides staleness against the summarizer and recall model *your* keys select, so without keys it says the recall model changed.
+`--rescore` works on every results file (pilot 1's predates the recorded scenario option and is read as the basic scenario it used). `--report` decides staleness against the summarizer and recall model *your* keys select, so without keys it says the recall model changed.
 
 ### Paid: estimate first, then a budget
 
@@ -183,8 +183,8 @@ The committed files are in [`backend/experiments/results/`](../backend/experimen
 
 Results differ in how long they stay true, and that decides when they are worth paying for:
 
-- **Tier A, by construction.** A test proves it; no experiment needed. In this benchmark: every probe reads the same settled branch, a probe that summarizes is an error, the oracle answers the fact it is asked and not one quoted in the request, replay keys change with the summarizer's identity, the compaction package imports nothing from the app. In the app: a summary larger than the threshold does not trigger itself, the verbatim window is folded into the next summary, and keeping user messages verbatim keeps every user-stated fact within its token budget through any summary (`backend/tests/test_compaction.py`).
-- **Tier B, measured without a language model.** The reader is an oracle, recall is keyword or a local embedding, summaries are stand-ins. No better model can overturn a result about a mechanism that contains no model. So far exactly one finding is in this tier: the offline retrieval check of 2026-09-28 (is the message that stated a fact among the top 4 for its question, over the full conversation?): keyword retrieval found 66 of 72 with direct questions and 24 of 72 with indirect ones; the small embedding model 27 and 22. No command reproduces it yet (see [Coming next](#coming-next)). The dry run is the Tier B instrument.
+- **Tier A, by construction.** A test proves it; no experiment needed. In this benchmark: every probe reads the same settled branch, a probe that summarizes is an error, the oracle answers the fact it is asked and not one quoted in the request, replay keys change with the summarizer's identity, the compaction package imports nothing from the app. In the app: a summary larger than the threshold does not trigger itself, the verbatim window is folded into the next summary, and keeping user messages verbatim keeps every user-stated fact within its token budget through any summary (`backend/tests/test_compaction.py`). Pinned constraints: a rule the person stated, once detected, survives pruning whatever the summary says (`backend/tests/test_constraints.py`).
+- **Tier B, measured without a language model.** The reader is an oracle, recall is keyword or a local embedding, summaries are stand-ins. No better model can overturn a result about a mechanism that contains no model. The findings in this tier are in [Tiers A and B, measured](#tiers-a-and-b-measured): what keyword and embedding recall bring back, how lexical each is, what a constraint detector finds, and what recall alone restores under a stand-in summary. The first of them, the offline retrieval check of 2026-09-28 (keyword 66/72 direct, 24/72 indirect), is reproduced by `crucible recall-eval`. The dry run and `recall-eval` are the Tier B instruments.
 - **Tier C, invariance across model generations.** A claim that needs a real summarizer or reader, run on the cheapest model of two or three generations in each family: if the effect holds with no trend, it is likely to keep holding; if it shrinks each generation, it is perishable and now its direction is known. **No result is in this tier yet.** Re-running the headline findings this way is roadmap item 23. The cross-family runs below (pilots 14 and 18) span families and tiers, not generations.
 - **Tier D, how today's models behave.** Every other number on this page: each pilot and each audit verdict names its models and date and should be re-measured when models change, not quoted as a fact. All of them before 2026-10-25 ran on the harness with chained probes.
 
@@ -260,12 +260,45 @@ Replaying your own thread locally is possible from Python, not from a command. `
 
 With those, the oracles, every condition and the paired comparisons work as on the synthetic scenarios. Keep everything local: the experiment database, the replay cache and the results file all hold your conversation's text, and only the first two are kept out of git by default. A real run sends your conversation to the summarizer's and readers' providers, as the app does.
 
-## Coming next
+## Tiers A and B, measured
 
-Four pieces are being added for Tiers A and B (roadmap items 18–21). Until they land, this section is a placeholder; the commands and options will be documented here.
+Four pieces added on 2026-11-03 (roadmap items 18–21), each free to run. The lab notes have the full entries; the results files are in `backend/experiments/results/`.
 
-> **Pinned constraints (item 18).** *Not yet in the code.* A retention that keeps process constraints ("never touch X") verbatim outside the summary, tested with the oracle on cached and stand-in summaries.
+**What recall brings back, with no model in the loop** (`recall-eval-2026-11-03.json`). `crucible recall-eval` runs a recall over a scenario's hidden history (every turn but the newest 5, what a pruned call can't see) and scores each probe by fact key: hit, false positives, a superseded or rejected value back, and that value back *without* the current one.
 
-> **What recall brings back, with no model in the loop (items 19 and 20).** *Not yet in the code.* For keyword and embedding recall: the precision of each recall, its false positives, and how often a superseded value comes back; then dated or "superseded" notes. Harder facts, reworded so they share no words with the question, to show which recall mechanisms depend on shared words. An oracle that checks a fact *and* the reason attached to it.
+```bash
+uv run crucible recall-eval                       # keyword and embedding, three kinds of question
+uv run crucible recall-eval --recall keyword --recall keyword+later --questions noshared
+```
 
-> **Recall with a summarizer that isn't a model (item 21).** *Not yet in the code.* How much of what a stand-in summarizer drops does recall bring back: a lower bound for "with recall, the summary only has to point to the originals" that no model generation can move.
+| Questions | Recall | Hit | Precision | False positives per probe | Stale value without the current one |
+|---|---|---|---|---|---|
+| direct (subject named) | keyword | 0.92 | 0.23 | 2.6 | 0.03 |
+| direct | embedding | 0.43 | 0.11 | 3.3 | 0.17 |
+| indirect (by what it does) | keyword | 0.33 | 0.10 | 2.8 | 0.03 |
+| indirect | embedding | 0.33 | 0.08 | 3.5 | 0.11 |
+| no shared words | keyword | 0.01 | 0.005 | 2.9 | 0.03 |
+| no shared words | embedding | 0.25 | 0.06 | 3.6 | 0.17 |
+
+Keyword recall is lexical by construction (it never returns a message sharing no term with the request), so questions that share no word with anything planted (`no_shared_words`, checked for every subject, kind and variant) defeat it; the small embedding model is weaker everywhere but not lexical. Even a hit arrives with 2–3 other messages. Linking a returned value to what superseded it by word overlap (`+later`) didn't work: the later message it finds is usually filler about the same subject.
+
+**A relational oracle.** `compaction-eval --reasons` states every fact with a distinct reason and adds the reader `oracle-reason`: the value *and* its reason must both still be attached to the subject. With stand-in summaries the three oracles agree (they keep or drop whole sentences); the gap to `oracle-strict` is what a real summarizer sheds, a Tier C question.
+
+**Pinned constraints.** `--keep constraints` keeps the person's messages that state a rule verbatim beside the summary. That a pinned rule survives is guaranteed (Tier A); what is found is not:
+
+```bash
+uv run crucible constraint-eval
+uv run crucible compaction-eval --dry-run --keep recent --keep constraints --no-baseline
+```
+
+The detector (marker phrases) caught 15 of 15 rules worded with a marker ("never", "must not") and 0 of 15 without ("leave the billing tables alone"), and flagged 9 of 10 ordinary remarks that use a marker word ("never mind"). In the harness it lifted recall from 0.01 to 0.22, all of it in what it detected, for ~480 more tokens per call. It reads wording, not intent.
+
+**Recall with a summarizer that isn't a model** (`standin-recall-*-2026-11-03.json`). The stand-in summary keeps ~0 planted facts, so this is what recall alone restores, a lower bound no model can move — not evidence that the summary "only has to point to the originals", since a stand-in points to nothing:
+
+| Scenario, questions | Summary alone | + keyword recall | + embedding recall |
+|---|---|---|---|
+| dense, direct | 1/72 | 66/72 | 33/72 |
+| dense, indirect | 1/72 | 25/72 | 25/72 |
+| goal switch, indirect | 0/48 | 18/48 | 19/48 |
+
+These agree with `recall-eval`, so the harness and the offline tool check each other.

@@ -69,6 +69,8 @@ Every command accepts `--format json`: stdout then carries only the JSON documen
 uv run crucible compaction-eval --estimate --scenario task -s gemini-3.8-flash --recall none --recall guided
 uv run crucible compaction-eval --budget 2 --scenario task -s gemini-3.8-flash --recall none --recall guided
 uv run crucible scaffold-audit --estimate          # then --budget N to run; --report for the latest verdicts
+uv run crucible recall-eval                         # free: what keyword and embedding recall bring back, no model
+uv run crucible constraint-eval                     # free: what the constraint detector behind --keep constraints finds
 ```
 
 Every real run needs `--budget` (USD): it calibrates each model with one call, estimates the whole run, refuses to start if the estimate is over budget, and stops starting calls once the budget is spent. `--estimate` only estimates.
