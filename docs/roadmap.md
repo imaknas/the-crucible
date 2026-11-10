@@ -120,7 +120,7 @@ There is no research budget, so money goes first to conclusions that should hold
       - how often a superseded value comes back.
     - Then test dated or "superseded" notes.
     - Source: Context Rot, NoLiMa.
-20. **Harder facts and a relational oracle.** _Done: `no_shared_words` questions (zero shared terms, tested) defeat keyword recall, not embedding recall; `oracle-reason` (`compaction-eval --reasons`) is ready, its measurement needs real summaries (tier C)._
+20. **Harder facts and a relational oracle.** _Done: `no_shared_words` questions (zero shared terms, tested) defeat keyword recall, not embedding recall; `oracle-reason` (`compaction-eval --reasons`) measured on real summaries (2026-11-10, tier C): summarizers that keep a value drop its reason 18–89% of the time, in both generations._
     - Facts reworded so they share no words with the question (NoLiMa-style). This shows which recall mechanisms depend on shared words, a property of the mechanism, not of any model.
     - An oracle that checks a fact *and* the reason attached to it. This is the model-free part of "remembering a fact is not being able to continue the task" (Compact-Bench).
 21. **Recall with a summarizer that isn't a model.** _Done: a lower bound for recall alone (keyword 66/72 direct, 25/72 indirect, 18/48 after a goal switch); not evidence for the summary-as-pointer claim, since a stand-in points to nothing._

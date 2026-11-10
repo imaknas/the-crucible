@@ -282,7 +282,7 @@ uv run crucible recall-eval --recall keyword --recall keyword+later --questions 
 
 Keyword recall is lexical by construction (it never returns a message sharing no term with the request), so questions that share no word with anything planted (`no_shared_words`, checked for every subject, kind and variant) defeat it; the small embedding model is weaker everywhere but not lexical. Even a hit arrives with 2–3 other messages. Linking a returned value to what superseded it by word overlap (`+later`) didn't work: the later message it finds is usually filler about the same subject.
 
-**A relational oracle.** `compaction-eval --reasons` states every fact with a distinct reason and adds the reader `oracle-reason`: the value *and* its reason must both still be attached to the subject. With stand-in summaries the three oracles agree (they keep or drop whole sentences); the gap to `oracle-strict` is what a real summarizer sheds, a Tier C question.
+**A relational oracle.** `compaction-eval --reasons` states every fact with a distinct reason and adds the reader `oracle-reason`: the value *and* its reason must both still be attached to the subject. With stand-in summaries the three oracles agree (they keep or drop whole sentences); the gap to `oracle-strict` is what a real summarizer sheds. Measured on 2026-11-10 with six real summarizers: of the values a summary kept attached, 18–89% lost their reason (lab notes, same date).
 
 **Pinned constraints.** `--keep constraints` keeps the person's messages that state a rule verbatim beside the summary. That a pinned rule survives is guaranteed (Tier A); what is found is not:
 

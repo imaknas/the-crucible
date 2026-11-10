@@ -1897,3 +1897,51 @@ not as numbers.
   plus $0.09 of calibration. The ×1.54 margin is far too high for runs
   like these; a first submission of 23b was refused for an estimate at
   exactly its budget, and cost nothing.
+
+## 2026-11-10 — Values kept, reasons dropped: the relational oracle on real summaries (tier C; roadmap 20)
+
+The relational oracle (2026-11-03 entry) on the same six summarizers as
+roadmap 23: dense scenario with every fact stated with a distinct reason
+(`--reasons`), threshold 8,000, 2 conversations × 24 facts, no recall.
+`oracle-strict` asks whether the value is still attached to its subject,
+`oracle-reason` whether its reason is too.
+
+```
+uv run crucible compaction-eval --budget 1.40 --scenario dense --reasons -m oracle -t 8000 --seeds 2 \
+  --recall none --no-baseline --db experiments/compaction-reasons.sqlite \
+  --out experiments/results/pilot23c-reasons-2026-11-10.json -s <each summarizer>
+```
+
+| summarizer | value anywhere | value attached | value and reason | reasons kept, of attached values |
+|---|---|---|---|---|
+| gpt-5-nano | 4/48 | 4/48 | 3/48 | (3 of 4) |
+| gpt-6-luna | 34/48 | 33/48 | 20/48 | 61% |
+| claude-haiku-4-5 | 10/48 | 9/48 | 3/48 | 33% |
+| claude-haiku-5-5 | 40/48 | 34/48 | 28/48 | 82% |
+| gemini-2.5-flash | 46/48 | 45/48 | 35/48 | 78% |
+| gemini-3.1-flash-lite | 9/48 | 9/48 | 1/48 | 11% |
+
+- **A kept value often comes without its reason.** Every summarizer with
+  enough kept values to tell drops reasons: 18–89% of the values it kept
+  arrive without theirs. "In context" overstates what a reader could act
+  on (why the port changed, why the date moved) by up to 14 facts in 48.
+- **Wording, checked.** The reason check matches a key phrase ("insurer
+  requires"), so a summary that rephrases ("required by the insurer")
+  counts as a loss. Re-reading the final summaries with one looser word
+  per reason ("insurer") moves the share kept from 15/30 to 18/30 for
+  luna, 27→30/34 haiku-5-5, 32→39/44 gemini-2.5-flash, 3→4/9 haiku-4-5,
+  1→6/9 flash-lite (a reconstruction of each probe's context, the latest
+  summary plus the verbatim window, within 1–3 values of the harness's
+  counts). Rephrasing explains part of flash-lite's gap and little of the
+  others'; most of the loss is real.
+- **Across generations:** the reasons are dropped in both generations of
+  Anthropic and Google; within OpenAI only the newer keeps enough values
+  to tell. The share follows the model, not the generation: newer is
+  better in Anthropic (33% → 82%), worse in Google (78% → 11%, a lower
+  tier), as with the values themselves (roadmap 23 entry).
+- Not tested: whether recall, which shows the originals with their
+  reasons, closes this gap (it should: the reason is in the same sentence
+  as the value); and whether a real reader that has the value but not the
+  reason answers worse (tier D, Compact-Bench).
+- Spent $0.65 against an estimate of $0.83 (0.78×). Today's research total:
+  $1.34 (calibration $0.09, roadmap 23 $0.60, this $0.65).
