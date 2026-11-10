@@ -60,6 +60,10 @@ to fetch?):
     OpenAI and Anthropic summarizers kept 4–13 of 32 off-goal facts (Gemini
     kept most); recall restored 32/32 for both gpt-6-sol and claude-haiku-4-5.
     Not "stronger drops more" — the family's style decides how much.
+    Held across generations (2026-11-10, tier C): off-goal kept less than
+    on-goal under all six summarizers of two generations per family, and
+    keyword recall restored 45–48 of 48 under each. "Gemini kept most" did
+    not carry over (gemini-2.5-flash dropped 11 of 24 off-goal facts).
 13. Tentative / failed: phrasing facts as throwaway remarks did *not* make
     summaries drop them (a lossy summarizer kept more). Surface wording is
     not low salience; the structural question (relevance that cannot be
@@ -82,6 +86,9 @@ to fetch?):
     the future *and* hedged, it still kept only 20/32 and lost on-goal facts
     too. Not salience (pilot 20): naming the subject as often, but as out
     of scope, left sol at 6/32.
+    Held across generations (2026-11-10, tier C): announcing gained 30
+    off-goal pairs and lost none across two generations of each family;
+    how much it restores follows the summarizer's fidelity, not its age.
 16. **With recall on, the cheapest summarizer is enough** (pilot 22):
     gpt-6-luna summaries + guided recall kept 93/96 (dense) and 62/64
     (goal switch) — no worse than the best on either — at ~1/25 of
@@ -1782,3 +1789,111 @@ threshold, 3 seeds; `results/standin-recall-*-2026-11-03.json`.
   of what a summary dropped, whichever of the two mechanisms; the rest is
   what a summary (or a model choosing search terms, pilots 17–18) has to
   provide.
+
+## 2026-11-10 — The headline findings across generations (tier C; roadmap 23)
+
+Pilots 14–16 and 19–20 found three things, each with that day's models:
+summaries keep what the current goal needs and drop the rest (finding 12
+above); announcing the next goal in advance restores most of the rest
+(15); read-time recall brings back what was dropped (12, 14). Here each is
+re-run with the cheapest summarizer of two generations per family, to see
+whether it is a property of summarizing or of the models measured.
+
+Same task scenarios (`--scenario task`), threshold 8,000, oracle readers,
+direct questions. Summarizers: gpt-5-nano → gpt-6-luna,
+claude-haiku-4-5 → claude-haiku-5-5, gemini-2.5-flash →
+gemini-3.1-flash-lite. Google's pairing is not like for like: the older
+generation's cheapest still served (gemini-2.5-flash, Legacy, routed to
+gemini-3.5-flash-lite from 2026-12-01) is a Flash, the newer a Flash-Lite;
+every reply's usage names the model asked for, so no run was routed.
+
+```
+uv run crucible compaction-eval --budget 1.88 --scenario task --later-subject unknown -m oracle -t 8000 \
+  --seeds 3 --recall none --recall keyword --db experiments/compaction-generations.sqlite \
+  --out experiments/results/pilot23a-generations-unknown-2026-11-10.json -s <each summarizer>
+uv run crucible compaction-eval --budget 1.40 --scenario task --later-subject announced -m oracle -t 8000 \
+  --seeds 2 --recall none --no-baseline --db experiments/compaction-generations.sqlite \
+  --out experiments/results/pilot23b-generations-announced-2026-11-10.json -s <each summarizer>
+```
+
+**Finding 1, summaries keep the current goal** (23a, no recall, 3
+conversations, 24 facts of each kind per summarizer; oracle):
+
+| summarizer | on-goal kept | off-goal kept | gap |
+|---|---|---|---|
+| gpt-5-nano | 5/24 | 1/24 | 4 |
+| gpt-6-luna | 18/24 | 5/24 | 13 |
+| claude-haiku-4-5 | 11/24 | 3/24 | 8 |
+| claude-haiku-5-5 | 21/24 | 15/24 | 6 |
+| gemini-2.5-flash | 23/24 | 13/24 | 10 |
+| gemini-3.1-flash-lite | 7/24 | 5/24 | 2 |
+
+- Off-goal facts are kept less than on-goal ones under all six, so the
+  direction holds in every generation of every family. Where the
+  summarizer keeps the on-goal facts (luna, haiku-5-5, gemini-2.5-flash,
+  partly haiku-4-5), the gap is 6–13 facts: it selects by goal.
+- The two that keep little of either (gpt-5-nano, gemini-3.1-flash-lite)
+  show the second loss pilot 19 found in claude-haiku-4-5: fidelity, not
+  selection. gpt-5-nano drops nearly everything (6/48).
+- Newer is better within OpenAI (6 → 23 of 48) and Anthropic (14 → 36);
+  within Google the newer model (a lower tier) is far worse (36 → 12).
+  Neither the selective loss nor its size trends with generation.
+- Pilot 14's "Gemini keeps most" does not carry over: gemini-2.5-flash
+  drops 11 of 24 off-goal facts like the others. It looks like a property
+  of gemini-3.8-flash, not of the family.
+
+**Finding 3, recall brings back what was dropped** (23a, keyword recall,
+direct questions): with recall every summarizer reached 0.94–1.00 (45–48
+of 48), against 0.12–0.75 without it. The comparison with never compacting
+is equivalent (±0.074) for luna, haiku-5-5, gemini-2.5-flash and
+gemini-3.1-flash-lite, and shows no detectable difference for gpt-5-nano
+(−0.06) and haiku-4-5 (−0.02). It holds in every generation, as it should:
+keyword recall contains no model (tier B, 2026-11-03), and here it rescued
+even the summary that kept 6/48. The easy case, direct questions; with
+indirect ones keyword recall alone restored about a third (tier B).
+
+**Finding 2, announcing the next goal restores the rest** (23b against the
+same two conversations of 23a; facts, filler and positions are identical,
+so every probe pairs; 16 facts of each kind per summarizer):
+
+| summarizer | off-goal: unknown → announced | pairs gained / lost | on-goal: unknown → announced | mean summary tokens |
+|---|---|---|---|---|
+| gpt-5-nano | 0 → 1 | 1 / 0 | 3 → 3 | 1,930 → 2,925 |
+| gpt-6-luna | 4 → 11 | 7 / 0 | 12 → 12 | 921 → 992 |
+| claude-haiku-4-5 | 1 → 10 | 9 / 0 | 4 → 13 | 2,022 → 1,044 |
+| claude-haiku-5-5 | 9 → 13 | 4 / 0 | 14 → 15 | 1,433 → 1,466 |
+| gemini-2.5-flash | 9 → **16** | 7 / 0 | 16 → 16 | 3,358 → 5,957 |
+| gemini-3.1-flash-lite | 4 → 6 | 2 / 0 | 5 → 4 | 806 → 810 |
+
+- Announcing never lost an off-goal fact: 30 pairs gained, 0 lost across
+  the six. Alone, the gains are clear (exact sign test p ≤ 0.016) for luna,
+  haiku-4-5 and gemini-2.5-flash, and too few to tell for the rest.
+- How far it restores depends on fidelity, as in pilot 19: the summarizers
+  that keep the on-goal facts get most of the off-goal ones back (luna
+  11/16, haiku-5-5 13/16, gemini-2.5-flash 16/16, as gpt-6-sol's 30/32);
+  the two that keep little anyway gain almost nothing (nano 1, flash-lite
+  6). Knowing the future fixes selection, not fidelity.
+- The older generation gains more than the newer one in Anthropic (9 vs
+  4: the newer keeps more to begin with) and Google (7 vs 2); in OpenAI the
+  older is at the floor (1 vs 7). No trend toward the effect disappearing. claude-haiku-4-5 this time also kept more on-goal facts when
+  told the future (4 → 13), the opposite of pilot 19 (one conversation set,
+  2 seeds; its unknown-future seed 2 kept 7/8 on-goal, so it varies a lot).
+- What it costs in length varies by model, not generation: gemini-2.5-flash
+  +77% and gpt-5-nano +52%, the others about the same (haiku-4-5 halved).
+
+**Verdict.** All three findings hold across two generations in each family,
+with no trend toward disappearing; none of them is a property of one
+model. Their sizes are not stable: how much a summarizer drops, and how
+much announcing restores, depend on its fidelity, which varies by model and
+tier, newer not always better. So the findings are durable as directions
+and mechanisms (selection under an unknown future; recall sidesteps it),
+not as numbers.
+
+- Limits: 2–3 conversations, 16–24 facts per kind and summarizer, one
+  threshold, availability oracle only (in context, not used). Tier is
+  confounded with generation in Google's pair. Indirect questions and the
+  relational oracle (`--reasons`) were not run.
+- Spent $0.33 + $0.27 = $0.60 against estimates of $1.22 + $0.81 (0.29×),
+  plus $0.09 of calibration. The ×1.54 margin is far too high for runs
+  like these; a first submission of 23b was refused for an estimate at
+  exactly its budget, and cost nothing.

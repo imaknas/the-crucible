@@ -132,7 +132,7 @@ There is no research budget, so money goes first to conclusions that should hold
 
 **Tier C (an estimate first, then a budget decision)**
 
-23. **The headline findings across generations.**
+23. **The headline findings across generations.** _Done (2026-11-10): all three held in two generations of each family (the cheapest summarizer of each), as directions; their sizes follow each summarizer's fidelity, not its generation. Details in `backend/experiments/NOTES.md`._
     - The findings:
       - summaries keep what the current goal needs;
       - announcing the next goal restores the rest;
