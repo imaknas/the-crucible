@@ -29,12 +29,14 @@ The Crucible is a self-hosted workbench for comparing language models. Every con
 
 ## ✨ Features
 
-- 🌳 **Conversation trees.** Every message is a checkpoint. Branch from any node, edit a question and re-ask it, and move around the whole tree on a canvas.
-- ⚔️ **Arena.** One prompt, several models, answering in parallel. Each keeps its own conversation, and the app adds no system prompt of its own, so you compare models as they ship.
-- 🗣️ **Debate, as an argument explorer.** Models argue over rounds as anonymous *Participant A, B…*, so none defers to a brand. It ends in an argument map (positions, evidence, who changed their mind and why, what is unresolved), never a verdict.
-- 🤝 **Synthesis and Deliberation.** Merge divergent answers into one, or ask a model to critique the thread so far.
+- 🌳 **Conversation trees.** Every message is a checkpoint. Branch from any node, or from a sentence you select in a reply; edit a question and re-ask it. On a big tree, name and bookmark branches, fold them, or compress one into a summary.
+- ⚔️ **Arena.** One prompt, several models, answering in parallel. Each keeps its own conversation, and the app adds no system prompt of its own, so you compare models as they ship. Every answer shows its time to first token, tokens and cost, and you can add another model to a turn that has already been answered.
+- 🔍 **Compare, combine, judge.** Diff any two answers sentence by sentence. Merge them, tabulate where they differ, keep only the parts you tick, or ask a question about them. Have the models score each other anonymously, as evidence rather than a verdict, or ask one to critique the whole thread (Deliberation).
+- 🗳️ **Your own evaluation set.** Vote on the best answer, blind if you like, and see win rates by task. Save a turn as a case and replay it on next month's models: each new answer is diffed against the old one.
+- 🗣️ **Debate, as an argument explorer.** Models argue over rounds as anonymous *Participant A, B…*, so none defers to a brand, or argue sides you assign, with an optional devil's advocate. It ends in an argument map (positions, evidence, who changed their mind and why, what is unresolved), never a verdict.
+- 🧠 **Long conversations that keep their details.** Old history is summarized, never deleted, and the original messages a new question needs are brought back. A reply written from a summary says so, and the composer shows what the next turn will send.
 - 📎 **Documents and web search.** Attach PDFs, text, Markdown or CSV; search them with cited passages; let models use their provider's own web search.
-- 🧠 **Long conversations that keep their details.** Old history is summarized, never deleted, and the original messages a new question needs are brought back.
+- 🔌 **Runs outlive the tab.** Close or reload the tab while models answer or debate; the server keeps going, and the tab catches up when you come back.
 - ⌨️ **CLI and 🤖 MCP.** Everything the web UI does to a conversation, from the terminal or from another agent.
 
 [Every feature in detail →](docs/features.md)
@@ -85,7 +87,11 @@ The Crucible doubles as a testbed for one question: when a long conversation is 
 - **Summaries keep what the current goal needs.** After a change of plans, OpenAI and Anthropic summaries had kept only 4–13 of the 32 facts the new goal needed.
 - **The cause is not knowing what comes next.** Announcing the next goal in advance restored 30 of 32. Without that knowledge, the only fix at write time is to barely compress.
 - **Deciding at read time recovers it.** Keeping the originals and fetching the relevant ones once the question is known brought back 28–32 of 32, and the cheapest model chose what to fetch as well as the strongest.
+- **These hold across model generations, as directions.** Re-run with the cheapest summarizer of two generations in each family, all six kept off-goal facts less than on-goal ones, announcing the next goal brought back 30 off-goal facts across the six and lost none, and recall brought every summarizer to 45–48 of 48 (questions that name what they ask about). How large each effect is depends on the summarizer's fidelity, which follows the model, not its generation: newer was better at OpenAI and Anthropic, worse at Google (a cheaper tier).
+- **A value kept is not a reason kept.** Summaries that kept a value attached to its subject dropped the reason for it (why the port changed, why the date moved) 18–89% of the time, depending on the summarizer.
 - **With recall on, a cheap summarizer comes close.** Its summaries plus recall kept 93/96 facts on the detail-heavy scenario and 62/64 after a change of plans, at about 1/25 of the cost per summary. A later fix to the harness weakened this: rescored, the best summarizer stays 2–3 facts ahead, so the cheap one is the app's default on cost, not because it matched.
+
+Some results need no language model at all, so no future model can change them: keyword recall never finds a message that shares no word with the question (by construction), and it brings a superseded value back together with its replacement.
 
 Read the write-up, [**What Survives Compaction?**](https://www.imaknas.com/writing/what-survives-compaction/), or the lab notes with every number and every mistake in [`backend/experiments/NOTES.md`](backend/experiments/NOTES.md). You can run the same measurements on your own models with `crucible compaction-eval` and `crucible scaffold-audit` ([CLI reference](docs/cli.md#measuring-context-management)); [the benchmark guide](docs/benchmark.md) explains the scenarios, the oracles, the free runs and how long each kind of result lasts.
 
@@ -127,7 +133,7 @@ In a local SQLite database (`backend/checkpoints.sqlite`), with uploads in `back
 
 ## 🗺️ Roadmap
 
-Next: debates that follow what the research says about rounds, anonymity and judges; the cost and speed of every answer; diffs; synthesizing any set of nodes; resumable streams; a navigable tree; your own blind evaluation set; and a third round of compaction research. [The full plan →](docs/roadmap.md)
+The current plan grew out of a survey of about forty multi-model chat, evaluation, canvas and debate tools and the research on debate and compaction. Its six feature phases and the durable part of its research are done; what remains is optional research on how today's models behave (task continuation with real readers, vendor compaction as baselines, blind peers in debates). [The full plan →](docs/roadmap.md)
 
 ## 🤝 Contributing
 
