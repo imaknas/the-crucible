@@ -35,6 +35,9 @@ DB_PATH = DEMO_DIR / "demo.sqlite"
 # Shown as the models' answers in the README, so they are the app's defaults.
 MODELS = ["gpt-6.1-sol", "claude-sonnet-5-5", "gemini-3.1-pro-preview"]
 SYNTHESIZER = "claude-sonnet-5-5"
+# The debate's argument map comes from a family that isn't debating, as the
+# app arranges by default when an xAI key is set (REFEREE_MODELS).
+REFEREE = "grok-4.7"
 
 # Appended to every prompt. Phrased as something a person would type, since
 # the prompt itself appears in the demo.
@@ -67,7 +70,7 @@ PLANNED_CALLS = (
     + [(SYNTHESIZER, 2000)]  # synthesis of the first turn
     + [(m, 500) for m in MODELS]  # debate round 1, independent answers
     + [(m, 3000) for m in MODELS] * (DEBATE_ROUNDS - 1)  # cross-examination
-    + [(SYNTHESIZER, 6000)]  # the argument map
+    + [(REFEREE, 6000)]  # the argument map
 )
 
 
@@ -161,7 +164,7 @@ async def seed(spend, factory):
                     "mode": "all",
                 },
                 auto_synthesize=True,
-                synthesizer_model=SYNTHESIZER,
+                synthesizer_model=REFEREE,
             )
             events = await drain(
                 debate_svc.run_debate(app, session["session_id"], DEBATE_QUESTION + BREVITY, toggles),

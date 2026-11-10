@@ -175,7 +175,15 @@ await clickOn(await lowestNode("GPT-6.1 Sol"), { settle: 900 });
 await clickOn(arena, { settle: 1200 });
 // Full-screen scrolling is what costs bytes in the output; keep it short.
 await scrollBy(-20000, { ms: TICK });
-await pause(2400);
+await pause(2000);
+
+// ─── 2b. What differs between two answers, and what each one cost ──
+await clickOn(page.getByRole("button", { name: "Compare with…" }).first(), { settle: 500 });
+await clickOn(page.getByRole("menuitem", { name: "Claude Sonnet 5.5" }), { settle: 300 });
+const diff = page.getByRole("dialog", { name: /Compare answers/ });
+await diff.getByText("Loading both answers…").waitFor({ state: "detached" });
+await pause(3400);
+await clickOn(diff.getByRole("button", { name: "Close" }), { settle: 600 });
 await scrollBy(20000, { ms: 1400 });
 await pause(1800);
 
@@ -190,11 +198,17 @@ await clickOn(reply, { settle: 700 });
 await clickOn(reply.getByRole("button", { name: "Read in full" }), { settle: 2600 });
 await clickOn(page.getByRole("dialog").getByRole("button", { name: "Close" }), { settle: 600 });
 
-// ─── 4. The transcript ends in an argument map, not a verdict ────
+// ─── 4. Who moved, then the argument map, not a verdict ──────────
 await clickOn(arena, { settle: 1000 });
 await scrollBy(-20000, { ms: TICK });
 await pause(1600);
-await scrollBy(20000, { ms: 1400 });
+// Where each participant started (before seeing the others) and ended.
+const shifts = page.getByRole("region", { name: "Where each participant started and ended" });
+const top = (await shifts.boundingBox()).y;
+await scrollBy(top - 90, { ms: 1400 });
+await pause(1400);
+await clickOn(shifts.getByRole("button", { name: /^Show changes/ }).first(), { settle: 2600 });
+await scrollBy(20000, { ms: 1200 });
 await pause(2400);
 
 // ─── Encode ─────────────────────────────────────────────────────
