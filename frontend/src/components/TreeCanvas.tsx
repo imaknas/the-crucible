@@ -88,6 +88,8 @@ interface TreeCanvasProps {
   notes?: NodeNoteActions;
 }
 
+/** How long a keyboard move pans the canvas. */
+const KEY_MOVE_MS = 200;
 const NO_COLLAPSED: ReadonlySet<string> = new Set();
 const TREE_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home"]);
 
@@ -516,6 +518,10 @@ function TreeViewInner({
     },
     [onNodeClick, pickable, togglePick],
   );
+  // The zoom a key move keeps while an earlier key move is still animating:
+  // d3's smooth zoom zooms out mid-pan, so reading the viewport then kept
+  // that dip (a quick Home, ArrowDown left the tree in chips).
+  const keyMoveZoom = useRef<{ zoom: number; until: number } | null>(null);
   // Arrow keys walk the tree before React Flow sees them: with a node
   // focused it would otherwise nudge that node's position.
   const handleKeyDownCapture = useCallback(
@@ -543,9 +549,13 @@ function TreeViewInner({
       setFocusedId(next);
       const node = getNodes().find((n) => n.id === next);
       if (node) {
+        const now = performance.now();
+        const moving = keyMoveZoom.current && now < keyMoveZoom.current.until;
+        const zoom = moving ? keyMoveZoom.current!.zoom : transform[2];
+        keyMoveZoom.current = { zoom, until: now + KEY_MOVE_MS + 50 };
         setCenter(node.position.x + (node.width ?? 220) / 2, node.position.y + (node.height ?? 80) / 2, {
-          zoom: transform[2],
-          duration: 200,
+          zoom,
+          duration: KEY_MOVE_MS,
         });
       }
     },

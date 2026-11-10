@@ -42,7 +42,7 @@ export default defineConfig({
 
   webServer: [
     {
-      command: `uv run --project backend python -m uvicorn app.main:server --host 127.0.0.1 --port ${BACKEND_PORT}`,
+      command: `uv run python -m uvicorn app.main:server --host 127.0.0.1 --port ${BACKEND_PORT}`,
       cwd: path.join(ROOT, "backend"),
       port: BACKEND_PORT,
       reuseExistingServer: !process.env.CI,
