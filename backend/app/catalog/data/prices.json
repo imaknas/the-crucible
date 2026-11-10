@@ -45,6 +45,7 @@
                        "after": {"input": 1.50, "cached_input": 0.15, "output": 7.50}},
   "gemini-3.5-flash": {"source": "google", "input": 1.50, "cached_input": 0.15, "output": 9.00},
   "gemini-3.5-flash-lite": {"source": "google", "input": 0.30, "cached_input": 0.03, "output": 2.50},
+  "gemini-2.5-flash": {"source": "google", "input": 0.30, "cached_input": 0.03, "output": 2.50, "note": "deprecated; routed to gemini-3.5-flash-lite from 2026-12-01"},
   "gemini-3.1-flash-lite": {"source": "google", "input": 0.25, "cached_input": 0.025, "output": 1.50},
   "gemini-3-flash-preview": {"source": "google", "input": 0.50, "cached_input": 0.05, "output": 3.00},
   "grok-4.7": {"source": "xai", "input": 2.00, "cached_input": 0.50, "output": 6.00, "note": "<200k prompt tokens; the whole request doubles at 200k+"},

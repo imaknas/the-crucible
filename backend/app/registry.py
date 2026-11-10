@@ -301,6 +301,16 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "limit": 800_000,
         "native_search": True,
     },
+    # Research only: the older Gemini generation for the cross-generation runs
+    # (roadmap 23). Google routes it to gemini-3.5-flash-lite from 2026-12-01.
+    "gemini-2.5-flash": {
+        "family": "google",
+        "id": "gemini-2.5-flash",
+        "name": "Gemini 2.5 Flash",
+        "desc": "Legacy",
+        "limit": 800_000,
+        "native_search": True,
+    },
     # Retained: referenced by existing threads/debates.
     "gemini-3-flash-preview": {
         "family": "google",
