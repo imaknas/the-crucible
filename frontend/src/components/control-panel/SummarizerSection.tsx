@@ -23,7 +23,10 @@ export default function SummarizerSection({
   onChange: (modelId: string) => void;
 }) {
   const options = summarizerOptions(families);
-  const nameOf = (id: string | null) => options.find((m) => m.id === id)?.name ?? id ?? "";
+  // Every family, not only those with a key: the default is named even
+  // before its key is set.
+  const nameOf = (id: string | null) =>
+    families.flatMap((f) => f.models).find((m) => m.id === id)?.name ?? id ?? "";
   const unavailable = !!choice && !summarizer;
   return (
     <Box>

@@ -51,16 +51,16 @@ git clone https://github.com/imaknas/the-crucible.git && cd the-crucible
 ./start_dev.sh
 ```
 
-Open **http://localhost:3000** and add your keys under **Control Panel → API Keys** (or copy `.env.example` to `backend/.env` first). `start_dev.sh` picks free ports if 8000 or 3000 are taken.
+Open **http://localhost:3000** and add your keys under **Control Panel → API Keys** (or copy `.env.example` to `backend/.env` first). If 8000 or 3000 is taken, `start_dev.sh` picks free ports and prints the address to open.
 
 **With Docker:**
 
 ```bash
-cp .env.example backend/.env    # add keys now or in the app later
+cp .env.example backend/.env    # required (compose mounts it); add keys now or in the app later
 docker compose up --build
 ```
 
-Ports, volumes and every setting are in [docs/configuration.md](docs/configuration.md).
+To publish other ports than 8000 and 3000, set `CRUCIBLE_BACKEND_PORT` and `CRUCIBLE_FRONTEND_PORT`. Volumes and every setting are in [docs/configuration.md](docs/configuration.md).
 
 > [!WARNING]
 > The API has no authentication. It listens on `127.0.0.1` by default; if you expose it with `HOST=0.0.0.0`, anyone who can reach it can spend your API keys. See [configuration](docs/configuration.md) for how browser access from other sites is blocked.

@@ -7,8 +7,8 @@ Settings are environment variables, read from `backend/.env` (copy [`.env.exampl
 | `OPENAI_API_KEY` | At least one* | OpenAI API key |
 | `ANTHROPIC_API_KEY` | At least one* | Anthropic API key |
 | `GOOGLE_API_KEY` | At least one* | Google AI API key |
-| `XAI_API_KEY` | No | xAI API key (Grok models). It doesn't count toward "at least one" yet: xAI models are offered only after `uv run crucible catalog-sync` has verified them and they are added to the registry (see [Development](development.md)) |
-| `NEXT_PUBLIC_API_URL` | No | Backend URL for the frontend (default `http://localhost:8000`). Read when the frontend is built, not when it starts |
+| `XAI_API_KEY` | At least one* | xAI API key (Grok models) |
+| `NEXT_PUBLIC_API_URL` | No | Backend URL for the frontend (default `http://localhost:8000`). Read when the frontend is built, not when it starts, and not from `backend/.env`: `start_dev.sh` sets it, Docker takes it as a build argument |
 | `HOST` | No | Backend bind address (default `127.0.0.1`) |
 | `CORS_ORIGINS` | No | Extra browser origins, comma-separated. `localhost` / `127.0.0.1` on any port are always allowed. Also governs which pages may open the WebSockets |
 | `ALLOWED_HOSTS` | No | Extra hostnames the API may be reached as, comma-separated (`*` allows any). `localhost`, `127.0.0.1` and `::1` are always allowed; other `Host` headers get a 400, which blocks DNS rebinding |

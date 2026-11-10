@@ -6,7 +6,7 @@
 # ├── Diagnostic Checks ───────────────────────────────────────────
 if [ ! -f "backend/.env" ]; then
     echo "⚠️  WARNING: backend/.env not found! AI features may not work."
-    echo "   Please copy backend/.env.example to backend/.env and add your keys."
+    echo "   Copy .env.example to backend/.env and add your keys, or add them in the app."
 fi
 
 # ├── Cleanup Logic ──────────────────────────────────────────────
@@ -46,8 +46,7 @@ BACKEND_PID=$!
 sleep 1.5
 
 # ├── 3. Agentic Bridge (MCP) ─────────────────────────────────────
-echo "🤖 [MCP] Server ready at backend/app/mcp_server.py"
-echo "   -> Connect your agent (Claude/Cursor) to: 'uv run python -m app.mcp_server'"
+echo "🤖 [MCP] Not started here; an agent runs it itself: 'cd backend && uv run python -m app.mcp_server'"
 
 # ├── 4. Frontend Service ─────────────────────────────────────────
 echo "💻 [Frontend] Starting Next.js on http://localhost:$FRONTEND_PORT..."

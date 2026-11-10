@@ -34,6 +34,11 @@ describe("SummarizerSection", () => {
     expect(p.onChange).toHaveBeenCalledWith("gpt-a");
   });
 
+  it("names the automatic choice by its display name even without its key", () => {
+    renderSection({ defaultSummarizer: "gemini-c" });
+    expect(screen.getByRole("combobox", { name: "Summarizer model" })).toHaveTextContent("Automatic (Gemini C)");
+  });
+
   it("says when the picked model lost its key and the automatic choice is used", () => {
     renderSection({ choice: "gemini-c", summarizer: null });
     expect(screen.getByText(/no longer has an API key/)).toBeInTheDocument();
