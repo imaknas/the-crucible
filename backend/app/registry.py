@@ -185,6 +185,14 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "limit": 700_000,  # 70% of 1M window
         "native_search": True,
     },
+    "claude-fable-5-2": {
+        "family": "anthropic",
+        "id": "claude-fable-5-2",
+        "name": "Claude Fable 5.2",
+        "desc": "Balanced",
+        "limit": 700_000,  # 70% of 1M window
+        "native_search": True,
+    },
     "claude-fable-5-1": {
         "family": "anthropic",
         "id": "claude-fable-5-1",

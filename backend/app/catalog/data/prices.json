@@ -1,6 +1,6 @@
 {
  "_about": "USD per 1M tokens, standard tier, text input, base context tier (all experiment contexts are well below the 200k/272k tiers). Hand-maintained: no provider API exposes prices. cached_input is the cache-hit price. A price with 'until' is replaced by 'after' from the next day.",
- "checked": "2026-11-02",
+ "checked": "2026-11-10",
  "sources": {
   "openai": "https://developers.openai.com/api/docs/pricing",
   "anthropic": "https://platform.claude.com/docs/en/about-claude/pricing",
@@ -24,6 +24,7 @@
   "gpt-5.2-pro": {"source": "openai", "input": 21.00, "output": 168.00},
   "gpt-5-mini": {"source": "openai", "input": 0.25, "cached_input": 0.025, "output": 2.00},
   "gpt-5-nano": {"source": "openai", "input": 0.05, "cached_input": 0.005, "output": 0.40},
+  "claude-fable-5-2": {"source": "anthropic", "input": 8.00, "cached_input": 0.20, "output": 40.00},
   "claude-fable-5-1": {"source": "anthropic", "input": 10.00, "cached_input": 0.25, "output": 50.00},
   "claude-opus-5-5": {"source": "anthropic", "input": 4.00, "cached_input": 0.20, "output": 20.00},
   "claude-opus-5": {"source": "anthropic", "input": 5.00, "cached_input": 0.50, "output": 25.00},
