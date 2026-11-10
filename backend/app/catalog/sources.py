@@ -27,8 +27,12 @@ class ProbeResult:
     """ok=True/False is a verdict; ok=None means inconclusive (timeout, network).
     `capabilities` are facts the probe learned (e.g. which API answered)."""
 
-    def __init__(self, ok: Optional[bool], error: Optional[str] = None, capabilities: Optional[dict] = None):
+    def __init__(self, ok: Optional[bool], error: Optional[str] = None, capabilities: Optional[dict] = None,
+                 served: Optional[str] = None):
         self.ok, self.error, self.capabilities = ok, error, capabilities or {}
+        # The model the provider says answered (its response's model name):
+        # a provider can route a retired id to another model and still answer.
+        self.served = served
 
 
 def anthropic_web_search_tool(code_execution: Optional[bool], max_uses: int = 3) -> dict[str, Any]:
@@ -90,7 +94,7 @@ def _redact(text: str) -> str:
 
 def _probe(response: httpx.Response) -> ProbeResult:
     if response.is_success:
-        return ProbeResult(True)
+        return ProbeResult(True, served=_served_model(response))
     try:
         detail = response.json()
         # OpenAI, Anthropic and Google answer {"error": {...}} or {"error": "..."};
@@ -107,6 +111,19 @@ def _probe(response: httpx.Response) -> ProbeResult:
     if response.status_code == 429 or response.status_code >= 500:
         return ProbeResult(None, error)
     return ProbeResult(False, error)
+
+
+def _served_model(response: httpx.Response) -> Optional[str]:
+    """The model a successful response says answered: `model` (OpenAI,
+    Anthropic, xAI) or `modelVersion` (Google)."""
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    if not isinstance(body, dict):
+        return None
+    served = body.get("model") or body.get("modelVersion")
+    return str(served).removeprefix("models/") if served else None
 
 
 def _day(ts: str | int | float | None) -> Optional[str]:

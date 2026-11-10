@@ -210,3 +210,24 @@ def test_describe_and_turn_total():
     assert describe(total).endswith("$0.0123 + 1 price unknown")
     assert turn_total([None]) is None
     assert describe({**one, "cost_usd": 0.00001}).endswith("<$0.0001")
+
+
+def test_a_routed_reply_is_priced_as_the_model_that_answered():
+    """Asked for gemini-3.5-flash, Google answers with gemini-3.6-flash and
+    reports it; the reply costs what 3.6 costs."""
+    from langchain_core.messages import AIMessage
+
+    from app.services.metrics import message_metrics
+
+    prices = {
+        "gemini-3.5-flash": ModelPrice(current=Price(input=1.5, output=9.0, cached_input=0.15), source="test"),
+        "gemini-3.6-flash": ModelPrice(current=Price(input=0.75, output=3.75, cached_input=0.075), source="test"),
+    }
+    usage = {"input_tokens": 1_000_000, "output_tokens": 0, "total_tokens": 1_000_000}
+    routed = AIMessage(content="ok", name="gemini-3.5-flash", usage_metadata=usage,
+                       response_metadata={"model_name": "gemini-3.6-flash"})
+    assert message_metrics(routed, day="2026-11-10", prices=prices)["cost_usd"] == 0.75
+    # A reported name the price list doesn't know leaves the requested model's price.
+    unknown = AIMessage(content="ok", name="gemini-3.5-flash", usage_metadata=usage,
+                        response_metadata={"model_name": "something-new"})
+    assert message_metrics(unknown, day="2026-11-10", prices=prices)["cost_usd"] == 1.5

@@ -130,9 +130,13 @@ def message_metrics(
     output_tokens = _int(usage.get("output_tokens"))
     cost = None
     if usage and input_tokens is not None and output_tokens is not None:
-        model = message_model(msg)
+        book = PriceBook(prices if prices is not None else current_prices(), day or time.strftime("%Y-%m-%d"))
+        # Priced as the model that answered when the provider says which and
+        # it has a price: a routed id (gemini-3.5-flash answered by
+        # gemini-3.6-flash) is billed as what served it.
+        served = (getattr(msg, "response_metadata", None) or {}).get("model_name")
+        model = served if isinstance(served, str) and book.resolve(served) else message_model(msg)
         if model:
-            book = PriceBook(prices if prices is not None else current_prices(), day or time.strftime("%Y-%m-%d"))
             cost = book.cost(model, usage)
     return {
         "ttft_ms": _int(timing.get("ttft_ms")),

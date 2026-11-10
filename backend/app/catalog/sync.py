@@ -8,6 +8,7 @@ from typing import Any, Iterable, Literal, Mapping, Optional
 import httpx
 
 from app.catalog.entry import CatalogEntry
+from app.catalog.names import is_dated_snapshot
 from app.catalog.sources import SOURCES, ProviderSource, guarded
 
 ProbeMode = Literal["new", "failed", "all", "none"]
@@ -25,6 +26,17 @@ class CatalogDiff:
     @property
     def empty(self) -> bool:
         return not (self.added or self.unlisted or self.changed or self.probed)
+
+
+def routed_to(model_id: str, served: Optional[str]) -> Optional[str]:
+    """The other model a provider answered with, or None when ``served`` is
+    this id, a dated snapshot of it, or unknown."""
+    if not served:
+        return None
+    name = served.strip().lower().removeprefix("models/")
+    if name == model_id or is_dated_snapshot(name, model_id):
+        return None
+    return name
 
 
 def _verdict(old_ok, old_checked, new_ok, today):
@@ -122,6 +134,8 @@ def sync_catalog(
             for entry, chat, search in pool.map(run, to_probe):
                 v = entry.verification
                 v.chat_ok, v.chat_checked = _verdict(v.chat_ok, v.chat_checked, chat.ok, today)
+                if chat.ok:
+                    v.served_as = routed_to(entry.id, chat.served)
                 entry.capabilities.update(chat.capabilities)
                 v.error = chat.error
                 if search is not None:

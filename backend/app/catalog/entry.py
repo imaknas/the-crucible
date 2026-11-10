@@ -13,6 +13,10 @@ class Verification:
     web_search_ok: Optional[bool] = None
     web_search_checked: Optional[str] = None
     error: Optional[str] = None
+    # The model that answered the chat probe when it was another model, not
+    # this id or a dated snapshot of it: the provider routes this id away
+    # (Google sends retired Gemini ids to their replacement). None otherwise.
+    served_as: Optional[str] = None
 
 
 @dataclass
@@ -35,6 +39,11 @@ class CatalogEntry:
     @property
     def usable(self) -> bool:
         return self.status == "listed" and bool(self.verification.chat_ok)
+
+    @property
+    def routed(self) -> bool:
+        """Calls to this id are answered by another model (verification.served_as)."""
+        return bool(self.verification.served_as)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

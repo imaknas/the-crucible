@@ -17,6 +17,19 @@ def test_every_registry_model_is_listed_and_answered_a_real_call():
     assert not problems, "\n".join(problems)
 
 
+def test_no_model_offered_as_itself_is_answered_by_another():
+    """A provider can route a retired id to its replacement and still answer
+    (Google sends gemini-3.5-flash to gemini-3.6-flash): the person would pick
+    one model and get another. Such an id is kept only as Legacy, for old
+    checkpoints."""
+    routed = [
+        f"{m} → {CATALOG[m].verification.served_as}"
+        for m, cfg in MODEL_REGISTRY.items()
+        if cfg.get("desc") != "Legacy" and m in CATALOG and CATALOG[m].routed
+    ]
+    assert not routed, f"offered, but answered by another model (mark Legacy or remove): {routed}"
+
+
 def test_native_search_claims_are_verified():
     unverified = [
         m for m, cfg in MODEL_REGISTRY.items()

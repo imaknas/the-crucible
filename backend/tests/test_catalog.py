@@ -174,3 +174,28 @@ def test_inconclusive_keeps_success_but_clears_failure():
     assert _verdict(True, "2026-01-01", None, "2026-09-26") == (True, "2026-01-01")
     assert _verdict(False, "2026-01-01", None, "2026-09-26") == (None, None)
     assert _verdict(True, "2026-01-01", False, "2026-09-26") == (False, "2026-09-26")
+
+
+def test_a_probe_records_which_model_answered_when_it_is_another():
+    """Google answers a retired id with its replacement; a dated snapshot of
+    the same model is not a different model."""
+    from app.catalog.sync import routed_to
+
+    assert routed_to("gemini-3.5-flash", "gemini-3.6-flash") == "gemini-3.6-flash"
+    assert routed_to("gemini-3.5-flash", "models/gemini-3.5-flash") is None
+    assert routed_to("gpt-5.4-nano", "gpt-5.4-nano-2026-03-17") is None
+    assert routed_to("gpt-5.4-nano", None) is None
+
+    def answer_as_another(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return transport([]).handle_request(request)
+        if request.url.host == "generativelanguage.googleapis.com":
+            return httpx.Response(200, json={"candidates": [], "modelVersion": "gemini-10-flash"})
+        return httpx.Response(200, json={"model": "claude-x-20260901"})
+
+    with httpx.Client(transport=httpx.MockTransport(answer_as_another)) as client:
+        catalog, _ = sync_catalog({}, {"anthropic": "k", "google": "k"}, client=client, today="2026-11-10",
+                                  probe_web_search=False)
+    assert catalog["gemini-9-flash"].verification.served_as == "gemini-10-flash"
+    assert catalog["gemini-9-flash"].routed
+    assert catalog["claude-x"].verification.served_as is None  # a dated snapshot of itself

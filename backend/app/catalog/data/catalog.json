@@ -24,9 +24,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -55,9 +56,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -89,6 +91,7 @@
     "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-10",
     "web_search_ok": true
    }
@@ -117,9 +120,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -148,9 +152,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -179,9 +184,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -210,9 +216,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -241,9 +248,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -272,9 +280,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -303,9 +312,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -334,9 +344,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -365,9 +376,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -396,9 +408,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -427,9 +440,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -458,9 +472,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -480,9 +495,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -502,9 +518,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": false,
     "error": "HTTP 404: This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to u",
+    "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -524,9 +541,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": false,
     "error": "HTTP 404: This model models/gemini-2.5-pro is no longer available to new users. Please update your code to use models/gemini-3.1-pro-preview for the latest features and improvements. We recommend you to use the",
+    "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -546,9 +564,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -568,9 +587,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -590,9 +610,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": "gemini-3.1-flash-lite",
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -612,9 +633,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -634,9 +656,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": "gemini-3.6-flash",
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -656,9 +679,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -678,9 +702,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -700,9 +725,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": "gemini-3.8-flash",
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -722,9 +748,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -744,9 +771,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -766,9 +794,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": "gemini-3.8-flash",
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -788,9 +817,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": "gemini-3.5-flash-lite",
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -810,9 +840,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -832,9 +863,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": false,
     "error": "HTTP 400: This model only supports Interactions API.",
+    "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -857,6 +889,7 @@
     "chat_checked": "2026-11-10",
     "chat_ok": false,
     "error": "HTTP 400: This model only supports Interactions API.",
+    "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -876,9 +909,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": false,
     "error": "HTTP 400: This model only supports Interactions API.",
+    "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -898,9 +932,10 @@
    "sources": {},
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": "gemini-3.1-pro-preview",
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -925,6 +960,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": true,
     "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-3.5-turbo.",
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": false
    }
@@ -946,6 +982,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": true,
     "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-3.5-turbo-0125.",
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": false
    }
@@ -967,6 +1004,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": true,
     "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-3.5-turbo-1106.",
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": false
    }
@@ -988,6 +1026,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": true,
     "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-3.5-turbo-16k.",
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": false
    }
@@ -1010,6 +1049,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": false,
     "error": "HTTP 404: This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?; responses: HTTP 400: The requested model 'gpt-3.5-turbo-instruct' is not supported with the Responses API.",
+    "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -1029,6 +1069,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": false,
     "error": "HTTP 404: This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?; responses: HTTP 400: The requested model 'gpt-3.5-turbo-instruct-0914' is not supported with the Responses API.",
+    "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -1053,6 +1094,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": true,
     "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-4.",
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": false
    }
@@ -1074,6 +1116,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": true,
     "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-4-0613.",
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": false
    }
@@ -1098,6 +1141,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": true,
     "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-4-turbo.",
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": false
    }
@@ -1119,9 +1163,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -1143,9 +1188,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -1170,6 +1216,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": true,
     "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with gpt-4.1-nano.",
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": false
    }
@@ -1191,9 +1238,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -1215,9 +1263,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -1239,9 +1288,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
@@ -1263,9 +1313,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
@@ -1287,9 +1338,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
@@ -1313,7 +1365,8 @@
    "verification": {
     "chat_checked": "2026-11-10",
     "chat_ok": true,
-    "error": "web search: HTTP 429: Rate limit reached for gpt-5-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 393478, Requested 50838. Please try again in 6.647s. Visit https://platform.openai.com/account/rate-l",
+    "error": null,
+    "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -1335,15 +1388,18 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-5.2",
    "id": "gpt-5.2",
    "input_limit": 272000,
@@ -1357,9 +1413,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -1383,13 +1440,16 @@
    "verification": {
     "chat_checked": "2026-11-10",
     "chat_ok": true,
-    "error": "web search: HTTP 429: Rate limit reached for gpt-5.2-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 366867, Requested 41660. Please try again in 1.279s. Visit https://platform.openai.com/account/rate",
+    "error": null,
+    "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-5.4",
    "id": "gpt-5.4",
    "input_limit": 922000,
@@ -1403,15 +1463,18 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-5.4-mini",
    "id": "gpt-5.4-mini",
    "input_limit": 272000,
@@ -1425,9 +1488,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -1449,9 +1513,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -1475,13 +1540,16 @@
    "verification": {
     "chat_checked": "2026-11-10",
     "chat_ok": true,
-    "error": "web search: timed out (ReadTimeout)",
+    "error": null,
+    "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-5.5",
    "id": "gpt-5.5",
    "input_limit": 922000,
@@ -1495,9 +1563,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -1519,15 +1588,18 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-5.6-luna",
    "id": "gpt-5.6-luna",
    "input_limit": 922000,
@@ -1541,15 +1613,18 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-5.6-sol",
    "id": "gpt-5.6-sol",
    "input_limit": 922000,
@@ -1563,15 +1638,18 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-5.6-terra",
    "id": "gpt-5.6-terra",
    "input_limit": 922000,
@@ -1585,15 +1663,18 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-6-astra",
    "id": "gpt-6-astra",
    "input_limit": 922000,
@@ -1607,15 +1688,18 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-6-luna",
    "id": "gpt-6-luna",
    "input_limit": 922000,
@@ -1629,15 +1713,18 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
   },
   {
-   "capabilities": {},
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-6-sol",
    "id": "gpt-6-sol",
    "input_limit": 922000,
@@ -1651,9 +1738,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-09-26",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -1675,9 +1763,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-10-25",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-10-25",
     "web_search_ok": true
    }
@@ -1699,9 +1788,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
@@ -1726,6 +1816,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": true,
     "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with o1.",
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": false
    }
@@ -1750,6 +1841,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": true,
     "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with o1-pro.",
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": false
    }
@@ -1771,9 +1863,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
@@ -1798,6 +1891,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": true,
     "error": "web search: HTTP 400: Tool 'web_search_preview' is not supported with o3-mini.",
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": false
    }
@@ -1820,6 +1914,7 @@
     "chat_checked": "2026-09-26",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-09-26",
     "web_search_ok": true
    }
@@ -1851,9 +1946,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
@@ -1892,9 +1988,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
@@ -1923,9 +2020,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": false,
     "error": "HTTP 400: Multi Agent requests are not allowed on chat completions",
+    "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
    }
@@ -1957,9 +2055,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
@@ -1991,9 +2090,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
@@ -2021,9 +2121,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
@@ -2051,9 +2152,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
@@ -2080,9 +2182,10 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-02",
+    "chat_checked": "2026-11-10",
     "chat_ok": true,
     "error": null,
+    "served_as": null,
     "web_search_checked": "2026-11-02",
     "web_search_ok": true
    }
