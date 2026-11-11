@@ -31,7 +31,7 @@ const SIZE = { width: 1440, height: 900 };
 const OUT_WIDTH = Number(process.env.DEMO_WIDTH ?? 1200);
 // Playwright's screencast records at 25 fps; keep every frame.
 const OUT_FPS = Number(process.env.DEMO_FPS ?? 25);
-const OUT_QUALITY = Number(process.env.DEMO_QUALITY ?? 40);
+const OUT_QUALITY = Number(process.env.DEMO_QUALITY ?? 28);
 // Pointer and scroll animation cadence (ms per step) — one screen refresh.
 const TICK = 16;
 
@@ -178,7 +178,15 @@ await scrollBy(-20000, { ms: TICK });
 await pause(2000);
 
 // ─── 2b. What differs between two answers, and what each one cost ──
-await clickOn(page.getByRole("button", { name: "Compare with…" }).first(), { settle: 500 });
+const compare = page.getByRole("button", { name: "Compare with…" }).first();
+// The first turn's cards end below the fold; clickOn presses where the button
+// is, so bring it on screen first.
+const compareBox = await compare.boundingBox();
+if (compareBox.y + compareBox.height > SIZE.height - 140) {
+  await scrollBy(compareBox.y - 560, { ms: 900 });
+  await pause(500);
+}
+await clickOn(compare, { settle: 500 });
 await clickOn(page.getByRole("menuitem", { name: "Claude Sonnet 5.5" }), { settle: 300 });
 const diff = page.getByRole("dialog", { name: /Compare answers/ });
 await diff.getByText("Loading both answers…").waitFor({ state: "detached" });

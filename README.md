@@ -21,9 +21,9 @@
   <img alt="Next.js 16 · FastAPI · LangGraph" src="https://img.shields.io/badge/Next.js%2016%20%C2%B7%20FastAPI%20%C2%B7%20LangGraph-555">
 </p>
 
-![Demo: three models answer one question and each continues its own conversation, shown as a tree and as compare cards; then an anonymous three-model debate, one reply read in full, and the argument map it ends in](docs/demo.webp)
+![Demo: three models answer one question and each continues its own conversation, shown as a tree and as compare cards with each answer's cost; two answers diffed sentence by sentence; then an anonymous three-model debate, one reply read in full, where each participant started and ended, and the argument map it ends in](docs/demo.webp)
 
-<p align="center"><em>Three models answer one question and each continues its own conversation; the tree shows every branch, and any path reads as side-by-side cards. Then an anonymous three-model debate, one reply read in full, and the argument map it ends in.</em></p>
+<p align="center"><em>Three models answer one question and each continues its own conversation; the tree shows every branch, and any path reads as side-by-side cards with what each answer cost. Two of them diffed sentence by sentence. Then an anonymous three-model debate, one reply read in full, where each participant started and ended, and the argument map it ends in.</em></p>
 
 The Crucible is a self-hosted workbench for comparing language models. Every conversation is a **tree**: put a question to several models at once, branch from any reply, have them debate over several rounds, and merge what they said. It runs as a web app, a CLI and an MCP server, all on the same local database. Bring your own API keys: conversations stay in a local database, and only the providers you call see them.
 
