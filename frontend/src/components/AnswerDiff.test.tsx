@@ -71,6 +71,19 @@ describe("DiffView", () => {
     expect(onlyB).toHaveTextContent("+Only in B: Lyon is the second city.");
   });
 
+  it("keeps the screen-reader labels one pixel, not as tall as the page", () => {
+    const { container } = view();
+    const label = Array.from(container.querySelectorAll("span")).find(
+      (s) => s.textContent === "Only in A: ",
+    );
+    expect(label).toBeDefined();
+    expect(label).toHaveStyle({
+      position: "absolute",
+      width: "1px",
+      height: "1px",
+    });
+  });
+
   it("strikes through what A says that B doesn't", () => {
     const { container } = render(
       <DiffView

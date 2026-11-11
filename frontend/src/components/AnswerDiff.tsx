@@ -29,11 +29,15 @@ import {
  * added words, and screen readers hear which answer each line is from.
  */
 
-/** Read by screen readers, not shown. */
+/**
+ * Read by screen readers, not shown. Sizes are strings: in `sx` a number up to
+ * 1 is a fraction, so `height: 1` made each label as tall as the transcript
+ * around it and left thousands of blank pixels below a debate's diff.
+ */
 const visuallyHidden = {
   position: "absolute",
-  width: 1,
-  height: 1,
+  width: "1px",
+  height: "1px",
   overflow: "hidden",
   clip: "rect(0 0 0 0)",
   whiteSpace: "nowrap",
