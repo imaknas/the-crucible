@@ -77,7 +77,7 @@ npm install && npx playwright install chromium   # once, at the repo root
 npm run test:e2e                                 # end-to-end (Playwright)
 ```
 
-The end-to-end suite builds its own fixture database (`e2e/seed_db.py`) and starts both servers against it with **scripted models** (`CRUCIBLE_FAKE_LLM=1`): replies stream like a real provider's, so it can send messages and run whole debates without network access or cost, and it never touches your real data. The frontend runs as a production build (`next build` into `frontend/.next-e2e`, so a dev server in the same checkout is untouched); `E2E_DEV=1 npm run test:e2e` runs it against `next dev` instead, for debugging. If ports 8123/3123 are taken, set `E2E_BACKEND_PORT` / `E2E_FRONTEND_PORT`.
+The end-to-end suite builds its own fixture database (`e2e/seed_db.py`) and starts both servers against it with **scripted models** (`CRUCIBLE_FAKE_LLM=1`): replies stream like a real provider's, so it can send messages and run whole debates without network access or cost, and it never touches your real data. The frontend runs as a production build (`next build` into `frontend/.next-e2e`, so a dev server in the same checkout is untouched); `E2E_DEV=1 npm run test:e2e` runs it against `next dev` instead, for debugging. If ports 8123/3123 are taken the run stops at once; set `E2E_BACKEND_PORT` / `E2E_FRONTEND_PORT`, or `E2E_REUSE_SERVERS=1` to test against servers you started yourself.
 
 ## Re-recording the README demo
 

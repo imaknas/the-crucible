@@ -14,6 +14,11 @@ import { FAMILIES } from "@/test/families";
 
 installReactFlowDom();
 
+// Each test mounts the whole page, and role queries walk all of it: the
+// longest takes ~3 s alone and passed Jest's 5 s default on a loaded machine
+// (the nightly run, beside the other suites).
+jest.setTimeout(20_000);
+
 const MODELS = ["gpt-a", "claude-b"];
 
 const EMPTY_HISTORY = { nodes: [], edges: [], messages: [], current_checkpoint: null };

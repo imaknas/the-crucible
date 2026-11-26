@@ -168,7 +168,11 @@ async def test_cancelling_debate_cancels_model_runs():
     graph = FakeGraph(delay=5)
     with _patched_db():
         task = asyncio.create_task(_collect(run_debate(graph, "debate-x", "Q", {}, {})))
-        await asyncio.sleep(0.05)
+        # Cancel once every model's run has started (a fixed sleep cancelled
+        # before they had, on a loaded machine, and none counted as cancelled).
+        async with asyncio.timeout(10):
+            while len(graph.prompts) < len(PARTICIPANTS):
+                await asyncio.sleep(0.01)
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task

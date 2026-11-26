@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
   // start. Instructions for agents working here live in CLAUDE.md, reviewed
   // with the code; a dependency rewriting them on each run is not.
   agentRules: false,
+  experimental: {
+    // When it detects an agent, `next build` stops once per version that has
+    // an advisory and asks to be rerun, so every fresh build (the e2e suite,
+    // the nightly tests) failed from the day one was published. Upgrades go
+    // through the dependency sweep instead: `npm audit` and a cooldown.
+    agentUpgrade: false,
+  },
 };
 
 export default nextConfig;

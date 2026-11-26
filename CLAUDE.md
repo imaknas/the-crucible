@@ -63,9 +63,16 @@ or `backend/chroma_db`.
 - Live tests write real checkpoints, which is why the suite re-seeds on every run
   and each live test starts from **New Session**.
 - One live test uses up a seeded fixture: "a debate interrupted by a server restart resumes…" resumes the seeded `E2E Interrupted Debate` (the harness can't restart its server, and nothing else interrupts a debate now), then skips until `npm run e2e:seed` runs again, e.g. on `--repeat-each`.
-- With `reuseExistingServer`, Playwright silently tests against *whatever* holds
-  the port. A stray `python -m http.server 8123` made every spec fail once; use
-  the `E2E_*_PORT` overrides instead of killing processes you don't own.
+- A taken port fails the run at once: `reuseExistingServer` is on only with
+  `E2E_REUSE_SERVERS=1`. Reuse used to be the default outside `CI`, and
+  Playwright then tested silently against *whatever* held the port: a stray
+  `python -m http.server 8123` once, and from 2026-11-25 the servers an
+  interrupted nightly run left on 8127/3127 (every spec failed, every night).
+  Use the `E2E_*_PORT` overrides instead of killing processes you don't own.
+- `next build` stops once per Next version with an advisory when it detects an
+  agent, asking to be rerun (`experimental.agentUpgrade`); `next.config.ts`
+  turns that off so a fresh build never fails on it. Upgrades go through the
+  dependency sweep.
 
 ### Docker (for eval / deployment)
 ```bash

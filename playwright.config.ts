@@ -14,10 +14,16 @@ import path from "path";
 const ROOT = __dirname;
 const FIXTURE_DB = path.join(ROOT, "e2e", ".fixtures", "e2e.sqlite");
 
-// Override when something else already holds these ports: with
-// reuseExistingServer, Playwright would otherwise test against that process.
+// Override when something else already holds these ports.
 const BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? 8123);
 const FRONTEND_PORT = Number(process.env.E2E_FRONTEND_PORT ?? 3123);
+
+// Reusing a server already on the port is opt-in (E2E_REUSE_SERVERS=1, to
+// rerun specs against servers you started). By default a taken port fails the
+// run at once: reuse used to test silently against whatever held it, and once
+// an interrupted run left its servers behind, every later run tested an old
+// build against a deleted fixture and failed all 83 tests in 30 minutes.
+const REUSE = process.env.E2E_REUSE_SERVERS === "1";
 
 export default defineConfig({
   testDir: "./e2e/tests",
@@ -45,7 +51,7 @@ export default defineConfig({
       command: `uv run python -m uvicorn app.main:server --host 127.0.0.1 --port ${BACKEND_PORT}`,
       cwd: path.join(ROOT, "backend"),
       port: BACKEND_PORT,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: REUSE,
       timeout: 120_000,
       stdout: "pipe",
       stderr: "pipe",
@@ -69,7 +75,7 @@ export default defineConfig({
         : `npx next build && npx next start --port ${FRONTEND_PORT}`,
       cwd: path.join(ROOT, "frontend"),
       port: FRONTEND_PORT,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: REUSE,
       timeout: 300_000,
       stdout: "pipe",
       stderr: "pipe",

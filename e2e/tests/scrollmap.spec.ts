@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { newSession, openApp, send } from "./helpers";
 
 /**
@@ -33,6 +33,27 @@ async function geometry(page: Page) {
 /** The transcript beside the scroll map (the sidebar lists the same titles). */
 function transcript(page: Page) {
   return page.getByRole("navigation", { name: "Jump to a message" }).locator("xpath=..");
+}
+
+/**
+ * Click a marker and wait for the smooth scroll it starts to end. Sampling
+ * scrollTop alone can't tell "finished" from "not started yet": on a loaded
+ * machine two samples taken before the first frame of the scroll agree, and
+ * the assertions ran against the old position (the nightly run's failures).
+ * So arm a `scrollend` listener first; every jump in these tests moves.
+ */
+async function jumpWith(page: Page, marker: Locator) {
+  await page.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="Jump to a message"]') as HTMLElement;
+    const scroller = [...(nav.parentElement as HTMLElement).children].find(
+      (el) => el !== nav && el.scrollHeight > el.clientHeight + 1,
+    ) as HTMLElement;
+    const w = window as unknown as { __scrollEnded: boolean };
+    w.__scrollEnded = false;
+    scroller.addEventListener("scrollend", () => (w.__scrollEnded = true), { once: true });
+  });
+  await marker.click();
+  await page.waitForFunction(() => (window as unknown as { __scrollEnded: boolean }).__scrollEnded);
 }
 
 /** Wait for a smooth scroll to come to rest. */
@@ -76,8 +97,7 @@ test.describe("scroll map", () => {
 
     for (const index of [0, 4, 2]) {
       // Your message `index + 1`: the question QUESTIONS[index / 2].
-      await nav.getByRole("button", { name: `Your message ${index + 1} of ${total}` }).click();
-      await scrollSettled(page);
+      await jumpWith(page, nav.getByRole("button", { name: `Your message ${index + 1} of ${total}` }));
       const g = await geometry(page);
 
       const question = transcript(page).getByText(QUESTIONS[index / 2], { exact: true });
@@ -98,14 +118,12 @@ test.describe("scroll map", () => {
 
   test("the last marker scrolls to the bottom", async ({ page }) => {
     const nav = page.getByRole("navigation", { name: "Jump to a message" });
-    await nav.getByRole("button", { name: "Your message 1 of 10" }).click();
-    await scrollSettled(page);
+    await jumpWith(page, nav.getByRole("button", { name: "Your message 1 of 10" }));
     const top = await geometry(page);
     expect(top.scrollTop).toBeLessThan(top.maxScroll / 4);
     await expect(transcript(page).getByText(QUESTIONS[0], { exact: true })).toBeInViewport();
 
-    await nav.getByRole("button", { name: "Reply 10 of 10" }).click();
-    await scrollSettled(page);
+    await jumpWith(page, nav.getByRole("button", { name: "Reply 10 of 10" }));
     const g = await geometry(page);
     expect(g.maxScroll - g.scrollTop).toBeLessThan(2);
     await expect(page.getByText(/Scripted answer from gpt-6\.1-sol/).last()).toBeInViewport();
