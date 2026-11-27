@@ -460,7 +460,7 @@ export const ChatInput = React.memo(
                         borderRadius: 2,
                         fontSize: "0.875rem",
                         fontWeight: 700,
-                        color: "white",
+                        color: sendColor ? "white" : "primary.contrastText",
                         bgcolor: sendColor ?? "primary.main",
                         opacity: send.enabled ? 1 : 0.45,
                         boxShadow: send.enabled ? "0 4px 12px rgba(37,99,235,0.3)" : "none",

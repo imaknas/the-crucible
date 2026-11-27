@@ -512,14 +512,14 @@ export const MessageBubble = React.memo(
             bgcolor: isUser
               ? isDark
                 ? "rgba(37, 99, 235, 0.15)"
-                : "primary.50"
+                : "rgba(37, 99, 235, 0.06)"
               : isDark
                 ? "rgba(255,255,255,0.03)"
                 : "background.paper",
             borderColor: isUser
               ? isDark
                 ? "rgba(59, 130, 246, 0.2)"
-                : "primary.200"
+                : "rgba(37, 99, 235, 0.3)"
               : isDark
                 ? "rgba(255,255,255,0.05)"
                 : "divider",

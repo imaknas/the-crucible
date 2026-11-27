@@ -317,9 +317,12 @@ function TreeViewInner({
           summarizing: !!notes?.summarizing.includes(n.id),
           metadata: n.metadata,
           styling: {
-            background: isActive ? (isDark ? "#2563eb" : "#3b82f6") : colors.bg,
-            border: `1px solid ${isActive ? (isDark ? "#60a5fa" : "#2563eb") : colors.border}`,
-            color: isActive ? "#fff" : colors.text,
+            // The selected node keeps its own surface and model colour and is
+            // marked by a blue ring: a solid blue fill lost both, and hid
+            // the blue Branch button on it.
+            background: colors.bg,
+            border: isActive ? `2px solid ${isDark ? "#60a5fa" : "#2563eb"}` : `1px solid ${colors.border}`,
+            color: colors.text,
             width: 220,
             borderRadius: `${RADIUS.lg}px`,
             padding: "14px",
@@ -328,7 +331,7 @@ function TreeViewInner({
             boxShadow: picked.includes(n.id)
               ? "0 0 0 3px #7c3aed"
               : isActive
-                ? `0 0 20px ${isDark ? "rgba(37, 99, 235, 0.3)" : "rgba(59, 130, 246, 0.2)"}`
+                ? `0 0 0 3px ${isDark ? "rgba(96, 165, 250, 0.35)" : "rgba(37, 99, 235, 0.25)"}`
                 : "0 4px 20px -8px rgba(0, 0, 0, 0.15)",
             animation: isPending ? "pulse 1.5s ease-in-out infinite" : undefined,
             opacity: isPending ? 0.7 : 1,

@@ -15,7 +15,6 @@ import {
   useTheme,
 } from "@mui/material";
 import {
-  Terminal,
   Zap,
   Check,
   X,
@@ -185,7 +184,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
             aria-label="New Session"
             title="New session"
             onClick={onStartNewExperiment}
-            sx={{ bgcolor: "primary.main", color: "white", "&:hover": { bgcolor: "primary.dark" } }}
+            sx={{ bgcolor: "primary.main", color: "primary.contrastText", "&:hover": { bgcolor: "primary.dark" } }}
           >
             <Plus width={18} height={18} />
           </IconButton>
@@ -213,34 +212,10 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
             borderColor: "divider",
           }}
         >
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 3,
-              bgcolor: "primary.dark",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 10px 15px -3px rgba(37, 99, 235, 0.15)",
-            }}
-          >
-            <Terminal width={20} height={20} color="white" />
-          </Box>
-          <Box>
-            <Typography
-              variant="caption"
-              sx={{ fontWeight: 800, letterSpacing: "0.15em", color: "primary.light" }}
-            >
-              SESSIONS
-            </Typography>
-            <Typography
-              variant="overline"
-              sx={{ display: "block", lineHeight: 1, color: "text.secondary", fontWeight: 600 }}
-            >
-              Research Log
-            </Typography>
-          </Box>
+          {/* A section title, not a second app mark: the header carries the app's. */}
+          <Typography component="h2" sx={{ fontSize: "0.9375rem", fontWeight: 700, color: "text.primary" }}>
+            Sessions
+          </Typography>
           {mode === "overlay" ? (
             <IconButton aria-label="Close sessions" onClick={onClose} sx={{ ml: "auto", color: "text.secondary" }}>
               <X width={18} height={18} />
@@ -291,7 +266,6 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                 "& fieldset": { borderColor: "transparent" },
                 "&:hover fieldset": { borderColor: threadId ? "divider" : "transparent" },
                 "&.Mui-focused fieldset": { borderColor: "primary.main" },
-                opacity: threadId ? 1 : 0.6,
               },
             }}
           />
@@ -360,7 +334,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                       sx={{
                         borderRadius: 3, mb: 0.5, flexDirection: "column", alignItems: "flex-start", py: 1.5, width: "100%", textAlign: "left",
                         border: "1px solid transparent",
-                        "&:hover": { borderColor: "primary.main", bgcolor: isDark ? "rgba(37, 99, 235, 0.05)" : "primary.50" },
+                        "&:hover": { borderColor: "primary.main", bgcolor: isDark ? "rgba(37, 99, 235, 0.05)" : "rgba(37, 99, 235, 0.06)" },
                       }}
                     >
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5, width: "100%" }}>
@@ -435,7 +409,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                                 borderRadius: 3,
                                 border: "1px solid",
                                 borderColor: isActive ? "primary.main" : "transparent",
-                                bgcolor: isActive ? (isDark ? "rgba(37, 99, 235, 0.1)" : "primary.50") : "transparent",
+                                bgcolor: isActive ? (isDark ? "rgba(37, 99, 235, 0.1)" : "rgba(37, 99, 235, 0.06)") : "transparent",
                                 // Rename/delete appear on hover, whenever keyboard focus is in
                                 // the row, and always on touch screens (no hover there).
                                 "& .thread-edit": { display: "none" },

@@ -246,13 +246,13 @@ function AppHeader({
                   bgcolor: active
                     ? isDark
                       ? "rgba(37,99,235,0.16)"
-                      : "primary.50"
+                      : "rgba(37, 99, 235, 0.06)"
                     : "transparent",
                   "&:hover": {
                     bgcolor: active
                       ? isDark
                         ? "rgba(37,99,235,0.22)"
-                        : "primary.100"
+                        : "rgba(37, 99, 235, 0.12)"
                       : isDark
                         ? "rgba(255,255,255,0.05)"
                         : "rgba(0,0,0,0.04)",

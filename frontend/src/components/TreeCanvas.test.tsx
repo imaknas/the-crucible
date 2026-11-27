@@ -85,8 +85,9 @@ function viewportTransform(container: HTMLElement) {
   return container.querySelector<HTMLElement>(".react-flow__viewport")?.style.transform;
 }
 
-const ACTIVE_LIGHT = "rgb(59, 130, 246)"; // #3b82f6
-const ACTIVE_DARK = "rgb(37, 99, 235)"; // #2563eb
+// The selected node is marked by a blue ring, not a fill (it keeps its colour).
+const ACTIVE_LIGHT = "2px solid rgb(37, 99, 235)"; // #2563eb
+const ACTIVE_DARK = "2px solid rgb(96, 165, 250)"; // #60a5fa
 
 beforeEach(() => {
   mockFitView.mockClear();
@@ -106,10 +107,13 @@ describe("TreeCanvas node sync", () => {
     const nodes = twoNodes();
     const edges = edgesFor(nodes);
     const { container, rerenderCanvas } = renderCanvas({ nodes, edges, activeNodeId: "a" });
-    expect(body(container, "a").style.background).toBe(ACTIVE_LIGHT);
+    const surface = body(container, "a").style.background;
+    expect(body(container, "a").style.border).toBe(ACTIVE_LIGHT);
     rerenderCanvas({ nodes, edges, activeNodeId: "b" });
-    expect(body(container, "a").style.background).not.toBe(ACTIVE_LIGHT);
-    expect(body(container, "b").style.background).toBe(ACTIVE_LIGHT);
+    expect(body(container, "a").style.border).not.toBe(ACTIVE_LIGHT);
+    expect(body(container, "b").style.border).toBe(ACTIVE_LIGHT);
+    // Selection no longer repaints the node's own surface.
+    expect(body(container, "a").style.background).toBe(surface);
   });
 
   it("repaints the nodes on a theme swap", () => {
@@ -119,7 +123,7 @@ describe("TreeCanvas node sync", () => {
     const { container, rerenderCanvas } = renderCanvas(props, light);
     const replyColour = body(container, "b").style.background;
     rerenderCanvas(props, dark);
-    expect(body(container, "a").style.background).toBe(ACTIVE_DARK);
+    expect(body(container, "a").style.border).toBe(ACTIVE_DARK);
     expect(body(container, "b").style.background).not.toBe(replyColour);
   });
 

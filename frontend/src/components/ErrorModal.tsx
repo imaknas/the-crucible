@@ -66,7 +66,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
           sx={{
             p: 1.5,
             borderRadius: 2,
-            bgcolor: isDark ? "rgba(239, 68, 68, 0.1)" : "error.50",
+            bgcolor: isDark ? "rgba(239, 68, 68, 0.1)" : "rgba(239, 68, 68, 0.06)",
           }}
         >
           <Settings2 width={24} height={24} color="#ef4444" />
@@ -96,7 +96,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
             mb: 3,
             border: "1px solid",
             borderColor: isDark ? "rgba(239, 68, 68, 0.2)" : "error.light",
-            bgcolor: isDark ? "rgba(0, 0, 0, 0.6)" : "error.50",
+            bgcolor: isDark ? "rgba(0, 0, 0, 0.6)" : "rgba(239, 68, 68, 0.06)",
             color: isDark ? "error.light" : "error.main",
             overflow: "hidden",
           }}
@@ -137,9 +137,9 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
               p: 2,
               borderRadius: 2,
               mb: 1,
-              bgcolor: isDark ? "rgba(59, 130, 246, 0.05)" : "primary.50",
+              bgcolor: isDark ? "rgba(59, 130, 246, 0.05)" : "rgba(37, 99, 235, 0.06)",
               border: "1px solid",
-              borderColor: isDark ? "rgba(59, 130, 246, 0.1)" : "primary.100",
+              borderColor: isDark ? "rgba(59, 130, 246, 0.1)" : "rgba(37, 99, 235, 0.12)",
               color: isDark ? "primary.light" : "primary.main",
             }}
           >

@@ -95,7 +95,11 @@ const CustomTreeNode = React.memo(
     // still reads: the chip inherits the active background and glow.
     const branchName = data.metadata?.name;
     const bookmarked = !!data.metadata?.bookmarked;
-    const focusRing = data.focused ? { outline: "2px dashed #f59e0b", outlineOffset: 3 } : {};
+    // The keyboard focus: amber, apart from the blue of the selected node,
+    // and dark enough for 3:1 on the canvas (amber-500 was 2.1:1 on white).
+    const focusRing = data.focused
+      ? { outline: `2px dashed ${isDark ? "#fbbf24" : "#b45309"}`, outlineOffset: 3 }
+      : {};
 
     if (zoom < LOD_THRESHOLD && (modelName || role === "user")) {
       const label = `${bookmarked ? "★ " : ""}${branchName || (role === "user" ? "You" : modelName)}`;

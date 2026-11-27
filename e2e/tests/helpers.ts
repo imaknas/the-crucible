@@ -1,4 +1,4 @@
-import { Page, expect } from "@playwright/test";
+import { Locator, Page, expect } from "@playwright/test";
 
 /** Matches the fixture built by e2e/seed_db.py. */
 export const MAIN_THREAD_TITLE = "E2E Reference Thread";
@@ -231,4 +231,35 @@ export function debateStatus(page: Page) {
     .getByText(/DEBATE · ROUND/)
     .locator("..")
     .getByText(/^(running|pausing after this round|paused|converged|completed|interrupted)$/);
+}
+
+/**
+ * WCAG contrast of an element's text against what is painted behind it:
+ * every ancestor's background colour composited from the root down
+ * (background images, such as gradients, are not counted).
+ */
+export async function textContrast(locator: Locator): Promise<number> {
+  return locator.evaluate((el) => {
+    const parse = (c: string): number[] => {
+      const m = c.match(/rgba?\(([^)]+)\)/);
+      if (!m) return [0, 0, 0, 0];
+      const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+      return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1];
+    };
+    const over = (top: number[], under: number[]) => [0, 1, 2].map((i) => top[i] * top[3] + under[i] * (1 - top[3]));
+    const chain: Element[] = [];
+    for (let e: Element | null = el; e; e = e.parentElement) chain.unshift(e);
+    let bg = [255, 255, 255];
+    for (const e of chain) bg = over(parse(getComputedStyle(e).backgroundColor), bg);
+    const fg = over(parse(getComputedStyle(el).color), bg);
+    const lum = (rgb: number[]) => {
+      const [r, g, b] = rgb.map((v) => {
+        const c = v / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+    return (a + 0.05) / (b + 0.05);
+  });
 }

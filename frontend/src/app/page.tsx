@@ -470,8 +470,11 @@ export default function Home() {
       />
 
       <Box
-        component="section"
+        component="main"
+        id="main-content"
+        tabIndex={-1}
         sx={{
+          outline: "none",
           flexGrow: 1,
           display: "flex",
           flexDirection: "column",
@@ -482,7 +485,11 @@ export default function Home() {
           borderRadius: { xs: 0, md: `${RADIUS.panel}px` },
           mx: { xs: 0, md: 2 },
           bgcolor: "background.paper",
-          border: { xs: "none", md: "1px solid" },
+          // Width and style only: a responsive `border` shorthand is emitted
+          // after `borderColor` and resets it to the text colour, which drew
+          // the panel in near-black.
+          borderWidth: { xs: 0, md: 1 },
+          borderStyle: "solid",
           borderColor: "divider",
           backdropFilter: "blur(16px)",
           zIndex: 10,

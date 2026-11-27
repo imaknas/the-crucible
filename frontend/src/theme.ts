@@ -46,10 +46,14 @@ export const darkTheme = createTheme({
   ...baseTheme,
   palette: {
     mode: "dark",
+    // Blue is text as well as fills (theme.test.ts measures both): blue-400
+    // reads 7.5:1 on the dark background, and filled buttons carry dark text
+    // (7.4:1); blue-500 was 4.3:1 on the tinted rows and 3.7:1 under white.
     primary: {
-      main: "#3b82f6", // blue-500
-      light: "#60a5fa", // blue-400
-      dark: "#2563eb", // blue-600
+      main: "#60a5fa", // blue-400
+      light: "#93c5fd", // blue-300
+      dark: "#3b82f6", // blue-500
+      contrastText: "#0b1220",
     },
     background: {
       default: "#0a0f1e", // Very dark blue/black
@@ -95,10 +99,13 @@ export const lightTheme = createTheme({
   ...baseTheme,
   palette: {
     mode: "light",
+    // blue-600 is 5.2:1 on white, as text and under white text; blue-500
+    // (3.7:1) failed both wherever the app used `primary`.
     primary: {
-      main: "#3b82f6",
-      light: "#60a5fa",
-      dark: "#2563eb",
+      main: "#2563eb", // blue-600
+      light: "#3b82f6", // blue-500: decoration only, never text
+      dark: "#1d4ed8", // blue-700
+      contrastText: "#ffffff",
     },
     background: {
       default: "#f8fafc", // slate-50
@@ -107,7 +114,9 @@ export const lightTheme = createTheme({
     divider: "#e2e8f0", // slate-200
     text: {
       primary: "#0f172a", // slate-900
-      secondary: "#64748b", // slate-500
+      // Between slate-500 and -600: slate-500 (#64748b) fell under 4.5:1 on
+      // the tinted cards and chips it labels.
+      secondary: "#56657a",
     },
   },
   components: {
