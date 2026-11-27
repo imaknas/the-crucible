@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Box } from "@mui/material";
 import TreeCanvas from "@/components/TreeCanvas";
 import Sidebar from "@/components/Sidebar";
-import ControlPanel from "@/components/ControlPanel";
+import ControlPanel, { API_KEYS_SECTION_ID } from "@/components/ControlPanel";
 import ChatView from "@/components/ChatView";
 import LandingView from "@/components/LandingView";
 import ErrorModal from "@/components/ErrorModal";
@@ -425,6 +425,24 @@ export default function Home() {
   const closePanel = useCallback(() => setPanelOpen(false), [setPanelOpen]);
   const openSidebar = useCallback(() => setSidebarOpen(true), [setSidebarOpen]);
   const openPanel = useCallback(() => setPanelOpen(true), [setPanelOpen]);
+  const { setCollapsed: setPanelCollapsed } = layout.panel;
+  const compactLayout = layout.compact;
+  // The landing view's "Add an API key": open the panel (a drawer on narrow
+  // screens, else the docked panel unfolded), then bring its API Keys section
+  // into view with the first field focused, once it has mounted.
+  const showApiKeys = useCallback(() => {
+    if (compactLayout) setPanelOpen(true);
+    else setPanelCollapsed(false);
+    let tries = 0;
+    const reveal = () => {
+      const section = document.getElementById(API_KEYS_SECTION_ID);
+      if (section) {
+        section.scrollIntoView({ block: "start" });
+        section.querySelector("input")?.focus();
+      } else if (++tries < 60) requestAnimationFrame(reveal);
+    };
+    requestAnimationFrame(reveal);
+  }, [compactLayout, setPanelOpen, setPanelCollapsed]);
   const goHome = useCallback(() => switchThread(""), [switchThread]);
   const { reset: resetReply } = reply;
   const switchDebate = useCallback(
@@ -523,7 +541,7 @@ export default function Home() {
                   transition={{ duration: 0.4 }}
                   className="absolute inset-0 w-full h-full flex"
                 >
-                  <LandingView onStartNewExperiment={startNewExperiment} hasAnyKey={hasAnyKey} />
+                  <LandingView onStartNewExperiment={startNewExperiment} hasAnyKey={hasAnyKey} onAddKeys={showApiKeys} />
                 </motion.div>
               ) : showTree ? (
                 <motion.div
@@ -636,6 +654,7 @@ export default function Home() {
                     onStartFresh={messages.length ? startFresh : undefined}
                     replyTexts={replyTexts}
                     maxPromptChars={limits.max_prompt_chars}
+                    noKeys={hasAnyKey === false}
                     contextNotes={contextNotes}
                     liveTurn={liveTurn}
                     onCompareAnswers={answerDiff.compare}

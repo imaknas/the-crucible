@@ -23,6 +23,8 @@ interface ChatInputProps {
   selectedModels: string[];
   /** Who answers Send and Deliberate (lib/replyTarget); default: the selection. */
   respondingModels?: string[];
+  /** The backend reports no provider key: every action says to add one. */
+  noKeys?: boolean;
   messages: Message[];
   onEditAndRebranch: () => void;
   showEditButton: boolean;
@@ -112,6 +114,7 @@ export const ChatInput = React.memo(
     uploading = null,
     selectedModels,
     respondingModels = selectedModels,
+    noKeys = false,
     messages,
     onEditAndRebranch,
     showEditButton,
@@ -135,6 +138,7 @@ export const ChatInput = React.memo(
       hasHistory: messages.length > 0,
       hasText: !!localInput.trim(),
       overLimit: left !== null && left < 0 ? maxChars : null,
+      noKeys,
     };
     const deliberate = deliberateAction(state);
     // A debate is between the selected models, whichever reply is continued.
@@ -184,7 +188,9 @@ export const ChatInput = React.memo(
         : `${respondingModels.length} models answer`;
     const statusText = isLoading
       ? "Processing…"
-      : onDebateInject
+      : noKeys
+        ? "No API key yet · add one under Control Panel → API Keys"
+        : onDebateInject
         ? "Debate · Send adds your message to the next round"
         : debateOnScreen
           ? `Debate over · Send starts a regular chat turn · ${who}`

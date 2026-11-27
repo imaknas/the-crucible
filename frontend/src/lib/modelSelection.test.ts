@@ -21,12 +21,42 @@ describe("resolveSelection", () => {
     expect(resolveSelection(["gem-a"], families, defaults)).toEqual(["gpt-a", "claude-a"]);
   });
 
-  it("falls back to the default model when no default arena model is usable", () => {
-    expect(resolveSelection([], families, { default_model: "gpt-a", default_arena_models: ["gem-a"] })).toEqual(["gpt-a"]);
+  it("falls back to the default model, paired with another of its family, when no default arena model is usable", () => {
+    expect(resolveSelection([], families, { default_model: "gpt-a", default_arena_models: ["gem-a"] })).toEqual(["gpt-a", "gpt-b"]);
   });
 
   it("selects nothing before the catalogue has loaded", () => {
     expect(resolveSelection(["gpt-a"], [], {})).toEqual([]);
+  });
+
+  it("selects nothing when no family has a key, rather than a model that can only fail", () => {
+    const none = families.map((f) => ({ ...f, available: false }));
+    expect(resolveSelection(["gpt-a"], none, defaults)).toEqual([]);
+  });
+
+  it("with one provider's key, compares its default with that provider's fast model", () => {
+    const anthropic = {
+      key: "anthropic",
+      label: "Anthropic",
+      color: "#000",
+      available: true,
+      models: [
+        { id: "opus", name: "Opus", desc: "Flagship" },
+        { id: "sonnet", name: "Sonnet", desc: "Balanced" },
+        { id: "old", name: "Old", desc: "Legacy" },
+        { id: "haiku", name: "Haiku", desc: "Fast" },
+      ],
+    } as any;
+    const onlyAnthropic = [family("openai", false, ["gpt-a"]), anthropic];
+    expect(resolveSelection([], onlyAnthropic, { default_model: "gpt-a", default_arena_models: ["gpt-a", "sonnet"] })).toEqual([
+      "sonnet",
+      "haiku",
+    ]);
+    // Neither default is offered: the family's first current model, paired.
+    expect(resolveSelection([], onlyAnthropic, { default_model: "gpt-a", default_arena_models: ["gpt-a"] })).toEqual([
+      "opus",
+      "haiku",
+    ]);
   });
 });
 

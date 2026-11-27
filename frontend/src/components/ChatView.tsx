@@ -93,6 +93,8 @@ interface ChatViewProps {
   onStartFresh?: () => void;
   /** The backend's message limit. */
   maxPromptChars?: number;
+  /** The backend reports no provider key: the composer says to add one. */
+  noKeys?: boolean;
   /** What else goes with each message (system prompt, web search, document search). */
   contextNotes?: string[];
   /** Full text of replies streamed in this tab, by tree node id. */
@@ -163,6 +165,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   nextTurnContext = null,
   onStartFresh,
   maxPromptChars,
+  noKeys = false,
   contextNotes,
   replyTexts = EMPTY_TEXTS,
   liveTurn = null,
@@ -1064,6 +1067,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         }
         debateOnScreen={!!debateBanner}
         maxChars={maxPromptChars}
+        noKeys={noKeys}
         modelLabel={modelLabel}
         contextNotes={contextNotes}
       />

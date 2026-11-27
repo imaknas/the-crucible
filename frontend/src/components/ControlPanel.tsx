@@ -55,6 +55,9 @@ interface ControlPanelProps {
 /** Width of the collapsed rail. */
 export const RAIL_WIDTH = 44;
 
+/** The API Keys section's element id: the landing view's "Add an API key" scrolls to it. */
+export const API_KEYS_SECTION_ID = "api-keys";
+
 /**
  * The right-hand settings panel: a shell (collapsed rail or full drawer) that
  * lays out one component per section from ./control-panel/.
@@ -89,6 +92,13 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
     limits,
   }) => {
     const isDark = useTheme().palette.mode === "dark";
+    // Loaded, and no family has a key.
+    const noKeys = families.length > 0 && !families.some((f) => f.available);
+    const apiKeys = (
+      <Box id={API_KEYS_SECTION_ID} sx={{ scrollMarginTop: 16 }}>
+        <ApiKeysSection families={families} isDark={isDark} onSaved={onKeysSaved} />
+      </Box>
+    );
 
     // Collapsed, the panel is a 44px rail. On a 1280px viewport that returns
     // ~250px to the canvas — the panel is mostly static readouts and toggles
@@ -203,6 +213,9 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
           }}
           spacing={4}
         >
+          {/* Without a key nothing works: the keys come first then, not
+              below seven other sections. */}
+          {noKeys && apiKeys}
           <StatusSection
             isDark={isDark}
             families={families}
@@ -236,7 +249,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             maxRounds={limits.max_debate_rounds}
             recommendedRounds={limits.default_debate_rounds}
           />
-          <ApiKeysSection families={families} isDark={isDark} onSaved={onKeysSaved} />
+          {!noKeys && apiKeys}
         </Stack>
       </>
     );

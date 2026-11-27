@@ -32,6 +32,16 @@ describe("sendAction", () => {
   });
 });
 
+describe("without any API key", () => {
+  it("disables every action and says where to add one", () => {
+    // Send used to be enabled and the turn failed only after it was sent.
+    const ready = { isLoading: false, modelCount: 2, hasHistory: true, hasText: true, noKeys: true };
+    for (const action of [sendAction, debateAction, deliberateAction]) {
+      expect(action(ready)).toEqual({ enabled: false, hint: "Add an API key first: Control Panel → API Keys" });
+    }
+  });
+});
+
 describe("the prompt limit", () => {
   const full = { isLoading: false, modelCount: 2, hasHistory: true, hasText: true };
   it("disables sending and debating a message over the limit, saying why", () => {

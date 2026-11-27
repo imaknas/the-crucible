@@ -1,11 +1,13 @@
 import React from "react";
-import { Box, Typography, ButtonBase, Paper, useTheme } from "@mui/material";
+import { Box, Button, Typography, ButtonBase, Paper, useTheme } from "@mui/material";
 import { motion } from "framer-motion";
 import { Sparkles, Network, Zap, Columns3, Swords, KeyRound } from "lucide-react";
 
 interface LandingViewProps {
   onStartNewExperiment: () => void;
   hasAnyKey: boolean | null;
+  /** Open the Control Panel at its API Keys section, the first field focused. */
+  onAddKeys?: () => void;
 }
 
 const FEATURES = [
@@ -32,7 +34,7 @@ const FEATURES = [
   },
 ] as const;
 
-const LandingView: React.FC<LandingViewProps> = ({ onStartNewExperiment, hasAnyKey }) => {
+const LandingView: React.FC<LandingViewProps> = ({ onStartNewExperiment, hasAnyKey, onAddKeys }) => {
   const isDark = useTheme().palette.mode === "dark";
   return (
     <Box
@@ -139,10 +141,16 @@ const LandingView: React.FC<LandingViewProps> = ({ onStartNewExperiment, hasAnyK
               color={isDark ? "#fbbf24" : "#d97706"}
               style={{ flexShrink: 0 }}
             />
-            <Typography variant="body2" sx={{ color: isDark ? "#fcd34d" : "#92400e", lineHeight: 1.5 }}>
-              No API keys configured. Add at least one under{" "}
-              <strong>Control Panel → API Keys</strong> to get started.
+            <Typography variant="body2" sx={{ color: isDark ? "#fcd34d" : "#92400e", lineHeight: 1.5, flex: 1 }}>
+              No API keys yet. Add one for OpenAI, Anthropic, Google or xAI to start.
             </Typography>
+            {/* Takes the person to the field: the section was the last of a
+                long panel, and on a phone behind a closed drawer. */}
+            {onAddKeys && (
+              <Button variant="contained" size="small" onClick={onAddKeys} sx={{ flexShrink: 0 }}>
+                Add an API key
+              </Button>
+            )}
           </Box>
         )}
 

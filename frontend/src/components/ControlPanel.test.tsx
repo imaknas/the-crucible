@@ -1,6 +1,6 @@
 import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import ControlPanel from "./ControlPanel";
+import ControlPanel, { API_KEYS_SECTION_ID } from "./ControlPanel";
 import { DEFAULT_DEBATE_DEFAULTS } from "@/hooks/useDebateDefaults";
 import { FALLBACK_LIMITS } from "@/lib/catalog";
 import type { Toggles } from "@/lib/types";
@@ -137,5 +137,23 @@ describe("ControlPanel wiring", () => {
       fireEvent.click(screen.getByRole("button", { name: "Save Keys" }));
     });
     await waitFor(() => expect(p.onKeysSaved).toHaveBeenCalled());
+  });
+
+  it("names each key field, not only by its placeholder", async () => {
+    await renderPanel(props());
+    expect(screen.getByLabelText("Google API key")).toBeInTheDocument();
+  });
+
+  it("puts API Keys first while no family has a key, and last once one does", async () => {
+    const order = () => {
+      const keys = document.getElementById(API_KEYS_SECTION_ID)!;
+      const status = screen.getByText("Status");
+      return keys.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING ? "keys first" : "keys last";
+    };
+    const { unmount } = await renderPanel(props({ families: FAMILIES.map((f) => ({ ...f, available: false })) }));
+    expect(order()).toBe("keys first");
+    unmount();
+    await renderPanel(props());
+    expect(order()).toBe("keys last");
   });
 });

@@ -204,6 +204,8 @@ export default function ApiKeysSection({
                       }))
                     }
                     slotProps={{
+                      // The placeholder was its only name, gone once typed in.
+                      htmlInput: { "aria-label": `${family.label} API key` },
                       input: {
                         sx: {
                           fontFamily: "monospace",
