@@ -63,7 +63,9 @@ export default function SavedCasesDialog(props: Props) {
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="lg"
+      // The list (often one line saying there is none) at a reading width; a
+      // case, whose replays put old and new side by side, wider.
+      maxWidth={current ? "lg" : "sm"}
       fullWidth
       fullScreen={phone}
       scroll="paper"
@@ -91,7 +93,9 @@ export default function SavedCasesDialog(props: Props) {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose} color="inherit">
+          Close
+        </Button>
       </DialogActions>
     </Dialog>
   );

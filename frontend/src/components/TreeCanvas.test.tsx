@@ -371,9 +371,18 @@ describe("TreeCanvas: moving around a big tree", () => {
     expect(focused()).toBe("a");
     fireEvent.keyDown(canvas, { key: "ArrowRight" });
     expect(focused()).toBe("b");
+    // Said for a screen reader too: the ring alone was silent.
+    expect(screen.getByTestId("tree-focus-status").textContent).toMatch(/^.+: /);
     expect(onNodeClick).not.toHaveBeenCalled();
     fireEvent.keyDown(canvas, { key: "Enter" });
     expect(onNodeClick).toHaveBeenCalledWith("b");
+  });
+
+  it("is one tab stop: no node or edge is focusable on its own", () => {
+    const { container } = renderCanvas({ nodes: tree(), edges: treeEdges, activeNodeId: "q" });
+    // Edges were tab stops named by raw checkpoint ids.
+    expect(container.querySelectorAll(".react-flow__edge[tabindex='0']")).toHaveLength(0);
+    expect(container.querySelectorAll(".react-flow__node[tabindex='0']")).toHaveLength(0);
   });
 
   it("names, bookmarks, collapses and summarizes from a node's menu, and jumps to bookmarks", () => {

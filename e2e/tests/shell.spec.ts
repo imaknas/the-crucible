@@ -166,8 +166,12 @@ test.describe("application shell", () => {
     await page.getByRole("button", { name: "New Session" }).click();
     await showTree(page);
     await expect(page.getByText("No messages yet")).toBeVisible();
-    // The tree has no composer, so it says where the first message is written.
-    await expect(page.getByText(/Switch to Arena/)).toBeVisible();
+    // The tree has no composer, so it says where the first message is
+    // written, and takes you there.
+    await expect(page.getByText(/The tree grows from the messages you send in Arena/)).toBeVisible();
+    await page.getByRole("button", { name: "Write the first message" }).click();
+    await expect(page.getByRole("button", { name: "Arena", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByPlaceholder(/Ask the arena/i)).toBeFocused();
   });
 
   test("lists the verified model catalogue", async ({ page }) => {

@@ -83,11 +83,11 @@ describe("compare card metrics", () => {
     );
     const a = screen.getByRole("article", { name: "Model A's answer" });
     expect(within(a).getByTestId("reply-metrics")).toHaveTextContent(
-      "1.2 s to first token · 8.4 s · 1,234 in / 567 out (120 reasoning) · $0.0123",
+      "1.2 s to first token · 8.4 s total · 1,234 in / 567 out (120 reasoning) · $0.0123",
     );
     const b = screen.getByRole("article", { name: "Model B's answer" });
     expect(within(b).getByTestId("reply-metrics")).toHaveTextContent(
-      "9.1 s · 1,234 in / 567 out · $0.0200",
+      "9.1 s total · 1,234 in / 567 out · $0.0200",
     );
     expect(screen.getByTestId("turn-metrics")).toHaveTextContent(
       "Total · slowest 9.1 s · 2,468 in / 1,134 out (120 reasoning) · $0.0323",
@@ -169,7 +169,7 @@ describe("reply bubble metrics", () => {
   it("shows a reply's metrics under it", () => {
     bubble();
     expect(screen.getByTestId("reply-metrics")).toHaveTextContent(
-      "8.4 s · 1,234 in / 567 out",
+      "8.4 s total · 1,234 in / 567 out",
     );
   });
 

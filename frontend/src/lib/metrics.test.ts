@@ -20,7 +20,7 @@ const one: ReplyMetrics = {
 describe("formatMetrics", () => {
   it("puts an answer on one readable line", () => {
     expect(formatMetrics(one)).toBe(
-      "1.2 s to first token · 8.4 s · 1,234 in / 567 out (120 reasoning) · $0.0123",
+      "1.2 s to first token · 8.4 s total · 1,234 in / 567 out (120 reasoning) · $0.0123",
     );
   });
 
@@ -32,7 +32,7 @@ describe("formatMetrics", () => {
 
   it("leaves out what wasn't recorded", () => {
     expect(formatMetrics({ ...one, ttft_ms: null, reasoning_tokens: 0 })).toBe(
-      "8.4 s · 1,234 in / 567 out · $0.0123",
+      "8.4 s total · 1,234 in / 567 out · $0.0123",
     );
     // No usage: no tokens and no cost (not "price unknown": there is nothing to price).
     expect(
@@ -42,7 +42,7 @@ describe("formatMetrics", () => {
         output_tokens: null,
         cost_usd: null,
       }),
-    ).toBe("1.2 s to first token · 8.4 s");
+    ).toBe("1.2 s to first token · 8.4 s total");
     expect(formatMetrics(null)).toBe("");
   });
 

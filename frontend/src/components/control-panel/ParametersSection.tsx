@@ -33,7 +33,7 @@ export default function ParametersSection({
         />
         <ToggleRow
           isDark={isDark}
-          label="Web Search Grounding"
+          label="Web search"
           subtitle="Allows the model to access the live internet to ground its answers using its native search tool."
           icon={<Globe width={16} height={16} />}
           checked={toggles.use_web_search}

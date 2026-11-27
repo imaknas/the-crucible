@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { VISUALLY_HIDDEN } from "@/theme";
 import {
   Box,
   Button,
@@ -29,22 +30,7 @@ import {
  * added words, and screen readers hear which answer each line is from.
  */
 
-/**
- * Read by screen readers, not shown. Sizes are strings: in `sx` a number up to
- * 1 is a fraction, so `height: 1` made each label as tall as the transcript
- * around it and left thousands of blank pixels below a debate's diff.
- */
-const visuallyHidden = {
-  position: "absolute",
-  width: "1px",
-  height: "1px",
-  overflow: "hidden",
-  clip: "rect(0 0 0 0)",
-  whiteSpace: "nowrap",
-  border: 0,
-  p: 0,
-  m: -0.25,
-} as const;
+const visuallyHidden = VISUALLY_HIDDEN;
 
 const removedBg = (t: Theme) =>
   alpha(t.palette.error.main, t.palette.mode === "dark" ? 0.28 : 0.14);
@@ -425,7 +411,9 @@ export default function AnswerDiffDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose} color="inherit">
+          Close
+        </Button>
       </DialogActions>
     </Dialog>
   );

@@ -123,7 +123,7 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0, { timeout: 30_000 });
 
     // The scripted models report usage, and both are priced, so every number shows.
-    const line = /^\d+\.\d s to first token · \d+\.\d s · [\d,]+ in \/ [\d,]+ out \([\d,]+ reasoning\) · (<)?\$\d/;
+    const line = /^\d+\.\d s to first token · \d+\.\d s total · [\d,]+ in \/ [\d,]+ out \([\d,]+ reasoning\) · (<)?\$\d/;
     const expectMetrics = async () => {
       const cards = page.getByRole("article");
       await expect(cards).toHaveCount(2);

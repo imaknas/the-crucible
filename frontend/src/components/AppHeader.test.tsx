@@ -40,4 +40,11 @@ describe("AppHeader", () => {
     fireEvent.click(screen.getByRole("button", { name: "The Crucible: home" }));
     expect(p.onHome).toHaveBeenCalled();
   });
+
+  it("opens the model picker from who answers", () => {
+    const onShowModels = jest.fn();
+    render(<AppHeader {...props()} onShowModels={onShowModels} />);
+    fireEvent.click(screen.getByRole("button", { name: "2 models: change the models" }));
+    expect(onShowModels).toHaveBeenCalled();
+  });
 });

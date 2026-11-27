@@ -216,6 +216,7 @@ export default function ApiKeysSection({
                           <InputAdornment position="end">
                             <IconButton
                               size="small"
+                              sx={{ minWidth: 28, minHeight: 28 }}
                               aria-label={showVal ? `Hide ${family.label} key` : `Show ${family.label} key`}
                               onClick={() =>
                                 setKeyShowMap((prev) => ({

@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Box } from "@mui/material";
 import TreeCanvas from "@/components/TreeCanvas";
 import Sidebar from "@/components/Sidebar";
-import ControlPanel, { API_KEYS_SECTION_ID } from "@/components/ControlPanel";
+import ControlPanel, { API_KEYS_SECTION_ID, MODELS_SECTION_ID } from "@/components/ControlPanel";
 import ChatView from "@/components/ChatView";
 import LandingView from "@/components/LandingView";
 import ErrorModal from "@/components/ErrorModal";
@@ -47,7 +47,7 @@ import { useSavedCases } from "@/hooks/useSavedCases";
 import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
 import { reconcileMessages } from "@/lib/messages";
 import { answeringModelIds } from "@/lib/catalog";
-import { RADIUS } from "@/theme";
+import { RADIUS, VISUALLY_HIDDEN } from "@/theme";
 
 /**
  * The app shell. State lives in hooks; this component wires them together and
@@ -429,24 +429,30 @@ export default function Home() {
   const closePanel = useCallback(() => setPanelOpen(false), [setPanelOpen]);
   const openSidebar = useCallback(() => setSidebarOpen(true), [setSidebarOpen]);
   const openPanel = useCallback(() => setPanelOpen(true), [setPanelOpen]);
+  const showArena = useCallback(() => setShowTree(false), [setShowTree]);
   const { setCollapsed: setPanelCollapsed } = layout.panel;
   const compactLayout = layout.compact;
-  // The landing view's "Add an API key": open the panel (a drawer on narrow
-  // screens, else the docked panel unfolded), then bring its API Keys section
-  // into view with the first field focused, once it has mounted.
-  const showApiKeys = useCallback(() => {
-    if (compactLayout) setPanelOpen(true);
-    else setPanelCollapsed(false);
-    let tries = 0;
-    const reveal = () => {
-      const section = document.getElementById(API_KEYS_SECTION_ID);
-      if (section) {
-        section.scrollIntoView({ block: "start" });
-        section.querySelector("input")?.focus();
-      } else if (++tries < 60) requestAnimationFrame(reveal);
-    };
-    requestAnimationFrame(reveal);
-  }, [compactLayout, setPanelOpen, setPanelCollapsed]);
+  // Open the settings panel (a drawer on narrow screens, else the docked
+  // panel unfolded) at one of its sections, its first control focused, once
+  // it has mounted: the landing view's "Add an API key", the header's models.
+  const revealPanelSection = useCallback(
+    (id: string, first: string) => {
+      if (compactLayout) setPanelOpen(true);
+      else setPanelCollapsed(false);
+      let tries = 0;
+      const reveal = () => {
+        const section = document.getElementById(id);
+        if (section) {
+          section.scrollIntoView({ block: "start" });
+          section.querySelector<HTMLElement>(first)?.focus();
+        } else if (++tries < 60) requestAnimationFrame(reveal);
+      };
+      requestAnimationFrame(reveal);
+    },
+    [compactLayout, setPanelOpen, setPanelCollapsed],
+  );
+  const showApiKeys = useCallback(() => revealPanelSection(API_KEYS_SECTION_ID, "input"), [revealPanelSection]);
+  const showModels = useCallback(() => revealPanelSection(MODELS_SECTION_ID, "button"), [revealPanelSection]);
   const goHome = useCallback(() => switchThread(""), [switchThread]);
   const { reset: resetReply } = reply;
   const switchDebate = useCallback(
@@ -469,6 +475,10 @@ export default function Home() {
         py: { xs: 0, md: 2 },
       }}
     >
+      {/* The first tab stop: past the sessions list (three buttons a row) to the conversation. */}
+      <a href="#main-content" className="skip-link">
+        Skip to the conversation
+      </a>
       <Sidebar
         threads={threads}
         threadId={threadId}
@@ -517,6 +527,13 @@ export default function Home() {
           zIndex: 10,
         }}
       >
+        {/* The page's one h1, for screen readers (turns are h2, answers h3);
+            the landing view has its own, visible. */}
+        {threadId && (
+          <Box component="h1" sx={VISUALLY_HIDDEN}>
+            The Crucible
+          </Box>
+        )}
         <AppHeader
           connection={connection}
           selectedModels={reply.responders}
@@ -527,6 +544,7 @@ export default function Home() {
           modelColor={modelColor}
           onOpenSessions={layout.compact ? openSidebar : undefined}
           onOpenSettings={layout.compact ? openPanel : undefined}
+          onShowModels={showModels}
         />
 
         <div className="flex-1 relative flex flex-col min-h-0 w-full h-full">
@@ -587,6 +605,7 @@ export default function Home() {
                       key={threadId}
                       nodes={nodes}
                       edges={edges}
+                      onWriteFirst={showArena}
                       activeNodeId={shown || undefined}
                       onNodeClick={selectCheckpoint}
                       onNodeDragStop={moveNode}

@@ -58,12 +58,12 @@ function cost(m: ReplyMetrics | TurnMetrics): string {
   return formatCost(m.cost_usd);
 }
 
-/** One answer on one line: "1.2 s to first token · 8.4 s · 1,234 in / 567 out (120 reasoning) · $0.0123". */
+/** One answer on one line: "1.2 s to first token · 8.4 s total · 1,234 in / 567 out (120 reasoning) · $0.0123". */
 export function formatMetrics(m: ReplyMetrics | null | undefined): string {
   if (!m) return "";
   const parts: string[] = [];
   if (m.ttft_ms !== null) parts.push(`${seconds(m.ttft_ms)} to first token`);
-  if (m.total_ms !== null) parts.push(seconds(m.total_ms));
+  if (m.total_ms !== null) parts.push(`${seconds(m.total_ms)} total`);
   if (hasTokens(m)) parts.push(tokens(m), cost(m));
   return parts.join(" · ");
 }

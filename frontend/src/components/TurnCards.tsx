@@ -194,7 +194,7 @@ export const CompareCard = React.memo(function CompareCard({
         <ButtonBase
           onClick={() => setToggled(!open)}
           aria-expanded={open}
-          sx={{ alignSelf: "flex-start", mb: 1.5, fontSize: "0.75rem", fontWeight: 700, color: color.text }}
+          sx={{ alignSelf: "flex-start", mb: 1.5, minHeight: 24, px: 0.5, ml: -0.5, borderRadius: 1, fontSize: "0.8125rem", fontWeight: 600, color: color.text }}
         >
           {open ? "Show less" : "Show more"}
         </ButtonBase>

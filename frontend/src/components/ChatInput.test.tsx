@@ -30,6 +30,16 @@ function composer() {
 }
 
 describe("ChatInput", () => {
+  it("is focused in a new, empty conversation, and not in one with messages", () => {
+    const { unmount } = render(<ChatInput {...baseProps} value="" onChange={jest.fn()} />);
+    expect(composer()).toHaveFocus();
+    unmount();
+    render(
+      <ChatInput {...baseProps} value="" onChange={jest.fn()} messages={[{ id: "q", role: "user", content: "Hi" }]} />,
+    );
+    expect(composer()).not.toHaveFocus();
+  });
+
   it("keeps the typed prompt when the debate dialog opens", () => {
     const onDebateOpen = jest.fn();
     render(<Controlled {...baseProps} onDebateOpen={onDebateOpen} />);

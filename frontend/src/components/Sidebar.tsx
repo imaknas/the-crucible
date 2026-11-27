@@ -308,8 +308,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
           )}
         </Box>
 
-        {/* Main Content */}
-        <Box sx={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        {/* Main Content: ruled off from the buttons above, which rows used
+            to scroll up against with nothing between them. */}
+        <Box
+          sx={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", borderTop: 1, borderColor: "divider" }}
+        >
           {searchQuery.length >= 2 ? (
             <Box sx={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
               <Box sx={{ px: 3, pt: 2, pb: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -428,15 +431,22 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                                 }}
                                 aria-current={isActive ? "page" : undefined}
                                 title={t.title_derived ? `${t.title} (not named yet: Rename gives it a title)` : t.title}
-                                sx={{ py: 1.5, pl: 2, pr: 1, flex: 1, minWidth: 0, borderRadius: 3, textAlign: "left" }}
+                                sx={{ py: 1, pl: 2, pr: 1, flex: 1, minWidth: 0, borderRadius: 3, textAlign: "left" }}
                               >
                                 {/* A derived title (the backend named an untitled thread from
                                     its first message) is set apart as provisional. */}
                                 <ListItemText
                                   primary={t.title}
+                                  // When it was last active: the list is ordered by that, and
+                                  // nothing on a row said so.
+                                  secondary={sessionAge(t.updated_at, now)}
+                                  secondaryTypographyProps={{ sx: { fontSize: "0.75rem", color: "text.secondary" } }}
                                   primaryTypographyProps={{
                                     variant: "body2",
-                                    fontWeight: t.title_derived ? 500 : 600,
+                                    // The list is navigation, not the content: at 16px/600 it was
+                                    // the boldest text on most screens.
+                                    fontSize: "0.9375rem",
+                                    fontWeight: 500,
                                     noWrap: true,
                                     sx: {
                                       color: isActive ? "primary.main" : t.title_derived ? "text.secondary" : "text.primary",
@@ -451,10 +461,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                                   aria-expanded={isDebateExpanded}
                                   aria-label={`${isDebateExpanded ? "Hide" : "Show"} ${threadDebates.length} debate${threadDebates.length === 1 ? "" : "s"}`}
                                   sx={{
-                                    display: "flex", alignItems: "center", gap: 0.5, px: 0.75, py: 0.5, flexShrink: 0,
+                                    display: "flex", alignItems: "center", gap: 0.5, px: 0.75, minHeight: 24, flexShrink: 0,
                                     borderRadius: 1.5,
                                     bgcolor: "rgba(139,92,246,0.12)",
-                                    color: "#8b5cf6",
+                                    // Violet text dark or light enough to read on its tint (it was 3.7:1).
+                                    color: isDark ? "#c4b5fd" : "#6d28d9",
                                     "&:hover": { bgcolor: "rgba(139,92,246,0.22)" },
                                   }}
                                 >

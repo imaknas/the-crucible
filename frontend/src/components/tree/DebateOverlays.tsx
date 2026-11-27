@@ -90,7 +90,7 @@ export function DebateLaneHeaders({
                 title={`The other models saw ${lane.label || lane.model_id} as ${lane.peer_label}`}
                 style={{
                   flexShrink: 0,
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: 600,
                   color: isDark ? "#94a3b8" : "#64748b",
                   whiteSpace: "nowrap",
@@ -104,7 +104,7 @@ export function DebateLaneHeaders({
               <span
                 data-testid="lane-stance"
                 style={{
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: 700,
                   color: isDark ? "#fbbf24" : "#b45309",
                   whiteSpace: "nowrap",

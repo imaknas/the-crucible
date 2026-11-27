@@ -130,6 +130,13 @@ export const ChatInput = React.memo(
   }: ChatInputProps) => {
     const localInput = value;
     const fileRef = React.useRef<HTMLInputElement>(null);
+    const fieldRef = React.useRef<HTMLTextAreaElement>(null);
+    // A new, empty conversation is for typing into: focus the box (after
+    // "Start a session" or New Session, focus was left on the page).
+    const empty = messages.length === 0;
+    React.useEffect(() => {
+      if (empty) fieldRef.current?.focus();
+    }, [empty]);
 
     const left = maxChars ? charsLeft(localInput.length, maxChars) : null;
     const state = {
@@ -270,6 +277,7 @@ export const ChatInput = React.memo(
               fullWidth
               multiline
               maxRows={6}
+              inputRef={fieldRef}
               value={localInput}
               onChange={(e) => onChange(e.target.value)}
               onKeyDown={(e) => {

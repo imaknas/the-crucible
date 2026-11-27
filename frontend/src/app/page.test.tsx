@@ -145,7 +145,7 @@ function renderPage({ view, thread = "t1" }: { view?: "tree" | "arena"; thread?:
 
 const composer = () => screen.findByPlaceholderText(/Ask the arena/i);
 const storedView = () => localStorage.getItem("crucible_view");
-const emptyTreeHint = /Switch to Arena \(top right\)/;
+const emptyTreeHint = /The tree grows from the messages you send in Arena/;
 
 async function send(text: string) {
   fireEvent.change(await composer(), { target: { value: text } });

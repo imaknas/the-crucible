@@ -23,6 +23,12 @@ describe("Sidebar", () => {
     expect(screen.getByText("Thread 1")).toBeInTheDocument();
   });
 
+  it("says when each session was last active", () => {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+    render(<Sidebar {...mockProps()} threads={[{ id: "t1", title: "Thread 1", updated_at: fiveMinutesAgo }]} />);
+    expect(screen.getByText("5 min ago")).toBeInTheDocument();
+  });
+
   it("handles search input change", async () => {
     render(<Sidebar {...mockProps()} />);
     const searchInput = screen.getByLabelText(/Search this session/i);

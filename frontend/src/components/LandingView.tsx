@@ -43,8 +43,10 @@ const LandingView: React.FC<LandingViewProps> = ({ onStartNewExperiment, hasAnyK
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        // Top-aligned on short screens so the call to action stays above the fold.
-        justifyContent: { xs: "flex-start", lg: "center" },
+        // Top-aligned on short screens so the call to action stays above the
+        // fold. Centred with `safe`: plain centring of content taller than
+        // the pane put its top (the logo) above the scroll origin, unreachable.
+        justifyContent: { xs: "flex-start", lg: "safe center" },
         px: { xs: 2, sm: 4 },
         py: { xs: 3, sm: 4 },
         width: "100%",
@@ -93,7 +95,7 @@ const LandingView: React.FC<LandingViewProps> = ({ onStartNewExperiment, hasAnyK
               mb: 1.5,
               fontSize: { xs: "2.25rem", md: "3.25rem" },
               background: isDark
-                ? "linear-gradient(to right, #fff, #a8a29e)"
+                ? "linear-gradient(to right, #fff, #94a3b8)"
                 : "linear-gradient(to right, #1e293b, #475569)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",

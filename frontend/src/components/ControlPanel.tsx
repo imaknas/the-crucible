@@ -57,6 +57,8 @@ export const RAIL_WIDTH = 44;
 
 /** The API Keys section's element id: the landing view's "Add an API key" scrolls to it. */
 export const API_KEYS_SECTION_ID = "api-keys";
+/** The model picker's element id: the header's models button scrolls to it. */
+export const MODELS_SECTION_ID = "models";
 
 /**
  * The right-hand settings panel: a shell (collapsed rail or full drawer) that
@@ -224,14 +226,16 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
             activeCheckpointLabel={activeCheckpointLabel}
             messagesCount={messagesCount}
           />
-          <ModelPickerSection
-            isDark={isDark}
-            families={families}
-            status={modelsStatus}
-            onRetry={onReloadModels}
-            selectedModels={selectedModels}
-            setSelectedModels={setSelectedModels}
-          />
+          <Box id={MODELS_SECTION_ID} sx={{ scrollMarginTop: 16 }}>
+            <ModelPickerSection
+              isDark={isDark}
+              families={families}
+              status={modelsStatus}
+              onRetry={onReloadModels}
+              selectedModels={selectedModels}
+              setSelectedModels={setSelectedModels}
+            />
+          </Box>
           <ParametersSection isDark={isDark} toggles={toggles} setToggles={setToggles} />
           {votes && <BlindVotesSection isDark={isDark} {...votes} />}
           <SystemPromptSection value={systemPrompt} onChange={onSystemPromptChange} maxChars={limits.max_system_prompt_chars} />
@@ -282,6 +286,7 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
         anchor="right"
         variant="permanent"
         sx={{ width: 280, flexShrink: 0, "& .MuiDrawer-paper": { ...paperSx, width: 280 } }}
+        PaperProps={{ component: "aside", "aria-label": "Settings" } as object}
       >
         {body}
       </Drawer>

@@ -111,7 +111,7 @@ describe("ControlPanel wiring", () => {
   it("flips one parameter at a time", async () => {
     render(<Harness />);
     await act(async () => {});
-    fireEvent.click(screen.getByLabelText("Web Search Grounding"));
+    fireEvent.click(screen.getByLabelText("Web search"));
     expect(screen.getByTestId("toggles")).toHaveTextContent('{"use_rag":false,"use_web_search":true}');
     fireEvent.click(screen.getByLabelText("Search my documents"));
     expect(screen.getByTestId("toggles")).toHaveTextContent('{"use_rag":true,"use_web_search":true}');

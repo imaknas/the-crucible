@@ -17,6 +17,33 @@ export const RADIUS = {
   panel: 16,
 } as const;
 
+/**
+ * Read by screen readers, not shown (an `sx` value). Sizes are strings: in
+ * `sx` a number up to 1 is a fraction, so `height: 1` made each label as
+ * tall as the transcript around it and left thousands of blank pixels below
+ * a debate's diff.
+ */
+export const VISUALLY_HIDDEN = {
+  position: "absolute",
+  width: "1px",
+  height: "1px",
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+  p: 0,
+  m: -0.25,
+} as const;
+
+/**
+ * Every dialog alike: one title size (a few were MUI's h6 default, one Title
+ * Case at 1rem) and the card radius.
+ */
+const DIALOGS = {
+  MuiDialogTitle: { styleOverrides: { root: { fontSize: "1rem", fontWeight: 700 } } },
+  MuiDialog: { styleOverrides: { paper: { borderRadius: RADIUS.lg } } },
+} as const;
+
 const baseTheme = {
   typography: {
     fontFamily: "var(--font-inter), sans-serif",
@@ -27,7 +54,7 @@ const baseTheme = {
     h4: { fontSize: "1.5rem" },
     h5: { fontSize: "1.25rem" },
     h6: { fontSize: "1.125rem" },
-    body1: { fontSize: "1.1rem" },
+    body1: { fontSize: "1rem" },
     body2: { fontSize: "1rem" },
     button: {
       textTransform: "none" as const,
@@ -92,6 +119,7 @@ export const darkTheme = createTheme({
         },
       },
     },
+    ...DIALOGS,
   },
 });
 
@@ -147,5 +175,6 @@ export const lightTheme = createTheme({
         },
       },
     },
+    ...DIALOGS,
   },
 });

@@ -91,7 +91,7 @@ export default function DebateDefaultsSection({
         )}
         <ToggleRow
           isDark={isDark}
-          label="Anonymous Participants"
+          label="Anonymous participants"
           subtitle="Models see each other as Participant A, B… instead of by model name, so they weigh arguments rather than brands."
           icon={<Swords width={16} height={16} />}
           checked={debateDefaults.peer_labels === "anonymous"}
@@ -104,7 +104,7 @@ export default function DebateDefaultsSection({
         />
         <ToggleRow
           isDark={isDark}
-          label="Auto-Synthesize"
+          label="Write the argument map"
           subtitle="Automatically run a synthesis pass after all rounds complete."
           icon={<Swords width={16} height={16} />}
           checked={debateDefaults.auto_synthesize}
@@ -117,7 +117,7 @@ export default function DebateDefaultsSection({
         />
         <ToggleRow
           isDark={isDark}
-          label="Stop When Answers Stop Changing"
+          label="Stop when answers stop changing"
           subtitle="Stop early once each model's answer barely changes from its previous round. This is stability, not agreement."
           icon={<Swords width={16} height={16} />}
           checked={debateDefaults.convergence_threshold !== null}

@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
+import { MotionConfig } from "framer-motion";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v14-appRouter";
 import { lightTheme, darkTheme } from "../theme";
 
@@ -99,7 +100,7 @@ export default function ThemeRegistry({
           theme={mounted ? (isDark ? darkTheme : lightTheme) : darkTheme}
         >
           <CssBaseline />
-          {children}
+          <MotionConfig reducedMotion="user">{children}</MotionConfig>
         </ThemeProvider>
       </ThemeModeContext.Provider>
     </AppRouterCacheProvider>

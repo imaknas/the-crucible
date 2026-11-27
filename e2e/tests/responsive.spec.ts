@@ -31,7 +31,8 @@ for (const viewport of [
 
       await composer.fill("Hello from a small screen");
       await page.getByRole("button", { name: "Send", exact: true }).click();
-      await expect(page.getByText(/Scripted answer from gpt-6\.1-sol/).first()).toBeVisible();
+      // A clean profile: the default arena (GPT-6.2 Sol first).
+      await expect(page.getByText(/Scripted answer from gpt-6\.2-sol/).first()).toBeVisible();
 
       // The settings drawer opens from the header too.
       await page.getByRole("button", { name: "Open settings" }).click();

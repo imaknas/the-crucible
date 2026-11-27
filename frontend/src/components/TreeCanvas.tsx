@@ -1,5 +1,6 @@
 "use client";
 
+import { motionMs } from "@/lib/motion";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTheme } from "@mui/material";
 import ReactFlow, {
@@ -52,6 +53,8 @@ export interface CustomNode extends Node {
 interface TreeCanvasProps {
   nodes: CustomNode[];
   edges: Edge[];
+  /** The empty chat tree's button: switch to Arena, where the first message is written. */
+  onWriteFirst?: () => void;
   onNodeClick?: (nodeId: string) => void;
   onNodeDragStop?: (nodeId: string, position: { x: number; y: number }) => void;
   onLayoutPositions?: (
@@ -158,6 +161,31 @@ const getLayoutedElements = (
   };
 };
 
+/** A tree too small to need a map of itself: it fits on screen. */
+const MINIMAP_MIN_NODES = 12;
+
+/** Inline style for text only screen readers get (the canvas is not MUI `sx`). */
+const SR_ONLY: React.CSSProperties = {
+  position: "absolute",
+  width: "1px",
+  height: "1px",
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+};
+
+/** A node in words: who wrote it and how it begins. */
+export function describeNode(
+  node: { data?: { label?: string }; metadata?: { role?: string; model_name?: string; active_peer?: string; preview?: string } } | undefined,
+): string {
+  if (!node) return "";
+  const meta = node.metadata ?? {};
+  const text = (meta.preview || node.data?.label || "").slice(0, 120);
+  if (meta.role === "user") return `Your message: ${text}`;
+  if (meta.role === "ai") return `${meta.model_name || meta.active_peer || "Reply"}: ${text}`;
+  return "Start of the conversation";
+}
+
 function getNodeColors(role: string, model: string | undefined, isDark: boolean, modelColor?: string) {
   // User messages are the app's blue; every reply uses its family colour (the
   // backend's model_color, guessed from the id only before it arrives), so
@@ -189,6 +217,7 @@ function miniMapColor(node: Node, isDark: boolean): string {
 function TreeViewInner({
   nodes: allNodes,
   edges: allEdges,
+  onWriteFirst,
   onNodeClick,
   onNodeDragStop,
   onLayoutPositions,
@@ -405,7 +434,7 @@ function TreeViewInner({
 
     // After layout, give React Flow a moment to update and then fit view
     setTimeout(() => {
-      fitView({ duration: 600, padding: 0.3 });
+      fitView({ duration: motionMs(600), padding: 0.3 });
     }, 50);
   }, [nodes, edges, setNodes, setEdges, fitView, onNodeDragStop, onLayoutPositions]);
 
@@ -473,8 +502,8 @@ function TreeViewInner({
         !target || shouldFitWholeTree(getNodesBounds(getNodes()), { width, height }, FIT_PADDING, LOD_THRESHOLD);
       fitView(
         whole
-          ? { duration: 500, padding: FIT_PADDING, maxZoom: 0.85 }
-          : { duration: 500, padding: 0.35, nodes: [{ id: target! }], maxZoom: 0.85, minZoom: 0.2 },
+          ? { duration: motionMs(500), padding: FIT_PADDING, maxZoom: 0.85 }
+          : { duration: motionMs(500), padding: 0.35, nodes: [{ id: target! }], maxZoom: 0.85, minZoom: 0.2 },
       );
       fittedKey.current = key;
     } catch (e) {
@@ -496,13 +525,13 @@ function TreeViewInner({
   const handleRecenter = useCallback(() => {
     if (activeNodeId) {
       fitView({
-        duration: 400,
+        duration: motionMs(400),
         padding: 0.7,
         nodes: [{ id: activeNodeId }],
         maxZoom: 1.2,
       });
     } else {
-      fitView({ duration: 400, padding: 0.3 });
+      fitView({ duration: motionMs(400), padding: 0.3 });
     }
   }, [fitView, activeNodeId]);
 
@@ -558,7 +587,7 @@ function TreeViewInner({
         keyMoveZoom.current = { zoom, until: now + KEY_MOVE_MS + 50 };
         setCenter(node.position.x + (node.width ?? 220) / 2, node.position.y + (node.height ?? 80) / 2, {
           zoom,
-          duration: KEY_MOVE_MS,
+          duration: motionMs(KEY_MOVE_MS),
         });
       }
     },
@@ -590,6 +619,12 @@ function TreeViewInner({
       onKeyDownCapture={handleKeyDownCapture}
       data-testid="tree-canvas"
     >
+      {/* What the arrow keys moved to, for a screen reader: the ring alone was silent. */}
+      {externalNodes.length > 0 && (
+        <div role="status" aria-live="polite" data-testid="tree-focus-status" style={SR_ONLY}>
+          {focusedId ? describeNode(externalNodes.find((n) => n.id === focusedId)) : ""}
+        </div>
+      )}
       {notes && !debateMode && (
         <TreeNavBar
           hoistedLabel={hoistedNode ? (hoistedNode.metadata?.name || hoistedNode.data.label || "Message") : null}
@@ -677,18 +712,41 @@ function TreeViewInner({
             gap: 8,
             pointerEvents: "none",
             zIndex: 5,
-            color: isDark ? "#64748b" : "#94a3b8",
+            // Secondary text, not disabled grey: #94a3b8 was 2.6:1 on white.
+            color: isDark ? "#94a3b8" : "#56657a",
           }}
         >
-          <GitBranch size={28} strokeWidth={1.5} />
+          <GitBranch size={28} strokeWidth={1.5} aria-hidden />
           <div style={{ fontSize: 13, fontWeight: 600 }}>
             {debateMode ? "No debate rounds recorded yet" : "No messages yet"}
           </div>
-          <div style={{ fontSize: 11, opacity: 0.8 }}>
+          <div style={{ fontSize: 12 }}>
             {debateMode
               ? "Rounds appear here as each model responds."
-              : "Switch to Arena (top right) and send a message to start the tree."}
+              : "The tree grows from the messages you send in Arena."}
           </div>
+          {!debateMode && onWriteFirst && (
+            // The way there, not directions to it ("top right").
+            <button
+              type="button"
+              onClick={onWriteFirst}
+              style={{
+                pointerEvents: "auto",
+                marginTop: 4,
+                minHeight: 32,
+                padding: "0 14px",
+                borderRadius: RADIUS.md,
+                border: "none",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                background: isDark ? "#60a5fa" : "#2563eb",
+                color: isDark ? "#0b1220" : "#ffffff",
+              }}
+            >
+              Write the first message
+            </button>
+          )}
         </div>
       )}
       {answering && !debateMode && (
@@ -736,6 +794,12 @@ function TreeViewInner({
         // Modified clicks are ours (picking answers), not React Flow's own multi-select.
         multiSelectionKeyCode={null}
         selectionKeyCode={null}
+        // The canvas itself is the one tab stop: arrow keys move between
+        // messages (and the live region below says which). Every node and
+        // edge was a stop too, edges named by raw checkpoint ids: more than
+        // 25 presses to get past a seven-message tree.
+        nodesFocusable={false}
+        edgesFocusable={false}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         minZoom={0.01}
@@ -773,8 +837,10 @@ function TreeViewInner({
                 <Target size={14} />
               </ControlButton>
             </Controls>
-            {/* On a phone-sized canvas the minimap would cover a third of it. */}
-            {width >= 600 && (
+            {/* On a phone-sized canvas the minimap would cover a third of it;
+                a small tree fits on screen anyway, and the minimap sat on its
+                newest node. */}
+            {width >= 600 && externalNodes.length > MINIMAP_MIN_NODES && (
               <MiniMap
                 style={{
                   background: isDark ? "#0f172a" : "#ffffff",
@@ -807,6 +873,13 @@ function TreeViewInner({
         }
         .react-flow__controls button:hover {
           background-color: ${isDark ? "#334155" : "#f1f5f9"} !important;
+        }
+        /* React Flow's credit, readable in both themes (it kept a light chip). */
+        .react-flow__attribution {
+          background: transparent !important;
+        }
+        .react-flow__attribution a {
+          color: ${isDark ? "#94a3b8" : "#56657a"} !important;
         }
       `}</style>
     </div>

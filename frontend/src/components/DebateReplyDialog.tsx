@@ -46,7 +46,9 @@ export default function DebateReplyDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose} color="inherit">
+          Close
+        </Button>
       </DialogActions>
     </Dialog>
   );

@@ -20,6 +20,7 @@ function AppHeader({
   modelColor,
   onOpenSessions,
   onOpenSettings,
+  onShowModels,
 }: {
   connection: { tone: ConnectionTone; label: string };
   selectedModels: string[];
@@ -32,8 +33,11 @@ function AppHeader({
   /** Narrow screens: the side panels are drawers opened from here. */
   onOpenSessions?: () => void;
   onOpenSettings?: () => void;
+  /** Open the settings panel at its model picker. */
+  onShowModels?: () => void;
 }) {
   const { isDark, toggleMode } = useThemeMode();
+  const modelsText = selectedModels.length === 1 ? modelLabel(selectedModels[0]) : `${selectedModels.length} models`;
   return (
     <Box
       component="header"
@@ -99,12 +103,16 @@ function AppHeader({
 
         <Box sx={{ display: { xs: "none", sm: "block" } }}>
           <Typography
-            variant="h6"
+            component="span"
             sx={{
+              display: "block",
+              fontSize: "1.125rem",
               fontWeight: 900,
               letterSpacing: "0.15em",
               lineHeight: 1.1,
               color: "text.primary",
+              // One line: beside both panels at 1280px it broke in two.
+              whiteSpace: "nowrap",
             }}
           >
             THE CRUCIBLE
@@ -150,8 +158,13 @@ function AppHeader({
         </Box>
       </ButtonBase>
 
-      <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, sm: 2 }, ml: "auto" }}>
-        <Box
+      <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, sm: 2 }, ml: "auto", minWidth: 0 }}>
+        {/* Who answers, and the way to change it: it was a label, and the
+            model picker sat in the Control Panel below the status card. */}
+        <ButtonBase
+          onClick={onShowModels}
+          disabled={!onShowModels}
+          aria-label={`${modelsText}: change the models`}
           sx={{
             display: { xs: "none", sm: "flex" },
             alignItems: "center",
@@ -162,6 +175,7 @@ function AppHeader({
             border: "1px solid",
             borderColor: "divider",
             bgcolor: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+            "&:hover": { borderColor: "primary.main" },
           }}
         >
           <Box sx={{ display: "flex", mr: 0.5 }}>
@@ -192,11 +206,9 @@ function AppHeader({
               lineHeight: 1,
             }}
           >
-            {selectedModels.length === 1
-              ? modelLabel(selectedModels[0])
-              : `${selectedModels.length} models`}
+            {modelsText}
           </Typography>
-        </Box>
+        </ButtonBase>
 
         {/* Segmented, so the lit half states the CURRENT view. The old
             single button was labelled with its destination, which reads
@@ -226,8 +238,9 @@ function AppHeader({
                 key={key}
                 onClick={() => onShowTreeChange(key === "tree")}
                 aria-pressed={active}
+                aria-label={label}
                 sx={{
-                  px: 1.75,
+                  px: { xs: 1.25, sm: 1.75 },
                   py: 0.75,
                   borderRadius: 2,
                   display: "flex",
@@ -259,8 +272,11 @@ function AppHeader({
                   },
                 }}
               >
-                <Icon width={13} height={13} />
-                {label}
+                <Icon width={13} height={13} aria-hidden />
+                {/* Icons alone under 360px: at 320 the labels pushed Settings off screen. */}
+                <Box component="span" sx={{ "@media (max-width: 359px)": { display: "none" } }}>
+                  {label}
+                </Box>
               </ButtonBase>
             );
           })}

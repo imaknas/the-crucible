@@ -59,8 +59,6 @@ export default function StatusSection({
                       borderRadius: 1.5,
                       fontSize: "0.6875rem",
                       fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
                       border: `1px solid ${meta.activeBorder}`,
                       bgcolor: meta.activeBg,
                       color: meta.color,
@@ -86,63 +84,71 @@ export default function StatusSection({
             </Box>
           </StatusRow>
 
-          <StatusRow label="Continuing from">
-            <Typography
-              variant="caption"
-              title={activeCheckpointLabel}
-              sx={{
-                color: "text.secondary",
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-                // Wrap between words; break-all in monospace split words mid-way.
-                overflowWrap: "anywhere",
-                wordBreak: "normal",
-                lineHeight: 1.4,
-              }}
-            >
-              {activeCheckpointLabel || "init"}
-            </Typography>
-          </StatusRow>
+          {/* Where the conversation stands: nothing to say before it has one
+              (on the landing view it read "Latest turn" and "0 nodes"). */}
+          {messagesCount > 0 && (
+            <>
+            <StatusRow label="Continuing from">
+              <Typography
+                variant="caption"
+                title={activeCheckpointLabel}
+                sx={{
+                  color: "text.secondary",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                  // Wrap between words; break-all in monospace split words mid-way.
+                  overflowWrap: "anywhere",
+                  wordBreak: "normal",
+                  lineHeight: 1.4,
+                }}
+              >
+                {activeCheckpointLabel || "init"}
+              </Typography>
+            </StatusRow>
 
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              pt: 1.5,
-              borderTop: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            <Typography
-              variant="overline"
-              sx={{
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                letterSpacing: "0.1em",
-                color: "text.secondary",
-              }}
-            >
-              Conversation tree
-            </Typography>
             <Box
               sx={{
-                px: 1.5,
-                py: 0.25,
-                borderRadius: 8,
-                fontSize: "0.75rem",
-                fontWeight: 700,
-                bgcolor: isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(0,0,0,0.05)",
-                color: "text.secondary",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                pt: 1.5,
+                borderTop: "1px solid",
+                borderColor: "divider",
               }}
             >
-              {messagesCount} nodes
+              <Typography
+                variant="overline"
+                sx={{
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.1em",
+                  color: "text.secondary",
+                }}
+              >
+                Conversation tree
+              </Typography>
+              <Box
+                sx={{
+                  px: 1.5,
+                  py: 0.25,
+                  borderRadius: 8,
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  bgcolor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(0,0,0,0.05)",
+                  color: "text.secondary",
+                }}
+              >
+                {messagesCount} nodes
+              </Box>
             </Box>
-          </Box>
+            </>
+          )}
         </Stack>
       </Box>
     </Box>

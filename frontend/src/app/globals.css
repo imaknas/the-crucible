@@ -17,8 +17,8 @@
   --gpt-glow: rgba(16, 185, 129, 0.15);
   --claude-color: #f59e0b;
   --claude-glow: rgba(245, 158, 11, 0.15);
-  --gemini-color: #8b5cf6;
-  --gemini-glow: rgba(139, 92, 246, 0.15);
+  --gemini-color: #ec4899;
+  --gemini-glow: rgba(236, 72, 153, 0.15);
 }
 
 [data-theme="light"] {
@@ -34,8 +34,8 @@
   --gpt-glow: rgba(5, 150, 105, 0.1);
   --claude-color: #d97706;
   --claude-glow: rgba(217, 119, 6, 0.1);
-  --gemini-color: #7c3aed;
-  --gemini-glow: rgba(124, 58, 237, 0.1);
+  --gemini-color: #db2777;
+  --gemini-glow: rgba(219, 39, 119, 0.1);
 }
 
 body {
@@ -223,4 +223,38 @@ body::after {
 textarea:focus-visible,
 input:focus-visible {
   outline: none !important;
+}
+
+/*
+ * Less motion when the system asks for it: transitions and keyframe
+ * animations (the pending-node pulse, panel slides) run in an instant.
+ * Framer Motion follows the same setting (ThemeRegistry's MotionConfig),
+ * and the tree's pans and fits are instant (lib/motion).
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The skip link: off screen until it has keyboard focus. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 2000;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 8px;
 }

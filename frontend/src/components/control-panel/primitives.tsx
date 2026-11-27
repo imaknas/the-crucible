@@ -110,11 +110,13 @@ export function ToggleRow({
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           {icon}
+          {/* 14px: at body2's 16px the labels wrapped to two or three lines
+              in the 290px panel and outweighed the section headers. */}
           <Typography
             variant="body2"
             sx={{
+              fontSize: "0.875rem",
               fontWeight: 600,
-              letterSpacing: "-0.02em",
               color: checked ? "text.primary" : "text.secondary",
             }}
           >

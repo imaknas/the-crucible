@@ -303,8 +303,12 @@ const CustomTreeNode = React.memo(
           <div
             style={{
               position: "absolute",
-              top: "-8px",
-              right: "-8px",
+              // Above the node's top edge, touching it so the pointer can
+              // travel up to it without leaving the node: in its corner it
+              // covered the model's name ("CLAU", "GEMI").
+              bottom: "100%",
+              right: 0,
+              paddingBottom: 4,
               zIndex: 200,
               display: "flex",
               gap: 4,
@@ -436,6 +440,8 @@ const CustomTreeNode = React.memo(
                 if (data.onDelete) data.onDelete(id);
               }}
               style={{
+                // Set apart from Pick and Branch: it deletes the branch.
+                marginLeft: 8,
                 background: "#ef4444",
                 border: "none",
                 borderRadius: "50%",
