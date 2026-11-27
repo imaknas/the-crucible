@@ -203,18 +203,25 @@ export async function send(page: Page, text: string) {
   await page.getByRole("button", { name: "Send", exact: true }).click();
 }
 
-/** Open the debate dialog for `prompt`, set the round count and start it. */
+/**
+ * Open the debate dialog for `prompt`, set the round count and start it.
+ * The argument map is written at the end by default; specs that don't test it
+ * turn it off (`map: false`, the default here) so a debate ends at its rounds.
+ */
 export async function startDebate(
   page: Page,
   prompt: string,
   rounds: number,
-  options: { named?: boolean } = {},
+  options: { named?: boolean; map?: boolean } = {},
 ) {
   await page.getByPlaceholder(/Ask the arena/i).fill(prompt);
   await page.getByRole("button", { name: "Start debate" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Max rounds").fill(String(rounds));
+  const map = dialog.getByLabel("Write the argument map when it ends");
+  if ((await map.isChecked()) !== !!options.map) await map.click();
   if (options.named) {
+    await dialog.getByRole("button", { name: /^More settings/ }).click();
     await dialog.getByRole("combobox", { name: "How models see each other" }).click();
     await page.getByRole("option", { name: "By model name" }).click();
   }

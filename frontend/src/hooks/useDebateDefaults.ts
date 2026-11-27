@@ -20,7 +20,7 @@ export const DEFAULT_DEBATE_DEFAULTS: DebateDefaults = {
   convergence_threshold: null,
   llm_judge: null,
   mode: "all",
-  auto_synthesize: false,
+  auto_synthesize: true,
   synthesizer_model: null,
   peer_labels: "anonymous",
 };

@@ -279,7 +279,7 @@ export function debateCallEstimate(opts: {
   const synthesis = opts.synthesize ? 1 : 0;
   const parts = [`${opts.rounds} ${opts.rounds === 1 ? "round" : "rounds"} × ${opts.participants} models`];
   if (judge) parts.push(`${judge} judge ${judge === 1 ? "call" : "calls"}`);
-  if (synthesis) parts.push("1 synthesis");
+  if (synthesis) parts.push("the argument map");
   return { calls: answers + judge + synthesis, breakdown: parts.join(" + ") };
 }
 

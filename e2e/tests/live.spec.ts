@@ -418,12 +418,15 @@ test.describe("live flows (scripted models)", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText("Should we rewrite it in Rust?")).toBeVisible();
     await expect(dialog.getByText("Claude Sonnet 5.5")).toBeVisible();
+    // The essentials fit a laptop screen without scrolling to Start; the
+    // rest is folded under a summary of what it holds.
+    await expect(dialog.getByRole("button", { name: "Start Debate" })).toBeInViewport();
+    await expect(dialog.getByText(/It picks no winner/)).toBeVisible();
+    await expect(dialog.getByText(/this is stability, not agreement/)).toBeHidden();
+    await dialog.getByRole("button", { name: /^More settings/ }).click();
     // What each setting does is written out, not hidden in hover tooltips.
     await expect(dialog.getByText(/this is stability, not agreement/)).toBeVisible();
     await expect(dialog.getByText(/isn't evidence by itself/)).toBeVisible();
-    await expect(dialog.getByText(/It picks no winner/)).toBeVisible();
-    // ...and the dialog still fits a laptop screen without scrolling to Start.
-    await expect(dialog.getByRole("button", { name: "Start Debate" })).toBeInViewport();
     // Typing a two-digit count over the default must not be clamped mid-way.
     const rounds = dialog.getByLabel("Max rounds");
     await rounds.fill("");
@@ -719,11 +722,19 @@ test.describe("live flows (scripted models)", () => {
     // The reload doubled nothing.
     await expect(page.getByText("Round 1 · independent answers")).toHaveCount(1);
 
-    await page.getByRole("button", { name: "Synthesize" }).click();
+    await page.getByRole("button", { name: "Write the argument map" }).click();
     await expect.poll(async () => {
       const tree = await (await request.get(`${BACKEND_URL}/debate/sessions/${sessionId}/tree`)).json();
       return tree.nodes.some((n: { id: string; metadata?: { pending?: boolean } }) => /synthesis/i.test(n.id) && !n.metadata?.pending);
     }, { timeout: 30_000 }).toBe(true);
+  });
+
+  test("a debate started as the dialog suggests ends in its argument map", async ({ page }) => {
+    // The map is the debate's payoff; by default a debate used to stop one
+    // step before it, with a pale button in the banner.
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await startDebate(page, "Monolith or services?", 1, { map: true });
+    await expect(page.getByText(/^Synthesis · Gemini 4 Neon$/i)).toBeVisible({ timeout: 30_000 });
   });
 
   test("a debate synthesized from the banner is mapped by a model outside the debate", async ({ page }) => {
@@ -731,7 +742,7 @@ test.describe("live flows (scripted models)", () => {
     await startDebate(page, "Monolith or services?", 1);
     await expect(debateStatus(page)).toHaveText("completed", { timeout: 30_000 });
 
-    await page.getByRole("button", { name: "Synthesize" }).click();
+    await page.getByRole("button", { name: "Write the argument map" }).click();
     // GPT and Claude debated: the map comes from Google, the first family
     // outside the debate with a key. It used to be the first participant.
     await expect(page.getByText(/^Synthesis · Gemini 4 Neon$/i)).toBeVisible({ timeout: 30_000 });

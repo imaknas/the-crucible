@@ -42,3 +42,13 @@ class TestEndpointStructure:
         assert fam_map["anthropic"]["available"] is False
         assert fam_map["google"]["available"] is False
         assert fam_map["xai"]["available"] is False
+
+
+def test_each_family_has_its_own_colour_apart_from_synthesis():
+    # Google shared the synthesis violet, so a violet card or node could be
+    # Gemini, a synthesis or a debate's map.
+    from app.registry import FAMILY_META, SYNTHESIS_COLOR
+
+    colours = [meta["color"] for meta in FAMILY_META.values()]
+    assert len(set(colours)) == len(colours)
+    assert SYNTHESIS_COLOR not in colours

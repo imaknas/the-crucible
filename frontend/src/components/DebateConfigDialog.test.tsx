@@ -46,6 +46,7 @@ describe("DebateConfigDialog", () => {
 
   it("starts anonymous by default and can switch to named participants", () => {
     const { onStart } = setup();
+    more();
     fireEvent.mouseDown(screen.getByRole("combobox", { name: "How models see each other" }));
     fireEvent.click(screen.getByRole("option", { name: "By model name" }));
     fireEvent.click(screen.getByRole("button", { name: "Start Debate" }));
@@ -66,25 +67,27 @@ describe("DebateConfigDialog", () => {
   it("says where the participants come from and roughly what the debate costs", () => {
     const { rounds } = setup();
     expect(screen.getByText(/selected in the Control Panel/)).toBeInTheDocument();
-    expect(screen.getByTestId("debate-cost")).toHaveTextContent("Up to 4 model calls (2 rounds × 2 models)");
+    expect(screen.getByTestId("debate-cost")).toHaveTextContent("Up to 5 model calls (2 rounds × 2 models + the argument map)");
     fireEvent.change(rounds, { target: { value: "5" } });
-    expect(screen.getByTestId("debate-cost")).toHaveTextContent("Up to 10 model calls");
+    expect(screen.getByTestId("debate-cost")).toHaveTextContent("Up to 11 model calls");
   });
 
   it("labels its switches for assistive technology", () => {
     setup();
-    expect(screen.getByLabelText("Auto-synthesize")).toBeInTheDocument();
+    more();
+    expect(screen.getByLabelText("Write the argument map when it ends")).toBeInTheDocument();
     expect(screen.getByLabelText("Stop when answers stop changing")).toBeInTheDocument();
   });
 
   it("explains each setting in visible text the control points to", () => {
     setup();
+    more();
     expect(screen.getByText(/this is stability, not agreement/)).toBeVisible();
     expect(screen.getByText(/Agreement reached by debating isn't evidence/)).toBeVisible();
     expect(screen.getByText(/It picks no winner/)).toBeVisible();
     expect(screen.getByText(/weighed by its argument/)).toBeVisible();
     expect(screen.getByLabelText("Stop when answers stop changing")).toHaveAccessibleDescription(/stability, not agreement/);
-    expect(screen.getByLabelText("Auto-synthesize")).toHaveAccessibleDescription(/picks no winner/);
+    expect(screen.getByLabelText("Write the argument map when it ends")).toHaveAccessibleDescription(/picks no winner/);
   });
 
   it("warns in visible text when the rounds go past the recommended count", () => {
@@ -96,6 +99,11 @@ describe("DebateConfigDialog", () => {
   });
 });
 
+/** Unfold the settings past the essentials. */
+function more() {
+  fireEvent.click(screen.getByRole("button", { name: /^More settings/ }));
+}
+
 describe("DebateConfigDialog: how they argue", () => {
   it("starts an open debate unless told otherwise", () => {
     const { onStart } = setup();
@@ -105,6 +113,7 @@ describe("DebateConfigDialog: how they argue", () => {
 
   it("assigns sides, drops the agreement judge, and refuses sides that are all the same", () => {
     const { onStart } = setup();
+    more();
     expect(screen.getByRole("combobox", { name: "Agreement judge" })).toBeInTheDocument();
     fireEvent.mouseDown(screen.getByRole("combobox", { name: "How they argue" }));
     fireEvent.click(screen.getByRole("option", { name: "Assigned sides" }));

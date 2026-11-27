@@ -12,7 +12,7 @@ import { alpha, darken, getContrastRatio, lighten } from "@mui/material/styles";
 export const FAMILY_COLORS = {
   openai: "#10b981",
   anthropic: "#f59e0b",
-  google: "#8b5cf6",
+  google: "#ec4899",
   xai: "#0ea5e9",
   synthesis: "#8b5cf6",
   unknown: "#6366f1",

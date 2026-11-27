@@ -17,6 +17,18 @@ describe("modelPalette", () => {
   });
 });
 
+describe("family colours", () => {
+  it("give every provider its own colour, none of them the synthesis/debate violet", () => {
+    // Google shared the violet with syntheses and debates, so a violet thing
+    // could be any of the three.
+    const { synthesis, unknown, ...families } = FAMILY_COLORS;
+    void unknown;
+    const values = Object.values(families);
+    expect(new Set(values).size).toBe(values.length);
+    expect(values).not.toContain(synthesis);
+  });
+});
+
 describe("readableOn", () => {
   it("leaves a colour that is already readable alone", () => {
     expect(readableOn("#1e40af", SURFACE.light)).toBe("#1e40af");

@@ -438,7 +438,7 @@ FAMILY_META: Dict[str, Dict[str, str]] = {
         "color": "#f59e0b",
         "env_key": "ANTHROPIC_API_KEY",
     },
-    "google": {"label": "Google", "color": "#8b5cf6", "env_key": "GOOGLE_API_KEY"},
+    "google": {"label": "Google", "color": "#ec4899", "env_key": "GOOGLE_API_KEY"},
     "xai": {"label": "xAI", "color": "#0ea5e9", "env_key": "XAI_API_KEY"},
 }
 

@@ -14,9 +14,11 @@ import {
   Select,
   MenuItem,
   Chip,
+  ButtonBase,
+  Collapse,
   useTheme,
 } from "@mui/material";
-import { Swords } from "lucide-react";
+import { ChevronDown, ChevronRight, Swords } from "lucide-react";
 import type { DebateDefaults, DebateStartConfig, PeerLabels } from "@/lib/types";
 import { initialStance, stanceProblem, toStance, type StanceChoice } from "@/lib/stances";
 import StanceSettings from "./StanceSettings";
@@ -93,6 +95,7 @@ export default function DebateConfigDialog({
   const [config, setConfig] = useState<DebateDefaults>(defaults);
   // The field's raw text: clamped on blur and on start, not per keystroke.
   const [roundsText, setRoundsText] = useState(String(defaults.max_rounds));
+  const [advanced, setAdvanced] = useState(false);
 
   // How they argue belongs to this debate only; it isn't a default.
   const [stance, setStance] = useState<StanceChoice>(() => initialStance(participants));
@@ -162,7 +165,7 @@ export default function DebateConfigDialog({
         }}
       >
         <Swords width={18} height={18} color="#8b5cf6" />
-        Configure Debate Session
+        Start a debate
       </DialogTitle>
 
       <DialogContent sx={{ pt: 2 }}>
@@ -245,126 +248,15 @@ export default function DebateConfigDialog({
             />
           </Setting>
 
-          {/* Stop on stability: answers stopped changing (not agreement) */}
-          <Setting
-            help="Stops once each model's answer barely changes from its own last one. Opposed models stop changing too: this is stability, not agreement."
-            helpId="debate-stability-help"
-          >
-            <Typography sx={labelSx}>Stop when answers stop changing</Typography>
-            <Switch
-              size="small"
-              slotProps={{
-                input: { "aria-label": "Stop when answers stop changing", "aria-describedby": "debate-stability-help" },
-              }}
-              checked={config.convergence_threshold !== null}
-              onChange={() =>
-                setConfig((p) => ({
-                  ...p,
-                  convergence_threshold: p.convergence_threshold !== null ? null : 0.92,
-                }))
-              }
-              sx={{ "& .MuiSwitch-track": { bgcolor: "rgba(139,92,246,0.4)" } }}
-            />
-            {config.convergence_threshold !== null && (
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                similarity {config.convergence_threshold}
-              </Typography>
-            )}
-          </Setting>
-
-          {/* LLM Judge: nobody is meant to agree with assigned sides or an advocate */}
-          {open_ && (
-          <Setting
-            help="A model reads each round's answers by participant label, once per participant with the order rotated so each answer takes each position, and stops the debate once every reading finds they agree. Agreement reached by debating isn't evidence by itself."
-            helpId="debate-judge-help"
-            warning={debatingRoleWarning(config.llm_judge, participants, "judge")}
-          >
-            <Typography sx={labelSx}>Agreement judge</Typography>
-            <Select
-              size="small"
-              inputProps={{ "aria-label": "Agreement judge" }}
-              SelectDisplayProps={{ "aria-describedby": "debate-judge-help" } as React.HTMLAttributes<HTMLDivElement>}
-              value={config.llm_judge ?? "__none__"}
-              onChange={(e) =>
-                setConfig((p) => ({
-                  ...p,
-                  llm_judge: e.target.value === "__none__" ? null : e.target.value,
-                }))
-              }
-              sx={{ fontSize: "0.8rem", minWidth: 160 }}
-            >
-              <MenuItem value="__none__">
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  None
-                </Typography>
-              </MenuItem>
-              {availableModels.map((m) => (
-                <MenuItem key={m} value={m} title={m}>
-                  <Typography variant="caption">{modelLabel(m)}</Typography>
-                </MenuItem>
-              ))}
-            </Select>
-          </Setting>
-          )}
-
-          {/* How the two stop conditions combine; meaningless with only one */}
-          {open_ && config.convergence_threshold !== null && config.llm_judge && (
-            <Setting help="Any: either condition ends the debate. All: both must hold at once." helpId="debate-mode-help">
-              <Typography sx={labelSx}>Stop when</Typography>
-              <Select
-                size="small"
-                inputProps={{ "aria-label": "Stop when" }}
-                SelectDisplayProps={{ "aria-describedby": "debate-mode-help" } as React.HTMLAttributes<HTMLDivElement>}
-                value={config.mode}
-                onChange={(e) =>
-                  setConfig((p) => ({ ...p, mode: e.target.value as "any" | "all" }))
-                }
-                sx={{ fontSize: "0.8rem", minWidth: 160 }}
-              >
-                <MenuItem value="any">
-                  <Typography variant="caption">Any condition met</Typography>
-                </MenuItem>
-                <MenuItem value="all">
-                  <Typography variant="caption">All conditions met</Typography>
-                </MenuItem>
-              </Select>
-            </Setting>
-          )}
-
-          {/* How debaters see each other */}
-          <Setting
-            help="Anonymous, a reply is weighed by its argument, not by which model wrote it. The banner always shows you who is who."
-            helpId="debate-peers-help"
-          >
-            <Typography sx={labelSx}>Models see each other</Typography>
-            <Select
-              size="small"
-              value={config.peer_labels}
-              inputProps={{ "aria-label": "How models see each other" }}
-              SelectDisplayProps={{ "aria-describedby": "debate-peers-help" } as React.HTMLAttributes<HTMLDivElement>}
-              onChange={(e) =>
-                setConfig((p) => ({ ...p, peer_labels: e.target.value as PeerLabels }))
-              }
-              sx={{ fontSize: "0.8rem", minWidth: 160 }}
-            >
-              <MenuItem value="anonymous">
-                <Typography variant="caption">As Participant A, B…</Typography>
-              </MenuItem>
-              <MenuItem value="named">
-                <Typography variant="caption">By model name</Typography>
-              </MenuItem>
-            </Select>
-          </Setting>
-
           {/* Auto-synthesize */}
           <Setting
             help="When it ends, map the arguments: the positions, their best evidence, who changed and why, what is unresolved. It picks no winner."
             helpId="debate-synthesis-help"
           >
-            <Typography sx={labelSx}>Auto-synthesize</Typography>
+            <Typography sx={labelSx}>Write the argument map when it ends</Typography>
             <Switch
               size="small"
-              slotProps={{ input: { "aria-label": "Auto-synthesize", "aria-describedby": "debate-synthesis-help" } }}
+              slotProps={{ input: { "aria-label": "Write the argument map when it ends", "aria-describedby": "debate-synthesis-help" } }}
               checked={config.auto_synthesize}
               onChange={() =>
                 setConfig((p) => ({ ...p, auto_synthesize: !p.auto_synthesize }))
@@ -372,41 +264,172 @@ export default function DebateConfigDialog({
             />
           </Setting>
 
-          {/* Synthesizer model */}
-          {config.auto_synthesize && (
-            <Setting
-              help="The model that writes the map. Automatic picks one from a provider that isn't debating when it has a key, else the first participant."
-              helpId="debate-synthesizer-help"
-              warning={debatingRoleWarning(config.synthesizer_model, participants, "synthesizer")}
-            >
-              <Typography sx={labelSx}>Synthesizer</Typography>
-              <Select
-                size="small"
-                inputProps={{ "aria-label": "Synthesizer" }}
-                SelectDisplayProps={{ "aria-describedby": "debate-synthesizer-help" } as React.HTMLAttributes<HTMLDivElement>}
-                value={config.synthesizer_model ?? "__none__"}
-                onChange={(e) =>
-                  setConfig((p) => ({
-                    ...p,
-                    synthesizer_model:
-                      e.target.value === "__none__" ? null : e.target.value,
-                  }))
-                }
-                sx={{ fontSize: "0.8rem", minWidth: 160 }}
+          {/* The rest, folded: nine settings with a paragraph each put Start
+              below the fold. The summary says what is set inside. */}
+          <ButtonBase
+            onClick={() => setAdvanced((v) => !v)}
+            aria-expanded={advanced}
+            aria-controls="debate-more-settings"
+            sx={{ alignSelf: "flex-start", gap: 0.5, minHeight: 28, px: 0.5, borderRadius: 1.5, fontSize: "0.8125rem", fontWeight: 600, color: "text.secondary" }}
+          >
+            {advanced ? <ChevronDown width={14} height={14} aria-hidden /> : <ChevronRight width={14} height={14} aria-hidden />}
+            More settings
+            <Box component="span" sx={{ fontWeight: 400 }}>
+              {` · stops ${config.convergence_threshold !== null || config.llm_judge ? "early" : "at the round limit"}, ${
+                config.peer_labels === "anonymous" ? "anonymous" : "named"
+              }, map by ${config.synthesizer_model ? modelLabel(config.synthesizer_model) : "automatic"}`}
+            </Box>
+          </ButtonBase>
+          <Collapse in={advanced} id="debate-more-settings" unmountOnExit={false}>
+            <Stack spacing={1.75}>
+              {/* Stop on stability: answers stopped changing (not agreement) */}
+              <Setting
+                help="Stops once each model's answer barely changes from its own last one. Opposed models stop changing too: this is stability, not agreement."
+                helpId="debate-stability-help"
               >
-                <MenuItem value="__none__">
+                <Typography sx={labelSx}>Stop when answers stop changing</Typography>
+                <Switch
+                  size="small"
+                  slotProps={{
+                    input: { "aria-label": "Stop when answers stop changing", "aria-describedby": "debate-stability-help" },
+                  }}
+                  checked={config.convergence_threshold !== null}
+                  onChange={() =>
+                    setConfig((p) => ({
+                      ...p,
+                      convergence_threshold: p.convergence_threshold !== null ? null : 0.92,
+                    }))
+                  }
+                  sx={{ "& .MuiSwitch-track": { bgcolor: "rgba(139,92,246,0.4)" } }}
+                />
+                {config.convergence_threshold !== null && (
                   <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                    Automatic
+                    similarity {config.convergence_threshold}
                   </Typography>
-                </MenuItem>
-                {availableModels.map((m) => (
-                  <MenuItem key={m} value={m} title={m}>
-                    <Typography variant="caption">{modelLabel(m)}</Typography>
+                )}
+              </Setting>
+
+              {/* LLM Judge: nobody is meant to agree with assigned sides or an advocate */}
+              {open_ && (
+              <Setting
+                help="A model reads each round's answers by participant label, once per participant with the order rotated so each answer takes each position, and stops the debate once every reading finds they agree. Agreement reached by debating isn't evidence by itself."
+                helpId="debate-judge-help"
+                warning={debatingRoleWarning(config.llm_judge, participants, "judge")}
+              >
+                <Typography sx={labelSx}>Agreement judge</Typography>
+                <Select
+                  size="small"
+                  inputProps={{ "aria-label": "Agreement judge" }}
+                  SelectDisplayProps={{ "aria-describedby": "debate-judge-help" } as React.HTMLAttributes<HTMLDivElement>}
+                  value={config.llm_judge ?? "__none__"}
+                  onChange={(e) =>
+                    setConfig((p) => ({
+                      ...p,
+                      llm_judge: e.target.value === "__none__" ? null : e.target.value,
+                    }))
+                  }
+                  sx={{ fontSize: "0.8rem", minWidth: 160 }}
+                >
+                  <MenuItem value="__none__">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      None
+                    </Typography>
                   </MenuItem>
-                ))}
-              </Select>
-            </Setting>
-          )}
+                  {availableModels.map((m) => (
+                    <MenuItem key={m} value={m} title={m}>
+                      <Typography variant="caption">{modelLabel(m)}</Typography>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </Setting>
+              )}
+
+              {/* How the two stop conditions combine; meaningless with only one */}
+              {open_ && config.convergence_threshold !== null && config.llm_judge && (
+                <Setting help="Any: either condition ends the debate. All: both must hold at once." helpId="debate-mode-help">
+                  <Typography sx={labelSx}>Stop when</Typography>
+                  <Select
+                    size="small"
+                    inputProps={{ "aria-label": "Stop when" }}
+                    SelectDisplayProps={{ "aria-describedby": "debate-mode-help" } as React.HTMLAttributes<HTMLDivElement>}
+                    value={config.mode}
+                    onChange={(e) =>
+                      setConfig((p) => ({ ...p, mode: e.target.value as "any" | "all" }))
+                    }
+                    sx={{ fontSize: "0.8rem", minWidth: 160 }}
+                  >
+                    <MenuItem value="any">
+                      <Typography variant="caption">Any condition met</Typography>
+                    </MenuItem>
+                    <MenuItem value="all">
+                      <Typography variant="caption">All conditions met</Typography>
+                    </MenuItem>
+                  </Select>
+                </Setting>
+              )}
+
+              {/* How debaters see each other */}
+              <Setting
+                help="Anonymous, a reply is weighed by its argument, not by which model wrote it. The banner always shows you who is who."
+                helpId="debate-peers-help"
+              >
+                <Typography sx={labelSx}>Models see each other</Typography>
+                <Select
+                  size="small"
+                  value={config.peer_labels}
+                  inputProps={{ "aria-label": "How models see each other" }}
+                  SelectDisplayProps={{ "aria-describedby": "debate-peers-help" } as React.HTMLAttributes<HTMLDivElement>}
+                  onChange={(e) =>
+                    setConfig((p) => ({ ...p, peer_labels: e.target.value as PeerLabels }))
+                  }
+                  sx={{ fontSize: "0.8rem", minWidth: 160 }}
+                >
+                  <MenuItem value="anonymous">
+                    <Typography variant="caption">As Participant A, B…</Typography>
+                  </MenuItem>
+                  <MenuItem value="named">
+                    <Typography variant="caption">By model name</Typography>
+                  </MenuItem>
+                </Select>
+              </Setting>
+
+              {/* Synthesizer model */}
+              {config.auto_synthesize && (
+                <Setting
+                  help="The model that writes the map. Automatic picks one from a provider that isn't debating when it has a key, else the first participant."
+                  helpId="debate-synthesizer-help"
+                  warning={debatingRoleWarning(config.synthesizer_model, participants, "synthesizer")}
+                >
+                  <Typography sx={labelSx}>Synthesizer</Typography>
+                  <Select
+                    size="small"
+                    inputProps={{ "aria-label": "Synthesizer" }}
+                    SelectDisplayProps={{ "aria-describedby": "debate-synthesizer-help" } as React.HTMLAttributes<HTMLDivElement>}
+                    value={config.synthesizer_model ?? "__none__"}
+                    onChange={(e) =>
+                      setConfig((p) => ({
+                        ...p,
+                        synthesizer_model:
+                          e.target.value === "__none__" ? null : e.target.value,
+                      }))
+                    }
+                    sx={{ fontSize: "0.8rem", minWidth: 160 }}
+                  >
+                    <MenuItem value="__none__">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                        Automatic
+                      </Typography>
+                    </MenuItem>
+                    {availableModels.map((m) => (
+                      <MenuItem key={m} value={m} title={m}>
+                        <Typography variant="caption">{modelLabel(m)}</Typography>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Setting>
+              )}
+            </Stack>
+          </Collapse>
           <Typography data-testid="debate-cost" variant="caption" sx={{ color: "text.secondary" }}>
             Up to {estimate.calls} model calls ({estimate.breakdown}); stopping early makes fewer.
           </Typography>

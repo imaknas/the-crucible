@@ -3,6 +3,7 @@ import { Box, ButtonBase, Typography, useTheme } from "@mui/material";
 import { Pause, Play, RotateCw, Sparkles, Swords, X as XIcon } from "lucide-react";
 import type { DebateUiStatus } from "@/lib/types";
 import type { PeerLegendEntry } from "@/lib/debateTranscript";
+import { SURFACE, readableOn } from "@/lib/colors";
 
 export interface DebateBannerState {
   round: number;
@@ -65,6 +66,10 @@ export default function DebateBanner({
   const note = STATUS_NOTE[state.status];
   const resumes = state.status === "interrupted";
   const isDark = useTheme().palette.mode === "dark";
+  // Text in an accent colour, darkened or lightened to AA on this theme:
+  // amber, emerald and light violet on the tinted strip were 2-3:1.
+  const fg = (color: string) => (color.startsWith("#") ? readableOn(color, isDark ? SURFACE.dark : SURFACE.light) : color);
+  const status = DEBATE_STATUS_STYLE[state.status];
   return (
     <Box
       sx={{
@@ -79,10 +84,10 @@ export default function DebateBanner({
         borderBottom: "1px solid rgba(139,92,246,0.25)",
       }}
     >
-      <Swords width={13} height={13} color="#8b5cf6" />
+      <Swords width={13} height={13} color={fg("#8b5cf6")} aria-hidden />
       <Typography
         variant="overline"
-        sx={{ fontSize: "0.6875rem", fontWeight: 800, letterSpacing: "0.12em", color: "#8b5cf6" }}
+        sx={{ fontSize: "0.6875rem", fontWeight: 800, letterSpacing: "0.12em", color: fg("#8b5cf6") }}
       >
         DEBATE · ROUND {state.round + 1}/{state.maxRounds}
       </Typography>
@@ -100,8 +105,8 @@ export default function DebateBanner({
           px: 1,
           py: 0.25,
           borderRadius: 1,
-          bgcolor: DEBATE_STATUS_STYLE[state.status].bg,
-          color: DEBATE_STATUS_STYLE[state.status].fg,
+          bgcolor: status.bg,
+          color: fg(status.fg),
           fontSize: "0.6875rem",
           fontWeight: 700,
           letterSpacing: "0.08em",
@@ -164,9 +169,10 @@ export default function DebateBanner({
             px: 1.25,
             py: 0.5,
             borderRadius: 1.5,
-            fontSize: "0.6875rem",
+            fontSize: "0.75rem",
+            minHeight: 28,
             fontWeight: 700,
-            color: "#f59e0b",
+            color: fg("#f59e0b"),
             border: "1px solid rgba(245,158,11,0.35)",
             "&:hover": { bgcolor: "rgba(245,158,11,0.12)" },
           }}
@@ -187,9 +193,10 @@ export default function DebateBanner({
             px: 1.25,
             py: 0.5,
             borderRadius: 1.5,
-            fontSize: "0.6875rem",
+            fontSize: "0.75rem",
+            minHeight: 28,
             fontWeight: 700,
-            color: "#10b981",
+            color: fg("#10b981"),
             border: "1px solid rgba(16,185,129,0.35)",
             "&:hover": { bgcolor: "rgba(16,185,129,0.12)" },
           }}
@@ -198,26 +205,28 @@ export default function DebateBanner({
           {resumes ? "Resume" : "One more round"}
         </ButtonBase>
       )}
+      {/* The debate's payoff, so its main action: "Synthesize" meant
+          "merge into one answer" in Arena, and looked disabled here. */}
       {onSynthesize && (
         <ButtonBase
           onClick={onSynthesize}
+          title="A model from outside the debate maps the positions, their strongest arguments and what is unresolved. Not a verdict."
           sx={{
             display: "flex",
             alignItems: "center",
             gap: 0.5,
             px: 1.5,
-            py: 0.5,
+            minHeight: 28,
             borderRadius: 1.5,
-            fontSize: "0.6875rem",
+            fontSize: "0.75rem",
             fontWeight: 700,
-            color: "#a78bfa",
-            border: "1px solid rgba(139,92,246,0.35)",
-            bgcolor: "rgba(139,92,246,0.1)",
-            "&:hover": { bgcolor: "rgba(139,92,246,0.2)" },
+            color: "#ffffff",
+            bgcolor: "#6d28d9",
+            "&:hover": { bgcolor: "#5b21b6" },
           }}
         >
-          <Sparkles width={11} height={11} />
-          Synthesize
+          <Sparkles width={12} height={12} aria-hidden />
+          Write the argument map
         </ButtonBase>
       )}
       {onClose && (
