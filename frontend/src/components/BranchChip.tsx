@@ -125,6 +125,19 @@ function InheritRow({
 }
 
 /**
+ * Above the composer, after a turn stopped before any model answered: it
+ * stays on screen but is not part of what the next message continues
+ * (the backend's answered head), and nothing used to say so.
+ */
+export function StoppedNote() {
+  return (
+    <Typography data-testid="stopped-note" sx={{ fontSize: "0.75rem", color: "text.secondary", mb: 1, px: 1.25 }}>
+      The stopped question isn&apos;t sent: the next message continues from the answers before it, if any.
+    </Typography>
+  );
+}
+
+/**
  * Above the composer: what the next message continues — the latest turn
  * (every model its own reply there), a node the person chose, or nothing
  * ("Start fresh") — what it inherits from there, who answers it when a
@@ -195,6 +208,16 @@ export default function BranchChip({
               </Box>
               : the next message goes without any earlier ones
             </>
+          ) : point.isLatest && answer && !answer.askAll ? (
+            // One model continues its own reply: "the latest turn" alone
+            // read as every model continuing theirs.
+            <>
+              Continuing{" "}
+              <Box component="span" sx={{ fontWeight: 700, color: "text.primary" }}>
+                {modelLabel(answer.replyModel)}&apos;s reply
+              </Box>{" "}
+              in the latest turn
+            </>
           ) : point.isLatest ? (
             <>
               Continuing the{" "}
@@ -217,12 +240,16 @@ export default function BranchChip({
             onClick={() => answer.onChange(!answer.askAll)}
             aria-label={side.offer}
             title={side.offer}
+            // Outlined, so it reads as a control that switches who answers,
+            // not as more of the sentence beside it.
             sx={{
               display: "flex",
               alignItems: "center",
               gap: 0.5,
               px: 1,
-              py: 0.25,
+              minHeight: 24,
+              border: "1px solid",
+              borderColor: "divider",
               borderRadius: 1.5,
               fontSize: "0.75rem",
               fontWeight: 700,

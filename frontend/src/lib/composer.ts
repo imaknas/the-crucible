@@ -32,16 +32,19 @@ export interface ComposerAction {
 
 const BUSY = "Wait for the current replies to finish";
 const NO_KEYS = "Add an API key first: Control Panel → API Keys";
+const DELIBERATION = "Deliberate: one model critiques the conversation so far.";
 
 export function deliberateAction({ isLoading, modelCount, hasHistory, overLimit, noKeys }: ComposerState): ComposerAction {
   if (noKeys) return { enabled: false, hint: NO_KEYS };
   if (isLoading) return { enabled: false, hint: BUSY };
   if (overLimit) return { enabled: false, hint: tooLong(overLimit) };
-  if (modelCount === 0) return { enabled: false, hint: "Select one model to deliberate" };
+  // What it is, then how to get there: with the default arena it is never
+  // available, and its tooltip used to say only the count was wrong.
+  if (modelCount === 0) return { enabled: false, hint: `${DELIBERATION} Select one model to use it.` };
   if (modelCount > 1)
     return {
       enabled: false,
-      hint: `Deliberation needs exactly 1 model selected (${modelCount} are selected)`,
+      hint: `${DELIBERATION} It needs exactly 1 model answering (${modelCount} are): use "Continue with" on one answer, or select one model.`,
     };
   if (!hasHistory)
     return { enabled: false, hint: "Deliberation reviews the conversation so far; send a message first" };

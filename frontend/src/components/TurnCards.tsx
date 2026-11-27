@@ -441,7 +441,9 @@ export default function TurnCards({
       {/* What to do with the answers, once they are in: under them, in one
           row. Combining sat above the cards and was offered while they were
           still streaming, before anyone had read them. */}
-      {!streaming && (synthesis || review || saveCase) && (
+      {/* Nothing to combine, score or keep until an answer was written:
+          a turn stopped before any was offered all three. */}
+      {!streaming && cards.some((c) => c.id) && (synthesis || review || saveCase) && (
         <Box
           data-testid="turn-tools"
           sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 1 }}

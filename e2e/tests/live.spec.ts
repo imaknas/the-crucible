@@ -180,6 +180,8 @@ test.describe("live flows (scripted models)", () => {
     await page.getByRole("button", { name: "Stop generating" }).click();
     await expect(page.locator('article[data-state="stopped"]')).toHaveCount(2);
     await expect(page.getByText("Stopped before it finished: this reply is incomplete.").first()).toBeVisible();
+    // The stopped question stays on screen but the next message leaves it out.
+    await expect(page.getByTestId("stopped-note")).toContainText("The stopped question isn't sent");
   });
 
   test("a multi-model selection survives the refresh after each turn", async ({ page, request }) => {
@@ -274,6 +276,10 @@ test.describe("live flows (scripted models)", () => {
     await send(page, "Go on");
     await expect.poll(() => askedWith("Go on")).toEqual([CLAUDE]);
     await idle();
+    // The chip and the Control Panel say the same thing: Claude continues its
+    // own reply. They used to read "the latest turn", as if all models did.
+    await expect(chip).toContainText("Continuing Claude Sonnet 5.5's reply in the latest turn");
+    await expect(page.getByText("Claude Sonnet 5.5's reply in the latest turn", { exact: true })).toBeVisible();
 
     // Still continuing Claude's thread; now every selected model answers from it.
     await askAll.click();

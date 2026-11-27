@@ -7,7 +7,7 @@ import DebateBanner, { type DebateBannerProps } from "./DebateBanner";
 import { MessageBubble } from "./MessageBubble";
 import { Message, ModelError } from "@/lib/types";
 import ModelErrorBubble from "./ModelErrorBubble";
-import BranchChip, { type AnswerChoice } from "./BranchChip";
+import BranchChip, { StoppedNote, type AnswerChoice } from "./BranchChip";
 import SummaryMarker from "./SummaryMarker";
 import { replyNodeAt } from "@/lib/spanBranch";
 import { maskCards } from "@/lib/blind";
@@ -423,6 +423,14 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   const primaryId = branchPoint && !branchPoint.isLatest && !branchPoint.fresh ? branchPoint.node.id : null;
   const answerers = answererNames(respondingModels ?? selectedModels, modelLabel);
   const chat = !debateBanner;
+  // Every reply of the turn on screen was stopped (or failed) before it was
+  // written: the backend continues from the answers before it (answered_head).
+  const stoppedTurn =
+    !!liveTurn &&
+    !isLoading &&
+    liveTurn.replies.length > 0 &&
+    liveTurn.replies.every((r) => !r.checkpoint_id && (r.stopped || !!r.error)) &&
+    liveTurn.replies.some((r) => r.stopped);
   // "+ Add a model" on a turn: the models with a key that it doesn't have yet.
   const addModelTo = (turnId: string | null | undefined, reply: string | null | undefined, inTurn: string[]) => {
     if (!chat || !onAddModel || !turnId || !reply) return null;
@@ -1060,14 +1068,19 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         onDebateRedirect={onDebateRedirect}
         header={
           branchPoint && !debateBanner ? (
-            <BranchChip
-              point={branchPoint}
-              onReset={() => onResetBranch?.()}
-              modelLabel={modelLabel}
-              answer={answerChoice}
-              context={nextTurnContext}
-              onStartFresh={onStartFresh}
-            />
+            <>
+              {stoppedTurn && <StoppedNote />}
+              <BranchChip
+                point={branchPoint}
+                onReset={() => onResetBranch?.()}
+                modelLabel={modelLabel}
+                answer={answerChoice}
+                context={nextTurnContext}
+                onStartFresh={onStartFresh}
+              />
+            </>
+          ) : stoppedTurn && !debateBanner ? (
+            <StoppedNote />
           ) : undefined
         }
         debateOnScreen={!!debateBanner}

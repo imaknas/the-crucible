@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import BranchChip from "./BranchChip";
+import BranchChip, { StoppedNote } from "./BranchChip";
 import type { BranchPoint } from "@/lib/branching";
 
 const point: BranchPoint = {
@@ -84,6 +84,27 @@ describe("BranchChip", () => {
   it("offers no switch when there is no choice", () => {
     render(<BranchChip point={point} onReset={jest.fn()} modelLabel={label} />);
     expect(screen.queryByRole("button", { name: /^Ask/ })).toBeNull();
+  });
+});
+
+describe("BranchChip, who continues the latest turn", () => {
+  const answer = { replyModel: "claude-x", askAll: false, selected: ["gpt-y", "claude-x"], onChange: jest.fn() };
+
+  it("names the one model's reply when only it answers, not the whole turn", () => {
+    render(<BranchChip point={{ ...point, isLatest: true }} onReset={jest.fn()} modelLabel={label} answer={answer} />);
+    expect(screen.getByTestId("branch-chip")).toHaveTextContent("Continuing Claude X's reply in the latest turn");
+  });
+
+  it("says the latest turn when every selected model answers", () => {
+    render(
+      <BranchChip point={{ ...point, isLatest: true }} onReset={jest.fn()} modelLabel={label} answer={{ ...answer, askAll: true }} />,
+    );
+    expect(screen.getByTestId("branch-chip")).toHaveTextContent("Continuing the latest turn");
+  });
+
+  it("says a stopped question is left out of the next message", () => {
+    render(<StoppedNote />);
+    expect(screen.getByTestId("stopped-note")).toHaveTextContent("The stopped question isn't sent");
   });
 });
 

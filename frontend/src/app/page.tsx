@@ -688,7 +688,14 @@ export default function Home() {
         respondingModels={reply.responders}
         setSelectedModels={setSelectedModels}
         messagesCount={nodes.length}
-        activeCheckpointLabel={chosen === null ? "Latest turn" : anchorNode?.data?.label || "Start"}
+        activeCheckpointLabel={
+          chosen !== null
+            ? anchorNode?.data?.label || "Start"
+            : reply.replyModel && !reply.askAll
+              ? // Said the same way as the branch chip: one model's reply, not the whole turn.
+                `${modelLabel(reply.replyModel)}'s reply in the latest turn`
+              : "Latest turn"
+        }
         debateDefaults={debateDefaults}
         setDebateDefaults={setDebateDefaults}
         collapsed={layout.panel.collapsed}

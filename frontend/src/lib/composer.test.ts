@@ -8,6 +8,8 @@ describe("deliberateAction", () => {
   });
   it("explains why it is unavailable", () => {
     expect(deliberateAction({ ...base, modelCount: 2 }).hint).toMatch(/exactly 1 model/);
+    // Says what it is, not only that the count is wrong.
+    expect(deliberateAction({ ...base, modelCount: 3 }).hint).toMatch(/^Deliberate: one model critiques the conversation so far\./);
     expect(deliberateAction({ ...base, hasHistory: false }).hint).toMatch(/send a message first/);
     expect(deliberateAction({ ...base, isLoading: true }).enabled).toBe(false);
   });
