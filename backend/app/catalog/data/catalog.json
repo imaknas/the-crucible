@@ -781,6 +781,75 @@
   },
   {
    "capabilities": {
+    "context_caching": false,
+    "thinking": true
+   },
+   "display_name": "Gemini 4 Carbon",
+   "id": "gemini-4-carbon",
+   "input_limit": 1048576,
+   "output_limit": 32768,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-28",
+    "chat_ok": true,
+    "error": null,
+    "served_as": null,
+    "web_search_checked": "2026-11-28",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": false,
+    "thinking": true
+   },
+   "display_name": "Gemini 4 Hydrogen",
+   "id": "gemini-4-hydrogen",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-28",
+    "chat_ok": true,
+    "error": null,
+    "served_as": null,
+    "web_search_checked": "2026-11-28",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "context_caching": false,
+    "thinking": true
+   },
+   "display_name": "Gemini 4 Neon",
+   "id": "gemini-4-neon",
+   "input_limit": 1048576,
+   "output_limit": 65536,
+   "provider": "google",
+   "released": null,
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-28",
+    "chat_ok": true,
+    "error": null,
+    "served_as": null,
+    "web_search_checked": "2026-11-28",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
     "context_caching": true,
     "thinking": true
    },
@@ -1363,12 +1432,12 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-10",
+    "chat_checked": "2026-11-28",
     "chat_ok": true,
     "error": null,
     "served_as": null,
-    "web_search_checked": null,
-    "web_search_ok": null
+    "web_search_checked": "2026-11-28",
+    "web_search_ok": true
    }
   },
   {
@@ -1438,9 +1507,9 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-10",
+    "chat_checked": "2026-11-28",
     "chat_ok": true,
-    "error": null,
+    "error": "web search: HTTP 429: Rate limit reached for gpt-5.2-pro in organization org-… on tokens per min (TPM): Limit 400000, Used 375208, Requested 27064. Please try again in 341ms. Visit https://platform.openai.com/account/rate-",
     "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
@@ -1538,9 +1607,9 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-10",
+    "chat_checked": "2026-11-28",
     "chat_ok": true,
-    "error": null,
+    "error": "web search: timed out (ReadTimeout)",
     "served_as": null,
     "web_search_checked": null,
     "web_search_ok": null
@@ -1700,6 +1769,28 @@
    "capabilities": {
     "api": "chat_completions"
    },
+   "display_name": "gpt-6-astra-healthcare",
+   "id": "gpt-6-astra-healthcare",
+   "input_limit": null,
+   "output_limit": null,
+   "provider": "openai",
+   "released": "2026-10-16",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-28",
+    "chat_ok": true,
+    "error": null,
+    "served_as": null,
+    "web_search_checked": "2026-11-28",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-6-luna",
    "id": "gpt-6-luna",
    "input_limit": 922000,
@@ -1775,6 +1866,28 @@
    "capabilities": {
     "api": "chat_completions"
    },
+   "display_name": "gpt-6.1-sol-healthcare",
+   "id": "gpt-6.1-sol-healthcare",
+   "input_limit": null,
+   "output_limit": null,
+   "provider": "openai",
+   "released": "2026-10-26",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-28",
+    "chat_ok": true,
+    "error": null,
+    "served_as": null,
+    "web_search_checked": "2026-11-28",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
    "display_name": "gpt-6.1-terra",
    "id": "gpt-6.1-terra",
    "input_limit": 922000,
@@ -1793,6 +1906,100 @@
     "error": null,
     "served_as": null,
     "web_search_checked": "2026-11-02",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "gpt-6.2-astra",
+   "id": "gpt-6.2-astra",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-10-31",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-6.2-astra",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-6.2-astra"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-28",
+    "chat_ok": true,
+    "error": null,
+    "served_as": null,
+    "web_search_checked": "2026-11-28",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "gpt-6.2-astra-healthcare",
+   "id": "gpt-6.2-astra-healthcare",
+   "input_limit": null,
+   "output_limit": null,
+   "provider": "openai",
+   "released": "2026-10-31",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-28",
+    "chat_ok": true,
+    "error": null,
+    "served_as": null,
+    "web_search_checked": "2026-11-28",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "gpt-6.2-sol",
+   "id": "gpt-6.2-sol",
+   "input_limit": 922000,
+   "output_limit": 128000,
+   "provider": "openai",
+   "released": "2026-11-02",
+   "shutdown_date": null,
+   "sources": {
+    "input_limit": "openai docs (1,050,000 context window − 128,000 max output): https://developers.openai.com/api/docs/models/gpt-6.2-sol",
+    "output_limit": "openai docs: https://developers.openai.com/api/docs/models/gpt-6.2-sol"
+   },
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-28",
+    "chat_ok": true,
+    "error": null,
+    "served_as": null,
+    "web_search_checked": "2026-11-28",
+    "web_search_ok": true
+   }
+  },
+  {
+   "capabilities": {
+    "api": "chat_completions"
+   },
+   "display_name": "gpt-6.2-sol-healthcare",
+   "id": "gpt-6.2-sol-healthcare",
+   "input_limit": null,
+   "output_limit": null,
+   "provider": "openai",
+   "released": "2026-11-02",
+   "shutdown_date": null,
+   "sources": {},
+   "status": "listed",
+   "verification": {
+    "chat_checked": "2026-11-28",
+    "chat_ok": true,
+    "error": null,
+    "served_as": null,
+    "web_search_checked": "2026-11-28",
     "web_search_ok": true
    }
   },
@@ -2100,6 +2307,9 @@
   },
   {
    "capabilities": {
+    "aliases": [
+     "grok-4.6-latest"
+    ],
     "api": "chat_completions",
     "image_input": true,
     "reasoning_effort": [
@@ -2121,16 +2331,19 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-10",
+    "chat_checked": "2026-11-28",
     "chat_ok": true,
     "error": null,
     "served_as": null,
-    "web_search_checked": "2026-11-02",
+    "web_search_checked": "2026-11-28",
     "web_search_ok": true
    }
   },
   {
    "capabilities": {
+    "aliases": [
+     "grok-4.7-latest"
+    ],
     "api": "chat_completions",
     "image_input": true,
     "reasoning_effort": [
@@ -2152,11 +2365,11 @@
    },
    "status": "listed",
    "verification": {
-    "chat_checked": "2026-11-10",
+    "chat_checked": "2026-11-28",
     "chat_ok": true,
     "error": null,
     "served_as": null,
-    "web_search_checked": "2026-11-02",
+    "web_search_checked": "2026-11-28",
     "web_search_ok": true
    }
   },
@@ -2180,7 +2393,7 @@
    "sources": {
     "input_limit": "xai /v1/models context_length (shared by input and output; no output limit is reported): https://docs.x.ai/developers/rest-api-reference/inference/models"
    },
-   "status": "listed",
+   "status": "unlisted",
    "verification": {
     "chat_checked": "2026-11-10",
     "chat_ok": true,
@@ -2191,5 +2404,5 @@
    }
   }
  ],
- "synced": "2026-11-10"
+ "synced": "2026-11-28"
 }

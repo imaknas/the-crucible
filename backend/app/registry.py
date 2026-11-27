@@ -21,6 +21,22 @@ from app.catalog.names import is_dated_snapshot, listed_id
 # window. Anthropic values are 70% of the window reported by the models API.
 MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
     # ─── OpenAI ────────────────────────────────────────────────
+    "gpt-6.2-astra": {
+        "family": "openai",
+        "id": "gpt-6.2-astra",
+        "name": "GPT-6.2 Astra",
+        "desc": "Flagship",
+        "limit": 100_000,
+        "native_search": True,
+    },
+    "gpt-6.2-sol": {
+        "family": "openai",
+        "id": "gpt-6.2-sol",
+        "name": "GPT-6.2 Sol",
+        "desc": "Balanced",
+        "limit": 100_000,
+        "native_search": True,
+    },
     "gpt-6-astra": {
         "family": "openai",
         "id": "gpt-6-astra",
@@ -237,11 +253,35 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "native_search": True,
     },
     # ─── Google ────────────────────────────────────────────────
+    "gemini-4-carbon": {
+        "family": "google",
+        "id": "gemini-4-carbon",
+        "name": "Gemini 4 Carbon",
+        "desc": "Flagship",
+        "limit": 800_000,
+        "native_search": True,
+    },
     "gemini-4-argon": {
         "family": "google",
         "id": "gemini-4-argon",
         "name": "Gemini 4 Argon",
         "desc": "Flagship",
+        "limit": 800_000,
+        "native_search": True,
+    },
+    "gemini-4-neon": {
+        "family": "google",
+        "id": "gemini-4-neon",
+        "name": "Gemini 4 Neon",
+        "desc": "Balanced",
+        "limit": 800_000,
+        "native_search": True,
+    },
+    "gemini-4-hydrogen": {
+        "family": "google",
+        "id": "gemini-4-hydrogen",
+        "name": "Gemini 4 Hydrogen",
+        "desc": "Fast",
         "limit": 800_000,
         "native_search": True,
     },
