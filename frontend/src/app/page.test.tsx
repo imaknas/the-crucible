@@ -438,7 +438,7 @@ describe("Home: adding a model to a turn, and the reply the next message continu
     expect(frames.map((f) => f.parent_checkpoint_id)).toEqual([null, null]);
   });
 
-  it("Everyone continues from here makes that reply the branch point for every selected model", async () => {
+  it("Continue with all makes that reply the branch point for every selected model", async () => {
     mocked.fetchHistory.mockResolvedValue(
       history([answer("a1", "gpt-a", "GPT A"), answer("b1", "claude-b", "Claude B")]) as never,
     );
@@ -446,7 +446,7 @@ describe("Home: adding a model to a turn, and the reply the next message continu
     const claude = await screen.findByRole("article", { name: "Claude B's answer" });
     mocked.fetchHistory.mockClear();
     await act(async () => {
-      fireEvent.click(within(claude).getByRole("button", { name: "Everyone continues from here" }));
+      fireEvent.click(within(claude).getByRole("button", { name: "Continue with all 2" }));
     });
     expect(mocked.fetchHistory).toHaveBeenCalledWith("t1", "b1");
     expect(await within(screen.getByRole("article", { name: "Claude B's answer" })).findByTestId("next-here")).toBeInTheDocument();

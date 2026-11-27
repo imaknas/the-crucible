@@ -120,7 +120,7 @@ describe("the reply the next message continues", () => {
     expect(screen.queryByTestId("next-here")).toBeNull();
   });
 
-  it("offers Everyone continues from here when it adds models, beside Continue from this", () => {
+  it("offers continuing with every selected model when it adds models, beside this model alone", () => {
     const onContinueAll = jest.fn();
     const onContinueReply = jest.fn();
     render(
@@ -133,8 +133,8 @@ describe("the reply the next message continues", () => {
       />,
     );
     // Only "a" is selected: on a's card everyone is a alone, so it isn't offered.
-    expect(within(cardOf("Model A")).queryByRole("button", { name: "Everyone continues from here" })).toBeNull();
-    fireEvent.click(within(cardOf("Model B")).getByRole("button", { name: "Everyone continues from here" }));
+    expect(within(cardOf("Model A")).queryByRole("button", { name: "Continue with every selected model" })).toBeNull();
+    fireEvent.click(within(cardOf("Model B")).getByRole("button", { name: "Continue with every selected model" }));
     expect(onContinueAll).toHaveBeenCalledWith("n_b");
     fireEvent.click(within(cardOf("Model B")).getByRole("button", { name: "Continue with Model B" }));
     expect(onContinueReply).toHaveBeenCalledWith("n_b");
@@ -142,7 +142,7 @@ describe("the reply the next message continues", () => {
 });
 
 describe("under a single-model reply", () => {
-  it("shows the mark, Everyone continues from here and Add a model", () => {
+  it("shows the mark, Continue with all N and Add a model", () => {
     const onContinueAll = jest.fn();
     const onAdd = jest.fn();
     render(
@@ -154,10 +154,11 @@ describe("under a single-model reply", () => {
         addModel={{ options: ["b"], disabled: false, onAdd }}
         onContinueAll={onContinueAll}
         modelLabel={modelLabel}
+        selectedCount={3}
       />,
     );
     expect(screen.getByTestId("next-here")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Everyone continues from here" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue with all 3" }));
     expect(onContinueAll).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Add a model" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Model B" }));
@@ -183,4 +184,53 @@ it("names who answers in words", () => {
   expect(answererNames(["a"], modelLabel)).toBe("Model A");
   expect(answererNames(["a", "b", "c"], modelLabel)).toBe("Model A, Model B and Model C");
   expect(answererNames([], modelLabel)).toBe("");
+});
+
+describe("the add-model menu on a long catalogue", () => {
+  const many = Array.from({ length: 10 }, (_, i) => `m${i}`);
+  const groupOf = (id: string) => (Number(id.slice(1)) < 5 ? "OpenAI" : "Google");
+
+  it("groups the models by provider and filters them as you type", () => {
+    render(
+      <TurnCards {...base} cards={[card("a"), card("b")]} addModel={{ options: many, disabled: false, onAdd: jest.fn(), groupOf }} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add a model" }));
+    const menu = screen.getByRole("menu", { name: "Model to add to this turn" });
+    expect(within(menu).getByText("OpenAI")).toBeInTheDocument();
+    expect(within(menu).getByText("Google")).toBeInTheDocument();
+    expect(within(menu).getAllByRole("menuitem")).toHaveLength(10);
+    fireEvent.change(screen.getByLabelText("Filter models"), { target: { value: "m7" } });
+    expect(within(menu).getAllByRole("menuitem").map((i) => i.textContent)).toEqual(["m7"]);
+    expect(within(menu).queryByText("OpenAI")).toBeNull();
+  });
+});
+
+describe("a turn with a failed model", () => {
+  const metrics = { ttft_ms: 100, total_ms: 900, input_tokens: 10, output_tokens: 20, reasoning_tokens: 0, cached_input_tokens: 0, cost_usd: 0.001 };
+
+  it("says how many answered in its total", () => {
+    render(
+      <TurnCards
+        {...base}
+        cards={[card("a", { metrics }), card("b", { metrics }), card("c", { id: null, text: "", error: "c failed" })]}
+      />,
+    );
+    expect(screen.getByTestId("turn-metrics")).toHaveTextContent(/^2 of 3 answered · /);
+  });
+});
+
+describe("what to do with the answers", () => {
+  const synthesis = { ids: ["n_a", "n_b"], disabled: false, options: ["a", "b"], firstSelected: "a", onSynthesize: jest.fn() };
+
+  it("is offered under the cards once every answer is in, not while they stream", () => {
+    const { rerender } = render(
+      <TurnCards {...base} cards={[card("a"), card("b", { streaming: true })]} synthesis={synthesis} />,
+    );
+    expect(screen.queryByTestId("turn-tools")).toBeNull();
+    rerender(<TurnCards {...base} cards={[card("a"), card("b")]} synthesis={synthesis} />);
+    const tools = screen.getByTestId("turn-tools");
+    // Under the cards, in the document's order.
+    expect(cardOf("Model B").compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(tools).getByRole("button", { name: "Synthesize answers" })).toBeEnabled();
+  });
 });

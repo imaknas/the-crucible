@@ -110,6 +110,8 @@ interface ChatViewProps {
   onAddModel?: (reply: string, turnId: string, model: string) => void;
   /** Models that can be added to a turn (those with a key). */
   addableModels?: string[];
+  /** A model's provider, by name: the add-model menu groups by it. */
+  modelGroup?: (id: string) => string;
   /** "Everyone continues from here": the reply becomes the branch point and every selected model answers. */
   onContinueReplyAll?: (id: string) => void;
   /** "Save as a case" on a finished turn: `turn` is the reply on screen (its branch is the case's history), else the turn id. */
@@ -172,6 +174,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onCompareAnswers,
   onAddModel,
   addableModels: addable = EMPTY_MODELS,
+  modelGroup,
   onContinueReplyAll,
   onSaveCase,
   savingCase = null,
@@ -427,6 +430,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
       options: addableModels(addable, inTurn),
       disabled: isLoading,
       onAdd: (model: string) => onAddModel(reply, turnId, model),
+      groupOf: modelGroup,
     };
   };
 
@@ -920,6 +924,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                           : undefined
                       }
                       modelLabel={modelLabel}
+                      selectedCount={selectedModels.length}
                     />
                   )}
                 </React.Fragment>

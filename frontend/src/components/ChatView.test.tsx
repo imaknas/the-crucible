@@ -352,7 +352,7 @@ describe("ChatView synthesis", () => {
       );
       fireEvent.click(
         within(screen.getByRole("article", { name: "CLAUDE's answer" })).getByRole("button", {
-          name: "Everyone continues from here",
+          name: "Continue with all 2",
         }),
       );
       expect(onContinueReplyAll).toHaveBeenCalledWith("b1");

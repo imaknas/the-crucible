@@ -102,8 +102,10 @@ export default function VoteBar({
         mt: 1.5,
         p: 1.5,
         borderRadius: `${RADIUS.lg}px`,
-        border: "1px dashed",
+        // A solid, quiet surface: dashed, it read as a drop zone.
+        border: "1px solid",
         borderColor: "divider",
+        bgcolor: "action.hover",
         display: "flex",
         flexDirection: "column",
         gap: 1,
@@ -139,6 +141,10 @@ export default function VoteBar({
         </ButtonBase>
       </Box>
       <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+        {/* Its value alone ("general") said nothing about what it was. */}
+        <Typography component="span" aria-hidden sx={{ fontSize: "0.8125rem", color: "text.secondary" }}>
+          Task
+        </Typography>
         <Select
           size="small"
           value={task}

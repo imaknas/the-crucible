@@ -2,7 +2,8 @@ import { SYNTHESIS_MODES, type SynthesisMode, type SynthesisRequest } from "@/li
 import PeerReviewPanel from "./PeerReviewPanel";
 import type { AnswerReview } from "@/lib/types";
 import React from "react";
-import { Box, ButtonBase, CircularProgress, Divider, Menu, MenuItem, Paper, Select, Stack, Typography } from "@mui/material";
+import { Box, Button, ButtonBase, CircularProgress, Divider, Menu, MenuItem, Paper, Select, Tooltip, Typography } from "@mui/material";
+import { RADIUS } from "@/theme";
 import { AlertTriangle, CheckCircle2, Scale, Sparkles } from "lucide-react";
 import { MessageBody, getModelColor } from "./MessageBubble";
 import type { TurnCard } from "@/lib/turns";
@@ -12,14 +13,17 @@ import { ReplyMetricsLine, TurnMetricsLine } from "./ReplyMetrics";
 import { ReplyContextNote } from "./ContextNotes";
 import { AddModelMenu, ContinueAllButton, NextHereMark } from "./TurnActions";
 
+/**
+ * A card's actions: sentence case and at least 28px tall. They were 11px
+ * spaced capitals, read as captions ("COMPARE WITH…" looked like "SELECTED
+ * MODELS") and were under the 24px target size.
+ */
 const actionSx = (color: string) => ({
   px: 1,
-  py: 0.5,
+  minHeight: 28,
   borderRadius: 1.5,
-  fontSize: "0.7rem",
-  fontWeight: 800,
-  textTransform: "uppercase" as const,
-  letterSpacing: "0.08em",
+  fontSize: "0.8125rem",
+  fontWeight: 600,
   color,
   "&:hover": { bgcolor: "action.hover" },
   "&.Mui-disabled": { color: "text.secondary", opacity: 0.6 },
@@ -46,6 +50,8 @@ interface CardProps {
   answerers?: string;
   /** Make this reply the branch point with every selected model answering; absent when that is only its own model. */
   onContinueAll?: (id: string) => void;
+  /** How many models are selected: "Continue with all 3". */
+  selectedCount?: number;
   /** A blind comparison: no model colour or id anywhere on the card (its label is "Answer A"). */
   blind?: boolean;
 }
@@ -75,6 +81,7 @@ export const CompareCard = React.memo(function CompareCard({
   primary = false,
   answerers = "",
   onContinueAll,
+  selectedCount = 0,
   blind = false,
 }: CardProps) {
   const color = getModelColor(blind ? "" : card.model, isDark, card.color);
@@ -101,27 +108,25 @@ export const CompareCard = React.memo(function CompareCard({
         display: "flex",
         flexDirection: "column",
         minWidth: 0,
+        // A failed card is as tall as its message, not stretched to its row.
+        alignSelf: failed ? "start" : undefined,
         border: "1px solid",
         borderColor: failed ? "error.main" : card.shown ? color.main : isDark ? "rgba(255,255,255,0.08)" : "divider",
-        bgcolor: card.shown
-          ? isDark
-            ? "rgba(139, 92, 246, 0.05)"
-            : "rgba(139, 92, 246, 0.03)"
-          : isDark
-            ? "rgba(255,255,255,0.02)"
-            : "background.paper",
+        // The card on screen is tinted in its own model's colour (it was violet
+        // for every model, the colour Google and syntheses also use).
+        bgcolor: card.shown ? color.bg : isDark ? "rgba(255,255,255,0.02)" : "background.paper",
         boxShadow: card.shown ? `0 10px 30px -10px ${color.border}` : "none",
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 1.5, minWidth: 0 }}>
         <Box sx={{ width: 8, height: 8, flexShrink: 0, borderRadius: "50%", bgcolor: color.dot }} />
+        {/* The model's name as it is written (in capitals, "GPT-6.2 Sol" read as an acronym and was cut short). */}
         <Typography
-          variant="overline"
+          component="h3"
           title={blind ? undefined : card.model}
           sx={{
-            fontSize: "0.75rem",
-            fontWeight: 800,
-            letterSpacing: "0.1em",
+            fontSize: "0.875rem",
+            fontWeight: 700,
             color: color.text,
             flex: 1,
             minWidth: 0,
@@ -219,7 +224,11 @@ export const CompareCard = React.memo(function CompareCard({
             <ButtonBase onClick={() => onRetry?.(error.id)} disabled={retryDisabled} sx={actionSx(color.text)}>
               Retry
             </ButtonBase>
-            <ButtonBase onClick={() => onDismiss?.(error.id)} sx={{ ...actionSx("text.secondary"), ml: "auto" }}>
+            <ButtonBase
+              onClick={() => onDismiss?.(error.id)}
+              title="Remove this card; the other answers stay"
+              sx={{ ...actionSx("text.secondary"), ml: "auto" }}
+            >
               Dismiss
             </ButtonBase>
           </>
@@ -269,24 +278,34 @@ export const CompareCard = React.memo(function CompareCard({
                 </Menu>
               </>
             )}
-            {onContinueAll && card.id && (
-              <Box sx={{ ml: "auto" }}>
-                <ContinueAllButton onClick={() => onContinueAll(card.id!)} label={label} />
-              </Box>
-            )}
-            <ButtonBase
-              onClick={() => card.id && onContinueReply(card.id)}
-              disabled={!card.id}
-              title={
-                card.id
-                  ? `Continue from this answer: your next message goes to ${label}`
-                  : "Available once this answer has finished"
-              }
-              aria-label={`Continue with ${label}`}
-              sx={{ ...actionSx("text.secondary"), ml: onContinueAll && card.id ? 0 : "auto" }}
-            >
-              Continue from this
-            </ButtonBase>
+            {/* Who answers the next message, said by the button: this
+                model alone, or every selected model from this answer. */}
+            <Box sx={{ ml: "auto", display: "flex", flexWrap: "wrap", gap: 0.5, justifyContent: "flex-end" }}>
+              <Tooltip
+                title={
+                  card.id
+                    ? `Your next message continues this answer, and only ${label} answers it`
+                    : card.stopped
+                      ? "This answer was stopped before it finished, so there is nothing to continue"
+                      : "Available once this answer has finished"
+                }
+                describeChild
+              >
+                <span>
+                  <ButtonBase
+                    onClick={() => card.id && onContinueReply(card.id)}
+                    disabled={!card.id}
+                    aria-label={`Continue with ${label}`}
+                    sx={actionSx(color.text)}
+                  >
+                    Continue with {label}
+                  </ButtonBase>
+                </span>
+              </Tooltip>
+              {onContinueAll && card.id && (
+                <ContinueAllButton onClick={() => onContinueAll(card.id!)} label={label} count={selectedCount} />
+              )}
+            </Box>
           </>
         )}
       </Box>
@@ -325,7 +344,7 @@ interface TurnProps {
   /** The Control Panel's selection: the action above is offered on a card only if it adds models. */
   selectedModels?: string[];
   /** "+ Add a model": ask one more model this turn's question. */
-  addModel?: { options: string[]; disabled: boolean; onAdd: (model: string) => void } | null;
+  addModel?: { options: string[]; disabled: boolean; onAdd: (model: string) => void; groupOf?: (id: string) => string } | null;
   /** A blind comparison (lib/blind): lettered cards, nothing that names a model until the vote. */
   blind?: boolean;
   /** "Save as a case": keep this turn to replay on other models later. */
@@ -365,115 +384,32 @@ export default function TurnCards({
   // whole), under the cards, so its arrival doesn't move them.
   // Hidden while blind: time and cost fingerprint a model.
   const total = blind || cards.some((c) => c.streaming) ? null : turnTotal(cards.map((c) => c.metrics));
+  const streaming = cards.some((c) => c.streaming);
+  const failedCount = cards.filter((c) => c.error).length;
+  const synthLabel =
+    mode === "merge" ? "Synthesize answers" : mode === "compare" ? "Compare answers" : mode === "checklist" ? "Pick parts" : "Ask";
   return (
     <Box data-testid="turn-cards" sx={{ display: "flex", flexDirection: "column", gap: 2, width: "100%" }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
         <Divider sx={{ flex: 1 }} />
-        <Stack alignItems="center" spacing={1}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-            <Scale width={12} height={12} />
-            <Typography variant="overline" sx={{ fontSize: "0.6875rem", fontWeight: 800, letterSpacing: "0.2em" }}>
-              {cards.length} answers
-            </Typography>
-            {addModel && (
-              <AddModelMenu
-                id={cards.map((c) => c.key).join("-")}
-                options={addModel.options}
-                modelLabel={modelLabel}
-                disabled={addModel.disabled || cards.some((c) => c.streaming)}
-                onAdd={addModel.onAdd}
-              />
-            )}
-          </Box>
-          {synthesis && (
-            <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 1 }}>
-              <Select
-                size="small"
-                variant="standard"
-                disableUnderline
-                value={mode}
-                onChange={(e) => setMode(e.target.value as SynthesisMode)}
-                inputProps={{ "aria-label": "How to combine the answers" }}
-                sx={{ fontSize: "0.75rem", fontWeight: 600 }}
-              >
-                {SYNTHESIS_MODES.map((m) => (
-                  <MenuItem key={m.mode} value={m.mode} sx={{ fontSize: "0.8rem", display: "block" }}>
-                    {m.action}
-                    <Typography component="span" sx={{ display: "block", fontSize: "0.72rem", color: "text.secondary", whiteSpace: "normal", maxWidth: 320 }}>
-                      {m.description}
-                    </Typography>
-                  </MenuItem>
-                ))}
-              </Select>
-              {asks && (
-                <Box
-                  component="input"
-                  type="text"
-                  aria-label="Your question about these answers"
-                  placeholder="Your question about these answers"
-                  value={question}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuestion(e.target.value)}
-                  sx={{
-                    minWidth: 220,
-                    px: 1.25,
-                    py: 0.5,
-                    borderRadius: 2,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: "transparent",
-                    color: "text.primary",
-                    fontSize: "0.8rem",
-                  }}
-                />
-              )}
-              <ButtonBase
-                onClick={() =>
-                  synthesis.onSynthesize(synthesis.ids, synthesizer || null, asks ? { mode, question: question.trim() } : { mode })
-                }
-                disabled={synthesis.disabled || (asks && !question.trim())}
-                sx={{
-                  px: 2,
-                  py: 0.75,
-                  borderRadius: 8,
-                  border: "1px solid rgba(139, 92, 246, 0.3)",
-                  bgcolor: "rgba(139, 92, 246, 0.1)",
-                  color: isDark ? "#c4b5fd" : "#6d28d9",
-                  fontSize: "0.6875rem",
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.1em",
-                  gap: 0.75,
-                  "&.Mui-disabled": { opacity: 0.5 },
-                }}
-              >
-                <Sparkles width={12} height={12} />
-                {mode === "merge" ? "Synthesize answers" : mode === "compare" ? "Compare answers" : mode === "checklist" ? "Pick parts" : "Ask"}
-              </ButtonBase>
-              <Typography component="label" htmlFor="synthesizer-select" sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
-                written by
-              </Typography>
-              <Select
-                size="small"
-                variant="standard"
-                disableUnderline
-                value={synthesizer}
-                displayEmpty
-                onChange={(e) => setSynthesizer(String(e.target.value))}
-                inputProps={{ id: "synthesizer-select", "aria-label": "Synthesis written by" }}
-                sx={{ fontSize: "0.75rem", fontWeight: 600 }}
-              >
-                <MenuItem value="" sx={{ fontSize: "0.8rem" }}>
-                  {synthesis.firstSelected ? `${modelLabel(synthesis.firstSelected)} (first selected)` : "First selected model"}
-                </MenuItem>
-                {synthesis.options.map((m) => (
-                  <MenuItem key={m} value={m} title={m} sx={{ fontSize: "0.8rem" }}>
-                    {modelLabel(m)}
-                  </MenuItem>
-                ))}
-              </Select>
-            </Box>
+        {/* As tall from the first token as once "Add a model" appears (when
+            the turn settles), so the cards below don't move. */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary", minHeight: 28 }}>
+          <Scale width={12} height={12} aria-hidden />
+          <Typography component="h2" sx={{ fontSize: "0.8125rem", fontWeight: 600 }}>
+            {cards.length} answers
+          </Typography>
+          {addModel && (
+            <AddModelMenu
+              id={cards.map((c) => c.key).join("-")}
+              options={addModel.options}
+              modelLabel={modelLabel}
+              groupOf={addModel.groupOf}
+              disabled={addModel.disabled || streaming}
+              onAdd={addModel.onAdd}
+            />
           )}
-        </Stack>
+        </Box>
         <Divider sx={{ flex: 1 }} />
       </Box>
       <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: columns } }}>
@@ -494,49 +430,128 @@ export default function TurnCards({
             primary={!!primaryId && card.id === primaryId}
             answerers={blind ? "" : answerers}
             blind={blind}
+            selectedCount={selectedModels.length}
             onContinueAll={
               onContinueAll && selectedModels.some((m) => m !== card.model) ? onContinueAll : undefined
             }
           />
         ))}
       </Box>
-      <TurnMetricsLine total={total} />
-      {saveCase && !cards.some((c) => c.streaming) && (
-        <ButtonBase
-          onClick={saveCase.onSave}
-          disabled={saveCase.disabled || saveCase.saving}
-          aria-busy={saveCase.saving}
-          title="Keep this turn's question, context, answers and your vote, to replay on other models later"
-          sx={{ alignSelf: "center", px: 1.5, py: 0.5, borderRadius: 2, border: "1px solid", borderColor: "divider", fontSize: "0.75rem", fontWeight: 600, gap: 0.75, "&.Mui-disabled": { opacity: 0.5 } }}
+      <TurnMetricsLine total={total} answered={streaming ? null : cards.length - failedCount} asked={cards.length} />
+      {/* What to do with the answers, once they are in: under them, in one
+          row. Combining sat above the cards and was offered while they were
+          still streaming, before anyone had read them. */}
+      {!streaming && (synthesis || review || saveCase) && (
+        <Box
+          data-testid="turn-tools"
+          sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 1 }}
         >
-          {saveCase.saving && <CircularProgress size={10} />}
-          Save as a case
-        </ButtonBase>
-      )}
-      {review && (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-          <ButtonBase
-            onClick={review.onRun}
-            disabled={review.disabled || review.running}
-            aria-busy={review.running}
-            sx={{
-              px: 1.5,
-              py: 0.5,
-              borderRadius: 2,
-              border: "1px solid",
-              borderColor: "divider",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              gap: 0.75,
-              "&.Mui-disabled": { opacity: 0.5 },
-            }}
-          >
-            {review.running && <CircularProgress size={10} />}
-            {review.result ? "Score each other again" : "Have them score each other"}
-          </ButtonBase>
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>
-            Each model scores the others&apos; answers anonymously, never its own: one call per model.
-          </Typography>
+          {synthesis && (
+            <>
+              <Select
+                size="small"
+                value={mode}
+                onChange={(e) => setMode(e.target.value as SynthesisMode)}
+                // The closed select shows the action alone; its description
+                // is in the menu (it used to wrap the row onto two lines).
+                renderValue={(v) => SYNTHESIS_MODES.find((m) => m.mode === v)?.action ?? v}
+                inputProps={{ "aria-label": "How to combine the answers" }}
+                sx={{ fontSize: "0.8125rem", minHeight: 32, "& .MuiSelect-select": { py: 0.5 } }}
+              >
+                {SYNTHESIS_MODES.map((m) => (
+                  <MenuItem key={m.mode} value={m.mode} sx={{ fontSize: "0.8125rem", display: "block" }}>
+                    {m.action}
+                    <Typography component="span" sx={{ display: "block", fontSize: "0.75rem", color: "text.secondary", whiteSpace: "normal", maxWidth: 320 }}>
+                      {m.description}
+                    </Typography>
+                  </MenuItem>
+                ))}
+              </Select>
+              {asks && (
+                <Box
+                  component="input"
+                  type="text"
+                  aria-label="Your question about these answers"
+                  placeholder="Your question about these answers"
+                  value={question}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuestion(e.target.value)}
+                  sx={{
+                    minWidth: 220,
+                    minHeight: 32,
+                    px: 1.25,
+                    borderRadius: `${RADIUS.md}px`,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "transparent",
+                    color: "text.primary",
+                    fontSize: "0.8125rem",
+                  }}
+                />
+              )}
+              <Typography component="label" htmlFor="synthesizer-select" sx={{ fontSize: "0.8125rem", color: "text.secondary" }}>
+                by
+              </Typography>
+              <Select
+                size="small"
+                value={synthesizer}
+                displayEmpty
+                onChange={(e) => setSynthesizer(String(e.target.value))}
+                inputProps={{ id: "synthesizer-select", "aria-label": "Synthesis written by" }}
+                sx={{ fontSize: "0.8125rem", minHeight: 32, "& .MuiSelect-select": { py: 0.5 } }}
+              >
+                <MenuItem value="" sx={{ fontSize: "0.8125rem" }}>
+                  {synthesis.firstSelected ? `${modelLabel(synthesis.firstSelected)} (first selected)` : "First selected model"}
+                </MenuItem>
+                {synthesis.options.map((m) => (
+                  <MenuItem key={m} value={m} title={m} sx={{ fontSize: "0.8125rem" }}>
+                    {modelLabel(m)}
+                  </MenuItem>
+                ))}
+              </Select>
+              <Button
+                variant="contained"
+                size="small"
+                disableElevation
+                startIcon={<Sparkles width={14} height={14} aria-hidden />}
+                onClick={() =>
+                  synthesis.onSynthesize(synthesis.ids, synthesizer || null, asks ? { mode, question: question.trim() } : { mode })
+                }
+                disabled={synthesis.disabled || (asks && !question.trim())}
+                title={action.description}
+                sx={{ minHeight: 32 }}
+              >
+                {synthLabel}
+              </Button>
+            </>
+          )}
+          {review && (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={review.onRun}
+              disabled={review.disabled || review.running}
+              aria-busy={review.running}
+              title="Each model scores the others' answers anonymously, never its own: one call per model"
+              startIcon={review.running ? <CircularProgress size={10} /> : undefined}
+              sx={{ minHeight: 32 }}
+            >
+              {review.result ? "Score each other again" : "Have them score each other"}
+            </Button>
+          )}
+          {saveCase && (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={saveCase.onSave}
+              disabled={saveCase.disabled || saveCase.saving}
+              aria-busy={saveCase.saving}
+              title="Keep this turn's question, context, answers and your vote, to replay on other models later"
+              startIcon={saveCase.saving ? <CircularProgress size={10} /> : undefined}
+              sx={{ minHeight: 32 }}
+            >
+              Save as a case
+            </Button>
+          )}
         </Box>
       )}
       {review?.result && <PeerReviewPanel review={review.result} modelLabel={modelLabel} />}

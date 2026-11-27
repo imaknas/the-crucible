@@ -75,10 +75,10 @@ test.describe("live flows (scripted models)", () => {
     // Streaming: each card says so, and Continue waits for its reply.
     await expect(page.locator('article[aria-busy="true"]').first()).toBeVisible();
     await expect(
-      page.locator('article[aria-busy="true"]').first().getByRole("button", { name: /^Continue with/ }),
+      page.locator('article[aria-busy="true"]').first().getByRole("button", { name: /^Continue with (?!all )/ }),
     ).toBeDisabled();
     // Measured from the question above, so scrolling doesn't count as moving.
-    const question = page.locator("section").getByText("[[slow]] Compare slowly", { exact: true });
+    const question = page.locator("main").getByText("[[slow]] Compare slowly", { exact: true });
     const offset = async () => (await cards.first().boundingBox())!.y - (await question.boundingBox())!.y;
     // The question's bubble animates in when sent; measure once it has landed.
     await page.waitForTimeout(800);
@@ -94,7 +94,7 @@ test.describe("live flows (scripted models)", () => {
     await expect.poll(async () => Math.abs((await offset()) - before)).toBeLessThan(4);
     await expect(cards.getByText(answerFrom(GPT))).toBeVisible();
     await expect(cards.getByText(answerFrom(CLAUDE))).toBeVisible();
-    await expect(cards.first().getByRole("button", { name: /^Continue with/ })).toBeEnabled();
+    await expect(cards.first().getByRole("button", { name: /^Continue with (?!all )/ })).toBeEnabled();
   });
 
   test("Compare with… on a card shows what differs between two answers", async ({ page }) => {
@@ -369,7 +369,7 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.getByTestId("next-here")).toHaveCount(0);
 
     const claude = page.getByRole("article", { name: "Claude Sonnet 5.5's answer" });
-    await claude.getByRole("button", { name: "Everyone continues from here" }).click();
+    await claude.getByRole("button", { name: "Continue with all 2" }).click();
     await expect(claude.getByTestId("next-here")).toHaveText("Next message continues here");
     await expect(page.getByTestId("next-here")).toHaveCount(1);
     await expect(page.getByTestId("branch-chip")).toContainText("All 2 answer");

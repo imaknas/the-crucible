@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, ButtonBase, Menu, MenuItem } from "@mui/material";
+import { Box, ButtonBase, ListSubheader, Menu, MenuItem, TextField } from "@mui/material";
 import { CornerDownRight, Plus } from "lucide-react";
 
 /**
@@ -11,6 +11,7 @@ import { CornerDownRight, Plus } from "lucide-react";
 const quietSx = {
   px: 1,
   py: 0.5,
+  minHeight: 28,
   borderRadius: 1.5,
   fontSize: "0.75rem",
   fontWeight: 700,
@@ -29,16 +30,34 @@ interface AddModelProps {
   onAdd: (model: string) => void;
   /** Distinguishes the menus of several turns for assistive tech. */
   id: string;
+  /** The provider a model belongs to: the menu is grouped under them. */
+  groupOf?: (id: string) => string;
 }
 
 /**
  * "+ Add a model": ask one more model this turn's question, without asking
  * the others again. Lists models by display name (the id is a tooltip).
  */
-export function AddModelMenu({ options, modelLabel, disabled = false, onAdd, id }: AddModelProps) {
+export function AddModelMenu({ options, modelLabel, disabled = false, onAdd, id, groupOf }: AddModelProps) {
   const [anchor, setAnchor] = React.useState<HTMLElement | null>(null);
+  const [filter, setFilter] = React.useState("");
   if (!options.length) return null;
   const menuId = `add-model-menu-${id}`;
+  const needle = filter.trim().toLowerCase();
+  const shown = options.filter((m) => !needle || modelLabel(m).toLowerCase().includes(needle) || m.includes(needle));
+  // Grouped by provider, in the catalogue's order: it was one flat list of
+  // some thirty models that ran off the screen.
+  const groups: [string, string[]][] = [];
+  for (const model of shown) {
+    const group = groupOf?.(model) ?? "";
+    const last = groups[groups.length - 1];
+    if (last && last[0] === group) last[1].push(model);
+    else groups.push([group, [model]]);
+  }
+  const close = () => {
+    setAnchor(null);
+    setFilter("");
+  };
   return (
     <>
       <ButtonBase
@@ -63,22 +82,53 @@ export function AddModelMenu({ options, modelLabel, disabled = false, onAdd, id 
         id={menuId}
         anchorEl={anchor}
         open={!!anchor}
-        onClose={() => setAnchor(null)}
-        slotProps={{ list: { "aria-label": "Model to add to this turn" } }}
+        onClose={close}
+        autoFocus={options.length <= 8}
+        slotProps={{
+          list: { "aria-label": "Model to add to this turn", dense: true },
+          paper: { sx: { maxHeight: 420, minWidth: 240 } },
+        }}
       >
-        {options.map((model) => (
-          <MenuItem
-            key={model}
-            title={model}
-            onClick={() => {
-              setAnchor(null);
-              onAdd(model);
-            }}
-            sx={{ fontSize: "0.85rem" }}
-          >
-            {modelLabel(model)}
+        {options.length > 8 && (
+          <Box sx={{ px: 1.5, pt: 0.5, pb: 1 }} onKeyDown={(e) => e.stopPropagation()}>
+            <TextField
+              size="small"
+              fullWidth
+              autoFocus
+              placeholder="Filter models"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              slotProps={{ htmlInput: { "aria-label": "Filter models" } }}
+            />
+          </Box>
+        )}
+        {groups.flatMap(([group, models]) => [
+          ...(group
+            ? [
+                <ListSubheader key={`h-${group}`} sx={{ lineHeight: "28px", fontSize: "0.75rem" }}>
+                  {group}
+                </ListSubheader>,
+              ]
+            : []),
+          ...models.map((model) => (
+            <MenuItem
+              key={model}
+              title={model}
+              onClick={() => {
+                close();
+                onAdd(model);
+              }}
+              sx={{ fontSize: "0.85rem" }}
+            >
+              {modelLabel(model)}
+            </MenuItem>
+          )),
+        ])}
+        {!shown.length && (
+          <MenuItem disabled sx={{ fontSize: "0.85rem" }}>
+            No model matches
           </MenuItem>
-        ))}
+        )}
       </Menu>
     </>
   );
@@ -129,6 +179,7 @@ export function ReplyTurnActions({
   addModel,
   onContinueAll,
   modelLabel,
+  selectedCount = 0,
 }: {
   /** The reply's checkpoint, to tell several replies' menus apart. */
   id: string;
@@ -136,9 +187,11 @@ export function ReplyTurnActions({
   label: string;
   primary: boolean;
   answerers: string;
-  addModel: { options: string[]; disabled: boolean; onAdd: (model: string) => void } | null;
+  addModel: { options: string[]; disabled: boolean; onAdd: (model: string) => void; groupOf?: (id: string) => string } | null;
   onContinueAll?: () => void;
   modelLabel: (id: string) => string;
+  /** How many models are selected: "Continue with all 3". */
+  selectedCount?: number;
 }) {
   const adds = !!addModel && addModel.options.length > 0;
   if (!primary && !adds && !onContinueAll) return null;
@@ -148,13 +201,14 @@ export function ReplyTurnActions({
       sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1, mt: -1, px: 1 }}
     >
       {primary && <NextHereMark answerers={answerers} />}
-      {onContinueAll && <ContinueAllButton onClick={onContinueAll} label={label} />}
+      {onContinueAll && <ContinueAllButton onClick={onContinueAll} label={label} count={selectedCount} />}
       {adds && (
         <AddModelMenu
           id={id}
           options={addModel!.options}
           modelLabel={modelLabel}
           disabled={addModel!.disabled}
+          groupOf={addModel!.groupOf}
           onAdd={addModel!.onAdd}
         />
       )}
@@ -162,21 +216,21 @@ export function ReplyTurnActions({
   );
 }
 
-/** "Everyone continues from here": this reply becomes the branch point, and every selected model answers. */
-export function ContinueAllButton({ onClick, label }: { onClick: () => void; label: string }) {
+/**
+ * "Continue with all 3": this reply becomes the branch point, and every
+ * selected model answers. It read "Everyone continues from here" in spaced
+ * capitals beside "Continue from this", and the two were hard to tell apart.
+ */
+export function ContinueAllButton({ onClick, label, count }: { onClick: () => void; label: string; count: number }) {
+  const name = count > 1 ? `Continue with all ${count}` : "Continue with every selected model";
   return (
     <ButtonBase
       onClick={onClick}
-      title={`Continue from ${label}'s answer with every selected model`}
-      sx={{
-        ...quietSx,
-        fontSize: "0.7rem",
-        fontWeight: 800,
-        textTransform: "uppercase",
-        letterSpacing: "0.08em",
-      }}
+      aria-label={name}
+      title={`Your next message continues ${label}'s answer, and every selected model answers it`}
+      sx={{ ...quietSx, fontSize: "0.8125rem", fontWeight: 600, minHeight: 28 }}
     >
-      Everyone continues from here
+      {name}
     </ButtonBase>
   );
 }

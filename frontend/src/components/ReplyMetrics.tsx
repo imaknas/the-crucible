@@ -93,12 +93,22 @@ export function ReplyMetricsLine({
 }
 
 /** The turn's answers together: summed tokens and cost, the slowest time. */
-export function TurnMetricsLine({ total }: { total: TurnMetrics | null }) {
+export function TurnMetricsLine({
+  total,
+  answered = null,
+  asked = 0,
+}: {
+  total: TurnMetrics | null;
+  /** How many of the `asked` models answered: a total over fewer says so. */
+  answered?: number | null;
+  asked?: number;
+}) {
   const text = formatTurnTotal(total);
   if (!total || text === "Total") return null;
+  const partial = answered !== null && answered < asked ? `${answered} of ${asked} answered · ` : "";
   return (
     <MetricsLine
-      text={text}
+      text={partial + text}
       lines={metricsBreakdown(total)}
       testId="turn-metrics"
       align="center"

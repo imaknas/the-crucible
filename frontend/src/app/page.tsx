@@ -343,6 +343,10 @@ export default function Home() {
   const { setAskAll } = reply;
   // Who "+ Add a model" offers: models with a key, no legacy entries.
   const answeringModels = useMemo(() => answeringModelIds(families), [families]);
+  const modelGroup = useCallback(
+    (id: string) => families.find((f) => f.models.some((m) => m.id === id))?.label ?? "",
+    [families],
+  );
   const continueReplyAll = useCallback(
     (id: string) => {
       selectCheckpoint(id);
@@ -660,6 +664,7 @@ export default function Home() {
                     onCompareAnswers={answerDiff.compare}
                     onAddModel={addModelToTurn}
                     addableModels={answeringModels}
+                    modelGroup={modelGroup}
                     onContinueReplyAll={continueReplyAll}
                     onSaveCase={inDebate ? undefined : handleSaveCase}
                     savingCase={savedCases.saving}
