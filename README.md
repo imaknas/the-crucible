@@ -71,8 +71,8 @@ The backend installs a `crucible` command:
 
 ```bash
 cd backend
-uv run crucible arena "Is P = NP?" -m gpt-6.1-sol -m claude-sonnet-5-5 -m gemini-3.1-pro-preview
-uv run crucible debate "Monolith or microservices?" -m gpt-6.1-sol -m claude-sonnet-5-5 --rounds 3
+uv run crucible arena "Is P = NP?" -m gpt-6.2-sol -m claude-sonnet-5-5 -m gemini-4-neon
+uv run crucible debate "Monolith or microservices?" -m gpt-6.2-sol -m claude-sonnet-5-5 --rounds 3
 uv run crucible tree --thread <thread_id> --open    # see it in the web UI
 ```
 

@@ -2,9 +2,9 @@
 The Crucible CLI — Multi-Model Reasoning Engine.
 
 Usage:
-    crucible chat "prompt" -m gpt-6.1-sol              # --from <checkpoint> branches, --deliberate reviews
-    crucible arena "prompt" -m gpt-6.1-sol -m claude-sonnet-5-5
-    crucible debate "topic" -m gpt-6.1-sol -m claude-sonnet-5-5 --rounds 3
+    crucible chat "prompt" -m gpt-6.2-sol              # --from <checkpoint> branches, --deliberate reviews
+    crucible arena "prompt" -m gpt-6.2-sol -m claude-sonnet-5-5
+    crucible debate "topic" -m gpt-6.2-sol -m claude-sonnet-5-5 --rounds 3
     crucible debates list                          # show / continue / redirect / delete a debate
     crucible synthesize --thread <id>              # or --answers <checkpoint>…, or --debate <session_id>
     crucible threads | tree -t <id> | messages -t <id> | search -t <id> "text"
@@ -268,7 +268,7 @@ def chat(
     Without --from it continues the model's own latest reply on the thread
     (or the latest answer). With --join-turn it answers an earlier turn's
     question as one more answer of that turn. Supports stdin piping:
-    echo "question" | crucible chat -m gpt-6.1-sol
+    echo "question" | crucible chat -m gpt-6.2-sol
     """
     as_json = _check_format(format_output)
     _load_env()

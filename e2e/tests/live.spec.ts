@@ -837,13 +837,13 @@ test.describe("live flows (scripted models)", () => {
     await page.getByRole("button", { name: /^Anthropic \d+ models( \d+)?$/ }).click();
     await page.getByRole("button", { name: "Claude Sonnet 5.5" }).first().click();
     await page.getByRole("button", { name: /^Google \d+ models( \d+)?$/ }).click();
-    await page.getByRole("button", { name: "Gemini 3.1 Pro" }).first().click();
+    await page.getByRole("button", { name: "Gemini 4 Neon" }).first().click();
     await expect(page.getByText(/^[23] models$/i)).toHaveCount(0);
     await page.reload();
-    await expect(page.getByText("GPT-6.1 Sol", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("GPT-6.2 Sol", { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/^[23] models$/i)).toHaveCount(0);
     expect(await page.evaluate(() => localStorage.getItem("crucible_selected_models"))).toBe(
-      JSON.stringify(["gpt-6.1-sol"]),
+      JSON.stringify(["gpt-6.2-sol"]),
     );
   });
 

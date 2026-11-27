@@ -390,12 +390,11 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
 
 # Single source of truth for defaults. These were previously duplicated across
 # main.py, cli.py, graph.py and page.tsx, which is how they drifted stale.
-# gpt-6.1-sol and Sonnet 5.5 are the newest balanced models and cost no
-# more than what they replace (gpt-5.4 was set before the gpt-6 family
-# existed). Gemini stays on 3.1 Pro: 4 Argon doubles to $4/$20 on
-# 2026-12-01 and has half the output limit.
-DEFAULT_MODEL = "gpt-6.1-sol"
-DEFAULT_ARENA_MODELS = ["gpt-6.1-sol", "claude-sonnet-5-5", "gemini-3.1-pro-preview"]
+# Each family's newest balanced model: gpt-6.2-sol costs what 6.1 Sol did,
+# Sonnet 5.5, and Gemini 4 Neon ($3/$15, no dated price change; 4 Argon and
+# Carbon double to $4/$20 on 2026-12-01).
+DEFAULT_MODEL = "gpt-6.2-sol"
+DEFAULT_ARENA_MODELS = ["gpt-6.2-sol", "claude-sonnet-5-5", "gemini-4-neon"]
 # Who writes a debate's argument map when the session names no one: the first
 # of these with a key whose family isn't debating (debate.default_synthesizer).
 # Kept apart from DEFAULT_ARENA_MODELS on purpose: a referee is useful only

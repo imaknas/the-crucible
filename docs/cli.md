@@ -13,10 +13,10 @@ uv run crucible keys --set OPENAI_API_KEY  # asks for the value without echoing;
 **Turns**
 
 ```bash
-uv run crucible arena "Is P = NP?" -m gpt-6.1-sol -m claude-sonnet-5-5 -m gemini-3.1-pro-preview
-uv run crucible chat "Follow-up" -m gpt-6.1-sol --thread <thread_id>
-echo "question" | uv run crucible chat -m gpt-6.1-sol              # the prompt can come from stdin
-uv run crucible arena "Rephrased question" -m gpt-6.1-sol -m claude-sonnet-5-5 --thread <thread_id> --from <checkpoint>
+uv run crucible arena "Is P = NP?" -m gpt-6.2-sol -m claude-sonnet-5-5 -m gemini-4-neon
+uv run crucible chat "Follow-up" -m gpt-6.2-sol --thread <thread_id>
+echo "question" | uv run crucible chat -m gpt-6.2-sol              # the prompt can come from stdin
+uv run crucible arena "Rephrased question" -m gpt-6.2-sol -m claude-sonnet-5-5 --thread <thread_id> --from <checkpoint>
 uv run crucible chat --deliberate -m claude-sonnet-5-5 --thread <thread_id>   # critically review the thread so far
 uv run crucible synthesize --thread <thread_id>                    # combine the answers to the latest question
 uv run crucible synthesize --thread <thread_id> --mode compare     # a table of where they differ (no winner)
@@ -36,7 +36,7 @@ Under each answer (and the synthesis) a dim line says what it took: time to firs
 **Debates**
 
 ```bash
-uv run crucible debate "Topic" -m gpt-6.1-sol -m claude-sonnet-5-5 --rounds 3 --threshold 0.92
+uv run crucible debate "Topic" -m gpt-6.2-sol -m claude-sonnet-5-5 --rounds 3 --threshold 0.92
 uv run crucible debates list                                       # newest first; --thread <id> for one thread
 uv run crucible debates show <session_id>                          # every round of every participant, and the argument map
 uv run crucible debates continue <session_id> --rounds 1 --inject "Consider the cost too"
