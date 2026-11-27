@@ -688,10 +688,13 @@ export function useDebateSession({
       // The synthesis frame carries the run's choices again: a frame that
       // names any of them replaces the ones the debate started with. The
       // prompt is the question being debated, also after a reload (it used
-      // to be empty then).
+      // to be empty then). No model named: the session's own synthesizer,
+      // which the backend chose from a family that isn't debating. Falling
+      // back to the first participant here had a debater write the map, and
+      // the banner then warned about the app's own pick.
       const frame = {
         type: "debate_synthesize",
-        synthesizer_model: synthesizerModel || participantsRef.current[0],
+        synthesizer_model: synthesizerModel || null,
         prompt: promptRef.current,
         toggles,
         ...contextFields(context),

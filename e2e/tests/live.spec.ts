@@ -468,6 +468,15 @@ test.describe("live flows (scripted models)", () => {
 
     await expect(page.getByText(/^Synthesis · Claude Sonnet 5\.5$/i)).toBeVisible();
     await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+    // The answers it merged stay on screen above it, and after a reload: the
+    // synthesis hangs from their question, so the path no longer holds them.
+    const writtenFrom = page.getByText("The answers the synthesis below was written from");
+    for (const reload of [false, true]) {
+      if (reload) await page.reload();
+      await expect(writtenFrom).toBeVisible();
+      await expect(page.getByRole("article", { name: "GPT-6.1 Sol's answer" })).toBeVisible();
+      await expect(page.getByRole("article", { name: "Claude Sonnet 5.5's answer" })).toBeVisible();
+    }
     await showTree(page);
     await expect(page.locator(".react-flow__node-synthesis")).toHaveCount(1);
     await expect(page.locator(".react-flow__node-synthesis")).toContainText(/Synthesis · Claude Sonnet 5\.5/i);
@@ -709,6 +718,18 @@ test.describe("live flows (scripted models)", () => {
       const tree = await (await request.get(`${BACKEND_URL}/debate/sessions/${sessionId}/tree`)).json();
       return tree.nodes.some((n: { id: string; metadata?: { pending?: boolean } }) => /synthesis/i.test(n.id) && !n.metadata?.pending);
     }, { timeout: 30_000 }).toBe(true);
+  });
+
+  test("a debate synthesized from the banner is mapped by a model outside the debate", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await startDebate(page, "Monolith or services?", 1);
+    await expect(debateStatus(page)).toHaveText("completed", { timeout: 30_000 });
+
+    await page.getByRole("button", { name: "Synthesize" }).click();
+    // GPT and Claude debated: the map comes from Google, the first family
+    // outside the debate with a key. It used to be the first participant.
+    await expect(page.getByText(/^Synthesis · Gemini 4 Neon$/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/is also debating/)).toHaveCount(0);
   });
 
   test("a debate interrupted by a server restart resumes in this tab and finishes", async ({ page, request }) => {

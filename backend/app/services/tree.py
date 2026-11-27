@@ -9,6 +9,7 @@ from app.services.message_format import message_model, message_sources, reply_co
 from app.services.metrics import message_metrics, snapshot_day
 from app.services.runs import (
     DEBATE_RECORD_KEY,
+    SYNTHESIS_ANSWERS_KEY,
     SYNTHESIS_MODE_KEY,
     SYNTHESIS_QUESTION_KEY,
     SYNTHESIS_TURN,
@@ -106,7 +107,9 @@ def synthesis_details(state_obj) -> dict:
     prompt = _extra_of(m_list[-2]) if len(m_list) >= 2 else {}
     mode = meta.get(SYNTHESIS_MODE_KEY) or prompt.get(SYNTHESIS_MODE_KEY) or "merge"
     question = meta.get(SYNTHESIS_QUESTION_KEY) or prompt.get(SYNTHESIS_QUESTION_KEY)
-    return {"synthesis_mode": mode, "synthesis_question": question}
+    answers = meta.get(SYNTHESIS_ANSWERS_KEY) or prompt.get(SYNTHESIS_ANSWERS_KEY) or ""
+    return {"synthesis_mode": mode, "synthesis_question": question,
+            "synthesis_answers": [a for a in answers.split(",") if a]}
 
 
 def get_content_key(state_obj) -> str:

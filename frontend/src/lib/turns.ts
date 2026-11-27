@@ -133,6 +133,8 @@ export type TranscriptItem =
       live: boolean;
       /** The backend's turn id, once known: "+ model" joins it. */
       turnId?: string | null;
+      /** The answers the synthesis after it was written from (not a reply on the path). */
+      basis?: boolean;
     };
 
 interface BuildOptions {
@@ -164,6 +166,28 @@ function liveCard(r: LiveReply): TurnCard {
   };
 }
 
+function isSynthesis(msg: Message): boolean {
+  return msg.kind === "synthesis" || msg.type === "synthesis";
+}
+
+/**
+ * The answers a synthesis on the path was written from. The synthesis hangs
+ * from their question, so they are not on the path, and the transcript
+ * showed the merged answer alone, with nothing to check it against. Newer
+ * syntheses name them (`synthesis_answers`); for older ones, the turn of the
+ * reply under the question it hangs from.
+ */
+function synthesisBasis(msg: Message, nodes: TreeNode[], edges: TreeEdge[]): TreeNode[] {
+  const id = msg.checkpoint_id;
+  if (!id) return [];
+  const named = nodes.find((n) => n.id === id)?.metadata?.synthesis_answers ?? msg.synthesis_answers ?? [];
+  if (named.length) return named.flatMap((a) => nodes.filter((n) => n.id === a));
+  const question = edges.find((e) => e.target === id)?.source;
+  const under = new Set(edges.filter((e) => e.source === question).map((e) => e.target));
+  const reply = nodes.find((n) => under.has(n.id) && n.metadata?.role === "ai" && !isSynthesisNode(n));
+  return reply ? turnSiblings(nodes, edges, reply.id) : [];
+}
+
 function isReply(msg: Message): boolean {
   const assistant = msg.role === "assistant" || msg.type === "ai";
   return assistant && !!msg.checkpoint_id && msg.kind !== "synthesis" && msg.kind !== "debate" && msg.type !== "synthesis";
@@ -181,6 +205,45 @@ export function buildTranscript({ messages, nodes, edges, selected, replyTexts, 
   let liveUsed = false;
 
   messages.forEach((msg, index) => {
+    if (isSynthesis(msg)) {
+      const basis = synthesisBasis(msg, nodes, edges);
+      const previous = items[items.length - 1];
+      const shown = previous?.kind === "turn" && basis.every((n) => previous.cards.some((c) => c.id === n.id));
+      if (basis.length > 1 && !shown) {
+        const turnId = basis[0].metadata?.turn_id;
+        const sameTurn = !!turnId && basis.every((n) => n.metadata?.turn_id === turnId);
+        items.push({
+          kind: "turn",
+          key: sameTurn ? turnKey(turnId!) : `basis-${msg.checkpoint_id}`,
+          index,
+          cards: orderSiblings(basis, selected).map((node, _i, all) => {
+            const model = node.metadata?.active_peer || node.id;
+            const streamed = replyTexts[node.id];
+            // Keyed like the turn's own grid (by model), so the cards don't
+            // remount when the synthesis replaces the reply on the path.
+            const twice = all.filter((n) => n.metadata?.active_peer === model).length > 1;
+            return {
+              key: twice ? node.id : model,
+              model,
+              id: node.id,
+              label: node.metadata?.model_name ?? null,
+              color: (node.metadata?.model_color as string | undefined) ?? null,
+              text: streamed ?? cardExcerpt(node),
+              full: streamed !== undefined,
+              streaming: false,
+              stopped: false,
+              error: null,
+              shown: false,
+              metrics: node.metadata?.metrics ?? null,
+              context: node.metadata?.context ?? null,
+            };
+          }),
+          live: false,
+          turnId: sameTurn ? turnId : null,
+          basis: true,
+        });
+      }
+    }
     const siblings = isReply(msg) ? turnSiblings(nodes, edges, msg.checkpoint_id ?? null) : [];
     const turnId = siblings.find((n) => n.metadata?.turn_id)?.metadata?.turn_id ?? null;
     // A lone reply is a bubble, until a model is added to its turn.

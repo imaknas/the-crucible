@@ -131,6 +131,8 @@ describe("useDebateSession", () => {
       type: "debate_synthesize",
       summarizer: "gpt-6-luna",
       system_prompt: "Be terse.",
+      // The session's own synthesizer (the backend's), never a participant.
+      synthesizer_model: null,
     });
   });
 

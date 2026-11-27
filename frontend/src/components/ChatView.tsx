@@ -691,8 +691,19 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                   <Box
                     key={item.key}
                     data-turn-key={item.key}
-                    ref={(el: HTMLDivElement | null) => registerMessageRef(el, item.index)}
+                    // The answers above a synthesis share its index; the
+                    // synthesis is what the scroll map marks.
+                    ref={item.basis ? undefined : (el: HTMLDivElement | null) => registerMessageRef(el, item.index)}
                   >
+                    {item.basis && (
+                      <Typography
+                        variant="caption"
+                        component="p"
+                        sx={{ color: "text.secondary", fontWeight: 600, mb: 1, mt: 1 }}
+                      >
+                        The answers the synthesis below was written from
+                      </Typography>
+                    )}
                     <TurnCards
                       blind={hidden}
                       cards={cards}

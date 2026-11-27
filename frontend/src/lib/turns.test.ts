@@ -78,6 +78,50 @@ describe("buildTranscript", () => {
     ]);
   });
 
+  describe("a synthesis on the path", () => {
+    const synth = (extra: Partial<Message> = {}): Message => ({
+      id: "s1", role: "assistant", content: "merged", model: "a", checkpoint_id: "s1", kind: "synthesis", ...extra,
+    });
+    const synthNode = (answers?: string[]) =>
+      node("s1", "a", "", { type: "synthesis", metadata: { role: "ai", active_peer: "a", kind: "synthesis", synthesis_answers: answers } });
+    const edges = [
+      { id: "e1", source: "qn", target: "a1" },
+      { id: "e2", source: "qn", target: "b1" },
+      { id: "e3", source: "qn", target: "s1" },
+    ];
+
+    it("shows the answers it was written from above it, under the turn's own key", () => {
+      const items = buildTranscript({
+        messages: [q, synth()], nodes: [...nodes, synthNode(["a1", "b1"])], edges, selected: ["a", "b"], replyTexts: { b1: "b streamed" }, live: null,
+      });
+      expect(items.map((i) => i.kind)).toEqual(["message", "turn", "message"]);
+      const basis = items[1];
+      if (basis.kind !== "turn") throw new Error();
+      expect(basis.key).toBe(turnKey("t1"));
+      expect(basis.basis).toBe(true);
+      expect(basis.cards.map((c) => [c.key, c.id, c.shown, c.full, c.text])).toEqual([
+        ["a", "a1", false, false, "a1 excerpt"],
+        ["b", "b1", false, true, "b streamed"],
+      ]);
+    });
+
+    it("finds the turn under its question when an older synthesis names no answers", () => {
+      const items = buildTranscript({
+        messages: [q, synth()], nodes: [...nodes, synthNode()], edges, selected: ["a", "b"], replyTexts: {}, live: null,
+      });
+      const basis = items[1];
+      if (basis.kind !== "turn") throw new Error();
+      expect(basis.cards.map((c) => c.id)).toEqual(["a1", "b1"]);
+    });
+
+    it("draws nothing extra for a synthesis of fewer than two answers it can find", () => {
+      const items = buildTranscript({
+        messages: [q, synth()], nodes: [...nodes, synthNode(["a1", "gone"])], edges: [], selected: ["a"], replyTexts: {}, live: null,
+      });
+      expect(items.map((i) => i.kind)).toEqual(["message", "message"]);
+    });
+  });
+
   it("keeps a lone reply a bubble", () => {
     const items = buildTranscript({ messages: [q, reply("a0", "a", "t0")], nodes, edges: [], selected: ["a"], replyTexts: {}, live: null });
     expect(items.map((i) => i.kind)).toEqual(["message", "message"]);

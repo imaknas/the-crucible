@@ -250,7 +250,6 @@ export default function Home() {
     () => debate.sessions.find((s) => s.session_id === debate.activeSessionId)?.warnings ?? [],
     [debate.sessions, debate.activeSessionId],
   );
-  const synthesizerModel = debateDefaults.synthesizer_model;
   const debateBanner: DebateBannerProps | null = useMemo(
     () =>
       inDebate
@@ -265,7 +264,9 @@ export default function Home() {
             },
             onClose: closeDebate,
             onSynthesize: debateCtl.synthesize
-              ? () => synthesizeDebate(synthesizerModel, toggles, { summarizer, systemPrompt })
+              ? // The session's own synthesizer, stored when it was created
+                // (the dialog's choice, else a model from outside the debate).
+                () => synthesizeDebate(null, toggles, { summarizer, systemPrompt })
               : undefined,
             onPause: debateCtl.pause ? pauseDebate : undefined,
             onResume: debateCtl.resume ? resumeDebate : undefined,
@@ -283,7 +284,6 @@ export default function Home() {
       closeDebate,
       debateCtl,
       synthesizeDebate,
-      synthesizerModel,
       toggles,
       summarizer,
       systemPrompt,

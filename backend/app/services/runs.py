@@ -26,6 +26,10 @@ TURN_KINDS = frozenset({SYNTHESIS_TURN})
 # chat.build_turn_input), so the tree and the transcript can label the reply.
 SYNTHESIS_MODE_KEY = "crucible_synthesis_mode"
 SYNTHESIS_QUESTION_KEY = "crucible_synthesis_question"
+# The replies a synthesis was written from, as their node checkpoint ids
+# joined by commas (a string: LangGraph copies only string configurable
+# values into checkpoint metadata). The transcript shows them above it.
+SYNTHESIS_ANSWERS_KEY = "crucible_synthesis_answers"
 # Shared by every run of one turn (each model answering the same message), so
 # readers can group the replies to it even when they sit on different branches.
 TURN_ID_KEY = "crucible_turn_id"

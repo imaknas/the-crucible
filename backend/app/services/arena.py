@@ -29,6 +29,7 @@ from app.services.synthesis import (
     synthesis_framing,
 )
 from app.services.runs import (
+    SYNTHESIS_ANSWERS_KEY,
     SYNTHESIS_MODE_KEY,
     SYNTHESIS_QUESTION_KEY,
     SYNTHESIS_TURN,
@@ -516,7 +517,9 @@ async def run_arena(
         return
 
     asked = await question_point(graph_app, thread_id, usable[0]["checkpoint_id"])
-    async for event in _synthesize(graph_app, thread_id, asked, synthesizer, _independent_synthesis_prompt(prompt, usable), toggles, context):
+    note = synthesis_note(answers=[a["checkpoint_id"] for a in usable])
+    async for event in _synthesize(graph_app, thread_id, asked, synthesizer, _independent_synthesis_prompt(prompt, usable), toggles, context,
+                                   note=note):
         yield event
 
 
@@ -649,11 +652,15 @@ def _labelled_answers(answers: Sequence[Mapping[str, Any]]) -> Tuple[str, List[T
     )
 
 
-def synthesis_note(mode: str = "merge", question: Optional[str] = None) -> Dict[str, str]:
-    """What a synthesis turn records about how it was asked for (runs.SYNTHESIS_MODE_KEY)."""
+def synthesis_note(mode: str = "merge", question: Optional[str] = None,
+                   answers: Sequence[str] = ()) -> Dict[str, str]:
+    """What a synthesis turn records about how it was asked for
+    (runs.SYNTHESIS_MODE_KEY) and the replies it was written from."""
     note = {SYNTHESIS_MODE_KEY: mode}
     if mode == "ask" and question:
         note[SYNTHESIS_QUESTION_KEY] = question.strip()
+    if answers:
+        note[SYNTHESIS_ANSWERS_KEY] = ",".join(answers)
     return note
 
 
@@ -782,7 +789,7 @@ async def synthesize_thread(
     question_line, labelled = _labelled_answers([{**a, "question": a.get("question") or asked} for a in answers])
     prompt = build_synthesis_prompt(question_line, labelled, framing)
     async for event in _synthesize(graph_app, thread_id, parent, synthesizer, prompt, toggles, context,
-                                   note=synthesis_note(mode, question)):
+                                   note=synthesis_note(mode, question, [a["checkpoint_id"] for a in answers])):
         yield event
 
 

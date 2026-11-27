@@ -121,6 +121,15 @@ async def test_a_comparison_is_a_synthesis_reply_that_says_it_compares():
 
 
 @pytest.mark.asyncio
+async def test_an_arena_synthesis_records_the_answers_it_merged():
+    async with arena.open_graph() as graph_app:
+        result = await arena.collect(arena.run_arena(graph_app, "Q?", "t-auto", [A, B], {}, synthesizer=A))
+        tree = await history.thread_tree(graph_app, "t-auto")
+    node = next(n for n in tree["nodes"] if n["id"] == result["synthesis"]["checkpoint_id"])
+    assert node["metadata"]["synthesis_answers"] == [result["answers"][m]["checkpoint_id"] for m in (A, B)]
+
+
+@pytest.mark.asyncio
 async def test_asking_about_answers_from_two_branches_keeps_the_question():
     async with arena.open_graph() as graph_app:
         first = await _turn(graph_app, "t-ask", "First question?")
@@ -134,6 +143,8 @@ async def test_asking_about_answers_from_two_branches_keeps_the_question():
     assert "answering: First question?" in SEEN[-1] and "answering: Second question?" in SEEN[-1]
     node = next(n for n in tree["nodes"] if n["id"] == result["synthesis"]["checkpoint_id"])
     assert node["metadata"]["synthesis_question"] == "Which is riskier?"
+    # The replies it was written from, so the transcript can show them above it.
+    assert node["metadata"]["synthesis_answers"] == [first[0], second[1]]
 
 
 @pytest.mark.asyncio
@@ -221,4 +232,7 @@ def test_the_chat_socket_synthesizes_in_the_mode_its_frame_names():
     assert "Which is simpler?" in SEEN[-1]
     node = next(n for n in tree["nodes"] if n["id"] == msg["checkpoint_id"])
     assert (node["metadata"]["synthesis_mode"], node["metadata"]["synthesis_question"]) == ("ask", "Which is simpler?")
+    assert node["metadata"]["synthesis_answers"] == ends
+    reply = tree["messages"][-1]
+    assert (reply["kind"], reply["synthesis_answers"]) == ("synthesis", ends)
     assert bad.status_code == 400 and "at least two answers" in bad.json()["detail"]

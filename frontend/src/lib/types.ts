@@ -79,6 +79,8 @@ export interface Message {
   /** Synthesis replies: how it was asked for (lib/synthesis), and the question for "ask". */
   synthesis_mode?: string | null;
   synthesis_question?: string | null;
+  /** Synthesis replies: the tree nodes of the answers it was written from (empty for older ones). */
+  synthesis_answers?: string[];
   /** Debate transcripts: the round this reply answered (0-based). */
   round?: number;
   /** A reply's time, tokens and cost (stream_end and path messages); null if it recorded none. */
@@ -127,6 +129,8 @@ export interface TreeNode {
     /** Synthesis nodes: how it was asked for (lib/synthesis), and the question for "ask". */
     synthesis_mode?: string | null;
     synthesis_question?: string | null;
+    /** Synthesis nodes: the answers it was written from (empty for older ones). */
+    synthesis_answers?: string[];
     /** A reply's time, tokens and cost; null if it recorded none. */
     metrics?: ReplyMetrics | null;
     /** What a reply was written from (lib/context); null for older replies. */

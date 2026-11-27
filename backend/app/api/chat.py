@@ -314,7 +314,7 @@ async def run_model(run: LiveRun, graph_app, thread_id: str, frame: dict, contex
                 graph_app, thread_id, frame["answer_checkpoint_ids"], mode,
                 keep=frame.get("keep_components") or (), question=frame.get("synthesis_question"),
             )
-            note = synthesis_note(mode, frame.get("synthesis_question"))
+            note = synthesis_note(mode, frame.get("synthesis_question"), frame["answer_checkpoint_ids"])
         run.emit({"type": "stream_start", **where, "model_color": model_color(model),
                   "kind": state.kind, "message": state.message})
         async for event in stream_turn(
