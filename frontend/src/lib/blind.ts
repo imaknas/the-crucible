@@ -4,6 +4,7 @@
  * `crucible vote --show`), with nothing that names the model until the
  * person votes.
  */
+import { anglesDiffer } from "@/lib/angles";
 import type { TurnCard } from "@/lib/turns";
 
 function utf8(text: string): number[] {
@@ -58,3 +59,12 @@ export function maskCards(cards: TurnCard[], turnId: string): TurnCard[] {
 
 export const TASK_TYPES = ["general", "coding", "writing", "research", "reasoning", "other"] as const;
 export type TaskType = (typeof TASK_TYPES)[number];
+
+/**
+ * Whether a chat turn's cards are drawn blind: blind comparison is on and
+ * the turn has no vote yet. A turn whose answers had different angles is
+ * never masked: it can't be voted on (lib/angles), so it would never reveal.
+ */
+export function drawnBlind(blind: boolean, voted: boolean, cards: { angle?: string | null }[]): boolean {
+  return blind && !voted && !anglesDiffer(cards);
+}

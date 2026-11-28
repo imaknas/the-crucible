@@ -64,13 +64,22 @@ def _letters(answers: Sequence[Mapping[str, Any]], key: str) -> List[str]:
     return letters
 
 
+def _as_reviewed(answer) -> str:
+    """An answer as a reviewer reads it: with the angle it was asked to take,
+    if any, so it is scored as an answer from that angle (a cost review is
+    not worse for leaving security to another)."""
+    angle = answer.get("angle")
+    return f"(Asked to answer from this angle: {angle})\n{answer['content']}" if angle else answer["content"]
+
+
 def review_prompt(question: str, others: Sequence[tuple[str, str]]) -> str:
     """What one reviewer reads: the question and the other answers, by letter."""
     body = "\n\n".join(f"[{label}]:\n{content}" for label, content in others)
     return (
         f"Question: {question}\n\n"
         f"Answers to it from other models, labelled by letter (yours is not among them):\n\n{body}\n\n"
-        "Score each answer from 1 to 10 for accuracy and insight. Write one line per answer, "
+        "Score each answer from 1 to 10 for accuracy and insight; an answer asked to take an angle "
+        "is scored as an answer from that angle. Write one line per answer, "
         "in exactly this form and nothing else:\n"
         "<letter>: <score> — <one-sentence reason>"
     )
@@ -131,7 +140,7 @@ async def review_answers(
     config = {"configurable": {"model_factory": factory}} if factory else {}
 
     async def review_by(reviewer: str) -> tuple[str, dict[str, tuple[int, str]]]:
-        others = [(r.label, a["content"]) for r, a in zip(reviewed, answers) if a["model"] != reviewer]
+        others = [(r.label, _as_reviewed(a)) for r, a in zip(reviewed, answers) if a["model"] != reviewer]
         random.Random(f"{key}:{reviewer}").shuffle(others)
         llm = model_factory_from(config).chat(reviewer, {})
         response = await llm.ainvoke(

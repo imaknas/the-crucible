@@ -158,6 +158,25 @@ async def test_a_case_keeps_each_answers_angle_and_a_replay_gives_it_again():
     assert {r["model"]: r["angle"] for r in replay["results"]} == {A: "its security", B: None}
 
 
+@pytest.mark.asyncio
+async def test_a_peer_reviewer_scores_an_answer_as_one_from_its_angle():
+    from app.services import review
+
+    async with arena.open_graph() as graph_app:
+        result = await arena.collect(arena.run_arena(graph_app, "Review this plan.", "t-rev", [A, B], {},
+                                                     angles={A: "its cost"}))
+        ids = [result["answers"][m]["checkpoint_id"] for m in (A, B)]
+        CALLS.clear()
+        try:
+            await review.review_answers(graph_app, "t-rev", ids)
+        except ValueError:
+            pass  # the scripted replies aren't scores; the prompts are what this checks
+
+    read_by_b = next(human for model, _system, human in CALLS if model == B)
+    assert "(Asked to answer from this angle: its cost)" in read_by_b
+    assert "scored as an answer from that angle" in read_by_b
+
+
 def test_a_debate_takes_no_angle():
     with pytest.raises(DebateRefused, match="no angle"):
         _run_settings({"settings": {}}, {}, ContextSettings(angle="cost"))

@@ -10,7 +10,7 @@ import ModelErrorBubble from "./ModelErrorBubble";
 import BranchChip, { StoppedNote, type AnswerChoice } from "./BranchChip";
 import SummaryMarker from "./SummaryMarker";
 import { replyNodeAt } from "@/lib/spanBranch";
-import { maskCards } from "@/lib/blind";
+import { drawnBlind, maskCards } from "@/lib/blind";
 import VoteBar from "./VoteBar";
 import { anglesDiffer } from "@/lib/angles";
 import type { VoteInput } from "@/hooks/useVotes";
@@ -705,7 +705,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                 // Blind: lettered cards with nothing naming the model, until
                 // the person votes (lib/blind). The vote is what reveals.
                 const vote = item.turnId ? votesByTurn[item.turnId] : undefined;
-                const hidden = blind && chat && !vote;
+                const hidden = chat && drawnBlind(blind, !!vote, item.cards);
                 const cards = hidden ? maskCards(item.cards, item.turnId ?? item.key) : item.cards;
                 // Answers asked from different angles answered different
                 // asks: picking the best is no comparison (the backend refuses it).

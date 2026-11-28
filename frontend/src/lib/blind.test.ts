@@ -1,4 +1,4 @@
-import { blindOrder, fnv1a, maskCards } from "./blind";
+import { blindOrder, drawnBlind, fnv1a, maskCards } from "./blind";
 import type { TurnCard } from "./turns";
 
 describe("blind order", () => {
@@ -41,5 +41,15 @@ describe("maskCards", () => {
       ["gpt-5.4", "Answer B"],
     ]);
     expect(masked.every((c) => c.color === null && c.metrics === null)).toBe(true);
+  });
+});
+
+describe("drawnBlind", () => {
+  it("masks a turn until it is voted on, but never one whose answers had different angles", () => {
+    expect(drawnBlind(true, false, [{ angle: null }, { angle: null }])).toBe(true);
+    expect(drawnBlind(true, true, [{ angle: null }, { angle: null }])).toBe(false);
+    expect(drawnBlind(false, false, [{ angle: null }, { angle: null }])).toBe(false);
+    // It can't be voted on, so masked it would never reveal which model took which angle.
+    expect(drawnBlind(true, false, [{ angle: "cost" }, { angle: null }])).toBe(false);
   });
 });
