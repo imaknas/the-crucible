@@ -43,8 +43,8 @@ def test_extract_text_list():
         {"text": "World"},
         "!",
     ]
-    # No wrap thinking
-    assert extract_text(content) == "Hello Let me thinkWorld!"
+    # Thinking is the model's reasoning, not its answer: left out unless wrapped.
+    assert extract_text(content) == "Hello World!"
 
     # Wrap thinking
     content2 = [
@@ -64,10 +64,9 @@ def test_extract_text_dict():
         extract_text({"type": "thinking", "thinking": "Hmm"}, wrap_thinking=True)
         == "<think>\nHmm\n</think>"
     )
-    assert (
-        extract_text({"type": "thinking", "thinking": "Hmm"}, wrap_thinking=False)
-        == "Hmm"
-    )
+    assert extract_text({"type": "thinking", "thinking": "Hmm"}, wrap_thinking=False) == ""
+    # A signature-only block (the end of a streamed thinking block) adds nothing.
+    assert extract_text([{"type": "thinking", "thinking": "", "signature": "s"}], wrap_thinking=True) == ""
     # base text
     assert extract_text({"text": "fallback"}) == "fallback"
     # empty fallback

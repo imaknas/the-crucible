@@ -207,9 +207,10 @@ def test_a_probe_records_which_model_answered_when_it_is_another():
 # ─── Reasoning-effort levels ─────────────────────────────────────
 
 
-def effort_transport(calls, refuse=(), flaky=()):
-    """Answers every listing; refuses (400) the effort levels in `refuse`
-    and rate-limits those in `flaky`."""
+def effort_transport(calls, refuse=(), flaky=(), broken=()):
+    """Answers every listing; refuses (400, naming the parameter) the effort
+    levels in `refuse`, rate-limits those in `flaky` and refuses those in
+    `broken` for another reason."""
     inner = transport(calls)
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -218,7 +219,10 @@ def effort_transport(calls, refuse=(), flaky=()):
             level = (body.get("reasoning_effort") or (body.get("reasoning") or {}).get("effort")
                      or ((body.get("generationConfig") or {}).get("thinkingConfig") or {}).get("thinkingLevel"))
             if level in refuse:
-                return httpx.Response(400, json={"error": {"message": f"Unsupported value: {level}"}})
+                return httpx.Response(400, json={"error": {
+                    "message": f"Unsupported value: 'reasoning_effort' does not support '{level}' with this model."}})
+            if level in broken:
+                return httpx.Response(400, json={"error": {"message": "Unknown parameter: 'max_completion_tokens'."}})
             if level in flaky:
                 return httpx.Response(429, json={"error": {"message": "slow down"}})
         return inner.handle_request(request)
@@ -272,3 +276,12 @@ def test_an_inconclusive_effort_probe_records_nothing_and_effort_mode_retries_it
     with httpx.Client(transport=effort_transport(calls)) as client:
         _, diff = sync_catalog(again, KEYS, client=client, today="2026-09-28", probe="effort", effort_ids={"gpt-9"})
     assert diff.probed == {} and not [c for c in calls if c[0] == "POST"]
+
+
+def test_a_refusal_that_isnt_about_the_effort_records_nothing():
+    """A request shape the provider stopped taking would refuse every level:
+    that must not become "this model has no reasoning effort"."""
+    with httpx.Client(transport=effort_transport([], broken=("minimal", "low", "medium", "high", "xhigh"))) as client:
+        catalog, diff = sync_catalog({}, KEYS, client=client, today="2026-09-26", effort_ids={"gpt-9"})
+    assert "reasoning_effort" not in catalog["gpt-9"].capabilities
+    assert diff.probed["gpt-9"]["efforts"] is None

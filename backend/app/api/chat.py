@@ -54,6 +54,8 @@ class ChatRequest(BaseModel):
     system_prompt: Optional[str] = None
     # The angle this model answers from (e.g. a review's focus); None = none.
     angle: Optional[str] = None
+    # How hard the model reasons (llm/effort.EFFORT_CHOICES); None = its default.
+    reasoning_effort: Optional[str] = None
     # Add this model to a turn already answered (its id, or one of its
     # replies' checkpoints): it answers that turn's question; `message` is
     # then ignored (arena.join_point).

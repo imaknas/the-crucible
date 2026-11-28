@@ -7,7 +7,11 @@ def extract_text(content: Any, wrap_thinking: bool = False, strip: bool = True) 
 
     Handles Gemini/Anthropic's list-of-dicts format, raw dicts,
     and standard string content. Explicitly extracts "text" blocks.
-    If wrap_thinking is True, converts "thinking" blocks to <think> tags.
+    "thinking" blocks (Anthropic's, sent once a reasoning effort turns
+    adaptive thinking on) are the model's reasoning, not its answer: left out,
+    unless wrap_thinking is True, which shows them as <think> tags for the
+    transcript to fold. Everything else that reads a reply (the next turn's
+    history, syntheses, checks, search, the streamed tokens) reads the answer.
     """
     raw_text = ""
     if isinstance(content, str):
@@ -22,12 +26,10 @@ def extract_text(content: Any, wrap_thinking: bool = False, strip: bool = True) 
                 # Anthropic/Native thinking block
                 elif block.get("type") == "thinking" or "thinking" in block:
                     think_text = block.get("thinking") or block.get("text") or ""
-                    if wrap_thinking:
+                    if wrap_thinking and think_text:
                         parts.append(
                             f"<think>\n{clean_string(str(think_text))}\n</think>"
                         )
-                    else:
-                        parts.append(clean_string(str(think_text)))
                 # Handle cases where type is missing but text is present
                 elif "text" in block:
                     parts.append(clean_string(str(block.get("text") or "")))
@@ -39,10 +41,8 @@ def extract_text(content: Any, wrap_thinking: bool = False, strip: bool = True) 
             raw_text = clean_string(str(content.get("text") or ""))
         elif content.get("type") == "thinking":
             think_text = content.get("thinking") or content.get("text") or ""
-            if wrap_thinking:
+            if wrap_thinking and think_text:
                 raw_text = f"<think>\n{clean_string(str(think_text))}\n</think>"
-            else:
-                raw_text = clean_string(str(think_text))
         else:
             raw_text = clean_string(str(content.get("text") or ""))
     else:

@@ -140,6 +140,16 @@ def _run_context(as_json: bool, summarizer: Optional[str] = None, system: Option
     return context
 
 
+def _debate_context(as_json: bool, session_id: str, summarizer=None, system=None, effort=None):
+    """A stored debate's settings with the options given over them; None for none."""
+    from app.services.debate import stored_context
+
+    context = stored_context(session_id, summarizer=summarizer, system_prompt=system, reasoning_effort=effort)
+    if context is not None and (problem := context.problem()):
+        _fail(problem, as_json)
+    return context
+
+
 def _documents(paths: Optional[List[str]], as_json: bool) -> Dict[str, str]:
     """--attach files as a turn's documents ({filename: text})."""
     from app.services.uploads import read_documents
@@ -887,7 +897,7 @@ def debates_continue(
     """Run more rounds of a stopped debate (resume after a pause, or inject a message)."""
     as_json = _check_format(format_output)
     _load_env()
-    context = _run_context(as_json, summarizer, system, effort) if summarizer or system or effort else None
+    context = _debate_context(as_json, session_id, summarizer, system, effort)
 
     async def go():
         from app.core import database as db
@@ -940,7 +950,7 @@ def debates_redirect(
     model keeping what it said."""
     as_json = _check_format(format_output)
     _load_env()
-    context = _run_context(as_json, summarizer, system, effort) if summarizer or system or effort else None
+    context = _debate_context(as_json, session_id, summarizer, system, effort)
     documents = _documents(attach, as_json)
 
     async def go():
@@ -1058,6 +1068,7 @@ def synthesize(
     context = _run_context(as_json, summarizer, system, effort)
 
     if debate:
+        context = _debate_context(as_json, debate, summarizer, system, effort)
         result = _run(_run_synthesize_debate(debate, judge, as_json, context), as_json)
     else:
         result = _run(

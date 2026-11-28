@@ -138,6 +138,8 @@ export function useDebateSession({
   const [connected, setConnected] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
+  // Notices already shown for this tab (a debate repeats them every round).
+  const seenNoticesRef = useRef<Set<string>>(new Set());
   const tokenBufferRef = useRef<Record<string, string>>({});
   const rafRef = useRef<number | null>(null);
   // The question being debated now: what a synthesis or a redirect is about.
@@ -290,6 +292,12 @@ export function useDebateSession({
         case "stream_end":
           flushTokens();
           transcriptEvent(msg);
+          // A notice repeats every round (the same model, the same reason): say it once.
+          for (const notice of (msg.notices ?? []) as string[]) {
+            if (seenNoticesRef.current.has(notice)) continue;
+            seenNoticesRef.current.add(notice);
+            pushToast(notice, "info");
+          }
           if (msg.checkpoint_id) settlePendingNode(msg.model, msg.round ?? 0, msg.checkpoint_id, msg.content ?? "");
           resolvePendingNode(msg.model, sessionId, msg.round ?? 0);
           break;

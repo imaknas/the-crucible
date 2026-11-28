@@ -76,11 +76,16 @@ def _context(system_prompt: Optional[str] = None, summarizer: Optional[str] = No
     return context
 
 
-def _maybe_context(system_prompt: Optional[str], summarizer: Optional[str],
-                   reasoning_effort: Optional[str] = None) -> Optional[ContextSettings]:
-    """None (the debate's stored settings) unless the call names one."""
-    named = system_prompt is not None or summarizer is not None or reasoning_effort is not None
-    return _context(system_prompt, summarizer, reasoning_effort) if named else None
+def _debate_context(session_id: str, system_prompt: Optional[str], summarizer: Optional[str],
+                    reasoning_effort: Optional[str]) -> Optional[ContextSettings]:
+    """The debate's stored settings with the ones the call names over them;
+    None (the stored ones as they are) when it names none."""
+    context = debate_svc.stored_context(
+        session_id, system_prompt=system_prompt, summarizer=summarizer, reasoning_effort=reasoning_effort
+    )
+    if context is not None and (problem := context.problem()):
+        raise ToolError(problem)
+    return context
 
 
 def _attachments(paths: Optional[List[str]]) -> Dict[str, str]:
@@ -668,7 +673,7 @@ async def continue_debate(
         return await _collect_debate(
             debate_svc.continue_debate(
                 graph_app, session_id, rounds, inject or (), _maybe_toggles(session, use_web_search, use_rag),
-                context=_maybe_context(system_prompt, summarizer, reasoning_effort), force=force,
+                context=_debate_context(session_id, system_prompt, summarizer, reasoning_effort), force=force,
             ),
             session,
         )
@@ -717,7 +722,7 @@ async def redirect_debate(
         return await _collect_debate(
             debate_svc.run_debate(
                 graph_app, session_id, prompt, _maybe_toggles(session, use_web_search, use_rag), documents,
-                context=_maybe_context(system_prompt, summarizer, reasoning_effort), force=force,
+                context=_debate_context(session_id, system_prompt, summarizer, reasoning_effort), force=force,
             ),
             session,
         )
@@ -747,7 +752,7 @@ async def synthesize_debate(
     result: Dict[str, Any] = {"session_id": session_id, "synthesis": None}
     async with arena_svc.open_graph() as graph_app:
         async for event in debate_svc.synthesize_session(graph_app, session_id, prompt="", synthesizer=synthesizer,
-                                                         context=_maybe_context(system_prompt, summarizer, reasoning_effort)):
+                                                         context=_debate_context(session_id, system_prompt, summarizer, reasoning_effort)):
             if event["type"] == "error":
                 raise ToolError(event["message"])
             if event["type"] == "debate_synthesis_end":

@@ -74,17 +74,22 @@ GOOGLE_THINKING_LEVELS = ("minimal", "low", "medium", "high")
 
 def probe_levels(levels, call) -> ProbeResult:
     """Try `call(level)` for each level: a success means the model takes it,
-    a refusal that it doesn't. Inconclusive (a timeout, 429, 5xx) as soon as
-    one level is, so a transient error never records a level as missing.
+    a refusal that names the parameter (reasoning, effort, thinking) that it
+    doesn't. Anything else is inconclusive (a timeout, 429, 5xx, or a
+    refusal for another reason, e.g. a request shape the provider changed),
+    so no level is ever recorded as missing on an error that isn't about it.
     The levels taken are `capabilities["reasoning_effort"]`."""
     taken = []
     for level in levels:
         result = guarded(lambda: call(level))
-        if result.ok is None:
-            return ProbeResult(None, f"{level}: {result.error}")
         if result.ok:
             taken.append(level)
+        elif result.ok is None or not _ABOUT_EFFORT.search(result.error or ""):
+            return ProbeResult(None, f"{level}: {result.error}")
     return ProbeResult(True, None, {"reasoning_effort": taken})
+
+
+_ABOUT_EFFORT = re.compile(r"reasoning|effort|thinking", re.I)
 
 
 class ProviderSource(Protocol):

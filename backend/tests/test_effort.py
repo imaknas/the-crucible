@@ -147,15 +147,39 @@ async def test_each_model_gets_its_level_or_a_notice_and_the_reply_says_which(is
     assert case["settings"]["reasoning_effort"] == "max"
 
 
-@pytest.mark.asyncio
-async def test_helper_calls_never_get_the_effort(isolated):
-    """Only the answering call: a synthesis is an answering call (its own
-    model's level), the summary, recall and grading are not."""
-    async with arena.open_graph() as graph_app:
-        await arena.collect(arena.run_arena(
-            graph_app, "Q?", "t-helper", [A], {}, context=ContextSettings(reasoning_effort="low"),
-        ))
-    assert isolated == {A: "low"}
+def test_a_summary_never_gets_the_effort():
+    """The summarizer is a helper call: the run's effort is the answering
+    model's alone (as are recall and grading, built the same way)."""
+    from langchain_core.messages import AIMessage
+
+    from app.compaction import ThresholdPolicy
+    from app.compaction.policy import fixed_tokens
+    from app.llm import CallableModelFactory
+    from app.services import graph as graph_mod
+
+    calls: list = []
+
+    class Summarizer:
+        def invoke(self, msgs, *args, **kwargs):
+            return AIMessage(content="a summary")
+
+    def factory(model_id, _toggles):
+        calls.append(model_id)
+        return Summarizer()
+
+    class Strict(CallableModelFactory):
+        def chat(self, model_id, toggles=None, **kwargs):
+            assert "effort" not in kwargs, "a helper call was handed the run's effort"
+            return super().chat(model_id, toggles)
+
+    messages = [HumanMessage(content=f"turn {i}") if i % 2 == 0 else AIMessage(content=f"reply {i}") for i in range(12)]
+    config = {"configurable": {
+        "model_factory": Strict(factory),
+        "compaction_policy": ThresholdPolicy(fixed_tokens(1)),
+        "reasoning_effort": "max",
+    }}
+    out = graph_mod.summarize_history({"messages": messages, "active_peer": A}, config)
+    assert calls and "a summary" in out["messages"][0].content
 
 
 def test_cli_and_mcp_take_an_effort(isolated):
@@ -192,3 +216,103 @@ def test_models_say_which_efforts_each_takes():
     assert by_id["claude-haiku-4-5-20251001"]["reasoning_efforts"] == []
     rows = {m["id"]: m for m in arena.list_models()}
     assert rows["claude-opus-5-5"]["reasoning_efforts"] == by_id["claude-opus-5-5"]["reasoning_efforts"]
+
+
+# ─── Thinking blocks (an Anthropic effort turns adaptive thinking on) ──
+
+
+THINKING_REPLY = [
+    {"type": "thinking", "thinking": "Let me weigh the migration first.", "signature": "sig"},
+    {"type": "text", "text": "The plan lacks a rollback."},
+]
+
+
+def test_thinking_stays_out_of_what_other_calls_read_but_the_transcript_folds_it():
+    from langchain_core.messages import AIMessage
+
+    from app.services.graph import sanitize_messages
+    from app.utils.helpers import extract_text
+
+    assert extract_text(THINKING_REPLY) == "The plan lacks a rollback."
+    assert extract_text(THINKING_REPLY, wrap_thinking=True).startswith("<think>\nLet me weigh")
+    history = sanitize_messages([HumanMessage("Review it."), AIMessage(content=THINKING_REPLY), HumanMessage("And cost?")])
+    sent = " ".join(str(m.content) for m in history)
+    assert "The plan lacks a rollback." in sent and "Let me weigh" not in sent
+
+
+@pytest.mark.asyncio
+async def test_a_reply_with_thinking_streams_and_reads_as_its_answer(isolated):
+    """The streamed tokens, the stored answer a synthesis reads, and the
+    path the transcript shows."""
+    from langchain_core.language_models.chat_models import BaseChatModel
+    from langchain_core.messages import AIMessage
+    from langchain_core.outputs import ChatGeneration, ChatResult
+
+    from app.llm import CallableModelFactory
+    from app.services import history
+
+    class Thinker(BaseChatModel):
+        """Answers with a thinking block and a text block, as Claude does."""
+
+        @property
+        def _llm_type(self):
+            return "thinker"
+
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            if run_manager:  # streamed as Anthropic streams it: the thinking, then the text
+                from langchain_core.messages import AIMessageChunk
+                from langchain_core.outputs import ChatGenerationChunk
+
+                for block in THINKING_REPLY:
+                    run_manager.on_llm_new_token("", chunk=ChatGenerationChunk(message=AIMessageChunk(content=[block])))
+            return ChatResult(generations=[ChatGeneration(message=AIMessage(content=THINKING_REPLY))])
+
+    factory = CallableModelFactory(lambda m, _t: Thinker())
+    tokens: list = []
+    with use_model_factory(factory):
+        async with arena.open_graph() as graph_app:
+            async for event in arena.run_arena(graph_app, "Review it.", "t-think", [B], {}):
+                if event["type"] == "token":
+                    tokens.append(event["token"])
+                if event["type"] == "end":
+                    end = event
+            answer = await arena.answer_at(graph_app, "t-think", end["checkpoint_id"])
+            path = await history.path_at(graph_app, "t-think", end["checkpoint_id"])
+    assert "".join(tokens) == "The plan lacks a rollback."  # streamed, without the thinking
+    assert end["content"] == answer["content"] == "The plan lacks a rollback."
+    messages = path["messages"] if isinstance(path, dict) else path
+    assert messages[-1]["content"].startswith("<think>")
+
+
+def test_a_socket_frame_and_post_chat_carry_an_effort(isolated):
+    from fastapi.testclient import TestClient
+
+    from app.main import server
+
+    with TestClient(server) as client:
+        with client.websocket_connect("/ws/t-ws") as ws:
+            ws.send_json({"message": "Q?", "model": A, "reasoning_effort": "high"})
+            while (end := ws.receive_json())["type"] not in ("stream_end", "error"):
+                pass
+        assert end["type"] == "stream_end" and end["effort"] == {"choice": "high", "level": "high"}, end
+        with client.websocket_connect("/ws/t-ws2") as ws:
+            ws.send_json({"message": "Q?", "model": A, "reasoning_effort": "extreme"})
+            while (refused := ws.receive_json())["type"] not in ("stream_end", "error"):
+                pass
+        assert refused["type"] == "error" and "Unknown reasoning effort" in refused["message"]
+        isolated.clear()
+        r = client.post("/chat", json={"message": "Q?", "thread_id": "t-rest", "model": A, "reasoning_effort": "low"})
+        assert r.status_code == 200, r.text
+    assert isolated == {A: "low"}
+
+
+def test_continuing_a_debate_with_one_setting_keeps_the_others(monkeypatch):
+    from app.services import debate
+
+    stored = {"settings": {"system_prompt": "Be brief.", "summarizer": None, "reasoning_effort": "high", "toggles": {}}}
+    monkeypatch.setattr(debate.db, "get_debate_session", lambda _sid: stored)
+    assert debate.stored_context("s") is None  # nothing named: the stored settings as they are
+    merged = debate.stored_context("s", reasoning_effort="max")
+    assert (merged.system_prompt, merged.reasoning_effort) == ("Be brief.", "max")
+    merged = debate.stored_context("s", system_prompt="Be thorough.")
+    assert (merged.system_prompt, merged.reasoning_effort) == ("Be thorough.", "high")

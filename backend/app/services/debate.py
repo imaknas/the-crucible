@@ -514,6 +514,18 @@ def _rounds_allowed(start: int, wanted: int) -> int:
     return max(1, min(wanted, left))
 
 
+def stored_context(session_id: str, **named) -> Optional[ContextSettings]:
+    """The debate's stored settings with the ones a call names (not None)
+    over them, for a continue, redirect or synthesis that changes one
+    setting and keeps the rest; None when it names none (the stored ones
+    then apply as they are)."""
+    named = {k: v for k, v in named.items() if v is not None}
+    if not named:
+        return None
+    session = db.get_debate_session(session_id) or {}
+    return ContextSettings.from_frame({**(session.get("settings") or {}), **named})
+
+
 def _run_settings(session: Mapping[str, Any], toggles, context):
     """The run's toggles and context: as given, else the start's (stored)."""
     stored = session.get("settings") or {}
@@ -844,6 +856,9 @@ async def _stream_round(
             await queue.put({
                 "type": "stream_end", "model": model_id, "session_id": session_id, "round": round_num,
                 "checkpoint_id": (end or {}).get("checkpoint_id", ""), "content": reply,
+                # What degraded the reply without failing it (a summary that
+                # failed, a reasoning effort the model doesn't take).
+                "notices": list((end or {}).get("notices") or []),
             })
             curr_round_responses[model_id] = reply
         except TimeoutError:
