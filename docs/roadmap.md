@@ -51,6 +51,13 @@ Rechecked on 2026-11-28 against papers from April to November 2026 (their arXiv 
    - After Arena's independent answers, each model reviews the others anonymously and cannot change its own answer. The ranking is shown beside the synthesis, never as a verdict.
    - Source: llm-council.
 
+Items 29–32 were added after the plan, once the app was in use for cold reviews of ideas and plans; they are numbered after it so earlier references keep their numbers.
+
+29. **List every problem the answers raise.** _Done: the synthesis mode `issues`: each problem once, with who raised it and why, never filtered by how many raised it or judged._ For reviews, what a single reviewer saw is often the most valuable, so the list is a union, not a vote.
+30. **Check each problem against the source.** _Done: "Check each problem" under an issue list (`crucible check`, MCP `check_issues`). Each checker reads only the question, its attached files and the problems with their reasons, never who raised them or how many, and says holds, doesn't hold or can't tell with a reason; verdicts sit side by side, never tallied._ Peer review's scores answered a different question: which answer is better, not whether a problem is real.
+31. **Each model answers from its own angle.** _Done: "Angles" beside Attach (`crucible arena --angle MODEL=ANGLE`, MCP `invoke_arena(angles=)`): the message stays the same for every model, the angle goes into that model's system message, and every answer shows it._ One turn can then review a plan's security, its cost and the case against it at once; votes and blind comparison are off for such a turn, since its answers answered different asks.
+32. **Reasoning effort.** _Done: Low, Medium, High or Highest in the Control Panel (`--effort`, MCP `reasoning_effort`), resolved per model against the levels it takes (from the provider's listing, or one probe call per level, first run 2026-11-28); a model without the level answers at its default and the turn says so._
+
 ## Phase 3 — Nothing lost, nothing hidden
 
 9. **Resumable streams.** _Done._
