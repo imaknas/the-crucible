@@ -695,7 +695,11 @@ async def _follow_debate(events, session, prompt, as_json, plan: str) -> Dict[st
     from rich.markup import escape
 
     from app.services import debate as debate_svc
-    from app.cli_display import ArenaDisplay, print_header, print_info, print_success, print_error, render_synthesis
+    from app.cli_display import (
+        ArenaDisplay, print_header, print_info, print_metrics, print_success, print_error, render_synthesis,
+    )
+    from app.registry import display_name
+    from app.services.metrics import describe_usage
 
     session_id, thread_id = session["session_id"], session["parent_thread_id"]
     models = list(dict.fromkeys(session["participants"]))
@@ -729,7 +733,8 @@ async def _follow_debate(events, session, prompt, as_json, plan: str) -> Dict[st
             async for event in events:
                 kind = event["type"]
                 if kind == "debate_round_start":
-                    current = {"round": event["round"], "responses": {}, "errors": {}, "convergence_score": None, "verdict": None}
+                    current = {"round": event["round"], "responses": {}, "errors": {}, "convergence_score": None,
+                               "verdict": None, "metrics": {}, "judge_usage": None}
                     result["rounds"].append(current)
                     if not as_json:
                         console.print()
@@ -740,6 +745,7 @@ async def _follow_debate(events, session, prompt, as_json, plan: str) -> Dict[st
                     display.update_token(event["model"], event["token"])
                 elif kind == "stream_end" and current is not None:
                     current["responses"][event["model"]] = event.get("content", "")
+                    current["metrics"][event["model"]] = event.get("metrics")
                     if display:
                         display.finish_model(event["model"])
                 elif kind == "error":
@@ -763,6 +769,12 @@ async def _follow_debate(events, session, prompt, as_json, plan: str) -> Dict[st
                     if current is not None:
                         current["convergence_score"] = event.get("convergence_score")
                         current["verdict"] = event.get("verdict")
+                        current["judge_usage"] = event.get("judge_usage")
+                        if not as_json:
+                            for model, metrics in current["metrics"].items():
+                                print_metrics(metrics, label=display_name(model))
+                            if event.get("judge_usage"):
+                                print_info(f"  [dim]agreement judge: {escape(describe_usage(event['judge_usage']))}[/dim]")
                     verdict = event.get("verdict")
                     if not as_json and verdict:
                         what = "judge" if verdict["method"] == "judge" else "stability"
@@ -777,12 +789,13 @@ async def _follow_debate(events, session, prompt, as_json, plan: str) -> Dict[st
                 elif kind == "debate_synthesis_start" and not as_json:
                     print_info(f"Writing the argument map with {escape(event['model'])}…")
                 elif kind == "debate_synthesis_end":
-                    result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error")}
+                    result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error", "metrics")}
                     if not as_json:
                         if event.get("error"):
                             print_error(event["error"] + f" Retry: crucible synthesize -d {session_id} -j <another model>")
                         if event.get("content"):
                             render_synthesis(event["content"], event["model"], kind="Argument map")
+                            print_metrics(event.get("metrics"))
                 elif kind == "debate_session_status":
                     result["status"] = event.get("status")
     except (KeyboardInterrupt, asyncio.CancelledError):
@@ -796,8 +809,10 @@ async def _follow_debate(events, session, prompt, as_json, plan: str) -> Dict[st
 
     if not result["rounds"] and result["errors"]:
         raise ValueError(result["errors"][0])
+    result["total"] = debate_svc.rounds_total(result["rounds"], (result["synthesis"] or {}).get("metrics"))
     if not as_json:
         console.print()
+        print_metrics(result["total"], label="debate")
         if result["failed"]:
             print_error("Failed: " + ", ".join(f"{m} (round {', '.join(str(r + 1) for r in rs)})"
                                                  for m, rs in result["failed"].items()))
@@ -857,6 +872,9 @@ def debates_show(
     from rich.markdown import Markdown
     from rich.text import Text
 
+    from app.cli_display import print_metrics
+    from app.services.metrics import describe_usage
+
     labels = record["labels"]
     injected = {}
     for entry in record["injected"]:
@@ -875,11 +893,17 @@ def debates_show(
         for model, text in rnd["responses"].items():
             console.print(Text(f"{labels.get(model, model)} · {model}", style="bold"))
             console.print(Markdown(text))
+            print_metrics((rnd.get("metrics") or {}).get(model))
         for model in rnd["errors"]:
             console.print(Text(f"{labels.get(model, model)} · {model}: no answer this round", style="red"))
+        if rnd.get("judge_usage"):
+            console.print(Text(f"  agreement judge: {describe_usage(rnd['judge_usage'])}", style="dim"))
     if record["synthesis"]:
         console.rule(f"Argument map · {record['synthesis']['model']}")
         console.print(Markdown(record["synthesis"]["content"]))
+        print_metrics(record["synthesis"].get("metrics"))
+    console.print()
+    print_metrics(record.get("total"), label="debate")
 
 
 @debates_app.command("continue")

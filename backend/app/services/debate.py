@@ -42,6 +42,7 @@ from app.services.runs import (
     seeded_message_count,
     thread_config,
 )
+from app.services.metrics import message_metrics, snapshot_day, turn_total, usage_summary, utc_day
 from app.utils.helpers import extract_text
 
 log = logging.getLogger(__name__)
@@ -659,6 +660,10 @@ async def _run_rounds(
         if verdict is not None:
             round_end["verdict"] = {"method": verdict.method, "reached": verdict.converged,
                                     "score": verdict.score, "reason": verdict.reason}
+        if verdict is not None and verdict.calls:
+            day = utc_day()
+            round_end["judge_usage"] = usage_summary(verdict.calls, day=day)
+            await asyncio.to_thread(db.record_judge_calls, session_id, round_num, day, list(verdict.calls))
         if score is not None:
             round_end["convergence_score"] = score
             await asyncio.to_thread(db.record_round_score, session_id, round_num, score)
@@ -859,13 +864,16 @@ async def _stream_round(
                 # What degraded the reply without failing it (a summary that
                 # failed, a reasoning effort the model doesn't take).
                 "notices": list((end or {}).get("notices") or []),
+                # Time, tokens and cost of the reply and the calls made for it.
+                "metrics": (end or {}).get("metrics"),
             })
             curr_round_responses[model_id] = reply
         except TimeoutError:
             if drafted and buffer:
                 # The answer is complete; only the post-draft bookkeeping ran long.
+                # No end event, so no metrics: unknown, not zero.
                 await queue.put({"type": "stream_end", "model": model_id, "session_id": session_id,
-                                 "round": round_num, "checkpoint_id": "", "content": buffer})
+                                 "round": round_num, "checkpoint_id": "", "content": buffer, "metrics": None})
                 curr_round_responses[model_id] = buffer
             else:
                 await queue.put({"type": "error", "model": model_id, "session_id": session_id, "round": round_num,
@@ -938,21 +946,45 @@ async def debate_rounds(graph_app, session: Mapping[str, Any]) -> dict[str, list
     ends on someone's answer.
     """
     rounds: dict[str, list[str]] = {}
+    for model_id, replies in (await _lane_replies(graph_app, session)).items():
+        texts = [extract_text(m.content) if m is not None else "" for m in replies]
+        if any(texts):
+            rounds[model_id] = texts
+    return rounds
+
+
+async def debate_round_metrics(graph_app, session: Mapping[str, Any]) -> dict[str, list[Optional[dict]]]:
+    """Each participant's reply metrics, round by round (``debate_rounds``'
+    walk): None for a round it failed or a reply that recorded none."""
+    out: dict[str, list[Optional[dict]]] = {}
+    for model_id, replies in (await _lane_replies(graph_app, session)).items():
+        day = await _lane_day(graph_app, session["thread_ids"][model_id])
+        out[model_id] = [message_metrics(m, day=day) if m is not None else None for m in replies]
+    return out
+
+
+async def _lane_replies(graph_app, session: Mapping[str, Any]) -> dict[str, list[Optional[AIMessage]]]:
+    """Each participant's last reply after every round prompt, None where
+    the round has none."""
+    lanes: dict[str, list[Optional[AIMessage]]] = {}
     for model_id in session["participants"]:
         thread_id = session["thread_ids"].get(model_id)
         if not thread_id:
             continue
-        msgs = await _read_lane(graph_app, thread_id)
-        replies: list[str] = []
-        for m in msgs:
+        replies: list[Optional[AIMessage]] = []
+        for m in await _read_lane(graph_app, thread_id):
             kind = getattr(m, "type", "")
             if kind == "human":
-                replies.append("")
+                replies.append(None)
             elif kind == "ai" and replies:
-                replies[-1] = extract_text(m.content)
-        if any(replies):
-            rounds[model_id] = replies
-    return rounds
+                replies[-1] = m
+        lanes[model_id] = replies
+    return lanes
+
+
+async def _lane_day(graph_app, thread_id: str) -> Optional[str]:
+    """The day a lane was last written, which its replies are priced on."""
+    return snapshot_day(await graph_app.aget_state(thread_config(thread_id)))
 
 
 async def debate_questions(graph_app, session: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -1051,27 +1083,38 @@ async def debate_transcript(graph_app, session_id: str) -> dict[str, Any]:
     if not session:
         raise ValueError(f"Debate session {session_id} not found.")
     replies = await debate_rounds(graph_app, session)
+    reply_metrics = await debate_round_metrics(graph_app, session)
     questions = await debate_questions(graph_app, session)
     scores = session.get("round_scores") or {}
+    judged = session.get("judge_calls") or {}
     rounds = []
     for i in range(_rounds_run(replies)):
         responses = {m: r[i] for m, r in replies.items() if i < len(r) and r[i]}
+        judge = judged.get(str(i)) or {}
         rounds.append({
             "round": i,
             "question": _question_at(questions, i)["prompt"],
             "responses": responses,
+            "metrics": {m: reply_metrics.get(m, [])[i] if i < len(reply_metrics.get(m, [])) else None
+                        for m in responses},
             "errors": {m: "no answer this round" for m in _participants(session) if m not in responses},
             "score": scores.get(str(i)),
+            "judge_usage": usage_summary(judge.get("calls") or [], day=judge.get("day")),
         })
     synthesis = await synthesis_text(graph_app, session)
+    synthesis_metrics = await _synthesis_metrics(graph_app, session) if synthesis else None
+    total = rounds_total(rounds, synthesis_metrics)
     return {
         "session": session_view(session),
         "question": questions[-1]["prompt"],
         "labels": peer_legend(session),
         "rounds": rounds,
         "synthesis": {"model": db.session_synthesizer(session), "model_name": display_name(db.session_synthesizer(session)),
-                      "content": synthesis} if synthesis else None,
+                      "content": synthesis, "metrics": synthesis_metrics} if synthesis else None,
         "injected": session.get("injected") or [],
+        # Every completed call of the debate: replies, the calls made for
+        # them, the agreement judge and the synthesis.
+        "total": total,
     }
 
 
@@ -1133,6 +1176,21 @@ async def debate_tree(graph_app, session: Mapping[str, Any]) -> dict[str, Any]:
         lane_entry["stance_note"] = notes.get(lane_entry["model_id"])
     tree["session_metadata"]["stance"] = session_stance(session).mode
     return tree
+
+
+def rounds_total(rounds: Sequence[Mapping[str, Any]], synthesis_metrics: Optional[dict] = None) -> Optional[dict]:
+    """Rounds' cost together (each round's ``metrics`` by model and
+    ``judge_usage``) with the synthesis: what a debate, or one call that
+    ran some of its rounds, cost."""
+    return turn_total([*(m for r in rounds for m in (r.get("metrics") or {}).values()), synthesis_metrics],
+                      extra=[r.get("judge_usage") for r in rounds])
+
+
+async def _synthesis_metrics(graph_app, session: Mapping[str, Any]) -> Optional[dict]:
+    state = await graph_app.aget_state(thread_config(db.synthesis_thread_id(dict(session))))
+    msgs = (state.values or {}).get("messages", []) if state else []
+    last = msgs[-1] if msgs else None
+    return message_metrics(last, day=snapshot_day(state)) if last is not None and last.type == "ai" else None
 
 
 async def synthesis_text(graph_app, session: Mapping[str, Any]) -> str:
@@ -1270,6 +1328,7 @@ async def _stream_synthesis(
     buffer = ""
     checkpoint_id = ""
     error = None
+    metrics = None
     try:
         async with asyncio.timeout(model_timeout(context)):
             async for event in stream_turn(
@@ -1284,6 +1343,7 @@ async def _stream_synthesis(
                 elif event["type"] == "end":
                     checkpoint_id = event["checkpoint_id"]
                     buffer = event["content"] or buffer
+                    metrics = event.get("metrics")
     except TimeoutError:
         error = f"The synthesis timed out after {model_timeout(context)}s; what arrived is incomplete."
     except Exception as e:
@@ -1296,5 +1356,6 @@ async def _stream_synthesis(
         "checkpoint_id": checkpoint_id,
         "content": buffer,
         "error": error,
+        "metrics": metrics,
         "synthesis_thread_id": synthesis_thread_id,
     }

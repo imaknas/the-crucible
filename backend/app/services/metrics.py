@@ -27,6 +27,7 @@ usage priced when read, like the reply's own. Only completed calls report
 usage: a stopped or failed call is not counted.
 """
 
+import datetime
 import functools
 import threading
 import time
@@ -232,6 +233,12 @@ def current_prices() -> Mapping[str, ModelPrice]:
     return load_prices()
 
 
+def utc_day() -> str:
+    """Today (YYYY-MM-DD, UTC), the day calls made now are priced on, like
+    the checkpoints' own timestamps."""
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+
+
 def snapshot_day(snapshot: Any) -> Optional[str]:
     """The day (YYYY-MM-DD, UTC) a checkpoint was written, from its timestamp."""
     created = getattr(snapshot, "created_at", None)
@@ -385,6 +392,18 @@ def describe(metrics: Optional[Metrics]) -> str:
         word = "incl." if "answers" in metrics else "+"
         parts.append(f"{word} {describe_helpers(helpers)}")
     return " · ".join(parts)
+
+
+def describe_usage(usage: Optional[Metrics]) -> str:
+    """Calls on their own (a usage_summary): "2 calls · 1,234 in / 56 out · $0.0012"."""
+    if not usage:
+        return ""
+    calls = usage.get("calls") or 0
+    cost = format_cost(usage.get("cost_usd")) if usage.get("cost_usd") is not None else "price unknown"
+    if usage.get("unpriced") and usage.get("cost_usd") is not None:
+        cost += f" + {usage['unpriced']} price unknown"
+    return (f"{calls} call{'s' if calls != 1 else ''} · {usage.get('input_tokens') or 0:,} in / "
+            f"{usage.get('output_tokens') or 0:,} out · {cost}")
 
 
 def describe_helpers(helpers: Metrics) -> str:

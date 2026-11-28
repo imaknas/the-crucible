@@ -71,6 +71,10 @@ def init_db():
     # {mode, sides, advocate}). NULL: an open debate, as every session before it.
     if "stance" not in existing:
         conn.execute("ALTER TABLE debate_sessions ADD COLUMN stance TEXT")
+    # Migration: the agreement judge's model calls per round ({round: {day,
+    # calls}}, raw usage priced when read). NULL: none recorded.
+    if "judge_calls" not in existing:
+        conn.execute("ALTER TABLE debate_sessions ADD COLUMN judge_calls TEXT")
 
     # Added later: documents attached to a thread, once per (thread, filename),
     # instead of in the graph state of every checkpoint.
@@ -219,6 +223,25 @@ def record_round_score(session_id: str, round_num: int, score: float) -> None:
         conn.close()
 
 
+def record_judge_calls(session_id: str, round_num: int, day: str, calls: list) -> None:
+    """Persist one round's agreement-judge calls, so the debate's cost
+    includes them after a reload."""
+    conn = get_db_connection()
+    try:
+        row = conn.execute("SELECT judge_calls FROM debate_sessions WHERE session_id = ?", (session_id,)).fetchone()
+        if not row:
+            return
+        try:
+            stored = json.loads(row[0] or "null") or {}
+        except ValueError:
+            stored = {}
+        stored[str(round_num)] = {"day": day, "calls": list(calls)}
+        conn.execute("UPDATE debate_sessions SET judge_calls = ? WHERE session_id = ?", (json.dumps(stored), session_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def create_debate_session(session: dict[str, Any]) -> None:
     conn = get_db_connection()
     try:
@@ -262,7 +285,7 @@ def _decode_session(cols, row) -> dict[str, Any]:
     data["termination_policy"] = json.loads(data["termination_policy"])
     data["auto_synthesize"] = bool(data["auto_synthesize"])
     data["round_scores"] = _decode_round_scores(data.get("round_scores"))
-    for column, empty in (("questions", []), ("injected", []), ("settings", {}), ("stance", None)):
+    for column, empty in (("questions", []), ("injected", []), ("settings", {}), ("stance", None), ("judge_calls", {})):
         try:
             data[column] = json.loads(data.get(column) or "null") or empty
         except ValueError:

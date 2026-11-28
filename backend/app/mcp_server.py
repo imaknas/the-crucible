@@ -498,10 +498,12 @@ async def _collect_debate(events, session: Dict[str, Any]) -> Dict[str, Any]:
         async for event in events:
             kind = event["type"]
             if kind == "debate_round_start":
-                current = {"round": event["round"], "responses": {}, "errors": {}, "convergence_score": None, "verdict": None}
+                current = {"round": event["round"], "responses": {}, "errors": {}, "convergence_score": None,
+                           "verdict": None, "metrics": {}, "judge_usage": None}
                 result["rounds"].append(current)
             elif kind == "stream_end" and current is not None:
                 current["responses"][event["model"]] = event.get("content", "")
+                current["metrics"][event["model"]] = event.get("metrics")
             elif kind == "error":
                 if event.get("model") and current is not None:
                     current["errors"][event["model"]] = event["message"]
@@ -511,6 +513,7 @@ async def _collect_debate(events, session: Dict[str, Any]) -> Dict[str, Any]:
             elif kind == "debate_round_end" and current is not None:
                 current["convergence_score"] = event.get("convergence_score")
                 current["verdict"] = event.get("verdict")
+                current["judge_usage"] = event.get("judge_usage")
             elif kind == "debate_converged":
                 result["converged"] = {k: event.get(k) for k in ("round", "score", "reason", "method")}
             elif kind == "debate_synthesis_end":
@@ -519,6 +522,7 @@ async def _collect_debate(events, session: Dict[str, Any]) -> Dict[str, Any]:
                 result["status"] = event.get("status")
     if not result["rounds"] and result["errors"]:
         raise ToolError(result["errors"][0])
+    result["total"] = debate_svc.rounds_total(result["rounds"], (result["synthesis"] or {}).get("metrics"))
     return result
 
 
@@ -658,8 +662,13 @@ async def continue_debate(
 
     Returns {session_id, thread_id, labels: {model: label the models saw},
     rounds: [{round, responses: {model: text}, errors: {model: message},
-    convergence_score, verdict}] (the new rounds only), converged, synthesis:
-    answer | null, failed: {model: [rounds]}, errors: [message], status}.
+    convergence_score, verdict, metrics: {model: metrics}, judge_usage}]
+    (the new rounds only), converged, synthesis: answer | null, failed:
+    {model: [rounds]}, errors: [message], status, total}. `metrics` is each
+    reply's, as in invoke_arena; `judge_usage` the agreement judge's calls
+    that round ({calls, kinds, input_tokens, output_tokens, cost_usd, …}) or
+    null; `total` what this call's rounds and synthesis cost together, the
+    judge and the calls made for each reply included.
 
     Args:
         session_id: The debate.
@@ -783,9 +792,11 @@ async def get_debate(session_id: str, rounds_from: int = 0, max_chars: Optional[
 
     Returns {session, question, labels: {model: label the models saw},
     rounds: [{round, question, responses: {model: text}, errors: {model:
-    message}, score}], synthesis: {model, model_name, content} | null,
-    injected: [{round, message}]}. A failed answer is an errors entry, so
-    later rounds keep their numbers.
+    message}, score, metrics: {model: metrics}, judge_usage}], synthesis:
+    {model, model_name, content, metrics} | null, injected: [{round,
+    message}], total}. A failed answer is an errors entry, so later rounds
+    keep their numbers. `metrics`, `judge_usage` and `total` are as in
+    continue_debate; `total` is the whole debate's, whatever rounds_from.
 
     Args:
         session_id: The debate.

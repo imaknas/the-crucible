@@ -272,13 +272,14 @@ def test_a_debate_resume_says_pausing_until_the_round_ends():
     state.record({"type": "stream_start", "model": A})
     state.record({"type": "stream_token", "model": A, "token": "half"})
     state.record({"type": "stream_start", "model": B})
-    state.record({"type": "stream_end", "model": B, "content": "whole", "checkpoint_id": "cp-b"})
+    state.record({"type": "stream_end", "model": B, "content": "whole", "checkpoint_id": "cp-b",
+                  "metrics": {"cost_usd": 0.01}})
     state.control.pause()
     resume = state.resume()
     assert resume["status"] == "pausing" and resume["round"] == 1 and resume["question"] == "Q"
     assert resume["answers"] == [
         {"model": A, "content": "half", "done": False},
-        {"model": B, "content": "whole", "done": True, "checkpoint_id": "cp-b"},
+        {"model": B, "content": "whole", "done": True, "checkpoint_id": "cp-b", "metrics": {"cost_usd": 0.01}},
     ]
     state.record({"type": "debate_session_status", "status": "paused"})
     assert state.resume()["status"] == "paused"

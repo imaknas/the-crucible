@@ -46,6 +46,8 @@ class Verdict:
     reason: Optional[str] = None
     # Mean round-over-round stability, when the check measures one.
     score: Optional[float] = None
+    # The model calls the check made ({model, kind, usage}: metrics.call_entry).
+    calls: tuple = ()
 
 
 class ConvergenceCheck(Protocol):
@@ -158,6 +160,7 @@ class JudgeCheck:
         from langchain_core.messages import HumanMessage
 
         from app.llm import default_model_factory
+        from app.services.metrics import call_entry
         from app.utils.helpers import extract_text
 
         # A participant that errored or timed out has no position this round;
@@ -170,13 +173,18 @@ class JudgeCheck:
                 reason=f"Not judged: no answer this round from {', '.join(failed)}",
             )
 
+        calls: list = []
         try:
             llm = (self._factory or default_model_factory()).chat(self.judge_model, {})
             loop = asyncio.get_running_loop()
 
+
             async def ask(shift: int) -> tuple[bool, str]:
                 prompt = self._prompt(current, shift)
                 response = await loop.run_in_executor(None, llm.invoke, [HumanMessage(content=prompt)])
+                entry = call_entry(response, self.judge_model, "agreement judge")
+                if entry:
+                    calls.append(entry)
                 text = extract_text(response.content).strip()
                 return text.upper().startswith("CONVERGED: YES"), (text.split(",", 1)[1].strip() if "," in text else text)
 
@@ -185,17 +193,19 @@ class JudgeCheck:
             )
             agreed = [ok for ok, _ in readings]
             if all(agreed) or not any(agreed):
-                return Verdict(converged=agreed[0], method="judge", reason=readings[0][1])
+                return Verdict(converged=agreed[0], method="judge", reason=readings[0][1], calls=tuple(calls))
             dissent = next(why for ok, why in readings if not ok)
             return Verdict(
                 converged=False,
                 method="judge",
                 reason=f"The judge's verdict changed with the order of the answers, so it doesn't count: {dissent}",
+                calls=tuple(calls),
             )
         except asyncio.TimeoutError:
-            return Verdict(converged=False, method="judge", reason="Judge timed out")
+            # The readings that finished were paid for all the same.
+            return Verdict(converged=False, method="judge", reason="Judge timed out", calls=tuple(calls))
         except Exception as e:
-            return Verdict(converged=False, method="judge", reason=f"Judge error: {e}")
+            return Verdict(converged=False, method="judge", reason=f"Judge error: {e}", calls=tuple(calls))
 
 
 # ─── Composition ─────────────────────────────────────────────────
@@ -224,6 +234,7 @@ class CombinedCheck:
             method="judge" if judge else deciding[0].method,
             reason=reason,
             score=score,
+            calls=tuple(c for v in verdicts for c in v.calls),
         )
 
 

@@ -115,3 +115,32 @@ def test_websocket_stream_end_and_post_chat_carry_metrics():
         r = client.post("/chat", json={"message": "again", "thread_id": "t-ws", "model": B})
         assert r.status_code == 200, r.text
         _complete(r.json()["messages"][-1]["metrics"])
+
+
+def test_cli_debate_reports_every_reply_and_the_debate_total():
+    out = json.loads(runner.invoke(cli_app, ["debate", "Is it?", "-m", A, "-m", B, "-r", "2", "--judge", B,
+                                             "--format", "json"]).stdout)
+    for rnd in out["rounds"]:
+        assert set(rnd["metrics"]) == {A, B} and all(_complete(m) for m in rnd["metrics"].values())
+    _complete(out["synthesis"]["metrics"])
+    assert out["total"]["answers"] == 5 and out["total"]["cost_usd"] > 0
+
+    shown = runner.invoke(cli_app, ["debates", "show", out["session_id"]])
+    assert shown.exit_code == 0, shown.exception
+    assert shown.stdout.count("to first token") == 6 and "debate:" in shown.stdout  # five replies and the total
+    stored = json.loads(runner.invoke(cli_app, ["debates", "show", out["session_id"], "--format", "json"]).stdout)
+    assert stored["total"]["cost_usd"] == pytest.approx(out["total"]["cost_usd"])
+
+
+@pytest.mark.asyncio
+async def test_mcp_debate_rounds_carry_metrics():
+    from app.mcp_server import mcp
+
+    async with Client(mcp) as client:
+        res = (await client.call_tool("run_debate", {"prompt": "Is it?", "models": [A, B], "max_rounds": 1,
+                                                     "synthesizer": B})).data
+        assert all(_complete(m) for m in res["rounds"][0]["metrics"].values())
+        _complete(res["synthesis"]["metrics"])
+        assert res["total"]["answers"] == 3
+        got = (await client.call_tool("get_debate", {"session_id": res["session_id"]})).data
+        assert got["total"]["cost_usd"] == pytest.approx(res["total"]["cost_usd"])

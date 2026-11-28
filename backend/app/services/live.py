@@ -257,6 +257,7 @@ class DebateRunState:
             self.answers[model] = {
                 "model": model, "content": frame.get("content") or self.answers.get(model, {}).get("content", ""),
                 "done": True, "checkpoint_id": frame.get("checkpoint_id") or None,
+                "metrics": frame.get("metrics"),
             }
         elif kind == "error" and model:
             self.answers[model] = {
@@ -268,7 +269,7 @@ class DebateRunState:
             self.synthesis = {"model": model, "content": "", "done": False}
         elif kind == "debate_synthesis_end":
             self.synthesis = {"model": model, "content": frame.get("content") or "", "done": True,
-                              "error": frame.get("error")}
+                              "error": frame.get("error"), "metrics": frame.get("metrics")}
 
     def resume(self) -> Frame:
         status = self.status
