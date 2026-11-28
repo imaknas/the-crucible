@@ -124,7 +124,7 @@ class ChatConnection:
                      model (type "synthesis" tags a synthesis turn, and with
                      answer_checkpoint_ids in place of a message synthesizes
                      those replies, hung from their question unless a parent
-                     is given: synthesis_mode merge | compare | checklist
+                     is given: synthesis_mode merge | compare | issues | checklist
                      (with keep_components) | ask (with synthesis_question);
                      debate_session_id, without a parent, continues that
                      finished debate; join_turn, a turn id or one of its

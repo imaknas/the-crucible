@@ -22,6 +22,7 @@ uv run crucible chat --deliberate -m claude-sonnet-5-5 --thread <thread_id>   # 
 uv run crucible arena --join-turn <turn_or_checkpoint> -m grok-4.7 --thread <thread_id>   # add a model to an answered turn
 uv run crucible synthesize --thread <thread_id>                    # combine the answers to the latest question
 uv run crucible synthesize --thread <thread_id> --mode compare     # a table of where they differ (no winner)
+uv run crucible synthesize --thread <thread_id> --mode issues      # every problem the answers raise, with who raised it (for reviews)
 uv run crucible synthesize --thread <thread_id> --mode checklist   # list their parts; then --keep "<part>" (repeat) to merge just those
 uv run crucible synthesize --thread <thread_id> --mode ask -q "Which is riskier?"   # your question about them
 uv run crucible review --thread <thread_id>                        # the models score each other's answers, anonymously; --list shows stored reviews

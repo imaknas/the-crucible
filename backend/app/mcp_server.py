@@ -281,7 +281,7 @@ async def synthesize_answers(
 ) -> Dict[str, Any]:
     """Synthesize answers already on a thread, as a new reply beside them
     (under the question they answer): merge them into one, compare them in a
-    table of differences, merge only the components you keep (list them with
+    table of differences, list every problem they raise (reviews), merge only the components you keep (list them with
     list_answer_components first), or answer your question about them. The
     answers may come from any branches.
 
@@ -295,7 +295,7 @@ async def synthesize_answers(
         parent_checkpoint_id: Where the synthesis goes instead.
         system_prompt: Instructions sent before the conversation.
         summarizer: Model that summarizes long history.
-        mode: "merge" (one answer), "compare" (a table of where they differ), "checklist" (one answer from the `keep` components), or "ask" (answer `question` about them).
+        mode: "merge" (one answer), "compare" (a table of where they differ), "issues" (every problem the answers raise, with who raised it: for reviews of a plan or idea), "checklist" (one answer from the `keep` components), or "ask" (answer `question` about them).
         keep: With mode "checklist": the component texts to keep, as list_answer_components returned them.
         question: With mode "ask": your question about the answers.
     """

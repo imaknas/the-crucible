@@ -967,7 +967,7 @@ def synthesize(
     mode: str = typer.Option(
         "merge",
         "--mode",
-        help="merge: one answer; compare: a table of where the answers differ; checklist: one answer from the components you --keep (without --keep, lists them); ask: answer your --question about them.",
+        help="merge: one answer; compare: a table of where the answers differ; issues: every problem the answers raise, with who raised it (for reviews); checklist: one answer from the components you --keep (without --keep, lists them); ask: answer your --question about them.",
     ),
     keep: Optional[List[str]] = typer.Option(
         None, "--keep", "-k", help="With --mode checklist: a component to keep, as listed (repeat)."

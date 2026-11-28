@@ -1,10 +1,11 @@
 /**
  * Ways to ask for a synthesis (the backend's synthesis.SYNTHESIS_MODES) and
  * what each reply is called. merge: one answer from many; compare: a table of
- * where they differ; checklist: one answer from the components the person
+ * where they differ; issues: every problem the answers raise, with who raised
+ * it (for reviews of a plan or idea); checklist: one answer from the components the person
  * kept; ask: the person's own question about the answers.
  */
-export type SynthesisMode = "merge" | "compare" | "checklist" | "ask";
+export type SynthesisMode = "merge" | "compare" | "issues" | "checklist" | "ask";
 
 export interface SynthesisRequest {
   mode: SynthesisMode;
@@ -14,11 +15,18 @@ export interface SynthesisRequest {
   question?: string;
 }
 
-export const SYNTHESIS_MODES: { mode: SynthesisMode; action: string; description: string }[] = [
-  { mode: "merge", action: "Merge into one answer", description: "One answer that keeps the strongest points and flags contradictions." },
-  { mode: "compare", action: "Compare in a table", description: "Where the answers differ, what they agree on, what only one covers. No winner." },
-  { mode: "checklist", action: "Pick the parts to keep…", description: "Split the answers into parts, tick the ones you want, then merge just those." },
-  { mode: "ask", action: "Ask about them…", description: "Your own question, answered from these answers." },
+/** `action` names the mode in a menu; `button` is the button that runs it. */
+export const SYNTHESIS_MODES: { mode: SynthesisMode; action: string; button: string; description: string }[] = [
+  { mode: "merge", action: "Merge into one answer", button: "Synthesize answers", description: "One answer that keeps the strongest points and flags contradictions." },
+  { mode: "compare", action: "Compare in a table", button: "Compare answers", description: "Where the answers differ, what they agree on, what only one covers. No winner." },
+  {
+    mode: "issues",
+    action: "List every problem raised",
+    button: "List problems",
+    description: "For reviews: every problem any answer raises, with who raised it. None dropped for being raised once; checking them is up to you.",
+  },
+  { mode: "checklist", action: "Pick the parts to keep…", button: "Pick parts", description: "Split the answers into parts, tick the ones you want, then merge just those." },
+  { mode: "ask", action: "Ask about them…", button: "Ask", description: "Your own question, answered from these answers." },
 ];
 
 /** The chat frame's synthesis fields (api/chat.py), only what the mode needs. */
@@ -35,6 +43,8 @@ export function synthesisLabel(mode?: string | null): string {
   switch (mode) {
     case "compare":
       return "Comparison";
+    case "issues":
+      return "Problems raised";
     case "checklist":
       return "Synthesis of kept parts";
     case "ask":

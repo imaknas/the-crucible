@@ -386,8 +386,7 @@ export default function TurnCards({
   const total = blind || cards.some((c) => c.streaming) ? null : turnTotal(cards.map((c) => c.metrics));
   const streaming = cards.some((c) => c.streaming);
   const failedCount = cards.filter((c) => c.error).length;
-  const synthLabel =
-    mode === "merge" ? "Synthesize answers" : mode === "compare" ? "Compare answers" : mode === "checklist" ? "Pick parts" : "Ask";
+  const synthLabel = action.button;
   return (
     <Box data-testid="turn-cards" sx={{ display: "flex", flexDirection: "column", gap: 2, width: "100%" }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>

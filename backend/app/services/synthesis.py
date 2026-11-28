@@ -16,7 +16,7 @@ by the caller:
 
 import re
 from dataclasses import dataclass
-from typing import Iterable, Optional, Sequence, Tuple
+from typing import Callable, Iterable, Optional, Sequence, Tuple
 
 
 @dataclass(frozen=True)
@@ -134,6 +134,23 @@ COMPARE = SynthesisFraming(
 )
 
 
+ISSUES = SynthesisFraming(
+    described_as="Independent reviews from {n} models",
+    instruction=(
+        "List every problem, risk, gap or objection these reviews raise, as one "
+        "list. Merge two only when they are the same problem; keep problems that "
+        "only one review raises, and don't order or drop any by how many reviews "
+        "raise it: a problem one reviewer saw can matter most. For each:\n"
+        "- the problem in one or two sentences;\n"
+        "- who raised it (the labels above);\n"
+        "- the reason or evidence they gave.\n"
+        "Don't judge whether a problem holds and don't add problems of your own: "
+        "checking them against the source is the reader's next step. End with the "
+        "points where the reviews contradict each other."
+    ),
+)
+
+
 def checklist_merge(kept: Sequence[str]) -> SynthesisFraming:
     """Merge the answers keeping exactly the components the reader ticked
     (from the list `component_request` asked for)."""
@@ -162,29 +179,41 @@ def ask_about(question: str) -> SynthesisFraming:
     )
 
 
-# How a synthesis can be asked for. merge: one answer from many (INDEPENDENT);
-# compare: a table of differences; checklist: one answer from the components
-# the reader kept; ask: the reader's own question about the answers.
-SYNTHESIS_MODES = ("merge", "compare", "checklist", "ask")
+def _checklist(keep: Sequence[str], question: Optional[str]) -> SynthesisFraming:
+    kept = [k.strip() for k in keep if k and k.strip()]
+    if not kept:
+        raise ValueError("A checklist synthesis needs at least one component to keep.")
+    return checklist_merge(kept)
+
+
+def _ask(keep: Sequence[str], question: Optional[str]) -> SynthesisFraming:
+    if not (question or "").strip():
+        raise ValueError("Asking about answers needs a question.")
+    return ask_about(question.strip())
+
+
+# How a synthesis can be asked for, each mode building its framing from what
+# the caller passed. merge: one answer from many (INDEPENDENT); compare: a
+# table of differences; issues: every problem the answers raise, by who
+# raised it; checklist: one answer from the components the reader kept; ask:
+# the reader's own question about the answers.
+_FRAMINGS: dict[str, Callable[[Sequence[str], Optional[str]], SynthesisFraming]] = {
+    "merge": lambda keep, question: INDEPENDENT,
+    "compare": lambda keep, question: COMPARE,
+    "issues": lambda keep, question: ISSUES,
+    "checklist": _checklist,
+    "ask": _ask,
+}
+SYNTHESIS_MODES = tuple(_FRAMINGS)
 
 
 def synthesis_framing(mode: str = "merge", *, keep: Sequence[str] = (), question: Optional[str] = None) -> SynthesisFraming:
     """The framing for a synthesis mode; ValueError for an unknown mode or a
     mode missing what it needs."""
-    if mode == "merge":
-        return INDEPENDENT
-    if mode == "compare":
-        return COMPARE
-    if mode == "checklist":
-        kept = [k.strip() for k in keep if k and k.strip()]
-        if not kept:
-            raise ValueError("A checklist synthesis needs at least one component to keep.")
-        return checklist_merge(kept)
-    if mode == "ask":
-        if not (question or "").strip():
-            raise ValueError("Asking about answers needs a question.")
-        return ask_about(question.strip())
-    raise ValueError(f"Unknown synthesis mode {mode!r}; one of {', '.join(SYNTHESIS_MODES)}.")
+    build = _FRAMINGS.get(mode)
+    if build is None:
+        raise ValueError(f"Unknown synthesis mode {mode!r}; one of {', '.join(SYNTHESIS_MODES)}.")
+    return build(keep, question)
 
 
 # ─── Checklist: the components to choose from ────────────────────

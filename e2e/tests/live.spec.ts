@@ -504,6 +504,19 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
   });
 
+  test("every problem the answers raise can be listed", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await send(page, "What could go wrong with this plan?");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    await page.getByLabel("How to combine the answers").click();
+    await page.getByRole("option", { name: /^List every problem raised/ }).click();
+    await page.getByText("List problems").click();
+    await expect(page.getByText(/^Problems raised · /i)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+  });
+
   test("answers can be merged from just the parts you keep", async ({ page }) => {
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await page.getByRole("button", { name: "Arena", exact: true }).click();

@@ -1,5 +1,5 @@
 """Ways to ask for a synthesis: merge (one answer), compare (a table of
-differences), checklist (one answer from the components the reader keeps)
+differences), issues (every problem the answers raise), checklist (one answer from the components the reader keeps)
 and ask (the reader's own question about the answers), across any branches.
 
 The CLI, MCP and the chat socket reach the same service; the reply records
@@ -19,7 +19,7 @@ from typer.testing import CliRunner
 from app.cli import app as cli_app
 from app.llm import CallableModelFactory, use_model_factory
 from app.services import arena, history
-from app.services.synthesis import COMPARE, INDEPENDENT, parse_components, synthesis_framing
+from app.services.synthesis import COMPARE, INDEPENDENT, ISSUES, SYNTHESIS_MODES, parse_components, synthesis_framing
 from tests.storage_helpers import point
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
@@ -71,6 +71,7 @@ async def _turn(graph_app, thread_id, prompt="Monolith or microservices?"):
 def test_each_mode_has_its_framing_and_says_what_it_lacks():
     assert synthesis_framing("merge") is INDEPENDENT
     assert synthesis_framing("compare") is COMPARE
+    assert synthesis_framing("issues") is ISSUES
     assert "Keep this" in synthesis_framing("checklist", keep=["Keep this"]).instruction
     assert "Why?" in synthesis_framing("ask", question="Why?").instruction
     for mode, kwargs, message in [
@@ -80,6 +81,21 @@ def test_each_mode_has_its_framing_and_says_what_it_lacks():
     ]:
         with pytest.raises(ValueError, match=message):
             synthesis_framing(mode, **kwargs)
+
+
+def test_every_mode_builds_a_framing():
+    for mode in SYNTHESIS_MODES:
+        assert synthesis_framing(mode, keep=["a part"], question="Why?").instruction
+
+
+def test_the_issue_list_keeps_a_problem_one_reviewer_raised_and_leaves_judging_it_to_the_reader():
+    """A union, not a vote: dropping or ranking problems by how many reviews
+    raise them would lose the one only one reviewer saw."""
+    text = ISSUES.instruction
+    assert "keep problems that only one review raises" in text
+    assert "don't order or drop any by how many reviews raise it" in text
+    assert "who raised it" in text
+    assert "Don't judge whether a problem holds" in text
 
 
 def test_components_parse_from_numbered_lines_and_an_empty_list_is_an_error():
@@ -118,6 +134,19 @@ async def test_a_comparison_is_a_synthesis_reply_that_says_it_compares():
     assert (node["type"], node["metadata"]["synthesis_mode"]) == ("synthesis", "compare")
     reply = path["messages"][-1] if isinstance(path, dict) else path[-1]
     assert (reply["kind"], reply["synthesis_mode"]) == ("synthesis", "compare")
+
+
+@pytest.mark.asyncio
+async def test_an_issue_list_is_a_synthesis_reply_that_says_it_lists_problems():
+    async with arena.open_graph() as graph_app:
+        ids = await _turn(graph_app, "t-issues")
+        SEEN.clear()
+        result = await arena.collect(arena.synthesize_thread(graph_app, "t-issues", A, checkpoint_ids=ids, mode="issues"))
+        tree = await history.thread_tree(graph_app, "t-issues")
+
+    assert "List every problem" in SEEN[-1] and "Independent reviews from 2 models" in SEEN[-1]
+    node = next(n for n in tree["nodes"] if n["id"] == result["synthesis"]["checkpoint_id"])
+    assert (node["type"], node["metadata"]["synthesis_mode"]) == ("synthesis", "issues")
 
 
 @pytest.mark.asyncio
