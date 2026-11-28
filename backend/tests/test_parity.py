@@ -96,8 +96,11 @@ CHAT_FRAME: dict = {
     "toggles.use_web_search": (("arena", "--web-search"), ("invoke_arena", "use_web_search")),
     "summarizer": (("arena", "--summarizer"), ("invoke_arena", "summarizer")),
     "system_prompt": (("arena", "--system"), ("invoke_arena", "system_prompt")),
+    "angle": (("arena", "--angle"), ("invoke_arena", "angles")),
 }
-# Debates take the same per-run choices.
+# Per-run choices a debate refuses: participants get sides instead (stances).
+NOT_IN_DEBATES = {"angle"}
+# Debates take the same per-run choices, except those.
 DEBATE_FRAME: dict = {
     "parent_checkpoint_id": (("debate", "--from"), ("run_debate", "parent_checkpoint_id")),
     "documents": (("debate", "--attach"), ("run_debate", "attachments")),
@@ -150,7 +153,8 @@ def test_every_debate_command_has_an_entry():
 
 def test_every_per_run_choice_has_an_entry():
     for field in ContextSettings.FRAME_FIELDS:
-        assert field in CHAT_FRAME and field in DEBATE_FRAME, field
+        assert field in CHAT_FRAME, field
+        assert (field in DEBATE_FRAME) != (field in NOT_IN_DEBATES), field
 
 
 def test_only_listed_exceptions_skip_mcp():
@@ -162,7 +166,8 @@ def test_chat_frame_fields_are_listed():
     """The chat socket's documented frame fields, from its docstring."""
     doc = ChatConnection.__doc__
     for field in ("parent_checkpoint_id", "is_deliberation", "documents", "document_names", "debate_session_id",
-                  "answer_checkpoint_ids", "synthesis_mode", "keep_components", "synthesis_question", "join_turn"):
+                  "answer_checkpoint_ids", "synthesis_mode", "keep_components", "synthesis_question", "join_turn",
+                  "angle"):
         assert field in doc and field in CHAT_FRAME, field
 
 

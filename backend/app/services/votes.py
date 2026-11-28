@@ -18,6 +18,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from app.core import database as db
 from app.registry import display_name
+from app.services.message_format import reply_angle
 
 OUTCOMES = ("best", "tie", "all_bad")
 TASK_TYPES = ("general", "coding", "writing", "research", "reasoning", "other")
@@ -85,9 +86,21 @@ def win_rates(votes: Iterable[Dict[str, Any]], task_type: Optional[str] = None) 
     return sorted(out, key=lambda r: (r["win_rate"] is None, -(r["win_rate"] or 0), -r["votes"], r["model"]))
 
 
+def _last_message(snapshot):
+    messages = (snapshot.values or {}).get("messages", []) if snapshot else []
+    return messages[-1] if messages else None
+
+
+def angles_differ(answers) -> bool:
+    """Whether a turn's answers were written from different angles (one
+    answer's angle, another's none counts): they answered different asks, so
+    picking the best of them is not a comparison of the models."""
+    return len({a.get("angle") for a in answers}) > 1
+
+
 async def turn_answers(graph_app, thread_id: str, turn: str) -> Dict[str, Any]:
     """A turn's answers, by its id or one of its replies' checkpoint:
-    {turn_id, answers: [{checkpoint_id, model, model_name}]} (tree node ids,
+    {turn_id, answers: [{checkpoint_id, model, model_name, angle}]} (tree node ids,
     in the order answered; syntheses left out). ValueError for a turn the
     thread lacks or a reply written before turns were recorded."""
     from app.services.arena import _turn_replies
@@ -106,7 +119,8 @@ async def turn_answers(graph_app, thread_id: str, turn: str) -> Dict[str, Any]:
     return {
         "turn_id": turn_id,
         "answers": [
-            {"checkpoint_id": node_checkpoint(snapshot, states), "model": model, "model_name": display_name(model)}
+            {"checkpoint_id": node_checkpoint(snapshot, states), "model": model, "model_name": display_name(model),
+             "angle": reply_angle(_last_message(snapshot))}
             for model, snapshot in replies.items()
         ],
     }
@@ -151,6 +165,8 @@ async def vote_turn(
     answers = turn_data["answers"]
     if len(answers) < 2:
         raise ValueError("A vote needs a turn with at least two answers.")
+    if angles_differ(answers):
+        raise ValueError("These answers were written from different angles; a vote compares models asked the same thing.")
     letters = blind_letters(turn_data["turn_id"], answers)
     winner = None
     if outcome == "best":

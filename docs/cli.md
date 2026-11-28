@@ -20,6 +20,8 @@ echo "question" | uv run crucible chat -m gpt-6.2-sol              # the prompt 
 uv run crucible arena "Rephrased question" -m gpt-6.2-sol -m claude-sonnet-5-5 --thread <thread_id> --from <checkpoint>
 uv run crucible chat --deliberate -m claude-sonnet-5-5 --thread <thread_id>   # critically review the thread so far
 uv run crucible arena --join-turn <turn_or_checkpoint> -m grok-4.7 --thread <thread_id>   # add a model to an answered turn
+uv run crucible arena "Review this plan." --attach plan.md -m gpt-6.2-astra -m claude-opus-5-5 \
+  --angle gpt-6.2-astra=security --angle "claude-opus-5-5=the case against it" --no-synthesize   # each model its own angle
 uv run crucible synthesize --thread <thread_id>                    # combine the answers to the latest question
 uv run crucible synthesize --thread <thread_id> --mode compare     # a table of where they differ (no winner)
 uv run crucible synthesize --thread <thread_id> --mode issues      # every problem the answers raise, with who raised it (for reviews)
@@ -32,7 +34,8 @@ uv run crucible review --thread <thread_id>                        # the models 
 
 - `--attach <file>` to put a file's text in this turn (`.pdf .txt .md .csv`), `--rag` to search the files uploaded to the thread, `-w` for web search;
 - `--system "<prompt>"` to send every model a system prompt (none by default; `debate` and `synthesize` take it too);
-- `--summarizer <model>` to choose who summarizes long history (default: the first summarizer model with a key).
+- `--summarizer <model>` to choose who summarizes long history (default: the first summarizer model with a key);
+- `--angle MODEL=ANGLE` (`arena`, repeat it) or `--angle "<angle>"` (`chat`) to have a model answer from an angle, e.g. to review a plan from several sides. The message stays the same for every model; each answer says its angle, the synthesizer gets none, and `synthesize --mode issues` lists every problem raised with who raised it. A turn whose answers had different angles can't be voted on.
 
 `--join-turn` takes a turn id or one of its replies' checkpoints (both in `crucible tree --format json`): the new models answer that turn's own question from where it was asked, as more answers of the same turn, and nobody else is asked again. It takes no prompt, `--deliberate`, `--attach` or synthesis.
 

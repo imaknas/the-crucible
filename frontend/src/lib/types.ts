@@ -87,6 +87,8 @@ export interface Message {
   metrics?: ReplyMetrics | null;
   /** What a reply was written from: the summary, what recall brought back (lib/context). */
   context?: ReplyContext | null;
+  /** The angle the person asked this model to answer from (lib/angles); null for none. */
+  angle?: string | null;
 }
 
 /** One model's failed turn, shown inline with a Retry instead of a modal. */
@@ -135,6 +137,8 @@ export interface TreeNode {
     metrics?: ReplyMetrics | null;
     /** What a reply was written from (lib/context); null for older replies. */
     context?: ReplyContext | null;
+    /** The angle the person asked this model to answer from (lib/angles); null for none. */
+    angle?: string | null;
     /** The person's notes on the node (PATCH /history/{thread}/nodes/{node}). */
     name?: string | null;
     bookmarked?: boolean;

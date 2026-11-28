@@ -195,6 +195,10 @@ class DebateConnection:
         if not ContextSettings.named_in(data):
             return True, None
         context = ContextSettings.from_frame(data)
+        if context.angle:
+            problem = "A debate takes no angle: give participants sides or a devil's advocate instead (How they argue)."
+            self.send({"type": "error", "session_id": self.session_id, "message": problem})
+            return False, None
         if problem := context.problem():
             self.send({"type": "error", "session_id": self.session_id, "message": problem})
             return False, None

@@ -1,5 +1,6 @@
 "use client";
 
+import { anglesFor } from "@/lib/angles";
 import ChecklistDialog from "@/components/ChecklistDialog";
 import { useSynthesisChecklist } from "@/hooks/useSynthesisChecklist";
 import { useAnswerReviews } from "@/hooks/useAnswerReviews";
@@ -57,6 +58,8 @@ import { RADIUS, VISUALLY_HIDDEN } from "@/theme";
  * The exceptions are editAndRebranch (moving to the composer is the point) and
  * opening a debate, which shows its tree.
  */
+const NO_ANGLES: Record<string, string> = {};
+
 export default function Home() {
   const [input, setInput] = useState("");
   const { toggles, setToggles } = useToggles();
@@ -162,6 +165,14 @@ export default function Home() {
     [toggles.use_rag, pushToast],
   );
   const documents = useDocuments({ threadId, pushToast, onUploaded: handleUploaded });
+  // Each model's angle for the next message (lib/angles), for this thread
+  // only: opening another thread drops them, as it drops attachments.
+  const [angleState, setAngleState] = useState<{ thread: string | null; values: Record<string, string> }>({
+    thread: null,
+    values: NO_ANGLES,
+  });
+  const angles = angleState.thread === threadId ? angleState.values : NO_ANGLES;
+  const setAngles = useCallback((values: Record<string, string>) => setAngleState({ thread: threadId, values }), [threadId]);
 
   const {
     messages,
@@ -333,13 +344,15 @@ export default function Home() {
   // tree; the view now changes only when you change it.
   const send = useCallback(
     (text: string, deliberate: boolean) => {
-      sendInteractiveMessage(text, deliberate, continuesDebate).then((sent) => {
+      sendInteractiveMessage(text, deliberate, continuesDebate, anglesFor(angles, reply.responders)).then((sent) => {
         if (!sent) return;
         setInput("");
+        // Angles go with one message, like attachments.
+        setAngles({});
         if (continuesDebate) markFollowedUp();
       });
     },
-    [sendInteractiveMessage, continuesDebate, markFollowedUp],
+    [sendInteractiveMessage, continuesDebate, markFollowedUp, angles, reply.responders, setAngles],
   );
   const handleSendMessage = useCallback((text: string) => send(text, false), [send]);
   // "Everyone continues from here": the reply becomes the branch point, every selected model answering.
@@ -680,6 +693,9 @@ export default function Home() {
                     onStartFresh={messages.length ? startFresh : undefined}
                     replyTexts={replyTexts}
                     maxPromptChars={limits.max_prompt_chars}
+                    angles={inDebate ? undefined : angles}
+                    onAnglesChange={setAngles}
+                    maxAngleChars={limits.max_angle_chars}
                     noKeys={hasAnyKey === false}
                     contextNotes={contextNotes}
                     liveTurn={liveTurn}

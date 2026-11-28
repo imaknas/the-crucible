@@ -574,6 +574,7 @@ export const MessageBubble = React.memo(
               Asked: {msg.synthesis_question}
             </Typography>
           )}
+          {!isUser && msg.angle && <AngleLine angle={msg.angle} />}
           <MessageBody msg={msg} isDark={isDark} />
           {!isUser && !msg.streaming && msg.metrics && (
             <Box sx={{ mt: 1.5 }}>
@@ -592,3 +593,15 @@ export const MessageBubble = React.memo(
 );
 
 MessageBubble.displayName = "MessageBubble";
+
+/** The angle a reply was asked to answer from (lib/angles), above its text. */
+export function AngleLine({ angle }: { angle: string }) {
+  return (
+    <Typography
+      data-testid="reply-angle"
+      sx={{ mb: 1, fontSize: "0.75rem", fontWeight: 600, color: "text.secondary", overflowWrap: "anywhere" }}
+    >
+      Angle: {angle}
+    </Typography>
+  );
+}

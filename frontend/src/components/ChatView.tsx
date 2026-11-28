@@ -12,6 +12,7 @@ import SummaryMarker from "./SummaryMarker";
 import { replyNodeAt } from "@/lib/spanBranch";
 import { maskCards } from "@/lib/blind";
 import VoteBar from "./VoteBar";
+import { anglesDiffer } from "@/lib/angles";
 import type { VoteInput } from "@/hooks/useVotes";
 import type { AnswerVote } from "@/lib/types";
 import type { NextTurnContext } from "@/lib/context";
@@ -97,6 +98,10 @@ interface ChatViewProps {
   noKeys?: boolean;
   /** What else goes with each message (system prompt, web search, document search). */
   contextNotes?: string[];
+  /** Each answering model's angle for the next message (lib/angles). */
+  angles?: Record<string, string>;
+  onAnglesChange?: (angles: Record<string, string>) => void;
+  maxAngleChars?: number;
   /** Full text of replies streamed in this tab, by tree node id. */
   replyTexts?: Record<string, string>;
   /** The multi-model turn streaming (or just streamed) in this tab: it streams into cards. */
@@ -169,6 +174,9 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   maxPromptChars,
   noKeys = false,
   contextNotes,
+  angles,
+  onAnglesChange,
+  maxAngleChars,
   replyTexts = EMPTY_TEXTS,
   liveTurn = null,
   onCompareAnswers,
@@ -699,9 +707,11 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                 const vote = item.turnId ? votesByTurn[item.turnId] : undefined;
                 const hidden = blind && chat && !vote;
                 const cards = hidden ? maskCards(item.cards, item.turnId ?? item.key) : item.cards;
+                // Answers asked from different angles answered different
+                // asks: picking the best is no comparison (the backend refuses it).
                 const votable =
                   !!onVote && chat && !!item.turnId && !item.live && cards.length > 1 &&
-                  cards.every((c) => c.id && !c.streaming && !c.error);
+                  cards.every((c) => c.id && !c.streaming && !c.error) && !anglesDiffer(cards);
                 return (
                   <Box
                     key={item.key}
@@ -1088,6 +1098,9 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
         noKeys={noKeys}
         modelLabel={modelLabel}
         contextNotes={contextNotes}
+        angles={angles}
+        onAnglesChange={onAnglesChange}
+        maxAngleChars={maxAngleChars}
       />
     </Box>
   );

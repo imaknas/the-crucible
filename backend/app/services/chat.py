@@ -14,9 +14,11 @@ from langchain_core.messages import HumanMessage
 
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.documents import attach_documents
+from app.services.message_format import reply_angle
 from app.services.metrics import message_metrics, snapshot_day
 from app.services.recall import INTERNAL_TAG
 from app.services.runs import (
+    SYNTHESIS_TURN,
     TURN_KIND_KEY,
     TURN_KINDS,
     final_state_of_run,
@@ -203,6 +205,10 @@ async def stream_turn(
     document thread a debate lane reads). ``joins_turn``: the run adds a
     model to the answered turn ``turn_id`` (arena.join_turn), so the
     thread's head passes over it (runs.answered_head)."""
+    if turn_kind == SYNTHESIS_TURN:
+        # A synthesis reads every answer; an angle one of them was given
+        # isn't the synthesizer's.
+        context = context.with_angle(None)
     config = context.apply(thread_config(thread_id, parent_checkpoint_id))
     config["configurable"].update(configurable or {})
     run_id = tag_run(config)
@@ -262,6 +268,7 @@ async def stream_turn(
         "retrieved": sorted({c.get("filename") for c in values.get("retrieved_chunks") or [] if c.get("filename")}),
         "notices": list(values.get("notices") or []),
         "metrics": message_metrics(last_reply(final), day=snapshot_day(final)),
+        "angle": reply_angle(last_reply(final)),
     }
     if with_path:
         from app.services.tree import format_messages

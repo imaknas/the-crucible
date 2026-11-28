@@ -19,7 +19,7 @@ from app.services import rag as rag_service
 from app.llm import model_factory_from
 from app.llm.providers import REQUEST_NOTES_HEADER
 from app.services.documents import document_thread, documents_for_run
-from app.services.message_format import CONTEXT_KEY, message_model
+from app.services.message_format import ANGLE_KEY, CONTEXT_KEY, message_model
 from app.services.metrics import ReplyTimer, clock_from
 from app.services.recall import INTERNAL_TAG
 from app.compaction import ContextSnapshot, DetailedBrief, EarlierMessage, KeepRecent, ModelBudget, ThresholdPolicy
@@ -45,6 +45,10 @@ GRADER_CONFIG_KEY = "grader_model"
 # The person's own system prompt for a run. Unset, models get none: Arena
 # compares them as they ship, not under a persona the app chose.
 SYSTEM_PROMPT_CONFIG_KEY = "system_prompt"
+# The angle the person gave this one model in a turn (a review's focus: its
+# security, its cost, the case against it). Per model, unlike the system
+# prompt; the question itself stays the same for every model of the turn.
+ANGLE_CONFIG_KEY = "angle"
 _DEFAULT_RETENTION = KeepRecent(KEEP_VERBATIM)
 _ROLE = {"human": "user", "ai": "assistant"}
 
@@ -52,6 +56,16 @@ _ROLE = {"human": "user", "ai": "assistant"}
 def system_prompt_from(config: Optional[RunnableConfig]) -> Optional[str]:
     """The run's own system prompt, or None (models get no system prompt)."""
     return ((config or {}).get("configurable") or {}).get(SYSTEM_PROMPT_CONFIG_KEY) or None
+
+
+def angle_from(config: Optional[RunnableConfig]) -> Optional[str]:
+    """The angle this run's model was given, or None."""
+    return ((config or {}).get("configurable") or {}).get(ANGLE_CONFIG_KEY) or None
+
+
+def angle_instruction(angle: str) -> str:
+    """What a model reads for its angle, after the person's system prompt."""
+    return f"Answer from this angle: {angle}"
 
 
 def retention_from(config: Optional[RunnableConfig]):
@@ -569,7 +583,9 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
 
     # No system message at all unless something needs one: an empty one would
     # still reach the model (sanitize_messages fills it in).
-    system_parts = [p for p in (system_prompt_from(config), critic, rag_context.strip()) if p]
+    angle = angle_from(config)
+    system_parts = [p for p in (system_prompt_from(config), angle and angle_instruction(angle), critic,
+                                rag_context.strip()) if p]
     system_msgs: List[BaseMessage] = [SystemMessage(content="\n\n".join(system_parts))] if system_parts else []
 
     # Build message list with model attribution for deliberation
@@ -650,6 +666,8 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
         **trace,
     }
 
+    if angle:
+        response.additional_kwargs[ANGLE_KEY] = angle
     if state.get("retrieved_chunks"):
         response.additional_kwargs["sources"] = state["retrieved_chunks"]
 

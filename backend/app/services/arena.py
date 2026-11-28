@@ -18,6 +18,7 @@ from app.core.storage import current_storage
 from app.llm import has_credentials
 from app.services.chat import node_checkpoint, stream_turn, thread_state_map
 from app.services.graph import workflow
+from app.services.message_format import reply_angle
 from app.services.metrics import message_metrics, snapshot_day
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.synthesis import (
@@ -161,7 +162,7 @@ async def model_turn(
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """chat.stream_turn as model-tagged events: ``token`` {model, token}, then
     ``end`` {model, content, checkpoint_id, error, turn_id,
-    attached_documents, retrieved, notices, metrics}. Raises on failure."""
+    attached_documents, retrieved, notices, metrics, angle}. Raises on failure."""
     async for event in stream_turn(
         graph_app,
         thread_id,
@@ -391,10 +392,19 @@ async def _latest_below(graph_app, thread_id: str, checkpoint_id: str) -> str:
 # ─── Arena ───────────────────────────────────────────────────────
 
 
-def _independent_synthesis_prompt(question: str, answers: List[Dict[str, Any]]) -> str:
-    return build_synthesis_prompt(
-        question, ((display_name(a["model"]), a["content"]) for a in answers), INDEPENDENT
-    )
+def model_contexts(models: Sequence[str], context: ContextSettings,
+                   angles: Optional[Mapping[str, str]] = None) -> Dict[str, ContextSettings]:
+    """Each model's settings for a turn: the turn's, with that model's angle.
+    ValueError for an angle given to a model that isn't answering, or one the
+    settings refuse (ContextSettings.problem)."""
+    angles = {m: a for m, a in (angles or {}).items() if a and a.strip()}
+    if stray := [m for m in angles if m not in models]:
+        raise ValueError(f"An angle was given for {', '.join(stray)}, which isn't answering this turn.")
+    contexts = {m: context.with_angle(angles[m]) if m in angles else context for m in models}
+    for c in contexts.values():
+        if c.angle and (problem := c.problem()):
+            raise ValueError(problem)
+    return contexts
 
 
 async def run_arena(
@@ -413,6 +423,7 @@ async def run_arena(
     document_names: Optional[Sequence[str]] = None,
     is_deliberation: bool = False,
     join_turn: Optional[str] = None,
+    angles: Optional[Mapping[str, str]] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Ask every model the same question in parallel, then optionally synthesize.
 
@@ -440,7 +451,13 @@ async def run_arena(
     answer its question, from where it was asked, as more answers of that
     turn; the turn's other models are not asked again. It takes no prompt,
     debate, Deliberation (the turn's own applies) or synthesis.
+
+    ``angles`` gives models their own angle ({model: angle}, e.g. one
+    reviews a plan's security, another its cost): the question is the same
+    for every model, the angle goes with its system prompt and stays on its
+    reply. Only models of this turn may have one; the synthesis gets none.
     """
+    angles = {m: a for m, a in (angles or {}).items() if a and a.strip()}
     if join_turn:
         if prompt and prompt.strip():
             raise ValueError("Adding a model to a turn asks the turn's own question; pass no prompt.")
@@ -451,6 +468,7 @@ async def run_arena(
     models = resolve_models(models)
     if synthesizer:
         resolve_models([synthesizer])
+    contexts = model_contexts(models, context, angles)
 
     joins = False
     if join_turn:
@@ -477,7 +495,7 @@ async def run_arena(
 
     async def _produce(model: str):
         try:
-            async for event in model_turn(graph_app, thread_id, parents[model], model, prompt, toggles, context,
+            async for event in model_turn(graph_app, thread_id, parents[model], model, prompt, toggles, contexts[model],
                                           documents=documents, document_names=document_names,
                                           is_deliberation=is_deliberation, turn_id=turn_id, joins_turn=joins):
                 await queue.put(event)
@@ -518,7 +536,9 @@ async def run_arena(
 
     asked = await question_point(graph_app, thread_id, usable[0]["checkpoint_id"])
     note = synthesis_note(answers=[a["checkpoint_id"] for a in usable])
-    async for event in _synthesize(graph_app, thread_id, asked, synthesizer, _independent_synthesis_prompt(prompt, usable), toggles, context,
+    question_line, labelled = _labelled_answers([{**a, "question": prompt} for a in usable])
+    synthesis_prompt = build_synthesis_prompt(question_line, labelled, INDEPENDENT)
+    async for event in _synthesize(graph_app, thread_id, asked, synthesizer, synthesis_prompt, toggles, context,
                                    note=note):
         yield event
 
@@ -545,7 +565,7 @@ async def collect(events: AsyncGenerator[Dict[str, Any], None]) -> Dict[str, Any
             result["thread_id"] = event["thread_id"]
             result["parent_checkpoint_id"] = event["parent_checkpoint_id"]
         elif event["type"] == "end":
-            result["answers"][event["model"]] = {k: event.get(k) for k in ("content", "checkpoint_id", "error", "metrics")}
+            result["answers"][event["model"]] = {k: event.get(k) for k in ("content", "checkpoint_id", "error", "metrics", "angle")}
         elif event["type"] == "synthesis":
             result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error", "metrics")}
     return result
@@ -589,6 +609,7 @@ async def latest_branch_answers(graph_app, thread_id: str) -> List[Dict[str, Any
             "content": content,
             "checkpoint_id": cid,
             "metrics": message_metrics(last_ai, day=snapshot_day(s)),
+            "angle": reply_angle(last_ai),
         })
     return answers
 
@@ -608,6 +629,7 @@ async def answer_at(graph_app, thread_id: str, checkpoint_id: str) -> Dict[str, 
         "checkpoint_id": checkpoint_id,
         "question": question,
         "metrics": message_metrics(last, day=snapshot_day(state)),
+        "angle": reply_angle(last),
     }
 
 
@@ -640,10 +662,14 @@ def _labelled_answers(answers: Sequence[Mapping[str, Any]]) -> Tuple[str, List[T
     """The question line and (label, content) pairs a synthesizer reads.
     Answers to one question are labelled by model; a selection across
     branches can answer several questions, so each label then says which. A
-    model that appears twice is numbered."""
+    model that appears twice is numbered, and an answer given an angle names it."""
     questions = list(dict.fromkeys((a.get("question") or "").strip() for a in answers))
     names = [display_name(a["model"]) for a in answers]
     labels = [f"{n} #{names[:i + 1].count(n)}" if names.count(n) > 1 else n for i, n in enumerate(names)]
+    # An answer written from an angle the person gave says so, so the
+    # synthesizer (an issue list above all) can say which angle saw what.
+    labels = [f"{label} (asked to answer from this angle: {a['angle']})" if a.get("angle") else label
+              for label, a in zip(labels, answers)]
     if len(questions) == 1:
         return questions[0] or "(see the answers below)", list(zip(labels, (a["content"] for a in answers)))
     return (
@@ -785,7 +811,7 @@ async def synthesize_thread(
            "parent_checkpoint_id": parent, "parents": {}, "new_thread": False, "turn_id": None}
     for a in answers:
         yield {"type": "end", "model": a["model"], "content": a["content"], "checkpoint_id": a["checkpoint_id"],
-               "error": None, "metrics": a.get("metrics")}
+               "error": None, "metrics": a.get("metrics"), "angle": a.get("angle")}
     question_line, labelled = _labelled_answers([{**a, "question": a.get("question") or asked} for a in answers])
     prompt = build_synthesis_prompt(question_line, labelled, framing)
     async for event in _synthesize(graph_app, thread_id, parent, synthesizer, prompt, toggles, context,

@@ -216,6 +216,22 @@ def _opt_format():
     return typer.Option("rich", "--format", "-f", help=FORMAT_HELP)
 
 
+def _parse_angles(angles: Optional[List[str]], models: List[str]) -> Dict[str, str]:
+    """--angle MODEL=TEXT values as {model: angle}; refused (exit 2) for a
+    malformed value or a model that isn't answering."""
+    out: Dict[str, str] = {}
+    for value in angles or []:
+        model, sep, text = value.partition("=")
+        model, text = model.strip(), text.strip()
+        if not sep or not model or not text:
+            raise typer.BadParameter(f"{value!r}: give it as MODEL=ANGLE, e.g. gpt-6.2-astra=security",
+                                     param_hint="--angle")
+        if model not in models:
+            raise typer.BadParameter(f"{model} isn't one of this turn's models (-m)", param_hint="--angle")
+        out[model] = text
+    return out
+
+
 def _opt_force():
     return typer.Option(
         False, "--force", help="Run even though the debate is marked running (left so by a backend that died)."
@@ -260,6 +276,9 @@ def chat(
     web_search: bool = _opt_web(),
     summarizer: Optional[str] = _opt_summarizer(),
     system: Optional[str] = _opt_system(),
+    angle: Optional[str] = typer.Option(
+        None, "--angle", help="The angle the model answers from (e.g. \"security\", \"the case against it\")."
+    ),
     format_output: str = _opt_format(),
 ):
     """
@@ -290,7 +309,7 @@ def chat(
     result = _run(
         _run_turn(prompt or "", [model_id], thread_id, None, _toggles(web_search, rag), as_json, context,
                   parent=from_checkpoint, after_debate=after_debate, documents=documents, deliberate=deliberate,
-                  join_turn=join_turn),
+                  join_turn=join_turn, angles={model_id: angle} if angle else None),
         as_json,
     )
     answer = result["answers"].get(model_id, {})
@@ -328,6 +347,11 @@ def arena(
     web_search: bool = _opt_web(),
     summarizer: Optional[str] = _opt_summarizer(),
     system: Optional[str] = _opt_system(),
+    angle: Optional[List[str]] = typer.Option(
+        None, "--angle",
+        help="MODEL=ANGLE: the angle that model answers from, e.g. gpt-6.2-astra=security (repeat the flag; "
+             "the question stays the same for every model).",
+    ),
     format_output: str = _opt_format(),
 ):
     """
@@ -339,7 +363,9 @@ def arena(
     their own conversations. With --join-turn the models (-m, required)
     answer an earlier turn's question as more answers of that turn, without
     asking its other models again; no synthesis (`crucible synthesize`
-    combines the whole turn). Exits 1 if any model or the synthesis failed.
+    combines the whole turn). With --angle each model can review from its
+    own angle; `crucible synthesize --mode issues` then lists every problem
+    they raised. Exits 1 if any model or the synthesis failed.
     """
     as_json = _check_format(format_output)
     _load_env()
@@ -352,6 +378,7 @@ def arena(
     if not prompt and not deliberate and not join_turn:
         _fail("No prompt provided. Pass the question as an argument.", as_json)
     resolved = _validate_models(models, as_json)
+    angles = _parse_angles(angle, resolved)
     synthesizer = None if (no_synthesize or deliberate or join_turn) else (judge or resolved[0])
     if synthesizer:
         _validate_models([synthesizer], as_json)
@@ -362,7 +389,7 @@ def arena(
     result = _run(
         _run_turn(prompt or "", resolved, thread_id, synthesizer, _toggles(web_search, rag), as_json, context,
                   parent=from_checkpoint, after_debate=after_debate, documents=documents, deliberate=deliberate,
-                  join_turn=join_turn),
+                  join_turn=join_turn, angles=angles),
         as_json,
     )
     if as_json:
@@ -373,7 +400,7 @@ def arena(
 
 
 async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, context=None, *,
-                    parent=None, after_debate=None, documents=None, deliberate=False, join_turn=None):
+                    parent=None, after_debate=None, documents=None, deliberate=False, join_turn=None, angles=None):
     """One turn by every model in ``models`` (chat is one model), then the
     synthesis if a synthesizer is set; with ``join_turn``, those models'
     answers to that earlier turn."""
@@ -406,7 +433,7 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
             async for event in run_arena(graph_app, prompt, thread_id, models, toggles, synthesizer,
                                          context=context or DEFAULT_CONTEXT, parent_checkpoint_id=parent,
                                          after_debate=after_debate, documents=documents, is_deliberation=deliberate,
-                                         join_turn=join_turn):
+                                         join_turn=join_turn, angles=angles):
                 kind = event["type"]
                 if kind == "start":
                     result.update({k: event[k] for k in ("parent_checkpoint_id", "parents", "new_thread", "turn_id")})
@@ -428,7 +455,8 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
                 elif kind == "end":
                     result["answers"][event["model"]] = {
                         k: event.get(k)
-                        for k in ("content", "checkpoint_id", "error", "metrics", "attached_documents", "retrieved", "notices")
+                        for k in ("content", "checkpoint_id", "error", "metrics", "angle", "attached_documents", "retrieved",
+                                  "notices")
                     }
                     if display:
                         if event["error"]:
@@ -459,6 +487,8 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
         for model, answer in result["answers"].items():
             if answer.get("checkpoint_id"):
                 print_info(f"{escape(model)}: checkpoint [dim]{answer['checkpoint_id']}[/dim]")
+            if answer.get("angle"):
+                print_info(f"  angle: {escape(answer['angle'])}")
             print_metrics(answer.get("metrics"))
             if answer.get("attached_documents"):
                 print_info(f"  attached: {escape(', '.join(answer['attached_documents']))}")

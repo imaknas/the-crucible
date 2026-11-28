@@ -37,6 +37,14 @@ describe("live turns", () => {
     ]);
   });
 
+  it("gives each reply the angle it was sent with", () => {
+    const t = startLiveTurn(["a", "b"], "k", { a: "cost" });
+    expect(t.replies.map((r) => [r.model, r.angle])).toEqual([
+      ["a", "cost"],
+      ["b", null],
+    ]);
+  });
+
   it("takes the turn id from the first reply that has one, and ignores unknown models", () => {
     let t = startLiveTurn(["a", "b"], "k");
     t = updateLiveReply(t, "a", { turn_id: "t1", content: "x" });
@@ -120,6 +128,22 @@ describe("buildTranscript", () => {
       });
       expect(items.map((i) => i.kind)).toEqual(["message", "message"]);
     });
+  });
+
+  it("shows each card's angle, from the path or the tree", () => {
+    const angled = [
+      node("a1", "a", "t1", { metadata: { role: "ai", active_peer: "a", turn_id: "t1", angle: "from the tree" } }),
+      node("b1", "b", "t1"),
+    ];
+    const items = buildTranscript({
+      messages: [q, reply("a1", "a", "t1")], nodes: angled, edges: [], selected: ["a", "b"], replyTexts: {}, live: null,
+    });
+    const turn = items[1];
+    if (turn.kind !== "turn") throw new Error();
+    expect(turn.cards.map((c) => [c.model, c.angle])).toEqual([
+      ["a", "from the tree"],
+      ["b", null],
+    ]);
   });
 
   it("keeps a lone reply a bubble", () => {

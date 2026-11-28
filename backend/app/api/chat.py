@@ -52,6 +52,8 @@ class ChatRequest(BaseModel):
     summarizer: Optional[str] = None
     # The person's own system prompt; None = models get no system prompt.
     system_prompt: Optional[str] = None
+    # The angle this model answers from (e.g. a review's focus); None = none.
+    angle: Optional[str] = None
     # Add this model to a turn already answered (its id, or one of its
     # replies' checkpoints): it answers that turn's question; `message` is
     # then ignored (arena.join_point).
@@ -130,7 +132,10 @@ class ChatConnection:
                      finished debate; join_turn, a turn id or one of its
                      replies' checkpoints, adds the model to that answered
                      turn: it answers the turn's own question, so the
-                     frame's message is ignored); or {type: "stop"}, which
+                     frame's message is ignored); angle, the angle this
+                     model answers from (the turn's other frames may give
+                     theirs: the message stays the same for all); or
+                     {type: "stop"}, which
                      stops every run on the thread, whichever socket
                      started it.
     Server frames:  stream_start, stream_token, stream_end, stream_stopped,
@@ -140,7 +145,7 @@ class ChatConnection:
                     from and the turn_id; stream_start also carries the
                     turn's kind ("synthesis" or null) and, for an ordinary
                     turn, its message; stream_end carries the reply's metrics
-                    (services/metrics.py). stream_stopped: the run was
+                    (services/metrics.py) and angle. stream_stopped: the run was
                     stopped before it finished. A joining run's frames
                     carry joins_turn: true and the turn id it joined; its
                     stream_start and resume have no message (the question
@@ -345,6 +350,7 @@ async def run_model(run: LiveRun, graph_app, thread_id: str, frame: dict, contex
                     "retrieved": event["retrieved"],
                     "notices": event["notices"],
                     "metrics": event["metrics"],
+                    "angle": event.get("angle"),
                 })
                 if new_thread and not turn.named:
                     turn.named = True

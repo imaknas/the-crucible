@@ -4,6 +4,7 @@ import * as api from "@/lib/api";
 import { Message, ModelError, Toggles } from "@/lib/types";
 import { isOpen, reconnectDelay, useSocketFactory, whenOpen } from "@/lib/transport";
 import { contextFields } from "@/lib/runContext";
+import { angleField } from "@/lib/angles";
 import { RESUMED, markStopped, withResumedQuestion } from "@/lib/messages";
 import { adoptLiveReply, startJoin, startLiveTurn, stopLiveTurn, updateLiveReply, type LiveTurn } from "@/lib/turns";
 import type { PushToast } from "@/hooks/useToasts";
@@ -432,6 +433,7 @@ export function useChatWebSocket({
                     content: content || m.content,
                     streaming: false,
                     metrics: data.metrics ?? null,
+                    angle: data.angle ?? null,
                   }
                 : m,
             ),
@@ -446,6 +448,7 @@ export function useChatWebSocket({
                   checkpoint_id: data.checkpoint_id ?? null,
                   ...(data.turn_id ? { turn_id: data.turn_id } : {}),
                   metrics: data.metrics ?? null,
+                  angle: data.angle ?? null,
                 }),
             );
           delete streamBufferRef.current[data.model];
@@ -521,6 +524,8 @@ export function useChatWebSocket({
     input: string,
     isDeliberation: boolean = false,
     continuesDebate: string | null = null,
+    /** Each model's angle for this turn (lib/angles); the message stays the same for all. */
+    angles: Record<string, string> = {},
   ): Promise<boolean> => {
     if (isLoading || waitingRef.current) return false;
     const userMessage = input.trim();
@@ -553,7 +558,7 @@ export function useChatWebSocket({
     // Several models: their replies stream into cards; one model: a bubble.
     const multi = respondingModels.length > 1;
     liveModelsRef.current = new Set(multi ? respondingModels : []);
-    setLiveTurn(multi ? startLiveTurn(respondingModels, `live-${Date.now()}`) : null);
+    setLiveTurn(multi ? startLiveTurn(respondingModels, `live-${Date.now()}`, angles) : null);
     expectedModelsCountRef.current = respondingModels.length;
     finishedModelsCountRef.current = 0;
 
@@ -565,6 +570,7 @@ export function useChatWebSocket({
         model: model,
         toggles: toggles,
         ...contextFields({ summarizer, systemPrompt }),
+        ...angleField(angles, model),
         document_names: documentNames,
         ...(continuesDebate
           ? { debate_session_id: continuesDebate, parent_checkpoint_id: null }

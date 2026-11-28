@@ -110,7 +110,7 @@ async def save_case(graph_app, thread_id: str, turn: str, *, title: Optional[str
     for a in answers:
         answer = await arena.answer_at(graph_app, thread_id, a["checkpoint_id"])
         saved_answers.append({"model": a["model"], "content": answer["content"], "metrics": answer["metrics"],
-                              "checkpoint_id": a["checkpoint_id"]})
+                              "checkpoint_id": a["checkpoint_id"], "angle": answer.get("angle")})
 
     vote = await asyncio.to_thread(db.get_answer_vote, thread_id, turn_data["turn_id"])
     data = {
@@ -170,7 +170,7 @@ def case_view(case: Mapping[str, Any], replays: Sequence[Mapping[str, Any]]) -> 
     model_name}], history_from, summarized, documents / searched_documents:
     [{name, characters}], settings: {use_web_search, use_rag, system_prompt,
     summarizer, is_deliberation}, answers: [{model, model_name, content,
-    metrics, checkpoint_id}], total (metrics.turn_total), vote, best_model,
+    metrics, checkpoint_id, angle}], total (metrics.turn_total), vote, best_model,
     replays: [replay_view]}."""
     data = case["data"]
     history = _readable_history(data["history"])
@@ -188,7 +188,7 @@ def case_view(case: Mapping[str, Any], replays: Sequence[Mapping[str, Any]]) -> 
         "documents": _documents_listed(documents.get("attached") or {}),
         "searched_documents": _documents_listed(documents.get("searched") or {}),
         "settings": data["settings"],
-        "answers": [{**a, "model_name": display_name(a["model"])} for a in data["answers"]],
+        "answers": [{"angle": None, **a, "model_name": display_name(a["model"])} for a in data["answers"]],
         "total": turn_total(a.get("metrics") for a in data["answers"]),
         "vote": data.get("vote"),
         "best_model": _best_model(data),
@@ -282,8 +282,9 @@ def delete_case(case_id: str) -> None:
 
 def replay_plan(case_id: str, models: Optional[Sequence[str]] = None) -> Dict[str, Any]:
     """What a replay would run, checked without running anything: {case_id,
-    title, question, models, model_names, context}. ``models`` default to
-    the case's own. ValueError for an unknown case, an unknown model or one
+    title, question, models, model_names, context, angles}. ``models``
+    default to the case's own; a model that answered the case from an angle
+    gets that angle again, a model new to the case none. ValueError for an unknown case, an unknown model or one
     without a key, or settings this run can't use (a summarizer whose key is
     gone)."""
     case = _case(case_id)
@@ -295,8 +296,9 @@ def replay_plan(case_id: str, models: Optional[Sequence[str]] = None) -> Dict[st
         raise ValueError(f"This case was answered with settings a replay can't use now: {problem}")
     if settings.get("is_deliberation") and not data["history"]:
         raise ValueError("This case is a Deliberation with no conversation to review.")
+    angles = {a["model"]: a["angle"] for a in data["answers"] if a.get("angle") and a["model"] in chosen}
     return {"case_id": case_id, "title": case["title"], "question": case["question"], "models": chosen,
-            "model_names": [display_name(m) for m in chosen], "context": context}
+            "model_names": [display_name(m) for m in chosen], "context": context, "angles": angles}
 
 
 async def replay_case(graph_app, case_id: str, models: Optional[Sequence[str]] = None, *,
@@ -330,9 +332,10 @@ async def replay_case(graph_app, case_id: str, models: Optional[Sequence[str]] =
     result = await arena.collect(arena.run_arena(
         graph_app, case["question"], thread_id, plan["models"], toggles, synthesizer=None, timeout=timeout,
         context=plan["context"], documents=documents.get("attached") or None,
-        is_deliberation=settings["is_deliberation"],
+        is_deliberation=settings["is_deliberation"], angles=plan["angles"],
     ))
-    results = [{"model": m, **{k: result["answers"][m].get(k) for k in ("content", "checkpoint_id", "error", "metrics")}}
+    results = [{"model": m, **{k: result["answers"][m].get(k) for k in ("content", "checkpoint_id", "error", "metrics",
+                                                                      "angle")}}
                for m in plan["models"]]
     replay = await asyncio.to_thread(db.save_case_replay, f"replay-{uuid.uuid4().hex[:10]}", case_id, thread_id,
                                      plan["models"], results)

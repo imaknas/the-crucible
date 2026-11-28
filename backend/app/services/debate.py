@@ -512,6 +512,10 @@ def _run_settings(session: Mapping[str, Any], toggles, context):
         toggles = dict(stored.get("toggles") or {})
     if context is None:
         context = ContextSettings.from_frame(stored) if stored else DEFAULT_CONTEXT
+    if context.angle:
+        raise DebateRefused(
+            "A debate takes no angle: give participants sides or a devil's advocate instead (stance)."
+        )
     return toggles, context
 
 

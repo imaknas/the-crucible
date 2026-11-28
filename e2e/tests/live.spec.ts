@@ -517,6 +517,29 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
   });
 
+  test("each model can answer from its own angle, and the angles go with one message", async ({ page }) => {
+    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await page.getByRole("button", { name: "Arena", exact: true }).click();
+    await page.getByRole("button", { name: "Angles", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Angles for the next message" })
+      .getByLabel("Claude Sonnet 5.5", { exact: true })
+      .fill("the case against it");
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByText("Claude Sonnet 5.5: the case against it")).toBeVisible();
+
+    await send(page, "Review this plan.");
+    await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+    await expect(page.getByRole("article", { name: "Claude Sonnet 5.5's answer" }).getByTestId("reply-angle")).toHaveText(
+      "Angle: the case against it",
+    );
+    await expect(page.getByRole("article", { name: "GPT-6.1 Sol's answer" }).getByTestId("reply-angle")).toHaveCount(0);
+    // Sent with that message only, and answers asked different things get no vote.
+    await expect(page.getByText("Claude Sonnet 5.5: the case against it")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Angles", exact: true })).toBeVisible();
+    await expect(page.getByTestId("vote-bar")).toHaveCount(0);
+  });
+
   test("answers can be merged from just the parts you keep", async ({ page }) => {
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await page.getByRole("button", { name: "Arena", exact: true }).click();

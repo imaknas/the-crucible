@@ -11,6 +11,7 @@ export interface Limits {
   /** Not a cap: the round count a new debate starts with. */
   default_debate_rounds: number;
   max_prompt_chars: number;
+  max_angle_chars: number;
 }
 
 export const FALLBACK_LIMITS: Limits = {
@@ -18,6 +19,7 @@ export const FALLBACK_LIMITS: Limits = {
   max_debate_rounds: 10,
   default_debate_rounds: 2,
   max_prompt_chars: 100_000,
+  max_angle_chars: 500,
 };
 
 /** The backend's limits over the fallbacks; a missing or invalid value keeps the fallback. */

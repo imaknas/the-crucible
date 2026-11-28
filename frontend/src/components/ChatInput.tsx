@@ -1,3 +1,5 @@
+import { AngleChips, AnglesButton } from "./AnglesEditor";
+import { anglesFor } from "@/lib/angles";
 import React from "react";
 import { Box, Paper, Typography, ButtonBase, TextField, Tooltip, Chip, CircularProgress } from "@mui/material";
 import { Send, FileText, Edit3, Scale, X, StopCircle, Swords, CornerUpLeft, Paperclip } from "lucide-react";
@@ -42,6 +44,11 @@ interface ChatInputProps {
   modelLabel?: (id: string) => string;
   /** What else goes with the message: "System prompt", "Web search", "Document search". */
   contextNotes?: string[];
+  /** Each answering model's angle for the next message (lib/angles); absent = no Angles control. */
+  angles?: Record<string, string>;
+  onAnglesChange?: (angles: Record<string, string>) => void;
+  /** The backend's angle limit (GET /models `limits.max_angle_chars`). */
+  maxAngleChars?: number;
 }
 
 /**
@@ -127,7 +134,13 @@ export const ChatInput = React.memo(
     maxChars,
     modelLabel = (id: string) => id,
     contextNotes = [],
+    angles,
+    onAnglesChange,
+    maxAngleChars,
   }: ChatInputProps) => {
+    // Only the answering models' angles go with the message (lib/angles).
+    const sentAngles = angles && !onDebateInject ? anglesFor(angles, respondingModels) : {};
+    const angleCount = Object.keys(sentAngles).length;
     const localInput = value;
     const fileRef = React.useRef<HTMLInputElement>(null);
     const fieldRef = React.useRef<HTMLTextAreaElement>(null);
@@ -237,8 +250,11 @@ export const ChatInput = React.memo(
               },
             }}
           >
-            {(documents.length > 0 || uploading) && (
+            {(documents.length > 0 || uploading || angleCount > 0) && (
               <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", pt: 1.5, px: 1.5 }}>
+                {onAnglesChange && angleCount > 0 && (
+                  <AngleChips angles={sentAngles} onChange={onAnglesChange} modelLabel={modelLabel} />
+                )}
                 {documents.map((docName) => (
                   <Chip
                     key={docName}
@@ -266,8 +282,8 @@ export const ChatInput = React.memo(
                     sx={{ fontSize: "0.75rem", color: "text.secondary" }}
                   />
                 )}
-                {/* Attachments go with one message; said here because the chips
-                    vanishing after Send looked like losing them. */}
+                {/* Attachments and angles go with one message; said here because
+                    the chips vanishing after Send looked like losing them. */}
                 <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.75rem" }}>
                   Sent with your next message only
                 </Typography>
@@ -353,6 +369,16 @@ export const ChatInput = React.memo(
                   </ButtonBase>
                 </span>
               </Tooltip>
+              {angles && onAnglesChange && !onDebateInject && (
+                <AnglesButton
+                  models={respondingModels}
+                  angles={angles}
+                  onChange={onAnglesChange}
+                  modelLabel={modelLabel}
+                  maxChars={maxAngleChars}
+                  disabled={isLoading || respondingModels.length === 0}
+                />
+              )}
 
               <Box
                 sx={{

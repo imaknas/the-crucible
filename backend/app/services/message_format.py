@@ -85,6 +85,17 @@ def message_sources(msg: Any) -> Optional[List[Dict[str, str]]]:
 
 # On a reply: what its drafting call saw (tokens, summary jump, recalled excerpts).
 CONTEXT_KEY = "crucible_context"
+# The angle the person asked this model to answer from (graph.ANGLE_CONFIG_KEY),
+# kept on the reply so every reader can say which answer took which angle.
+ANGLE_KEY = "crucible_angle"
+
+
+def reply_angle(message) -> Optional[str]:
+    """The angle a reply was written from, or None."""
+    kwargs = getattr(message, "additional_kwargs", None) or {}
+    value = kwargs.get(ANGLE_KEY)
+    return value if isinstance(value, str) and value else None
+
 
 
 def reply_context(message) -> Optional[dict]:

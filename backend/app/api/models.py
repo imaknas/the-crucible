@@ -39,12 +39,13 @@ def _build_families() -> List[Dict[str, Any]]:
 def _limits() -> Dict[str, int]:
     """Caps the backend enforces, so the UI can show them before a request fails."""
     from app.services.chat import MAX_PROMPT_CHARS
-    from app.services.context import MAX_SYSTEM_PROMPT_CHARS
+    from app.services.context import MAX_ANGLE_CHARS, MAX_SYSTEM_PROMPT_CHARS
     from app.services.debate import DEFAULT_ROUNDS, MAX_ROUNDS
 
     return {
         "max_prompt_chars": MAX_PROMPT_CHARS,
         "max_system_prompt_chars": MAX_SYSTEM_PROMPT_CHARS,
+        "max_angle_chars": MAX_ANGLE_CHARS,
         "max_debate_rounds": MAX_ROUNDS,
         # Not a cap: the round count a new debate starts with.
         "default_debate_rounds": DEFAULT_ROUNDS,

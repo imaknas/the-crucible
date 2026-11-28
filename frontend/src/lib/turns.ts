@@ -29,6 +29,8 @@ export interface LiveReply {
   model_color?: string | null;
   /** Time, tokens and cost, once stream_end gives them. */
   metrics?: ReplyMetrics | null;
+  /** The angle it was asked to answer from (lib/angles), from the send. */
+  angle?: string | null;
 }
 
 /** The multi-model turn streaming (or just streamed) in this tab. */
@@ -46,8 +48,12 @@ export interface LiveTurn {
   joins?: boolean;
 }
 
-export function startLiveTurn(models: string[], key: string): LiveTurn {
-  return { key, turnId: null, replies: models.map((model) => ({ model, content: "", streaming: true })) };
+export function startLiveTurn(models: string[], key: string, angles: Record<string, string> = {}): LiveTurn {
+  return {
+    key,
+    turnId: null,
+    replies: models.map((model) => ({ model, content: "", streaming: true, angle: angles[model] || null })),
+  };
 }
 
 /** The grid key of a settled turn; a join streams under it, so the grid never remounts. */
@@ -121,6 +127,8 @@ export interface TurnCard {
   metrics: ReplyMetrics | null;
   /** What it was written from (lib/context); null until the turn settles, or for older replies. */
   context?: ReplyContext | null;
+  /** The angle it was asked to answer from (lib/angles); null for none. */
+  angle?: string | null;
 }
 
 export type TranscriptItem =
@@ -163,6 +171,7 @@ function liveCard(r: LiveReply): TurnCard {
     shown: false,
     metrics: r.metrics ?? null,
     context: null,
+    angle: r.angle ?? null,
   };
 }
 
@@ -236,6 +245,7 @@ export function buildTranscript({ messages, nodes, edges, selected, replyTexts, 
               shown: false,
               metrics: node.metadata?.metrics ?? null,
               context: node.metadata?.context ?? null,
+              angle: node.metadata?.angle ?? null,
             };
           }),
           live: false,
@@ -277,6 +287,7 @@ export function buildTranscript({ messages, nodes, edges, selected, replyTexts, 
         // Live numbers first (stream_end), then the stored ones.
         metrics: (own ? msg.metrics : null) ?? liveReply?.metrics ?? node.metadata?.metrics ?? null,
         context: (own ? msg.context : null) ?? node.metadata?.context ?? null,
+        angle: (own ? msg.angle : null) ?? node.metadata?.angle ?? liveReply?.angle ?? null,
       };
     });
     // A model that failed this turn has no node; its card stays, saying so.

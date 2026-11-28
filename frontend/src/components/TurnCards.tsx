@@ -5,7 +5,7 @@ import React from "react";
 import { Box, Button, ButtonBase, CircularProgress, Divider, Menu, MenuItem, Paper, Select, Tooltip, Typography } from "@mui/material";
 import { RADIUS } from "@/theme";
 import { AlertTriangle, CheckCircle2, Scale, Sparkles } from "lucide-react";
-import { MessageBody, getModelColor } from "./MessageBubble";
+import { AngleLine, MessageBody, getModelColor } from "./MessageBubble";
 import type { TurnCard } from "@/lib/turns";
 import type { ModelError } from "@/lib/types";
 import { turnTotal } from "@/lib/metrics";
@@ -158,6 +158,8 @@ export const CompareCard = React.memo(function CompareCard({
           )
         )}
       </Box>
+
+      {card.angle && <AngleLine angle={card.angle} />}
 
       {failed ? (
         <Box role="alert" sx={{ display: "flex", gap: 1, alignItems: "flex-start", color: "error.main", mb: 1 }}>

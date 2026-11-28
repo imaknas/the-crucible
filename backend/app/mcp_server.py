@@ -113,6 +113,9 @@ def _answer(event: Dict[str, Any]) -> Dict[str, Any]:
         # Time, tokens and cost of the reply (services/metrics.py); None when
         # the reply recorded none (a failure, a reply from before metrics).
         "metrics": event.get("metrics"),
+        # The angle the model was asked to answer from (invoke_arena's
+        # `angles`); None for none.
+        "angle": event.get("angle"),
     }
 
 
@@ -157,13 +160,14 @@ async def invoke_arena(
     system_prompt: Optional[str] = None,
     summarizer: Optional[str] = None,
     join_turn: Optional[str] = None,
+    angles: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """Ask one or more models the same message in parallel: a chat turn (one
     model, synthesize=false), an arena turn, or a Deliberation; or, with
     join_turn, add models to a turn already answered.
 
     Returns {thread_id, new_thread, turn_id, answers: [{model, model_name,
-    content, checkpoint_id, error, metrics, parent_checkpoint_id,
+    content, checkpoint_id, error, metrics, angle, parent_checkpoint_id,
     attached_documents, retrieved, notices}], synthesis: answer | null,
     synthesis_skipped?}. Each answer's checkpoint_id is where to continue
     that model from. `metrics` is {ttft_ms, total_ms, input_tokens,
@@ -178,6 +182,12 @@ async def invoke_arena(
     after_debate_session_id; else each model continues its own latest reply
     on the thread (models that answered side by side keep separate
     conversations) and a model with none continues the latest answer.
+
+    Angles: to review a plan or an idea from several sides, give each model
+    its own (angles={"gpt-6.2-astra": "security", "claude-opus-5-5": "the
+    case against it"}); the question stays the same for all, and each answer
+    says its angle. synthesize_answers(mode="issues") then lists every
+    problem raised, with who raised it.
 
     Files: attachments are local paths whose text is in this turn only;
     upload_document indexes a file for use_rag on every later turn.
@@ -205,6 +215,7 @@ async def invoke_arena(
         system_prompt: Instructions sent to every model (and the synthesizer) before the conversation. Default: none.
         summarizer: Model that summarizes history once the thread outgrows a model's budget. Default: the app's.
         join_turn: Add `models` (required) to this answered turn of thread_id: its turn_id, or one of its replies' checkpoint_id (get_thread_tree shows both).
+        angles: {model id: angle} for models of this turn: what each answers from (a focus such as "security" or "the case against it", 500 characters at most). Default: none.
     """
     if join_turn:
         if not thread_id:
@@ -236,7 +247,7 @@ async def invoke_arena(
             async for event in arena_svc.run_arena(
                 graph_app, prompt, thread_id, resolved, _toggles(use_web_search, use_rag), chosen_synth,
                 context=context, parent_checkpoint_id=parent_checkpoint_id, after_debate=after_debate_session_id,
-                documents=documents, is_deliberation=deliberation, join_turn=join_turn,
+                documents=documents, is_deliberation=deliberation, join_turn=join_turn, angles=angles,
             ):
                 if event["type"] == "start":
                     result["new_thread"], result["turn_id"] = event["new_thread"], event["turn_id"]
