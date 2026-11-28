@@ -314,6 +314,21 @@ class TestNodes:
         mock_get_model.assert_not_called()
         assert "synthesis" in workflow.nodes
 
+    def test_a_turn_that_writes_a_summary_still_searches(self):
+        """The summary is appended after the question on the turn it is
+        written; retrieval used to see it last and search nothing."""
+        from app.core.schema import summary_message
+        from app.services.graph import retrieve_node
+        from langchain_core.messages import HumanMessage
+
+        doc = MagicMock(page_content="Fact", metadata={"filename": "f.txt"})
+        asked = []
+        state = {"toggles": {"use_rag": True},
+                 "messages": [HumanMessage(content="Query"), summary_message("earlier talk")]}
+        res = retrieve_node(state, {"configurable": {"thread_id": "t",
+                                                     "retriever": lambda q, t: asked.append(q) or [doc]}})
+        assert asked == ["Query"] and [c["text"] for c in res["retrieved_chunks"]] == ["Fact"]
+
     @patch("app.services.graph.rag_service.retrieve_context")
     def test_retrieve_node(self, mock_retrieve):
         from app.services.graph import retrieve_node

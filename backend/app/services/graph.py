@@ -469,8 +469,10 @@ def retrieve_node(state: CrucibleState, config: RunnableConfig):
     if not messages:
         return {"retrieved_chunks": []}
 
-    # Only retrieve if the last message is from the user
-    last_msg = messages[-1]
+    # Only retrieve if the last message is from the user. A summary written
+    # this turn is appended after the question; looking past it is what
+    # keeps that turn from searching nothing.
+    last_msg = next((m for m in reversed(messages) if not is_summary_message(m)), messages[-1])
     # Check if type is human (handles both BaseMessage and dicts)
     is_human = getattr(last_msg, "type", "") == "human" or (
         isinstance(last_msg, dict) and last_msg.get("type", "") == "human"
