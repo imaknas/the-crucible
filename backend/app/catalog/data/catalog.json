@@ -10,6 +10,13 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -42,6 +49,13 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -74,6 +88,13 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -106,6 +127,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": false,
+    "reasoning_effort": [],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -138,6 +160,13 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -170,6 +199,11 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": false,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -202,6 +236,12 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "max"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -234,6 +274,13 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -266,6 +313,13 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -298,6 +352,13 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -330,6 +391,13 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -362,6 +430,7 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": false,
+    "reasoning_effort": [],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -394,6 +463,12 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "max"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -426,6 +501,13 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true
@@ -458,6 +540,13 @@
     "image_input": true,
     "pdf_input": true,
     "provider_compaction": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ],
     "server_tools": true,
     "structured_outputs": true,
     "thinking": true

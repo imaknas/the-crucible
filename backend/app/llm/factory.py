@@ -24,7 +24,11 @@ FACTORY_CONFIG_KEY = "model_factory"
 
 class ModelFactory(Protocol):
     def chat(self, model_id: str, toggles: Optional[Mapping[str, Any]] = None) -> Runnable:
-        """A chat model for a registered model ID. Raises ValueError if unusable."""
+        """A chat model for a registered model ID. Raises ValueError if unusable.
+
+        The answering call also passes ``effort=<provider level>`` when the
+        run asked for a reasoning effort the model takes (llm/effort.py);
+        only then, so a factory that doesn't take it is never handed one."""
         ...
 
 
@@ -69,7 +73,7 @@ class ProviderModelFactory:
         self._providers = providers
         self._env = env
 
-    def chat(self, model_id: str, toggles: Optional[Mapping[str, Any]] = None) -> Runnable:
+    def chat(self, model_id: str, toggles: Optional[Mapping[str, Any]] = None, effort: Optional[str] = None) -> Runnable:
         key = normalize_model_id(model_id, self._registry)
         config = self._registry[key]
         family = config["family"]
@@ -79,7 +83,9 @@ class ProviderModelFactory:
 
         provider = self._providers[family]
         # The key this factory checked, not whatever the SDK finds in os.environ.
-        llm = provider.create(config["id"], api_key=self._env.get(FAMILY_META[family]["env_key"]))
+        llm = provider.create(
+            config["id"], api_key=self._env.get(FAMILY_META[family]["env_key"]), **({"effort": effort} if effort else {})
+        )
         if (toggles or {}).get("use_web_search") and config.get("native_search"):
             return provider.with_web_search(llm)
         return llm
@@ -94,8 +100,10 @@ class CallableModelFactory:
     def __init__(self, fn: Callable[[str, Mapping[str, Any]], Runnable]):
         self._fn = fn
 
-    def chat(self, model_id: str, toggles: Optional[Mapping[str, Any]] = None) -> Runnable:
-        return self._fn(normalize_model_id(model_id), toggles or {})
+    def chat(self, model_id: str, toggles: Optional[Mapping[str, Any]] = None, effort: Optional[str] = None) -> Runnable:
+        model = self._fn(normalize_model_id(model_id), toggles or {})
+        # A test model takes the level as a call argument, where a test can read it.
+        return model.bind(reasoning_effort=effort) if effort else model
 
 
 _override: Optional[ModelFactory] = None

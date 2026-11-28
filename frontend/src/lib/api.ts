@@ -181,6 +181,8 @@ export interface ModelInfo {
   desc: string;
   /** The provider's own web search works for this model. */
   native_search?: boolean;
+  /** Which reasoning efforts it takes (lib/effort); null = not verified yet. */
+  reasoning_efforts?: string[] | null;
 }
 
 export interface ModelFamily {
@@ -199,6 +201,8 @@ export async function fetchModels(): Promise<{
   default_arena_models?: string[];
   default_summarizer?: string;
   limits?: Partial<import("@/lib/catalog").Limits>;
+  /** What a run's reasoning effort may be, lowest first. */
+  reasoning_efforts?: string[];
 }> {
   const res = await fetch(`${API_BASE}/models`);
   await ensureOk(res, "Failed to fetch models");

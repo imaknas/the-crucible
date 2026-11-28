@@ -89,6 +89,8 @@ export interface Message {
   context?: ReplyContext | null;
   /** The angle the person asked this model to answer from (lib/angles); null for none. */
   angle?: string | null;
+  /** The reasoning effort it answered at (lib/effort); null at the model's default. */
+  effort?: ReplyEffort | null;
 }
 
 /** One model's failed turn, shown inline with a Retry instead of a modal. */
@@ -139,6 +141,8 @@ export interface TreeNode {
     context?: ReplyContext | null;
     /** The angle the person asked this model to answer from (lib/angles); null for none. */
     angle?: string | null;
+    /** The reasoning effort it answered at (lib/effort); null at the model's default. */
+    effort?: ReplyEffort | null;
     /** The person's notes on the node (PATCH /history/{thread}/nodes/{node}). */
     name?: string | null;
     bookmarked?: boolean;
@@ -300,6 +304,12 @@ export interface DebateTreeResponse {
 }
 
 /** An anonymous peer review of a set of answers (backend services/review.py). */
+/** What a run asked for (`choice`) and the provider level sent (`level`). */
+export interface ReplyEffort {
+  choice: string;
+  level: string;
+}
+
 /** A problem-by-problem check of an issue list (POST /synthesis/checks). */
 export type IssueVerdict = "holds" | "does_not_hold" | "cant_tell";
 

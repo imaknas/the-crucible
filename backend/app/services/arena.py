@@ -18,7 +18,8 @@ from app.core.storage import current_storage
 from app.llm import has_credentials
 from app.services.chat import node_checkpoint, stream_turn, thread_state_map
 from app.services.graph import workflow
-from app.services.message_format import reply_angle
+from app.llm.effort import timeout_factor
+from app.services.message_format import reply_angle, reply_effort
 from app.services.metrics import message_metrics, snapshot_day
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.synthesis import (
@@ -103,7 +104,8 @@ def resolve_models(models: Optional[List[str]] = None) -> List[str]:
 def list_models(day: Optional[str] = None) -> List[Dict[str, Any]]:
     """Every registered model: id, name, family, whether it is kept only for
     old threads (legacy), whether its key is set, whether it can search the
-    web, its context window as the provider reports it, and its price in USD
+    web, which reasoning efforts it takes (None: not verified yet), its
+    context window as the provider reports it, and its price in USD
     per million tokens on ``day`` (default: today; from the providers'
     pricing pages, catalog/prices.py; None for an unpriced model)."""
     import datetime
@@ -125,6 +127,8 @@ def list_models(day: Optional[str] = None) -> List[Dict[str, Any]]:
             "native_search": bool(cfg.get("native_search")),
             "context_window": _context_window(catalog, model_id),
             "price_per_mtok": _price(prices, model_id),
+            # Which reasoning efforts it takes; None until verified (catalog-sync).
+            "reasoning_efforts": _efforts(catalog, model_id),
         }
         for model_id, cfg in MODEL_REGISTRY.items()
     ]
@@ -133,6 +137,14 @@ def list_models(day: Optional[str] = None) -> List[Dict[str, Any]]:
 def _price(prices, model_id: str) -> Optional[Dict[str, Optional[float]]]:
     price = prices.price(model_id)
     return {"input": price.input, "output": price.output, "cached_input": price.cached_input} if price else None
+
+
+def _efforts(catalog, model_id: str) -> Optional[List[str]]:
+    from app.llm.effort import available_choices, model_levels
+
+    if catalog is None:
+        return None
+    return available_choices(model_levels(model_id, catalog=lambda: catalog))
 
 
 def _context_window(catalog, model_id: str) -> Optional[int]:
@@ -505,6 +517,7 @@ async def run_arena(
     tasks = [asyncio.create_task(_produce(m)) for m in models]
     answers: Dict[str, Dict[str, Any]] = {}
     loop = asyncio.get_running_loop()
+    timeout *= timeout_factor(context.reasoning_effort)
     deadline = loop.time() + timeout
     try:
         while len(answers) < len(models):
@@ -565,7 +578,7 @@ async def collect(events: AsyncGenerator[Dict[str, Any], None]) -> Dict[str, Any
             result["thread_id"] = event["thread_id"]
             result["parent_checkpoint_id"] = event["parent_checkpoint_id"]
         elif event["type"] == "end":
-            result["answers"][event["model"]] = {k: event.get(k) for k in ("content", "checkpoint_id", "error", "metrics", "angle")}
+            result["answers"][event["model"]] = {k: event.get(k) for k in ("content", "checkpoint_id", "error", "metrics", "angle", "effort", "notices")}
         elif event["type"] == "synthesis":
             result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error", "metrics")}
     return result
@@ -610,6 +623,7 @@ async def latest_branch_answers(graph_app, thread_id: str) -> List[Dict[str, Any
             "checkpoint_id": cid,
             "metrics": message_metrics(last_ai, day=snapshot_day(s)),
             "angle": reply_angle(last_ai),
+            "effort": reply_effort(last_ai),
         })
     return answers
 
@@ -630,6 +644,7 @@ async def answer_at(graph_app, thread_id: str, checkpoint_id: str) -> Dict[str, 
         "question": question,
         "metrics": message_metrics(last, day=snapshot_day(state)),
         "angle": reply_angle(last),
+        "effort": reply_effort(last),
     }
 
 
@@ -811,7 +826,7 @@ async def synthesize_thread(
            "parent_checkpoint_id": parent, "parents": {}, "new_thread": False, "turn_id": None}
     for a in answers:
         yield {"type": "end", "model": a["model"], "content": a["content"], "checkpoint_id": a["checkpoint_id"],
-               "error": None, "metrics": a.get("metrics"), "angle": a.get("angle")}
+               "error": None, "metrics": a.get("metrics"), "angle": a.get("angle"), "effort": a.get("effort")}
     question_line, labelled = _labelled_answers([{**a, "question": a.get("question") or asked} for a in answers])
     prompt = build_synthesis_prompt(question_line, labelled, framing)
     async for event in _synthesize(graph_app, thread_id, parent, synthesizer, prompt, toggles, context,

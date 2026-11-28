@@ -57,6 +57,8 @@ def usage(messages: List[BaseMessage], reply: str) -> UsageMetadata:
 class ScriptedChatModel(BaseChatModel):
     model_id: str
     delay: float = 0.04
+    # The reasoning-effort level the run sent, if any; replies don't change.
+    effort: Optional[str] = None
 
     @property
     def _llm_type(self) -> str:
@@ -153,7 +155,7 @@ class ScriptedModelFactory:
     def __init__(self, delay: Optional[float] = None):
         self._delay = float(os.getenv("CRUCIBLE_FAKE_LLM_DELAY", "0.04")) if delay is None else delay
 
-    def chat(self, model_id: str, toggles: Any = None) -> ScriptedChatModel:
+    def chat(self, model_id: str, toggles: Any = None, effort: Optional[str] = None) -> ScriptedChatModel:
         from app.llm.factory import normalize_model_id
 
-        return ScriptedChatModel(model_id=normalize_model_id(model_id), delay=self._delay)
+        return ScriptedChatModel(model_id=normalize_model_id(model_id), delay=self._delay, effort=effort)

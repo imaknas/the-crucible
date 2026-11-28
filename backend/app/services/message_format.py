@@ -98,6 +98,19 @@ def reply_angle(message) -> Optional[str]:
 
 
 
+# The reasoning effort a reply was written at: {"choice": what the run asked
+# for (llm/effort.EFFORT_CHOICES), "level": the provider level sent}. Absent
+# when nothing was sent: the model reasoned at its default.
+EFFORT_KEY = "crucible_effort"
+
+
+def reply_effort(message) -> Optional[dict]:
+    """The reasoning effort a reply was written at, or None (the model's default)."""
+    kwargs = getattr(message, "additional_kwargs", None) or {}
+    value = kwargs.get(EFFORT_KEY)
+    return value if isinstance(value, dict) and value.get("level") else None
+
+
 def reply_context(message) -> Optional[dict]:
     """What a reply's drafting call saw (``CONTEXT_KEY``), or None for a reply
     written before it was recorded: {tokens, soft_limit, context_window,

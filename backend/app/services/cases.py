@@ -86,7 +86,7 @@ async def save_case(graph_app, thread_id: str, turn: str, *, title: Optional[str
     question = extract_text(messages[-1].content)
     history = [m for m in messages[:-1] if getattr(m, "type", "") != "remove"]
 
-    from app.services.graph import SUMMARIZER_CONFIG_KEY, SYSTEM_PROMPT_CONFIG_KEY
+    from app.services.graph import EFFORT_CONFIG_KEY, SUMMARIZER_CONFIG_KEY, SYSTEM_PROMPT_CONFIG_KEY
 
     recorded = reply.metadata or {}
     toggles = values.get("toggles") or {}
@@ -95,6 +95,7 @@ async def save_case(graph_app, thread_id: str, turn: str, *, title: Optional[str
         "use_rag": bool(toggles.get("use_rag")),
         "system_prompt": recorded.get(SYSTEM_PROMPT_CONFIG_KEY) or None,
         "summarizer": recorded.get(SUMMARIZER_CONFIG_KEY) or None,
+        "reasoning_effort": recorded.get(EFFORT_CONFIG_KEY) or None,
         "is_deliberation": bool(values.get("is_deliberation")),
     }
 
@@ -110,7 +111,8 @@ async def save_case(graph_app, thread_id: str, turn: str, *, title: Optional[str
     for a in answers:
         answer = await arena.answer_at(graph_app, thread_id, a["checkpoint_id"])
         saved_answers.append({"model": a["model"], "content": answer["content"], "metrics": answer["metrics"],
-                              "checkpoint_id": a["checkpoint_id"], "angle": answer.get("angle")})
+                              "checkpoint_id": a["checkpoint_id"], "angle": answer.get("angle"),
+                              "effort": answer.get("effort")})
 
     vote = await asyncio.to_thread(db.get_answer_vote, thread_id, turn_data["turn_id"])
     data = {
@@ -169,7 +171,7 @@ def case_view(case: Mapping[str, Any], replays: Sequence[Mapping[str, Any]]) -> 
     source_thread_id, source_turn_id, history: [{role, kind, content, model,
     model_name}], history_from, summarized, documents / searched_documents:
     [{name, characters}], settings: {use_web_search, use_rag, system_prompt,
-    summarizer, is_deliberation}, answers: [{model, model_name, content,
+    summarizer, reasoning_effort, is_deliberation}, answers: [{model, model_name, content,
     metrics, checkpoint_id, angle}], total (metrics.turn_total), vote, best_model,
     replays: [replay_view]}."""
     data = case["data"]
@@ -291,7 +293,8 @@ def replay_plan(case_id: str, models: Optional[Sequence[str]] = None) -> Dict[st
     data = case["data"]
     chosen = arena.resolve_models(list(models) if models else [a["model"] for a in data["answers"]])
     settings = data["settings"]
-    context = ContextSettings(summarizer=settings.get("summarizer"), system_prompt=settings.get("system_prompt"))
+    context = ContextSettings(summarizer=settings.get("summarizer"), system_prompt=settings.get("system_prompt"),
+                              reasoning_effort=settings.get("reasoning_effort"))
     if problem := context.problem():
         raise ValueError(f"This case was answered with settings a replay can't use now: {problem}")
     if settings.get("is_deliberation") and not data["history"]:
@@ -335,7 +338,7 @@ async def replay_case(graph_app, case_id: str, models: Optional[Sequence[str]] =
         is_deliberation=settings["is_deliberation"], angles=plan["angles"],
     ))
     results = [{"model": m, **{k: result["answers"][m].get(k) for k in ("content", "checkpoint_id", "error", "metrics",
-                                                                      "angle")}}
+                                                                      "angle", "effort")}}
                for m in plan["models"]]
     replay = await asyncio.to_thread(db.save_case_replay, f"replay-{uuid.uuid4().hex[:10]}", case_id, thread_id,
                                      plan["models"], results)

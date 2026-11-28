@@ -19,7 +19,8 @@ from app.services import rag as rag_service
 from app.llm import model_factory_from
 from app.llm.providers import REQUEST_NOTES_HEADER
 from app.services.documents import document_thread, documents_for_run
-from app.services.message_format import ANGLE_KEY, CONTEXT_KEY, message_model
+from app.llm.effort import model_levels, resolve_level
+from app.services.message_format import ANGLE_KEY, CONTEXT_KEY, EFFORT_KEY, message_model
 from app.services.metrics import ReplyTimer, clock_from
 from app.services.recall import INTERNAL_TAG
 from app.compaction import ContextSnapshot, DetailedBrief, EarlierMessage, KeepRecent, ModelBudget, ThresholdPolicy
@@ -49,6 +50,9 @@ SYSTEM_PROMPT_CONFIG_KEY = "system_prompt"
 # security, its cost, the case against it). Per model, unlike the system
 # prompt; the question itself stays the same for every model of the turn.
 ANGLE_CONFIG_KEY = "angle"
+# How hard the answering model reasons (llm/effort.EFFORT_CHOICES); unset,
+# nothing is sent and each model reasons at its own default.
+EFFORT_CONFIG_KEY = "reasoning_effort"
 _DEFAULT_RETENTION = KeepRecent(KEEP_VERBATIM)
 _ROLE = {"human": "user", "ai": "assistant"}
 
@@ -61,6 +65,24 @@ def system_prompt_from(config: Optional[RunnableConfig]) -> Optional[str]:
 def angle_from(config: Optional[RunnableConfig]) -> Optional[str]:
     """The angle this run's model was given, or None."""
     return ((config or {}).get("configurable") or {}).get(ANGLE_CONFIG_KEY) or None
+
+
+def effort_from(config: Optional[RunnableConfig]) -> Optional[str]:
+    """The reasoning effort this run asked for, or None."""
+    return ((config or {}).get("configurable") or {}).get(EFFORT_CONFIG_KEY) or None
+
+
+def effort_notice(model_id: str, choice: str, levels: Optional[List[str]]) -> str:
+    """Why a model answered at its default although the run asked for `choice`."""
+    from app.registry import display_name
+
+    name = display_name(model_id)
+    if levels is None:
+        return (f"{name}'s reasoning-effort levels haven't been verified yet (catalog-sync records them), "
+                f"so it answered at its default instead of {choice}.")
+    if not levels:
+        return f"{name} has no reasoning-effort setting; it answered at its default instead of {choice}."
+    return f"{name} has no {choice} reasoning effort (it takes {', '.join(levels)}); it answered at its default."
 
 
 def angle_instruction(angle: str) -> str:
@@ -540,7 +562,14 @@ async def grade_retrieval_node(state: CrucibleState, config: RunnableConfig):
 def drafting_node(state: CrucibleState, config: RunnableConfig):
     """Primary node for building the main argument."""
     active_peer = state["active_peer"]
-    model = model_factory_from(config).chat(active_peer, state.get("toggles", {}))
+    # The reasoning effort is the answering call's alone: helper calls
+    # (summary, recall, grading) never get it.
+    effort_choice = effort_from(config)
+    effort_levels = model_levels(active_peer) if effort_choice else None
+    effort_level = resolve_level(effort_levels, effort_choice) if effort_choice else None
+    model = model_factory_from(config).chat(
+        active_peer, state.get("toggles", {}), **({"effort": effort_level} if effort_level else {})
+    )
 
     # RAG Context injection
     rag_context = ""
@@ -668,11 +697,16 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
 
     if angle:
         response.additional_kwargs[ANGLE_KEY] = angle
+    if effort_level:
+        response.additional_kwargs[EFFORT_KEY] = {"choice": effort_choice, "level": effort_level}
     if state.get("retrieved_chunks"):
         response.additional_kwargs["sources"] = state["retrieved_chunks"]
 
     # Reset deliberation flag after use
-    return {"messages": [response], "is_deliberation": False}
+    update = {"messages": [response], "is_deliberation": False}
+    if effort_choice and not effort_level:
+        update["notices"] = [*(state.get("notices") or []), effort_notice(active_peer, effort_choice, effort_levels)]
+    return update
 
 
 def synthesis_node(state: CrucibleState, config: RunnableConfig):

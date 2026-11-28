@@ -31,6 +31,7 @@ export function useChatWebSocket({
   toggles,
   summarizer = null,
   systemPrompt = null,
+  reasoningEffort = null,
   documentNames,
   clearDocuments,
   onTurnSettled,
@@ -54,6 +55,8 @@ export function useChatWebSocket({
   summarizer?: string | null;
   /** The person's system prompt; null = models get none. */
   systemPrompt?: string | null;
+  /** How hard the answering models reason (lib/effort); null = each model's default. */
+  reasoningEffort?: string | null;
   /** Files attached to this turn, by name; the backend reads them from the thread. */
   documentNames: string[];
   clearDocuments: () => void;
@@ -131,6 +134,10 @@ export function useChatWebSocket({
     onThreadsChangedRef.current = onThreadsChanged;
   }, [onThreadsChanged]);
 
+  const pushToastRef = useRef(pushToast);
+  useEffect(() => {
+    pushToastRef.current = pushToast;
+  }, [pushToast]);
   const onTurnSettledRef = useRef(onTurnSettled);
   useEffect(() => {
     onTurnSettledRef.current = onTurnSettled;
@@ -419,6 +426,9 @@ export function useChatWebSocket({
         const inLiveTurn = liveModelsRef.current.has(data.model) && data.model !== synthesisModelRef.current;
         if (data.type === "stream_end") {
           pendingModelsRef.current.delete(data.model);
+          // What degraded the turn without failing it: a summary or a search
+          // that failed, a reasoning effort the model doesn't take.
+          for (const notice of (data.notices ?? []) as string[]) pushToastRef.current(notice, "info");
           const content = streamBufferRef.current[data.model] ?? "";
           setMessages((prev) =>
             prev.map((m) =>
@@ -434,6 +444,7 @@ export function useChatWebSocket({
                     streaming: false,
                     metrics: data.metrics ?? null,
                     angle: data.angle ?? null,
+                    effort: data.effort ?? null,
                   }
                 : m,
             ),
@@ -449,6 +460,7 @@ export function useChatWebSocket({
                   ...(data.turn_id ? { turn_id: data.turn_id } : {}),
                   metrics: data.metrics ?? null,
                   angle: data.angle ?? null,
+                  effort: data.effort ?? null,
                 }),
             );
           delete streamBufferRef.current[data.model];
@@ -569,7 +581,7 @@ export function useChatWebSocket({
         message: userMessage,
         model: model,
         toggles: toggles,
-        ...contextFields({ summarizer, systemPrompt }),
+        ...contextFields({ summarizer, systemPrompt, reasoningEffort }),
         ...angleField(angles, model),
         document_names: documentNames,
         ...(continuesDebate
@@ -632,7 +644,7 @@ export function useChatWebSocket({
       model,
       join_turn: reply,
       toggles,
-      ...contextFields({ summarizer, systemPrompt }),
+      ...contextFields({ summarizer, systemPrompt, reasoningEffort }),
     });
     return true;
   };
@@ -663,7 +675,7 @@ export function useChatWebSocket({
       answer_checkpoint_ids: checkpointIds,
       model: synthesizer,
       toggles: toggles,
-      ...contextFields({ summarizer, systemPrompt }),
+      ...contextFields({ summarizer, systemPrompt, reasoningEffort }),
       document_names: documentNames,
       parent_checkpoint_id: null,
       type: "synthesis",

@@ -8,6 +8,8 @@ import {
   type ReplyMetrics,
   type TurnMetrics,
 } from "@/lib/metrics";
+import { effortLabel } from "@/lib/effort";
+import type { ReplyEffort } from "@/lib/types";
 
 function Breakdown({ lines }: { lines: string[] }) {
   return (
@@ -78,15 +80,20 @@ function MetricsLine({ text, lines, testId, align = "left" }: LineProps) {
 /** What one answer took: nothing for a reply that recorded none. */
 export function ReplyMetricsLine({
   metrics,
+  effort = null,
 }: {
   metrics: ReplyMetrics | null | undefined;
+  /** The reasoning effort it answered at; null at the model's default. */
+  effort?: ReplyEffort | null;
 }) {
   const text = formatMetrics(metrics);
-  if (!metrics || !text) return null;
+  const effortText = effortLabel(effort);
+  if (!(metrics && text) && !effortText) return null;
+  const shown = [effortText, metrics && text ? text : null].filter(Boolean).join(" · ");
   return (
     <MetricsLine
-      text={text}
-      lines={metricsBreakdown(metrics)}
+      text={shown}
+      lines={[...(effort ? [`Reasoning effort: ${effort.choice} (sent as ${effort.level})`] : []), ...(metrics ? metricsBreakdown(metrics) : [])]}
       testId="reply-metrics"
     />
   );

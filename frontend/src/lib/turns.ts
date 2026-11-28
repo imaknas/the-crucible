@@ -1,4 +1,4 @@
-import type { Message, TreeEdge, TreeNode } from "@/lib/types";
+import type { Message, ReplyEffort, TreeEdge, TreeNode } from "@/lib/types";
 import type { ReplyMetrics } from "@/lib/metrics";
 import type { ReplyContext } from "@/lib/context";
 import { cardExcerpt, isSynthesisNode, orderSiblings, turnSiblings } from "@/lib/arenaCompare";
@@ -31,6 +31,8 @@ export interface LiveReply {
   metrics?: ReplyMetrics | null;
   /** The angle it was asked to answer from (lib/angles), from the send. */
   angle?: string | null;
+  /** The reasoning effort it answered at, from stream_end. */
+  effort?: ReplyEffort | null;
 }
 
 /** The multi-model turn streaming (or just streamed) in this tab. */
@@ -129,6 +131,8 @@ export interface TurnCard {
   context?: ReplyContext | null;
   /** The angle it was asked to answer from (lib/angles); null for none. */
   angle?: string | null;
+  /** The reasoning effort it answered at; null at the model's default. */
+  effort?: ReplyEffort | null;
 }
 
 export type TranscriptItem =
@@ -172,6 +176,7 @@ function liveCard(r: LiveReply): TurnCard {
     metrics: r.metrics ?? null,
     context: null,
     angle: r.angle ?? null,
+    effort: r.effort ?? null,
   };
 }
 
@@ -246,6 +251,7 @@ export function buildTranscript({ messages, nodes, edges, selected, replyTexts, 
               metrics: node.metadata?.metrics ?? null,
               context: node.metadata?.context ?? null,
               angle: node.metadata?.angle ?? null,
+              effort: node.metadata?.effort ?? null,
             };
           }),
           live: false,
@@ -288,6 +294,7 @@ export function buildTranscript({ messages, nodes, edges, selected, replyTexts, 
         metrics: (own ? msg.metrics : null) ?? liveReply?.metrics ?? node.metadata?.metrics ?? null,
         context: (own ? msg.context : null) ?? node.metadata?.context ?? null,
         angle: (own ? msg.angle : null) ?? node.metadata?.angle ?? liveReply?.angle ?? null,
+        effort: (own ? msg.effort : null) ?? liveReply?.effort ?? node.metadata?.effort ?? null,
       };
     });
     // A model that failed this turn has no node; its card stays, saying so.

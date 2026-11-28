@@ -11,7 +11,7 @@ from app.catalog.entry import CatalogEntry
 from app.catalog.names import is_dated_snapshot
 from app.catalog.sources import SOURCES, ProviderSource, guarded
 
-ProbeMode = Literal["new", "failed", "all", "none"]
+ProbeMode = Literal["new", "failed", "all", "none", "effort"]
 OVERRIDABLE = {"display_name", "released", "input_limit", "output_limit", "shutdown_date"}
 
 
@@ -50,6 +50,11 @@ def _verdict(old_ok, old_checked, new_ok, today):
     return None, None
 
 
+def _efforts_of(result) -> Optional[list[str]]:
+    """The levels a probe found, None when it didn't run or was inconclusive."""
+    return result.capabilities.get("reasoning_effort") if result is not None and result.ok else None
+
+
 def apply_overrides(entry: CatalogEntry, overrides: Mapping[str, Mapping[str, Any]]) -> None:
     o = overrides.get(entry.id)
     if not o:
@@ -71,14 +76,24 @@ def sync_catalog(
     sources: Iterable[ProviderSource] = SOURCES.values(),
     client: Optional[httpx.Client] = None,
     workers: int = 6,
+    effort_ids: Optional[set[str]] = None,
 ) -> tuple[dict[str, CatalogEntry], CatalogDiff]:
     """Returns the new catalog and what changed. Providers without a key are
-    left exactly as they were."""
+    left exactly as they were.
+
+    Reasoning-effort levels are probed (for providers whose listing doesn't
+    report them) along with a model's chat probe, and with ``probe="effort"``
+    alone for models that have none recorded; ``effort_ids`` limits both to
+    those models (the ones the app offers), since each level is a call."""
     own_client = client is None
     client = client or httpx.Client(timeout=120)
     diff = CatalogDiff()
     catalog = {k: copy.deepcopy(v) for k, v in previous.items()}
     to_probe: list[tuple[ProviderSource, str, CatalogEntry]] = []
+    effort_only: list[tuple[ProviderSource, str, CatalogEntry]] = []
+
+    def wants_efforts(source, entry) -> bool:
+        return hasattr(source, "probe_efforts") and (effort_ids is None or entry.id in effort_ids)
 
     try:
         for source in sources:
@@ -119,6 +134,9 @@ def sync_catalog(
                 )) or (probe == "failed" and (v.chat_ok is False or v.web_search_ok is False))
                 if needs:
                     to_probe.append((source, key, fresh))
+                elif (probe == "effort" and v.chat_ok and wants_efforts(source, fresh)
+                      and "reasoning_effort" not in fresh.capabilities):
+                    effort_only.append((source, key, fresh))
             for entry in catalog.values():
                 if entry.provider == source.name and entry.id not in seen and entry.status == "listed":
                     entry.status = "unlisted"
@@ -128,10 +146,19 @@ def sync_catalog(
             source, key, entry = item
             chat = guarded(lambda: source.probe_chat(client, key, entry.id))
             search = guarded(lambda: source.probe_web_search(client, key, entry)) if (probe_web_search and chat.ok) else None
-            return entry, chat, search
+            if chat.ok:
+                entry.capabilities.update(chat.capabilities)  # the API the effort probe uses
+            efforts = guarded(lambda: source.probe_efforts(client, key, entry)) if (chat.ok and wants_efforts(source, entry)) else None
+            return entry, chat, search, efforts
+
+        def record_efforts(entry, efforts) -> None:
+            # Inconclusive keeps what an earlier probe recorded.
+            if efforts is not None and efforts.ok:
+                entry.capabilities.update(efforts.capabilities)
 
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            for entry, chat, search in pool.map(run, to_probe):
+            for entry, chat, search, efforts in pool.map(run, to_probe):
+                record_efforts(entry, efforts)
                 v = entry.verification
                 v.chat_ok, v.chat_checked = _verdict(v.chat_ok, v.chat_checked, chat.ok, today)
                 if chat.ok:
@@ -144,7 +171,14 @@ def sync_catalog(
                     )
                     if not search.ok:
                         v.error = f"web search: {search.error}"
-                diff.probed[entry.id] = {"chat": chat.ok, "web_search": None if search is None else search.ok, "error": v.error}
+                diff.probed[entry.id] = {"chat": chat.ok, "web_search": None if search is None else search.ok, "error": v.error,
+                                         "efforts": _efforts_of(efforts)}
+            for entry, efforts in pool.map(
+                lambda item: (item[2], guarded(lambda: item[0].probe_efforts(client, item[1], item[2]))), effort_only
+            ):
+                record_efforts(entry, efforts)
+                diff.probed[entry.id] = {"chat": None, "web_search": None, "error": efforts.error,
+                                         "efforts": _efforts_of(efforts)}
     finally:
         if own_client:
             client.close()

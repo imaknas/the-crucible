@@ -191,6 +191,7 @@ async def compact_tree(graph_app, thread_id: str, excerpt_chars: int = 300) -> D
             "excerpt": (meta.get("excerpt") or "")[:excerpt_chars],
             "metrics": meta.get("metrics") if is_reply else None,
             "angle": meta.get("angle") if is_reply else None,
+            "effort": meta.get("effort") if is_reply else None,
             "name": meta.get("name"),
             "bookmarked": bool(meta.get("bookmarked")),
             "subtree_summary": meta.get("subtree_summary"),

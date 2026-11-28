@@ -9,14 +9,18 @@ export interface RunContext {
   summarizer?: string | null;
   /** Sent to every model before the conversation; null = no system prompt. */
   systemPrompt?: string | null;
+  /** How hard the answering models reason (lib/effort); null = each model's default. */
+  reasoningEffort?: string | null;
 }
 
-export function contextFields({ summarizer, systemPrompt }: RunContext): {
+export function contextFields({ summarizer, systemPrompt, reasoningEffort }: RunContext): {
   summarizer?: string;
   system_prompt?: string;
+  reasoning_effort?: string;
 } {
-  const fields: { summarizer?: string; system_prompt?: string } = {};
+  const fields: { summarizer?: string; system_prompt?: string; reasoning_effort?: string } = {};
   if (summarizer) fields.summarizer = summarizer;
   if (systemPrompt && systemPrompt.trim()) fields.system_prompt = systemPrompt;
+  if (reasoningEffort) fields.reasoning_effort = reasoningEffort;
   return fields;
 }

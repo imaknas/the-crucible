@@ -39,10 +39,15 @@ class ContextSettings:
     # `angles`). Not for a synthesis (stream_turn drops it) or a debate,
     # whose participants are given sides instead (services/stances.py).
     angle: Optional[str] = None
+    # How hard the answering model reasons, one of llm/effort.EFFORT_CHOICES
+    # (resolved per model against the levels it takes); None = each model's
+    # default. The answering call's only: summaries, recall and grading
+    # never get it.
+    reasoning_effort: Optional[str] = None
 
     # The top-level frame fields from_frame reads. A frame naming none of
     # them carries no choice (e.g. a debate redirect keeps the start's).
-    FRAME_FIELDS: ClassVar[tuple[str, ...]] = ("summarizer", "system_prompt", "angle")
+    FRAME_FIELDS: ClassVar[tuple[str, ...]] = ("summarizer", "system_prompt", "angle", "reasoning_effort")
 
     @classmethod
     def from_frame(cls, frame: Mapping[str, Any]) -> "ContextSettings":
@@ -50,6 +55,7 @@ class ContextSettings:
             summarizer=(frame.get("summarizer") or None),
             system_prompt=_text_or_none(frame.get("system_prompt")),
             angle=_text_or_none(frame.get("angle")),
+            reasoning_effort=_text_or_none(frame.get("reasoning_effort")),
         )
 
     def with_angle(self, angle: Optional[str]) -> "ContextSettings":
@@ -76,6 +82,11 @@ class ContextSettings:
                 return "An angle must be text."
             if len(self.angle) > MAX_ANGLE_CHARS:
                 return f"An angle is {len(self.angle):,} characters; the limit is {MAX_ANGLE_CHARS:,}."
+        if self.reasoning_effort is not None:
+            from app.llm.effort import EFFORT_CHOICES
+
+            if self.reasoning_effort not in EFFORT_CHOICES:
+                return f"Unknown reasoning effort {self.reasoning_effort!r}; one of {', '.join(EFFORT_CHOICES)}."
         if self.summarizer is None:
             return None
         from app.registry import MODEL_REGISTRY, display_name
@@ -90,7 +101,12 @@ class ContextSettings:
     def apply(self, config: MutableMapping[str, Any], env: Mapping[str, str] = os.environ):
         """Put these settings, the app's default recall and its document
         store on a run config."""
-        from app.services.graph import ANGLE_CONFIG_KEY, SUMMARIZER_CONFIG_KEY, SYSTEM_PROMPT_CONFIG_KEY
+        from app.services.graph import (
+            ANGLE_CONFIG_KEY,
+            EFFORT_CONFIG_KEY,
+            SUMMARIZER_CONFIG_KEY,
+            SYSTEM_PROMPT_CONFIG_KEY,
+        )
 
         if self.summarizer:
             config.setdefault("configurable", {})[SUMMARIZER_CONFIG_KEY] = self.summarizer
@@ -98,6 +114,8 @@ class ContextSettings:
             config.setdefault("configurable", {})[SYSTEM_PROMPT_CONFIG_KEY] = self.system_prompt
         if self.angle:
             config.setdefault("configurable", {})[ANGLE_CONFIG_KEY] = self.angle
+        if self.reasoning_effort:
+            config.setdefault("configurable", {})[EFFORT_CONFIG_KEY] = self.reasoning_effort
         return with_default_documents(with_default_recall(config, env))
 
 

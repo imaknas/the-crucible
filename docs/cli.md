@@ -9,6 +9,7 @@ uv run crucible models                     # model IDs, which have a key, web se
 uv run crucible keys                       # which provider keys are set (masked)
 uv run crucible keys --set OPENAI_API_KEY  # asks for the value without echoing; --unset removes one
 uv run crucible catalog-sync --probe none  # refresh the model catalog from the providers' APIs; probing (the default, --probe new) costs a few cents
+uv run crucible catalog-sync --probe effort  # only the reasoning-effort levels of offered OpenAI and Google models not yet recorded: one minimal call per level
 ```
 
 **Turns**
@@ -36,6 +37,7 @@ uv run crucible check <issue_list_cp> --thread <thread_id>         # does each p
 - `--attach <file>` to put a file's text in this turn (`.pdf .txt .md .csv`), `--rag` to search the files uploaded to the thread, `-w` for web search;
 - `--system "<prompt>"` to send every model a system prompt (none by default; `debate` and `synthesize` take it too);
 - `--summarizer <model>` to choose who summarizes long history (default: the first summarizer model with a key);
+- `--effort low|medium|high|max` (`chat`, `arena`, `debate`, `debates continue|redirect`, `synthesize`): how hard the answering models reason; `max` is each model's highest level. A model that doesn't take the level (`crucible models` shows which do; "not verified" until `catalog-sync --probe effort` has run) answers at its default, and the turn says so. High and max give a run three times its usual time limit.
 - `--angle MODEL=ANGLE` (`arena`, repeat it) or `--angle "<angle>"` (`chat`) to have a model answer from an angle, e.g. to review a plan from several sides. The message stays the same for every model; each answer says its angle, the synthesizer gets none, and `synthesize --mode issues` lists every problem raised with who raised it. A turn whose answers had different angles can't be voted on.
 
 `--join-turn` takes a turn id or one of its replies' checkpoints (both in `crucible tree --format json`): the new models answer that turn's own question from where it was asked, as more answers of the same turn, and nobody else is asked again. It takes no prompt, `--deliberate`, `--attach` or synthesis.

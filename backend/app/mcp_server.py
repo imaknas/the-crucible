@@ -66,16 +66,21 @@ def _tool_error(e: Exception) -> ToolError:
     return ToolError(str(e) or e.__class__.__name__)
 
 
-def _context(system_prompt: Optional[str] = None, summarizer: Optional[str] = None) -> ContextSettings:
-    context = ContextSettings.from_frame({"system_prompt": system_prompt, "summarizer": summarizer})
+def _context(system_prompt: Optional[str] = None, summarizer: Optional[str] = None,
+             reasoning_effort: Optional[str] = None) -> ContextSettings:
+    context = ContextSettings.from_frame(
+        {"system_prompt": system_prompt, "summarizer": summarizer, "reasoning_effort": reasoning_effort}
+    )
     if problem := context.problem():
         raise ToolError(problem)
     return context
 
 
-def _maybe_context(system_prompt: Optional[str], summarizer: Optional[str]) -> Optional[ContextSettings]:
+def _maybe_context(system_prompt: Optional[str], summarizer: Optional[str],
+                   reasoning_effort: Optional[str] = None) -> Optional[ContextSettings]:
     """None (the debate's stored settings) unless the call names one."""
-    return _context(system_prompt, summarizer) if system_prompt is not None or summarizer is not None else None
+    named = system_prompt is not None or summarizer is not None or reasoning_effort is not None
+    return _context(system_prompt, summarizer, reasoning_effort) if named else None
 
 
 def _attachments(paths: Optional[List[str]]) -> Dict[str, str]:
@@ -116,6 +121,9 @@ def _answer(event: Dict[str, Any]) -> Dict[str, Any]:
         # The angle the model was asked to answer from (invoke_arena's
         # `angles`); None for none.
         "angle": event.get("angle"),
+        # The reasoning effort it answered at ({choice, level}); None at the
+        # model's default (invoke_arena's `reasoning_effort`).
+        "effort": event.get("effort"),
     }
 
 
@@ -159,6 +167,7 @@ async def invoke_arena(
     use_web_search: bool = False,
     system_prompt: Optional[str] = None,
     summarizer: Optional[str] = None,
+    reasoning_effort: Optional[str] = None,
     join_turn: Optional[str] = None,
     angles: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
@@ -214,6 +223,7 @@ async def invoke_arena(
         use_web_search: Let models that support it (list_models native_search) search the web.
         system_prompt: Instructions sent to every model (and the synthesizer) before the conversation. Default: none.
         summarizer: Model that summarizes history once the thread outgrows a model's budget. Default: the app's.
+        reasoning_effort: How hard the answering models reason: low, medium, high or max (each model's highest; list_models shows which each takes). A model without that level answers at its default, with a notice. Default: each model's default.
         join_turn: Add `models` (required) to this answered turn of thread_id: its turn_id, or one of its replies' checkpoint_id (get_thread_tree shows both).
         angles: {model id: angle} for models of this turn: what each answers from (a focus such as "security" or "the case against it", 500 characters at most). Default: none.
     """
@@ -235,7 +245,7 @@ async def invoke_arena(
         thread_id = session["parent_thread_id"]
     else:
         thread_id = f"mcp-{uuid4().hex[:8]}"
-    context = _context(system_prompt, summarizer)
+    context = _context(system_prompt, summarizer, reasoning_effort)
     documents = _attachments(attachments)
 
     result: Dict[str, Any] = {"thread_id": thread_id, "new_thread": False, "turn_id": None, "answers": [], "synthesis": None}
@@ -286,6 +296,7 @@ async def synthesize_answers(
     parent_checkpoint_id: Optional[str] = None,
     system_prompt: Optional[str] = None,
     summarizer: Optional[str] = None,
+    reasoning_effort: Optional[str] = None,
     mode: str = "merge",
     keep: Optional[List[str]] = None,
     question: Optional[str] = None,
@@ -306,11 +317,12 @@ async def synthesize_answers(
         parent_checkpoint_id: Where the synthesis goes instead.
         system_prompt: Instructions sent before the conversation.
         summarizer: Model that summarizes long history.
+        reasoning_effort: How hard the answering models reason: low, medium, high or max (each model's highest; list_models shows which each takes). A model without that level answers at its default, with a notice. Default: each model's default.
         mode: "merge" (one answer), "compare" (a table of where they differ), "issues" (every problem the answers raise, with who raised it: for reviews of a plan or idea), "checklist" (one answer from the `keep` components), or "ask" (answer `question` about them).
         keep: With mode "checklist": the component texts to keep, as list_answer_components returned them.
         question: With mode "ask": your question about the answers.
     """
-    context = _context(system_prompt, summarizer)
+    context = _context(system_prompt, summarizer, reasoning_effort)
     await _require_thread(thread_id)
     result: Dict[str, Any] = {"thread_id": thread_id, "parent_checkpoint_id": None, "answers": [], "synthesis": None}
     try:
@@ -519,6 +531,7 @@ async def run_debate(
     use_web_search: bool = False,
     system_prompt: Optional[str] = None,
     summarizer: Optional[str] = None,
+    reasoning_effort: Optional[str] = None,
     sides: Optional[List[str]] = None,
     advocate: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -552,6 +565,7 @@ async def run_debate(
         use_web_search: Web search for models that support it.
         system_prompt: Sent to every participant (and the synthesizer); continuing and redirecting reuse it.
         summarizer: Model that summarizes long lanes; reused like system_prompt.
+        reasoning_effort: How hard the answering models reason: low, medium, high or max (each model's highest; list_models shows which each takes). A model without that level answers at its default, with a notice. Default: each model's default.
         sides: Sides to argue, given to the models in turn (["Yes", "No"] splits them): each argues its side whatever it thinks, so the person judging sees the strongest case for each. Round 0 is then each one's opening case. No convergence_judge with sides.
         advocate: One of the models: it answers round 0 for itself, then argues against what the others hold in common (they aren't told which one it is). No convergence_judge with it.
     """
@@ -567,7 +581,7 @@ async def run_debate(
         raise ToolError("parent_checkpoint_id needs the thread_id it belongs to.")
     if thread_id:
         await _require_thread(thread_id)
-    context = _context(system_prompt, summarizer)
+    context = _context(system_prompt, summarizer, reasoning_effort)
     documents = _attachments(attachments)
     try:
         arena_svc.resolve_models(models + [m for m in (synthesizer, convergence_judge) if m])
@@ -625,6 +639,7 @@ async def continue_debate(
     use_web_search: Optional[bool] = None,
     system_prompt: Optional[str] = None,
     summarizer: Optional[str] = None,
+    reasoning_effort: Optional[str] = None,
     force: bool = False,
 ) -> Dict[str, Any]:
     """Run more rounds of a debate that stopped (resume after running fewer
@@ -645,6 +660,7 @@ async def continue_debate(
         use_web_search: Web search. Default: as the debate started.
         system_prompt: Default: the debate's.
         summarizer: Default: the debate's.
+        reasoning_effort: How hard the answering models reason: low, medium, high or max (each model's highest; list_models shows which each takes). A model without that level answers at its default, with a notice. Default: each model's default.
         force: Run although the debate is marked running: only for one left so by a backend that died.
     """
     session = _idle_session(session_id)
@@ -652,7 +668,7 @@ async def continue_debate(
         return await _collect_debate(
             debate_svc.continue_debate(
                 graph_app, session_id, rounds, inject or (), _maybe_toggles(session, use_web_search, use_rag),
-                context=_maybe_context(system_prompt, summarizer), force=force,
+                context=_maybe_context(system_prompt, summarizer, reasoning_effort), force=force,
             ),
             session,
         )
@@ -669,6 +685,7 @@ async def redirect_debate(
     use_web_search: Optional[bool] = None,
     system_prompt: Optional[str] = None,
     summarizer: Optional[str] = None,
+    reasoning_effort: Optional[str] = None,
     force: bool = False,
 ) -> Dict[str, Any]:
     """Put a new question to a debate: its rounds follow the earlier ones
@@ -687,6 +704,7 @@ async def redirect_debate(
         use_web_search: Default: as the debate started.
         system_prompt: Default: the debate's.
         summarizer: Default: the debate's.
+        reasoning_effort: How hard the answering models reason: low, medium, high or max (each model's highest; list_models shows which each takes). A model without that level answers at its default, with a notice. Default: each model's default.
         force: As in continue_debate.
     """
     session = _idle_session(session_id)
@@ -699,7 +717,7 @@ async def redirect_debate(
         return await _collect_debate(
             debate_svc.run_debate(
                 graph_app, session_id, prompt, _maybe_toggles(session, use_web_search, use_rag), documents,
-                context=_maybe_context(system_prompt, summarizer), force=force,
+                context=_maybe_context(system_prompt, summarizer, reasoning_effort), force=force,
             ),
             session,
         )
@@ -712,6 +730,7 @@ async def synthesize_debate(
     synthesizer: Optional[str] = None,
     system_prompt: Optional[str] = None,
     summarizer: Optional[str] = None,
+    reasoning_effort: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Write (or rewrite) a debate's argument map from every round.
 
@@ -723,11 +742,12 @@ async def synthesize_debate(
         synthesizer: Model that writes it. Default: the session's synthesizer, else its first participant.
         system_prompt: Default: the debate's.
         summarizer: Default: the debate's.
+        reasoning_effort: How hard the synthesizer reasons: low, medium, high or max. Default: the debate's.
     """
     result: Dict[str, Any] = {"session_id": session_id, "synthesis": None}
     async with arena_svc.open_graph() as graph_app:
         async for event in debate_svc.synthesize_session(graph_app, session_id, prompt="", synthesizer=synthesizer,
-                                                         context=_maybe_context(system_prompt, summarizer)):
+                                                         context=_maybe_context(system_prompt, summarizer, reasoning_effort)):
             if event["type"] == "error":
                 raise ToolError(event["message"])
             if event["type"] == "debate_synthesis_end":

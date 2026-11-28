@@ -99,6 +99,7 @@ CHAT_FRAME: dict = {
     "summarizer": (("arena", "--summarizer"), ("invoke_arena", "summarizer")),
     "system_prompt": (("arena", "--system"), ("invoke_arena", "system_prompt")),
     "angle": (("arena", "--angle"), ("invoke_arena", "angles")),
+    "reasoning_effort": (("arena", "--effort"), ("invoke_arena", "reasoning_effort")),
 }
 # Per-run choices a debate refuses: participants get sides instead (stances).
 NOT_IN_DEBATES = {"angle"}
@@ -110,6 +111,7 @@ DEBATE_FRAME: dict = {
     "toggles.use_web_search": (("debate", "--web-search"), ("run_debate", "use_web_search")),
     "summarizer": (("debate", "--summarizer"), ("run_debate", "summarizer")),
     "system_prompt": (("debate", "--system"), ("run_debate", "system_prompt")),
+    "reasoning_effort": (("debate", "--effort"), ("run_debate", "reasoning_effort")),
 }
 
 

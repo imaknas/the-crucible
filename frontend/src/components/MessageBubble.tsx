@@ -578,7 +578,7 @@ export const MessageBubble = React.memo(
           <MessageBody msg={msg} isDark={isDark} />
           {!isUser && !msg.streaming && msg.metrics && (
             <Box sx={{ mt: 1.5 }}>
-              <ReplyMetricsLine metrics={msg.metrics} />
+              <ReplyMetricsLine metrics={msg.metrics} effort={msg.effort} />
             </Box>
           )}
           {!isUser && !msg.streaming && msg.context && (

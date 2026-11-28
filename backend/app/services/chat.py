@@ -14,7 +14,7 @@ from langchain_core.messages import HumanMessage
 
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.documents import attach_documents
-from app.services.message_format import reply_angle
+from app.services.message_format import reply_angle, reply_effort
 from app.services.metrics import message_metrics, snapshot_day
 from app.services.recall import INTERNAL_TAG
 from app.services.runs import (
@@ -269,6 +269,7 @@ async def stream_turn(
         "notices": list(values.get("notices") or []),
         "metrics": message_metrics(last_reply(final), day=snapshot_day(final)),
         "angle": reply_angle(last_reply(final)),
+        "effort": reply_effort(last_reply(final)),
     }
     if with_path:
         from app.services.tree import format_messages

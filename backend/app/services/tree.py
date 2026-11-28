@@ -5,7 +5,7 @@ from app.core import database as db
 from app.core.database import load_node_positions
 from app.core.schema import SUMMARY_MARKER, is_summary_message
 from app.registry import SYNTHESIS_COLOR, display_name, model_color
-from app.services.message_format import message_model, message_sources, reply_angle, reply_context
+from app.services.message_format import message_model, message_sources, reply_angle, reply_context, reply_effort
 from app.services.metrics import message_metrics, snapshot_day
 from app.services.runs import (
     DEBATE_RECORD_KEY,
@@ -503,6 +503,7 @@ def build_graph_layout(
                     "context": reply_context(m_list[-1]) if visual_role == "ai" and m_list else None,
                     # The angle the person gave this model for the turn.
                     "angle": reply_angle(m_list[-1]) if visual_role == "ai" and m_list else None,
+                    "effort": reply_effort(m_list[-1]) if visual_role == "ai" and m_list else None,
                 },
             }
         # A synthesis reply hangs off the same prompt as the answers it merged;
@@ -616,6 +617,7 @@ def format_messages(active_state_id: str, state_map: Dict) -> List[Dict]:
                         # What the reply was written from (graph.reply_context).
                         "context": reply_context(msg) if role == "assistant" else None,
                         "angle": reply_angle(msg) if role == "assistant" else None,
+                        "effort": reply_effort(msg) if role == "assistant" else None,
                         "checkpoint_id": curr_id,
                         "turn_id": _turn_id(state),
                         **(synthesis_details(state) if role == "assistant" and is_synthesis_reply(state) else {}),

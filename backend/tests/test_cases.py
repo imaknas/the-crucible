@@ -101,7 +101,7 @@ async def test_a_case_copies_the_turn_and_outlives_its_thread():
     assert case["history"][1]["model_name"] == "Claude Sonnet 5" and not case["summarized"]
     assert case["documents"] == [{"name": "brief.md", "characters": len(DOC["brief.md"])}]
     assert case["settings"] == {"use_web_search": True, "use_rag": False, "system_prompt": "Answer in one line.",
-                                "summarizer": C, "is_deliberation": False}
+                                "summarizer": C, "reasoning_effort": None, "is_deliberation": False}
     assert {a["model"]: a["content"] for a in case["answers"]} == {
         m: second["answers"][m]["content"] for m in (A, B)}
     assert case["vote"]["outcome"] == "best" and case["best_model"] == B

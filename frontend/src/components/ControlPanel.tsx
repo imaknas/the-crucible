@@ -13,6 +13,7 @@ import ParametersSection from "./control-panel/ParametersSection";
 import DebateDefaultsSection from "./control-panel/DebateDefaultsSection";
 import ApiKeysSection from "./control-panel/ApiKeysSection";
 import SummarizerSection from "./control-panel/SummarizerSection";
+import ReasoningEffortSection from "./control-panel/ReasoningEffortSection";
 import SystemPromptSection from "./control-panel/SystemPromptSection";
 import BlindVotesSection from "./control-panel/BlindVotesSection";
 
@@ -50,6 +51,10 @@ interface ControlPanelProps {
   onSystemPromptChange: (value: string) => void;
   /** What the backend enforces (GET /models `limits`). */
   limits: Limits;
+  /** The reasoning effort for runs ("" = each model's default) and what it may be. */
+  reasoningEffort?: string;
+  effortChoices?: string[];
+  onReasoningEffortChange?: (choice: string) => void;
 }
 
 /** Width of the collapsed rail. */
@@ -92,6 +97,9 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
     systemPrompt,
     onSystemPromptChange,
     limits,
+    reasoningEffort = "",
+    effortChoices = [],
+    onReasoningEffortChange,
   }) => {
     const isDark = useTheme().palette.mode === "dark";
     // Loaded, and no family has a key.
@@ -239,6 +247,15 @@ const ControlPanel: React.FC<ControlPanelProps> = React.memo(
           <ParametersSection isDark={isDark} toggles={toggles} setToggles={setToggles} />
           {votes && <BlindVotesSection isDark={isDark} {...votes} />}
           <SystemPromptSection value={systemPrompt} onChange={onSystemPromptChange} maxChars={limits.max_system_prompt_chars} />
+          {onReasoningEffortChange && effortChoices.length > 0 && (
+            <ReasoningEffortSection
+              choice={reasoningEffort}
+              choices={effortChoices}
+              families={families}
+              models={respondingModels ?? selectedModels}
+              onChange={onReasoningEffortChange}
+            />
+          )}
           <SummarizerSection
             families={families}
             choice={summarizerChoice}

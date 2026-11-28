@@ -53,6 +53,14 @@ log = logging.getLogger(__name__)
 # even if the later nodes run past it.
 MODEL_TIMEOUT_SECONDS = 120
 
+
+def model_timeout(context: ContextSettings) -> int:
+    """How long one model's whole graph run may take in a round or a
+    synthesis: longer for a model asked to reason hard."""
+    from app.llm.effort import timeout_factor
+
+    return MODEL_TIMEOUT_SECONDS * timeout_factor(context.reasoning_effort)
+
 # Rounds a session runs unless it asks for others. Kept low: across studies,
 # later rounds pull models toward each other's answers (conformity) more
 # than toward correct ones, and most of debate's gain over one answer is the
@@ -333,7 +341,8 @@ async def run_debate(
         if not start:
             # What continuing and redirecting reuse when they name nothing.
             await asyncio.to_thread(db.update_debate_session, session_id, settings={
-                "system_prompt": context.system_prompt, "summarizer": context.summarizer, "toggles": dict(toggles),
+                "system_prompt": context.system_prompt, "summarizer": context.summarizer,
+                "reasoning_effort": context.reasoning_effort, "toggles": dict(toggles),
             })
         await asyncio.to_thread(db.append_debate_entry, session_id, "questions", {"round": start, "prompt": prompt})
 
@@ -808,7 +817,7 @@ async def _stream_round(
         try:
             await queue.put({"type": "stream_start", "model": model_id, "session_id": session_id, "round": round_num})
             end = None
-            async with asyncio.timeout(MODEL_TIMEOUT_SECONDS):
+            async with asyncio.timeout(model_timeout(context)):
                 async for event in stream_turn(
                     graph_app,
                     thread_ids[model_id],
@@ -845,7 +854,7 @@ async def _stream_round(
                 curr_round_responses[model_id] = buffer
             else:
                 await queue.put({"type": "error", "model": model_id, "session_id": session_id, "round": round_num,
-                                 "message": f"{model_id} timed out after {MODEL_TIMEOUT_SECONDS}s"})
+                                 "message": f"{model_id} timed out after {model_timeout(context)}s"})
                 curr_round_responses[model_id] = ""
         except Exception as e:
             await queue.put({"type": "error", "model": model_id, "session_id": session_id, "round": round_num,
@@ -1247,7 +1256,7 @@ async def _stream_synthesis(
     checkpoint_id = ""
     error = None
     try:
-        async with asyncio.timeout(MODEL_TIMEOUT_SECONDS):
+        async with asyncio.timeout(model_timeout(context)):
             async for event in stream_turn(
                 graph_app, synthesis_thread_id, None,
                 message=synthesis_prompt, model=synthesizer,
@@ -1261,7 +1270,7 @@ async def _stream_synthesis(
                     checkpoint_id = event["checkpoint_id"]
                     buffer = event["content"] or buffer
     except TimeoutError:
-        error = f"The synthesis timed out after {MODEL_TIMEOUT_SECONDS}s; what arrived is incomplete."
+        error = f"The synthesis timed out after {model_timeout(context)}s; what arrived is incomplete."
     except Exception as e:
         error = f"{synthesizer} failed to write the synthesis: {e}. Try another synthesizer."
 

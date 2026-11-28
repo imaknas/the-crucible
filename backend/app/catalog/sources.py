@@ -65,6 +65,28 @@ def guarded(call) -> ProbeResult:
         return ProbeResult(None, f"{type(e).__name__}: {e}")
 
 
+# Which reasoning-effort levels a model takes, for providers whose listing
+# doesn't say (OpenAI, Google): one minimal call per level. "none" is left
+# out: nothing in the app asks a model not to reason.
+OPENAI_EFFORT_LEVELS = ("minimal", "low", "medium", "high", "xhigh")
+GOOGLE_THINKING_LEVELS = ("minimal", "low", "medium", "high")
+
+
+def probe_levels(levels, call) -> ProbeResult:
+    """Try `call(level)` for each level: a success means the model takes it,
+    a refusal that it doesn't. Inconclusive (a timeout, 429, 5xx) as soon as
+    one level is, so a transient error never records a level as missing.
+    The levels taken are `capabilities["reasoning_effort"]`."""
+    taken = []
+    for level in levels:
+        result = guarded(lambda: call(level))
+        if result.ok is None:
+            return ProbeResult(None, f"{level}: {result.error}")
+        if result.ok:
+            taken.append(level)
+    return ProbeResult(True, None, {"reasoning_effort": taken})
+
+
 class ProviderSource(Protocol):
     name: str
     env_key: str
@@ -78,6 +100,9 @@ class ProviderSource(Protocol):
     def probe_chat(self, client: httpx.Client, key: str, model_id: str) -> ProbeResult: ...
 
     def probe_web_search(self, client: httpx.Client, key: str, entry: CatalogEntry) -> ProbeResult: ...
+
+    # Optional: `probe_efforts(client, key, entry) -> ProbeResult` for a
+    # provider whose listing doesn't report reasoning-effort levels.
 
 
 # Error text is committed with the catalog (a public file): keep account
@@ -221,6 +246,24 @@ class OpenAISource:
             "tools": [{"type": "web_search_preview"}],
         }))
 
+    def probe_efforts(self, client, key, entry):
+        """Which `reasoning_effort` levels the model takes, on the API it answers on."""
+        responses = entry.capabilities.get("api") == "responses"
+
+        def call(level):
+            if responses:
+                return _probe(client.post(f"{self.base}/responses", headers=self._headers(key), json={
+                    "model": entry.id, "input": PROBE_PROMPT, "max_output_tokens": 64, "reasoning": {"effort": level},
+                }))
+            return _probe(client.post(f"{self.base}/chat/completions", headers=self._headers(key), json={
+                "model": entry.id,
+                "messages": [{"role": "user", "content": PROBE_PROMPT}],
+                "max_completion_tokens": 64,
+                "reasoning_effort": level,
+            }))
+
+        return probe_levels(OPENAI_EFFORT_LEVELS, call)
+
 
 # ─── Anthropic ───────────────────────────────────────────────────
 
@@ -258,6 +301,13 @@ class AnthropicSource:
         flat["provider_compaction"] = any(
             k.startswith("compact") and (v or {}).get("supported") for k, v in ctx.items() if isinstance(v, dict)
         )
+        # The listing says which effort levels each model takes
+        # ({"supported": …, "low": {"supported": …}, …}).
+        effort = caps.get("effort")
+        if isinstance(effort, dict) and "supported" in effort:
+            flat["reasoning_effort"] = [
+                level for level, v in effort.items() if isinstance(v, dict) and v.get("supported")
+            ] if effort.get("supported") else []
         return CatalogEntry(
             id=raw["id"],
             provider=self.name,
@@ -345,6 +395,16 @@ class GoogleSource:
             "contents": [{"parts": [{"text": SEARCH_PROMPT}]}],
             "tools": [{"google_search": {}}],
         }, timeout=SEARCH_TIMEOUT)
+
+    def probe_efforts(self, client, key, entry):
+        """Which thinking levels the model takes (`thinkingConfig.thinkingLevel`).
+        A model without thinking takes none and is not called."""
+        if not entry.capabilities.get("thinking"):
+            return ProbeResult(True, None, {"reasoning_effort": []})
+        return probe_levels(GOOGLE_THINKING_LEVELS, lambda level: self._generate(client, key, entry.id, {
+            "contents": [{"parts": [{"text": PROBE_PROMPT}]}],
+            "generationConfig": {"maxOutputTokens": 64, "thinkingConfig": {"thinkingLevel": level}},
+        }))
 
 
 # ─── xAI ─────────────────────────────────────────────────────────

@@ -129,11 +129,12 @@ def _validate_models(models: Optional[List[str]], as_json: bool) -> List[str]:
         return []  # unreachable
 
 
-def _run_context(as_json: bool, summarizer: Optional[str] = None, system: Optional[str] = None):
+def _run_context(as_json: bool, summarizer: Optional[str] = None, system: Optional[str] = None,
+                 effort: Optional[str] = None):
     """The run settings a command's options name, checked like a frame's."""
     from app.services.context import ContextSettings
 
-    context = ContextSettings.from_frame({"summarizer": summarizer, "system_prompt": system})
+    context = ContextSettings.from_frame({"summarizer": summarizer, "system_prompt": system, "reasoning_effort": effort})
     if problem := context.problem():
         _fail(problem, as_json)
     return context
@@ -212,6 +213,14 @@ def _opt_system():
     )
 
 
+def _opt_effort(default_help: str = "each model's default"):
+    return typer.Option(
+        None, "--effort",
+        help=f"How hard the answering models reason: low, medium, high or max (each model's highest). "
+             f"Default: {default_help}. A model without that level answers at its default, with a notice.",
+    )
+
+
 def _opt_format():
     return typer.Option("rich", "--format", "-f", help=FORMAT_HELP)
 
@@ -276,6 +285,7 @@ def chat(
     web_search: bool = _opt_web(),
     summarizer: Optional[str] = _opt_summarizer(),
     system: Optional[str] = _opt_system(),
+    effort: Optional[str] = _opt_effort(),
     angle: Optional[str] = typer.Option(
         None, "--angle", help="The angle the model answers from (e.g. \"security\", \"the case against it\")."
     ),
@@ -303,7 +313,7 @@ def chat(
         _fail("No prompt provided. Pass a message or pipe via stdin.", as_json)
 
     _validate_models([model_id], as_json)
-    context = _run_context(as_json, summarizer, system)
+    context = _run_context(as_json, summarizer, system, effort)
     documents = _documents(attach, as_json)
     thread_id = thread or (_debate_thread(after_debate, as_json) if after_debate else _gen_thread_id("chat"))
     result = _run(
@@ -347,6 +357,7 @@ def arena(
     web_search: bool = _opt_web(),
     summarizer: Optional[str] = _opt_summarizer(),
     system: Optional[str] = _opt_system(),
+    effort: Optional[str] = _opt_effort(),
     angle: Optional[List[str]] = typer.Option(
         None, "--angle",
         help="MODEL=ANGLE: the angle that model answers from, e.g. gpt-6.2-astra=security (repeat the flag; "
@@ -382,7 +393,7 @@ def arena(
     synthesizer = None if (no_synthesize or deliberate or join_turn) else (judge or resolved[0])
     if synthesizer:
         _validate_models([synthesizer], as_json)
-    context = _run_context(as_json, summarizer, system)
+    context = _run_context(as_json, summarizer, system, effort)
     documents = _documents(attach, as_json)
     thread_id = thread or (_debate_thread(after_debate, as_json) if after_debate else _gen_thread_id("arena"))
 
@@ -455,7 +466,7 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
                 elif kind == "end":
                     result["answers"][event["model"]] = {
                         k: event.get(k)
-                        for k in ("content", "checkpoint_id", "error", "metrics", "angle", "attached_documents", "retrieved",
+                        for k in ("content", "checkpoint_id", "error", "metrics", "angle", "effort", "attached_documents", "retrieved",
                                   "notices")
                     }
                     if display:
@@ -561,6 +572,7 @@ def debate(
     web_search: bool = _opt_web(),
     summarizer: Optional[str] = _opt_summarizer(),
     system: Optional[str] = _opt_system(),
+    effort: Optional[str] = _opt_effort(),
     format_output: str = _opt_format(),
 ):
     """
@@ -598,7 +610,7 @@ def debate(
     synthesizer = judge
     for extra in filter(None, [synthesizer, convergence_judge]):
         _validate_models([extra], as_json)
-    context = _run_context(as_json, summarizer, system)
+    context = _run_context(as_json, summarizer, system, effort)
     documents = _documents(attach, as_json)
 
     if rounds is None:
@@ -868,13 +880,14 @@ def debates_continue(
     web_search: Optional[bool] = typer.Option(None, "--web-search/--no-web-search", help="Web search (default: as the debate started)."),
     summarizer: Optional[str] = typer.Option(None, "--summarizer", help="Summarizer (default: the debate's)."),
     system: Optional[str] = typer.Option(None, "--system", help="System prompt (default: the debate's)."),
+    effort: Optional[str] = _opt_effort("the debate's"),
     force: bool = _opt_force(),
     format_output: str = _opt_format(),
 ):
     """Run more rounds of a stopped debate (resume after a pause, or inject a message)."""
     as_json = _check_format(format_output)
     _load_env()
-    context = _run_context(as_json, summarizer, system) if summarizer or system else None
+    context = _run_context(as_json, summarizer, system, effort) if summarizer or system or effort else None
 
     async def go():
         from app.core import database as db
@@ -919,6 +932,7 @@ def debates_redirect(
     web_search: Optional[bool] = typer.Option(None, "--web-search/--no-web-search", help="Web search (default: as the debate started)."),
     summarizer: Optional[str] = typer.Option(None, "--summarizer", help="Summarizer (default: the debate's)."),
     system: Optional[str] = typer.Option(None, "--system", help="System prompt (default: the debate's)."),
+    effort: Optional[str] = _opt_effort("the debate's"),
     force: bool = _opt_force(),
     format_output: str = _opt_format(),
 ):
@@ -926,7 +940,7 @@ def debates_redirect(
     model keeping what it said."""
     as_json = _check_format(format_output)
     _load_env()
-    context = _run_context(as_json, summarizer, system) if summarizer or system else None
+    context = _run_context(as_json, summarizer, system, effort) if summarizer or system or effort else None
     documents = _documents(attach, as_json)
 
     async def go():
@@ -1005,6 +1019,7 @@ def synthesize(
     question: Optional[str] = typer.Option(None, "--question", "-q", help="With --mode ask: your question about the answers."),
     summarizer: Optional[str] = _opt_summarizer(),
     system: Optional[str] = _opt_system(),
+    effort: Optional[str] = _opt_effort(),
     format_output: str = _opt_format(),
 ):
     """
@@ -1040,7 +1055,7 @@ def synthesize(
         return
     if judge:
         _validate_models([judge], as_json)
-    context = _run_context(as_json, summarizer, system)
+    context = _run_context(as_json, summarizer, system, effort)
 
     if debate:
         result = _run(_run_synthesize_debate(debate, judge, as_json, context), as_json)
@@ -2086,13 +2101,16 @@ def models(
     table.add_column("Name")
     table.add_column("Key", justify="center")
     table.add_column("Web search", justify="center")
+    table.add_column("Effort", justify="left")
     table.add_column("$ / 1M in · out", justify="right")
     for m in rows:
         name = m["name"] + (" [dim](legacy)[/dim]" if m["legacy"] else "")
         price = m.get("price_per_mtok")
         cost = f"{price['input']:g} · {price['output']:g}" if price else "[dim]–[/dim]"
+        efforts = m.get("reasoning_efforts")
+        effort = ", ".join(efforts) if efforts else ("[dim]not verified[/dim]" if efforts is None else "[dim]–[/dim]")
         table.add_row(m["id"], name, "✓" if m["key_available"] else "[dim]–[/dim]",
-                      "✓" if m.get("native_search") else "[dim]–[/dim]", cost)
+                      "✓" if m.get("native_search") else "[dim]–[/dim]", effort, cost)
     console.print(table)
 
 
@@ -2131,7 +2149,7 @@ def keys(
 
 @app.command("catalog-sync")
 def catalog_sync(
-    probe: str = typer.Option("new", "--probe", help="Which models get a real test call: new (new/changed/untested), failed (last verdict was a failure), all, or none."),
+    probe: str = typer.Option("new", "--probe", help="Which models get a real test call: new (new/changed/untested), failed (last verdict was a failure), all, none, or effort (only the reasoning-effort levels of offered models that have none recorded)."),
     no_search: bool = typer.Option(False, "--no-search", help="Skip the web-search probe."),
     workers: int = typer.Option(6, "--workers", min=1, help="Parallel probes; lower it if a provider rate-limits."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would change without writing catalog.json."),
@@ -2143,21 +2161,25 @@ def catalog_sync(
     Lists models from OpenAI, Anthropic, Google and xAI, applies overrides.json,
     probes models with a real one-token call (and a web search), and writes
     app/catalog/data/catalog.json. Probes cost a few cents; --probe none is free.
+    Reasoning-effort levels come from the listing (Anthropic, xAI) or one
+    minimal call per level (OpenAI, Google), for the models the app offers.
     """
     as_json = _check_format(format_output)
-    if probe not in ("new", "failed", "all", "none"):
-        raise typer.BadParameter("must be new, failed, all or none", param_hint="--probe")
+    if probe not in ("new", "failed", "all", "none", "effort"):
+        raise typer.BadParameter("must be new, failed, all, none or effort", param_hint="--probe")
     _load_env()
     from datetime import date
 
     from app.catalog import load_catalog, load_overrides, save_catalog, sync_catalog
     from app.catalog.sources import SOURCES
+    from app.registry import MODEL_REGISTRY
 
     today = date.today().isoformat()
     keys = {name: os.getenv(src.env_key) for name, src in SOURCES.items()}
+    offered = {str(cfg["id"]) for cfg in MODEL_REGISTRY.values() if cfg.get("desc") != "Legacy"}
     catalog, diff = sync_catalog(
         load_catalog(), keys, overrides=load_overrides(), today=today,
-        probe=probe, probe_web_search=not no_search, workers=workers,
+        probe=probe, probe_web_search=not no_search, workers=workers, effort_ids=offered,
     )
     if not dry_run:
         save_catalog(catalog, synced=today)
@@ -2177,9 +2199,11 @@ def catalog_sync(
 
     print_info(f"{len(catalog)} models; added {len(diff.added)}, unlisted {len(diff.unlisted)}, changed {len(diff.changed)}")
     for mid, r in diff.probed.items():
-        mark = "✓" if r["chat"] else "✗"
+        mark = {True: "✓", False: "✗", None: "·"}[r["chat"]]
         search = {True: "search ✓", False: "search ✗", None: ""}[r["web_search"]]
-        console.print(f"  {mark} {mid} {search} {r['error'] or ''}")
+        efforts = r.get("efforts")
+        effort = f"effort: {', '.join(efforts) or 'none'}" if efforts is not None else ""
+        console.print(f"  {mark} {mid} {search} {effort} {r['error'] or ''}")
     if diff.skipped_providers:
         print_info(f"No key, left unchanged: {', '.join(diff.skipped_providers)}")
     if not dry_run:

@@ -26,6 +26,8 @@ export function useModelCatalog() {
   // What the backend enforces (prompt and system prompt length, debate
   // rounds); these replace the frontend's copies once loaded.
   const [limits, setLimits] = useState<Limits>(FALLBACK_LIMITS);
+  // The reasoning efforts a run can ask for; none to offer until loaded.
+  const [effortChoices, setEffortChoices] = useState<string[]>([]);
   const stored = useStoredValue(SELECTION_KEY);
 
   const load = useCallback(() => {
@@ -36,6 +38,7 @@ export function useModelCatalog() {
         setStatus("ready");
         setDefaultSummarizer(data.default_summarizer ?? null);
         setLimits(resolveLimits(data.limits));
+        setEffortChoices(data.reasoning_efforts ?? []);
         setDefaults({ default_model: data.default_model, default_arena_models: data.default_arena_models });
       })
       .catch(() => setStatus("error"));
@@ -81,5 +84,6 @@ export function useModelCatalog() {
     modelColor,
     defaultSummarizer,
     limits,
+    effortChoices,
   };
 }

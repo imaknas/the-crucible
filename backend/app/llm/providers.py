@@ -19,9 +19,11 @@ from langchain_core.runnables import Runnable
 class ChatProvider(Protocol):
     """Builds chat models for one provider family."""
 
-    def create(self, model_id: str, api_key: Optional[str] = None) -> BaseChatModel:
+    def create(self, model_id: str, api_key: Optional[str] = None, effort: Optional[str] = None) -> BaseChatModel:
         """A client for `model_id` (the provider's own model name), using
-        `api_key` (None: the SDK reads its environment variable)."""
+        `api_key` (None: the SDK reads its environment variable), at the
+        provider's reasoning-effort level `effort` (None: the model's
+        default; llm/effort.py says which levels a model takes)."""
         ...
 
     def with_web_search(self, llm: BaseChatModel) -> Runnable:
@@ -120,17 +122,25 @@ def _key(name: str, api_key: Optional[str]) -> dict:
     return {name: api_key} if api_key else {}
 
 
+def _effort(effort: Optional[str]) -> dict:
+    # All four LangChain clients take `reasoning_effort` and put it where
+    # their API wants it: OpenAI `reasoning_effort` (Responses: `reasoning`),
+    # Anthropic `output_config.effort`, Google `thinking_level` (never a
+    # thinking budget), xAI `reasoning_effort` in the body. Unset, nothing is sent.
+    return {"reasoning_effort": effort} if effort else {}
+
+
 class OpenAIProvider:
-    def create(self, model_id: str, api_key: Optional[str] = None) -> BaseChatModel:
-        return _caching_chat_openai()(model=model_id, **_key("api_key", api_key))
+    def create(self, model_id: str, api_key: Optional[str] = None, effort: Optional[str] = None) -> BaseChatModel:
+        return _caching_chat_openai()(model=model_id, **_key("api_key", api_key), **_effort(effort))
 
     def with_web_search(self, llm: Any) -> Runnable:
         return llm.bind_tools([{"type": "web_search_preview"}])
 
 
 class AnthropicProvider:
-    def create(self, model_id: str, api_key: Optional[str] = None) -> BaseChatModel:
-        return _caching_chat_anthropic()(model=model_id, **_key("api_key", api_key))
+    def create(self, model_id: str, api_key: Optional[str] = None, effort: Optional[str] = None) -> BaseChatModel:
+        return _caching_chat_anthropic()(model=model_id, **_key("api_key", api_key), **_effort(effort))
 
     def with_web_search(self, llm: Any) -> Runnable:
         # Models without code execution (e.g. Haiku 4.5) reject the dynamic-
@@ -169,8 +179,8 @@ def _chat_google():
 
 
 class GoogleProvider:
-    def create(self, model_id: str, api_key: Optional[str] = None) -> BaseChatModel:
-        return _chat_google()(model=model_id, **_key("google_api_key", api_key))
+    def create(self, model_id: str, api_key: Optional[str] = None, effort: Optional[str] = None) -> BaseChatModel:
+        return _chat_google()(model=model_id, **_key("google_api_key", api_key), **_effort(effort))
 
     def with_web_search(self, llm: Any) -> Runnable:
         return llm.bind_tools([{"google_search": {}}])
@@ -223,13 +233,14 @@ class XAIProvider:
             return load_catalog().get(model_id)
         return self._catalog().get(model_id)
 
-    def create(self, model_id: str, api_key: Optional[str] = None) -> BaseChatModel:
+    def create(self, model_id: str, api_key: Optional[str] = None, effort: Optional[str] = None) -> BaseChatModel:
         entry = self._entry(model_id)
         responses_only = bool(entry and entry.capabilities.get("api") == "responses")
         return _caching_chat_xai()(
             model=model_id,
             **_key("api_key", api_key),
             **({"use_responses_api": True} if responses_only else {}),
+            **_effort(effort),
         )
 
     def with_web_search(self, llm: Any) -> Runnable:

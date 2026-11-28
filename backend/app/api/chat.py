@@ -351,6 +351,7 @@ async def run_model(run: LiveRun, graph_app, thread_id: str, frame: dict, contex
                     "notices": event["notices"],
                     "metrics": event["metrics"],
                     "angle": event.get("angle"),
+                    "effort": event.get("effort"),
                 })
                 if new_thread and not turn.named:
                     turn.named = True

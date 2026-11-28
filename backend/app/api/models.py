@@ -14,6 +14,8 @@ router = APIRouter(tags=["models"])
 
 
 def _build_families() -> List[Dict[str, Any]]:
+    from app.llm.effort import available_choices, model_levels
+
     grouped = models_by_family()
     return [
         {
@@ -28,6 +30,9 @@ def _build_families() -> List[Dict[str, Any]]:
                     "name": str(cfg["name"]),
                     "desc": str(cfg["desc"]),
                     "native_search": cfg.get("native_search", False),
+                    # Which reasoning efforts it takes (llm/effort.py); None
+                    # when its levels haven't been verified.
+                    "reasoning_efforts": available_choices(model_levels(str(cfg["id"]).lower())),
                 }
                 for cfg in grouped[key]
             ],
@@ -62,7 +67,15 @@ async def get_models() -> Dict[str, Any]:
         # Resolved for the keys that are set, so the UI can name it.
         "default_summarizer": _default_summarizer(),
         "limits": _limits(),
+        # What a run's reasoning_effort may be, lowest first.
+        "reasoning_efforts": list(_effort_choices()),
     }
+
+
+def _effort_choices():
+    from app.llm.effort import EFFORT_CHOICES
+
+    return EFFORT_CHOICES
 
 
 def _default_summarizer() -> str:

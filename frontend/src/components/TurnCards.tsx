@@ -204,7 +204,7 @@ export const CompareCard = React.memo(function CompareCard({
 
       {!card.streaming && !failed && (
         <Box sx={{ mb: 1.5 }}>
-          <ReplyMetricsLine metrics={card.metrics} />
+          <ReplyMetricsLine metrics={card.metrics} effort={card.effort} />
           <ReplyContextNote context={card.context} modelLabel={modelLabel} />
         </Box>
       )}

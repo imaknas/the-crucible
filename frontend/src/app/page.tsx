@@ -33,6 +33,8 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { useBackendStatus } from "@/hooks/useBackendStatus";
 import { useModelCatalog } from "@/hooks/useModelCatalog";
 import { useSummarizerChoice } from "@/hooks/useSummarizerChoice";
+import { useReasoningEffort } from "@/hooks/useReasoningEffort";
+import { EFFORT_LABELS } from "@/lib/effort";
 import { useSystemPrompt } from "@/hooks/useSystemPrompt";
 import { useDebateDefaults } from "@/hooks/useDebateDefaults";
 import { useToggles } from "@/hooks/useToggles";
@@ -85,9 +87,13 @@ export default function Home() {
     modelColor,
     defaultSummarizer,
     limits,
+    effortChoices,
   } = useModelCatalog();
   const { choice: summarizerChoice, summarizer, setChoice: setSummarizerChoice } = useSummarizerChoice(families);
   const { text: systemPromptText, systemPrompt, setText: setSystemPromptText } = useSystemPrompt();
+  const { choice: effortChoice, setChoice: setEffortChoice } = useReasoningEffort();
+  // Sent only once the backend says it can be asked for.
+  const reasoningEffort = effortChoice && effortChoices.includes(effortChoice) ? effortChoice : null;
   const { debateDefaults, setDebateDefaults } = useDebateDefaults(limits.max_debate_rounds, limits.default_debate_rounds);
 
   // ─── Conversation tree, threads, chat ───────────────────────────
@@ -196,6 +202,7 @@ export default function Home() {
     toggles,
     summarizer,
     systemPrompt,
+    reasoningEffort,
     documentNames: documents.names,
     clearDocuments: documents.clear,
     onTurnSettled: handleTurnSettled,
@@ -281,7 +288,7 @@ export default function Home() {
             onSynthesize: debateCtl.synthesize
               ? // The session's own synthesizer, stored when it was created
                 // (the dialog's choice, else a model from outside the debate).
-                () => synthesizeDebate(null, toggles, { summarizer, systemPrompt })
+                () => synthesizeDebate(null, toggles, { summarizer, systemPrompt, reasoningEffort })
               : undefined,
             onPause: debateCtl.pause ? pauseDebate : undefined,
             onResume: debateCtl.resume ? resumeDebate : undefined,
@@ -303,6 +310,7 @@ export default function Home() {
       toggles,
       summarizer,
       systemPrompt,
+      reasoningEffort,
       pauseDebate,
       resumeDebate,
       continueDebate,
@@ -393,10 +401,11 @@ export default function Home() {
     () =>
       [
         systemPrompt ? "System prompt" : null,
+        reasoningEffort ? `${EFFORT_LABELS[reasoningEffort] ?? reasoningEffort} effort` : null,
         toggles.use_web_search ? "Web search" : null,
         toggles.use_rag ? "Document search" : null,
       ].filter((n): n is string => !!n),
-    [systemPrompt, toggles.use_web_search, toggles.use_rag],
+    [systemPrompt, reasoningEffort, toggles.use_web_search, toggles.use_rag],
   );
   const answerChoice = useMemo(
     () =>
@@ -751,6 +760,9 @@ export default function Home() {
         systemPrompt={systemPromptText}
         onSystemPromptChange={setSystemPromptText}
         limits={limits}
+        reasoningEffort={effortChoice}
+        effortChoices={effortChoices}
+        onReasoningEffortChange={setEffortChoice}
       />
 
       <DebateConfigDialog
@@ -769,6 +781,7 @@ export default function Home() {
               parentCheckpointId: chosen ?? head,
               summarizer,
               systemPrompt,
+              reasoningEffort,
             })
             .then((started) => {
               if (started) setInput("");
