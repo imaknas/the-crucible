@@ -171,7 +171,7 @@ await canvasIdle();
 await pause(1600);
 
 // ─── 2. Each model continued its own conversation: read them side by side ──
-await clickOn(await lowestNode("GPT-6.1 Sol"), { settle: 900 });
+await clickOn(await lowestNode("GPT-6.2 Sol"), { settle: 900 });
 await clickOn(arena, { settle: 1200 });
 // Full-screen scrolling is what costs bytes in the output; keep it short.
 await scrollBy(-20000, { ms: TICK });
@@ -201,7 +201,7 @@ await clickOn(page.getByRole("button", { name: "Is RAG a bridge or an architectu
 await loaded;
 await canvasIdle();
 await pause(1800);
-const reply = await lowestNode("GPT-6.1 Sol");
+const reply = await lowestNode("GPT-6.2 Sol");
 await clickOn(reply, { settle: 700 });
 await clickOn(reply.getByRole("button", { name: "Read in full" }), { settle: 2600 });
 await clickOn(page.getByRole("dialog").getByRole("button", { name: "Close" }), { settle: 600 });

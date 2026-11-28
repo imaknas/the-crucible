@@ -33,7 +33,7 @@ DEMO_DIR = ROOT / "scripts" / ".demo"
 DB_PATH = DEMO_DIR / "demo.sqlite"
 
 # Shown as the models' answers in the README, so they are the app's defaults.
-MODELS = ["gpt-6.1-sol", "claude-sonnet-5-5", "gemini-3.1-pro-preview"]
+MODELS = ["gpt-6.2-sol", "claude-sonnet-5-5", "gemini-4-neon"]
 SYNTHESIZER = "claude-sonnet-5-5"
 # The debate's argument map comes from a family that isn't debating, as the
 # app arranges by default when an xAI key is set (REFEREE_MODELS).
