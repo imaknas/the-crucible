@@ -12,15 +12,23 @@ Every item that changes what the web UI does to a conversation also lands in the
 
 Cheap changes that answer published criticism of multi-agent debate, plus the numbers every comparison is missing.
 
-1. **Default to 1–2 debate rounds.** _Done: 2 by default._ The cap stays at 10, which is a spend limit, not advice. The dialog says why longer debates tend toward conformity. Sources: Wynn et al. 2025, "The Cost of Consensus" 2026, FREE-MAD.
+Rechecked on 2026-11-28 against papers from April to November 2026 (their arXiv abstracts, not the full texts; most are preprints, and many test only open-weight models). They agree with what this phase built; what they add is noted under items 1–3, 27 and 28. In short:
+- An agreement reached by debating is not evidence, now measured directly: one round took a seven-judge panel from 39.5% to 95.2% unanimous while accuracy moved by under a point, and 96.3% of the flips followed the displayed majority ("Unanimity Without Persuasion", arXiv 2609.26145).
+- Not every change of answer is conformity: answers change without any peer information too (arXiv 2606.00820).
+- Debate also corrects: of 6,925 debates, 253 turned a right majority wrong and 804 turned a wrong one right, so an intervention judged only by the collapses it prevents can be the wrong one (arXiv 2609.35279).
+
+1. **Default to 1–2 debate rounds.** _Done: 2 by default._ The cap stays at 10, which is a spend limit, not advice. The dialog says why longer debates tend toward conformity. Sources: Wynn et al. 2025, "The Cost of Consensus" 2026, FREE-MAD; since then "Unanimity Without Persuasion" (arXiv 2609.26145: by round 3 every wrong decision was unanimous) and "Who Convinced Whom?" (arXiv 2610.35930: debate adds 3.1–7.4 points of unanimous wrong answers over each model reflecting alone, and longer debates correlate the participants' answers more).
 2. **Round 1 next to the argument map.** _Done._
    - Show the spread of the independent first-round answers.
    - Show who changed position after round 1, and from what to what.
    - The data is already in `debate_rounds()`. Sources: "Debate or Vote" (NeurIPS 2025), FREE-MAD.
+   - The spread matters because the minority is often right: in about one divergent case in four the correct answer was the minority's ("Minority Sentinel", arXiv 2606.29270), which a majority vote discards and the argument map keeps.
+   - The panel shows that a participant changed, not why. Answers also change with no peer information at all: 37% of agent–question pairs did ("Not All Flips Are Conformity", arXiv 2606.00820, GPT-4o agents). Telling the two apart is item 28.
 3. **De-bias the judge and the synthesizer.** _Done: the judge reads once per participant with the order rotated; the map is written from outside the debate when a family that isn't debating has a key (`REFEREE_MODELS`, with xAI's Grok 4.7 as the fourth family); a debating judge or synthesizer is named on start and in the banner._
    - The agreement judge runs twice with the label order reversed; agreement needs both runs.
    - Judge and synthesizer default to a family that is not debating, with a warning when they are a participant.
    - Sources: self-preference (Panickssery et al.), position bias (Shi et al.), lechmazur/debate.
+   - Debaters from several families also help the debate itself: heterogeneity damps the emergence of a shared bias ("Emergence of Biased Consensus", ICML 2026, arXiv 2608.02827), and an honest peer from another family cut Llama-3.1-70B's harmful revisions on hard math from 89% to 35% (arXiv 2606.19826). The same paper warns that a persuasive adversary from another family undoes it (back to 90%), as does a single adversarial agent in larger discussions (arXiv 2610.22138; Scientific Reports 2026, "When collaboration fails").
 4. **Per-answer metrics on every compare card.**
    - Each card shows time to first token, total time, input, output and reasoning tokens, and cost; the turn shows a total.
    - `stream_end` carries the numbers, and `PriceBook` already prices a reply's usage.
@@ -150,6 +158,12 @@ There is no research budget, so money goes first to conclusions that should hold
     - A `PeerPresentation` that hides self from peer as well as names.
     - Today's labels hide names, which is the design choice that holds regardless of model. Whether models conform less without the self/peer distinction is a behaviour of current models.
     - The published effect comes from 7–32B open models (Choi et al. 2025, arXiv 2510.07517).
+    - Expect a small effect at most. Most conformity needs no speaker: an answer shown with its speaker removed made six open-weight models abandon a correct answer 66.5% of the time, against 10.3% for asking again ("Most LLM Conformity Needs No Speaker", arXiv 2607.05545). Labels can only act on what lies above that floor, so the experiment measures against a no-speaker arm as well as against today's labels.
+28. **A reflection control for "who changed".**
+    - Beside each participant, a lane that sees no peers: each round it is asked to reconsider its own previous answer only. A change that happens there too is not the peers' doing.
+    - Scored as a signed ledger on questions with a checkable answer: the corrections debate makes as well as the collapses (arXiv 2609.35279), against the reflection lanes (arXiv 2606.00820, 2610.35930).
+    - Public answers are not the whole story: with adversaries present, models held a false answer privately about 2.6 times as often as they endorsed it in public ("Believed but Not Said", arXiv 2610.22138). A private probe, a call the peers never see, is the variant to try if the public ledger shows little.
+    - Costs one more call per participant per round, so it starts with an estimate. If it separates the two clearly, it could become an opt-in for the start-and-end panel.
 
 ## Phase 8 — Launch
 
