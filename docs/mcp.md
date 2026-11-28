@@ -18,16 +18,24 @@ The Crucible can act as a tool for other agents over the [Model Context Protocol
 }
 ```
 
+The server reads `backend/.env` as well, so keys already there need no `env` entry (a key given in `env` wins). It shares the web UI's database, so threads an agent starts show up in the sidebar; to keep them apart, set `DATABASE_PATH`, `UPLOAD_DIR` and `CHROMA_DIR` in `env` to a folder of their own. Every call returns when its work is done: a debate of several rounds can take minutes, longer than some clients wait for a tool. A debate whose call is cancelled is left `interrupted`, and `continue_debate` runs the rounds it has left.
+
 Everything the web UI does to a conversation is a tool, except writing API keys (a key passed to a tool would go through the calling model's context; use `crucible keys` or the environment). All tools return structured JSON and raise an MCP error on failure. An answer always has the same shape (`model`, `model_name`, `content`, `checkpoint_id`, `error`, `metrics`), and every checkpoint id is a node of the conversation tree, so an id from any tool works with every other. `metrics` is what the reply took: `ttft_ms` and `total_ms` (the model call), `input_tokens`, `output_tokens`, `reasoning_tokens` and `cached_input_tokens` (part of output and input, not added to them) and `cost_usd` (null when the model has no known price, never a guess); the whole object is null for a failed reply or one written before metrics were recorded.
 
 | Tool | Purpose |
 |---|---|
 | **Turns & synthesis** | |
-| `invoke_arena` | Ask one or more models the same message in parallel: a chat turn (one model, `synthesize=false`), an arena turn with a synthesis, or a Deliberation (`deliberation=true`). Continues a thread (`thread_id`), branches from a node (`parent_checkpoint_id`) or from a finished debate (`after_debate_session_id`); takes `attachments` (local files), `use_rag`, `use_web_search`, `system_prompt` and `summarizer` |
+| `invoke_arena` | Ask one or more models the same message in parallel: a chat turn (one model, `synthesize=false`), an arena turn with a synthesis, or a Deliberation (`deliberation=true`). Continues a thread (`thread_id`), branches from a node (`parent_checkpoint_id`) or from a finished debate (`after_debate_session_id`); takes `attachments` (local files), `use_rag`, `use_web_search`, `system_prompt` and `summarizer`. With `join_turn` (a turn id or one of its replies' checkpoints) the `models` answer that earlier turn's question as more answers of it, with no prompt |
 | `synthesize_answers` | Combine answers already on a thread (by default every model's answer to the latest question, or exactly the `checkpoint_ids` given, from any branches): `mode` merge (one answer), compare (a table of where they differ), checklist (one answer from the `keep` parts) or ask (answer your `question` about them) |
 | `list_answer_components` | Split answers into the parts to choose from for a checklist synthesis; writes nothing |
 | `review_answers` | The answers' authors score each other's 1–10 with a reason, anonymously and never their own; stored as evidence, never a verdict |
 | `list_answer_reviews` | The peer reviews stored on a thread |
+| `vote_answers` | Record a person's vote on a turn's answers: the best one (by checkpoint or blind letter), a tie or all bad, with the kind of task and a reason. One per turn; voting again replaces it. A model's judgment belongs in `review_answers` |
+| `list_votes`, `vote_stats`, `delete_vote` | The stored votes, the win rates per model they add up to (pairwise; "all bad" counted apart), or remove a turn's vote |
+| **Saved cases** | |
+| `save_case` | Copy one turn whole (its question, the conversation before it, attached documents, settings, every answer with its metrics and the vote) so it outlives the thread |
+| `list_cases`, `get_case`, `delete_case` | Find saved cases, read one with every replay against it, or delete one (the threads its replays ran in stay) |
+| `replay_case` | Ask models a case's question again in a new thread seeded with its history, documents and settings, and diff each new answer against the same model's old one, or the one voted best. One model call per model |
 | **Debates** | |
 | `run_debate` | Multi-round debate between two or more models (anonymous to each other unless `peer_labels="named"`), with optional early stopping (stability or a judge's agreement) and a final argument map. Can start from a node of an existing thread (`parent_checkpoint_id`); takes `attachments`, `use_rag`, `use_web_search`, `system_prompt` and `summarizer` |
 | `continue_debate` | More rounds of a stopped debate, optionally injecting messages into the next round |
@@ -41,6 +49,9 @@ Everything the web UI does to a conversation is a tool, except writing API keys 
 | `get_thread_messages` | Read one path of a thread; pass a `checkpoint_id` to read one model's branch |
 | `search_thread` | Find messages on every branch of a thread |
 | `diff_answers` | What differs between two replies (by checkpoint id): sentences, then words inside a changed sentence; code and JSON line by line. Returns the rows in reading order, per-kind counts and a one-line summary |
+| `get_thread_context` | How much of the conversation the next turn from a node would send each model, and whether it would answer from a summary (approximate: one tokenizer for every provider) |
+| `label_node` | Name a node's branch and/or bookmark it |
+| `summarize_subtree` | Summarize a node and everything below it, stored on the node (`get_thread_tree` shows it); nothing is added to the conversation |
 | `delete_branch` | Delete a node and everything below it |
 | `get_branch_answers` | The latest answer on every branch of a thread |
 | `get_thread_status`, `get_thread_summary` | A thread's title, latest model and message count, latest answer and context summary |
