@@ -735,6 +735,9 @@ test.describe("live flows (scripted models)", () => {
     await addModel(page, "Anthropic", "Claude Sonnet 5.5");
     await startDebate(page, "Monolith or services?", 1, { map: true });
     await expect(page.getByText(/^Synthesis · Gemini 4 Neon$/i)).toBeVisible({ timeout: 30_000 });
+    // Written, so the banner offers it again as a redo, not as the next step.
+    await expect(page.getByRole("button", { name: "Rewrite the argument map" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Write the argument map", exact: true })).toHaveCount(0);
   });
 
   test("a debate synthesized from the banner is mapped by a model outside the debate", async ({ page }) => {

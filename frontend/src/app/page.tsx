@@ -228,6 +228,7 @@ export default function Home() {
   });
   const inDebate = !!debate.activeSessionId;
   const debateHasTranscript = debate.messages.length > 0;
+  const debateMapWritten = debate.messages.some((m) => m.type === "synthesis" && !m.streaming && !!m.content);
   // A turn sent under a debate's transcript, before any turn has followed
   // it, continues that debate (a running one takes sends as injections).
   const { continuesDebate, markFollowedUp } = debate;
@@ -261,6 +262,7 @@ export default function Home() {
               convergenceScore,
               legend: peerLegend(debateLanes),
               warnings: debateWarnings,
+              mapWritten: debateMapWritten,
             },
             onClose: closeDebate,
             onSynthesize: debateCtl.synthesize
@@ -281,6 +283,7 @@ export default function Home() {
       convergenceScore,
       debateLanes,
       debateWarnings,
+      debateMapWritten,
       closeDebate,
       debateCtl,
       synthesizeDebate,

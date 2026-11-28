@@ -14,6 +14,8 @@ export interface DebateBannerState {
   legend?: PeerLegendEntry[];
   /** The session's warnings (a judge or synthesizer that is also debating). */
   warnings?: string[];
+  /** The transcript already ends in an argument map: writing one is then a redo, not the next step. */
+  mapWritten?: boolean;
 }
 
 const DEBATE_STATUS_STYLE: Record<DebateUiStatus, { bg: string; fg: string }> = {
@@ -207,10 +209,16 @@ export default function DebateBanner({
       )}
       {/* The debate's payoff, so its main action: "Synthesize" meant
           "merge into one answer" in Arena, and looked disabled here. */}
+      {/* Once the map is written it is in the transcript; a solid button
+          still saying "Write" read as if it were missing. */}
       {onSynthesize && (
         <ButtonBase
           onClick={onSynthesize}
-          title="A model from outside the debate maps the positions, their strongest arguments and what is unresolved. Not a verdict."
+          title={
+            state.mapWritten
+              ? "Write the map again, below the one there is. A model from outside the debate maps the positions, their strongest arguments and what is unresolved."
+              : "A model from outside the debate maps the positions, their strongest arguments and what is unresolved. Not a verdict."
+          }
           sx={{
             display: "flex",
             alignItems: "center",
@@ -220,13 +228,21 @@ export default function DebateBanner({
             borderRadius: 1.5,
             fontSize: "0.75rem",
             fontWeight: 700,
-            color: "#ffffff",
-            bgcolor: "#6d28d9",
-            "&:hover": { bgcolor: "#5b21b6" },
+            ...(state.mapWritten
+              ? {
+                  color: fg("#6d28d9"),
+                  border: "1px solid rgba(139,92,246,0.45)",
+                  "&:hover": { bgcolor: "rgba(139,92,246,0.1)" },
+                }
+              : {
+                  color: "#ffffff",
+                  bgcolor: "#6d28d9",
+                  "&:hover": { bgcolor: "#5b21b6" },
+                }),
           }}
         >
           <Sparkles width={12} height={12} aria-hidden />
-          Write the argument map
+          {state.mapWritten ? "Rewrite the argument map" : "Write the argument map"}
         </ButtonBase>
       )}
       {onClose && (
