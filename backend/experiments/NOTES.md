@@ -1945,3 +1945,45 @@ uv run crucible compaction-eval --budget 1.40 --scenario dense --reasons -m orac
   reason answers worse (tier D, Compact-Bench).
 - Spent $0.65 against an estimate of $0.83 (0.78×). Today's research total:
   $1.34 (calibration $0.09, roadmap 23 $0.60, this $0.65).
+
+## 2026-11-28 — Fourth audit (scaffold-audit-20261128T045513)
+
+Re-run after the model lists were synced (catalog 2026-11-28), on the
+readers of the third audit (gpt-6-luna, gemini-3.1-flash-lite,
+claude-haiku-5-5, oracle-strict), threshold 8,000, two seeds, direct probes,
+luna summarizing and recalling. grok-4.3, now the cheapest xAI model and in
+the default reader set, was left out: it was $6.26 of a $9.28 estimate (its
+input costs 12× luna's) and xAI offers nothing cheaper. Every reader now
+probes the same settled summaries (2/14/16/16 probes after 0/1/2/3
+summaries in each compacted cell), so the third audit's Haiku confound
+(9–16 summaries written while probing) is gone.
+
+| scaffold | model | without → with | verdict |
+|---|---|---|---|
+| compaction | gpt-6-luna | 1.00 → 0.96 | no_headroom |
+| | gemini-3.1-flash-lite | 0.92 → 1.00 | inconclusive |
+| | claude-haiku-5-5 | 0.94 → 0.90 | inconclusive |
+| verbatim window | claude-haiku-5-5 | 0.88 → 0.90 | inconclusive (others no_headroom) |
+| recall | gpt-6-luna | 0.50 → 0.96 | **keep** |
+| | gemini-3.1-flash-lite | 0.50 → 1.00 | **keep** |
+| | claude-haiku-5-5 | 0.42 → 0.90 | **keep** |
+| | oracle-strict | 0.52 → 1.00 | **keep** |
+| state instruction | claude-haiku-5-5 | 0.90 → 0.98 | inconclusive (others no_headroom) |
+| keep user messages | claude-haiku-5-5 | 0.90 → 0.85 | inconclusive (others no_headroom) |
+| keyword recall | claude-haiku-5-5 | 0.90 → 0.92 | inconclusive (others no_headroom) |
+| summarizer gemini-3.8-flash | claude-haiku-5-5 | 0.90 → 0.98 | inconclusive (others no_headroom) |
+| summarizer claude-haiku-5-5 | claude-haiku-5-5 | 0.90 → 0.92 | inconclusive (others no_headroom) |
+
+- **Recall stays essential**: without it every reader, the oracle included,
+  answers about half; the summaries alone keep about half the facts.
+- **Compaction is not harmful for Haiku 5.5**: the third audit's 0.94 →
+  0.75 does not reproduce once the summaries are settled (0.94 → 0.90, the
+  interval spans zero). Nothing is shown harmful anywhere.
+- **The candidates are still unproven**, and on luna and flash-lite the
+  probes are too easy to tell (no_headroom). Haiku 5.5 is the only reader
+  with room, and none of its differences clears the 0.1 minimum effect.
+  The default path stays as it is.
+- The command always adds the strict oracle; naming it with `-m` audited it
+  twice and appended its verdicts twice. The duplicates were removed from
+  the history and the run file, and the model list is now deduplicated.
+- Spent $1.57 against an estimate of $3.02 (0.52×).

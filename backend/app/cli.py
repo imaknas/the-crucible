@@ -2672,7 +2672,8 @@ def scaffold_audit_cmd(
         _fail("a real audit needs --budget (USD); use --estimate to see what it would cost", as_json)
     from app.services.compaction_eval import STRICT_ORACLE
 
-    model_ids = list(models or _cheapest_models()) + [STRICT_ORACLE]
+    # The strict oracle always runs; naming it again must not count it twice.
+    model_ids = list(dict.fromkeys([*(models or _cheapest_models()), STRICT_ORACLE]))
     _validate_models([m for m in model_ids if m != STRICT_ORACLE], as_json)
     result = _run(_run_scaffold_audit(model_ids, only, threshold, seeds, questions, min_effect, db, budget, estimate_only), as_json)
     if as_json or estimate_only:

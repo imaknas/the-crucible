@@ -113,3 +113,24 @@ def test_audit_flags_a_lossy_compaction_as_harmful(graph_app):
     assert records["compaction"]["verdict"] in ("harmful", "inconclusive")
     assert records["compaction"]["baseline_recall"] > records["compaction"]["scaffold_recall"]
     assert records["recall-keyword"]["scaffold_recall"] >= records["recall-keyword"]["baseline_recall"]
+
+
+def test_naming_the_strict_oracle_does_not_audit_it_twice(monkeypatch):
+    """It always runs; `-m oracle-strict` used to add a second copy, and every
+    one of its verdicts was appended to the history twice."""
+    from typer.testing import CliRunner
+
+    from app import cli
+
+    seen = []
+
+    async def fake_run(model_ids, *_args):
+        seen.append(model_ids)
+        return {"estimate": 0.0, "high": 0.0}
+
+    monkeypatch.setattr(cli, "_load_env", lambda: None)
+    monkeypatch.setattr(cli, "_run_scaffold_audit", fake_run)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    result = CliRunner().invoke(cli.app, ["scaffold-audit", "--estimate", "-m", "gpt-6-luna", "-m", STRICT_ORACLE])
+    assert result.exit_code == 0, result.output
+    assert seen == [["gpt-6-luna", STRICT_ORACLE]]
