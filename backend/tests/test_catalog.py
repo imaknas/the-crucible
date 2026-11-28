@@ -207,10 +207,11 @@ def test_a_probe_records_which_model_answered_when_it_is_another():
 # ─── Reasoning-effort levels ─────────────────────────────────────
 
 
-def effort_transport(calls, refuse=(), flaky=(), broken=()):
+def effort_transport(calls, refuse=(), flaky=(), broken=(), quoted=()):
     """Answers every listing; refuses (400, naming the parameter) the effort
     levels in `refuse`, rate-limits those in `flaky` and refuses those in
-    `broken` for another reason."""
+    `broken` for another reason; those in `quoted` are refused as OpenAI
+    words it for a model with fewer levels, quoting only the value."""
     inner = transport(calls)
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -221,6 +222,10 @@ def effort_transport(calls, refuse=(), flaky=(), broken=()):
             if level in refuse:
                 return httpx.Response(400, json={"error": {
                     "message": f"Unsupported value: 'reasoning_effort' does not support '{level}' with this model."}})
+            if level in quoted:
+                return httpx.Response(400, json={"error": {
+                    "message": f"Unsupported value: '{level}' is not supported with the 'gpt-9' model. "
+                               "Supported values are: 'medium', 'high', and 'xhigh'."}})
             if level in broken:
                 return httpx.Response(400, json={"error": {"message": "Unknown parameter: 'max_completion_tokens'."}})
             if level in flaky:
@@ -276,6 +281,12 @@ def test_an_inconclusive_effort_probe_records_nothing_and_effort_mode_retries_it
     with httpx.Client(transport=effort_transport(calls)) as client:
         _, diff = sync_catalog(again, KEYS, client=client, today="2026-09-28", probe="effort", effort_ids={"gpt-9"})
     assert diff.probed == {} and not [c for c in calls if c[0] == "POST"]
+
+
+def test_a_refusal_quoting_the_level_as_unsupported_counts_as_its_absence():
+    with httpx.Client(transport=effort_transport([], quoted=("minimal", "low"))) as client:
+        catalog, _ = sync_catalog({}, KEYS, client=client, today="2026-09-26", effort_ids={"gpt-9"})
+    assert catalog["gpt-9"].capabilities["reasoning_effort"] == ["medium", "high", "xhigh"]
 
 
 def test_a_refusal_that_isnt_about_the_effort_records_nothing():

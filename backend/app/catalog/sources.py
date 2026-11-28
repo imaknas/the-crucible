@@ -74,8 +74,10 @@ GOOGLE_THINKING_LEVELS = ("minimal", "low", "medium", "high")
 
 def probe_levels(levels, call) -> ProbeResult:
     """Try `call(level)` for each level: a success means the model takes it,
-    a refusal that names the parameter (reasoning, effort, thinking) that it
-    doesn't. Anything else is inconclusive (a timeout, 429, 5xx, or a
+    a refusal about the parameter that it doesn't: one naming it (reasoning,
+    effort, thinking) or quoting the refused level as an unsupported value
+    (OpenAI: "Unsupported value: 'minimal' is not supported with the …
+    model"). Anything else is inconclusive (a timeout, 429, 5xx, or a
     refusal for another reason, e.g. a request shape the provider changed),
     so no level is ever recorded as missing on an error that isn't about it.
     The levels taken are `capabilities["reasoning_effort"]`."""
@@ -84,12 +86,21 @@ def probe_levels(levels, call) -> ProbeResult:
         result = guarded(lambda: call(level))
         if result.ok:
             taken.append(level)
-        elif result.ok is None or not _ABOUT_EFFORT.search(result.error or ""):
+        elif result.ok is None or not _about_effort(result.error or "", level):
             return ProbeResult(None, f"{level}: {result.error}")
     return ProbeResult(True, None, {"reasoning_effort": taken})
 
 
 _ABOUT_EFFORT = re.compile(r"reasoning|effort|thinking", re.I)
+_UNSUPPORTED = re.compile(r"unsupported|not supported|invalid", re.I)
+
+
+def _about_effort(error: str, level: str) -> bool:
+    """Whether a refusal is about the effort level sent. The level is the
+    only value of the request that is a quoted level name, so a refusal
+    quoting it as unsupported is about it."""
+    return bool(_ABOUT_EFFORT.search(error)
+                or (_UNSUPPORTED.search(error) and re.search(rf"['\"`]{re.escape(level)}['\"`]", error)))
 
 
 class ProviderSource(Protocol):

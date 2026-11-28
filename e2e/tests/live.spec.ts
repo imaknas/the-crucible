@@ -551,21 +551,21 @@ test.describe("live flows (scripted models)", () => {
   test("a reasoning effort goes to the models that take it, and the others say they answered at their default", async ({
     page,
   }) => {
-    await addModel(page, "Anthropic", "Claude Sonnet 5.5");
+    await addModel(page, "Anthropic", "Claude Haiku 4.5");
     await page.getByRole("button", { name: "Arena", exact: true }).click();
     await page.getByRole("combobox", { name: "Reasoning effort" }).click();
     await page.getByRole("option", { name: "High", exact: true }).click();
-    await expect(page.getByTestId("effort-note")).toContainText("GPT-6.1 Sol: levels not verified yet");
+    await expect(page.getByTestId("effort-note")).toContainText("Claude Haiku 4.5 has no such level");
 
     await send(page, "A hard question.");
     await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
-    await expect(
-      page.getByRole("article", { name: "Claude Sonnet 5.5's answer" }).getByTestId("reply-metrics"),
-    ).toContainText("high effort");
-    await expect(page.getByRole("article", { name: "GPT-6.1 Sol's answer" }).getByTestId("reply-metrics")).not.toContainText(
-      "effort",
+    await expect(page.getByRole("article", { name: "GPT-6.1 Sol's answer" }).getByTestId("reply-metrics")).toContainText(
+      "high effort",
     );
-    await expect(page.getByText(/GPT-6\.1 Sol's reasoning-effort levels haven't been verified yet/)).toBeVisible();
+    await expect(
+      page.getByRole("article", { name: "Claude Haiku 4.5's answer" }).getByTestId("reply-metrics"),
+    ).not.toContainText("effort");
+    await expect(page.getByText(/Claude Haiku 4\.5 has no reasoning-effort setting/)).toBeVisible();
   });
 
   test("answers can be merged from just the parts you keep", async ({ page }) => {

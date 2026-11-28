@@ -664,6 +664,12 @@
   {
    "capabilities": {
     "context_caching": true,
+    "reasoning_effort": [
+     "minimal",
+     "low",
+     "medium",
+     "high"
+    ],
     "thinking": true
    },
    "display_name": "Gemini 3.1 Flash Lite",
@@ -710,6 +716,11 @@
   {
    "capabilities": {
     "context_caching": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high"
+    ],
     "thinking": true
    },
    "display_name": "Gemini 3.1 Pro Preview",
@@ -756,6 +767,12 @@
   {
    "capabilities": {
     "context_caching": true,
+    "reasoning_effort": [
+     "minimal",
+     "low",
+     "medium",
+     "high"
+    ],
     "thinking": true
    },
    "display_name": "Gemini 3.5 Flash Lite",
@@ -779,6 +796,12 @@
   {
    "capabilities": {
     "context_caching": true,
+    "reasoning_effort": [
+     "minimal",
+     "low",
+     "medium",
+     "high"
+    ],
     "thinking": true
    },
    "display_name": "Gemini 3.6 Flash",
@@ -825,6 +848,11 @@
   {
    "capabilities": {
     "context_caching": true,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high"
+    ],
     "thinking": true
    },
    "display_name": "Gemini 3.8 Flash",
@@ -848,6 +876,11 @@
   {
    "capabilities": {
     "context_caching": false,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high"
+    ],
     "thinking": true
    },
    "display_name": "Gemini 4 Argon",
@@ -871,6 +904,11 @@
   {
    "capabilities": {
     "context_caching": false,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high"
+    ],
     "thinking": true
    },
    "display_name": "Gemini 4 Carbon",
@@ -894,6 +932,11 @@
   {
    "capabilities": {
     "context_caching": false,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high"
+    ],
     "thinking": true
    },
    "display_name": "Gemini 4 Hydrogen",
@@ -917,6 +960,11 @@
   {
    "capabilities": {
     "context_caching": false,
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high"
+    ],
     "thinking": true
    },
    "display_name": "Gemini 4 Neon",
@@ -1581,7 +1629,12 @@
   },
   {
    "capabilities": {
-    "api": "responses"
+    "api": "responses",
+    "reasoning_effort": [
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-5.2-pro",
    "id": "gpt-5.2-pro",
@@ -1606,7 +1659,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-5.4",
    "id": "gpt-5.4",
@@ -1631,7 +1690,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-5.4-mini",
    "id": "gpt-5.4-mini",
@@ -1656,7 +1721,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-5.4-nano",
    "id": "gpt-5.4-nano",
@@ -1706,7 +1777,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-5.5",
    "id": "gpt-5.5",
@@ -1756,7 +1833,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-5.6-luna",
    "id": "gpt-5.6-luna",
@@ -1781,7 +1864,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-5.6-sol",
    "id": "gpt-5.6-sol",
@@ -1806,7 +1895,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-5.6-terra",
    "id": "gpt-5.6-terra",
@@ -1831,7 +1926,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-6-astra",
    "id": "gpt-6-astra",
@@ -1878,7 +1979,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-6-luna",
    "id": "gpt-6-luna",
@@ -1903,7 +2010,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-6-sol",
    "id": "gpt-6-sol",
@@ -1928,7 +2041,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-6.1-sol",
    "id": "gpt-6.1-sol",
@@ -1975,7 +2094,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-6.1-terra",
    "id": "gpt-6.1-terra",
@@ -2000,7 +2125,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-6.2-astra",
    "id": "gpt-6.2-astra",
@@ -2047,7 +2178,13 @@
   },
   {
    "capabilities": {
-    "api": "chat_completions"
+    "api": "chat_completions",
+    "reasoning_effort": [
+     "low",
+     "medium",
+     "high",
+     "xhigh"
+    ]
    },
    "display_name": "gpt-6.2-sol",
    "id": "gpt-6.2-sol",
