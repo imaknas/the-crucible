@@ -43,6 +43,29 @@ def test_cost_counts_cached_input_at_the_cache_price():
     assert BOOK.cost("unknown", usage) is None
 
 
+
+def test_cost_counts_cache_writes_at_the_write_price():
+    """Anthropic charges 1.25x input to write a cache entry; LangChain counts
+    the written tokens in input_tokens, so they were billed as plain input."""
+    book = PriceBook({"claude-x": ModelPrice(Price(2.0, 10.0, cached_input=0.2, cache_write=2.5), source="test")},
+                     day="2026-11-29")
+    whole = {"input_tokens": 1_000_000, "output_tokens": 0,
+             "input_token_details": {"cache_read": 600_000, "cache_creation": 300_000}}
+    assert book.cost("claude-x", whole) == pytest.approx(0.1 * 2.0 + 0.6 * 0.2 + 0.3 * 2.5)
+    split = {"input_tokens": 1_000_000, "output_tokens": 0,  # by lifetime, as langchain-anthropic reports it
+             "input_token_details": {"cache_read": 600_000, "cache_creation": 0, "ephemeral_5m_input_tokens": 300_000}}
+    assert book.cost("claude-x", split) == book.cost("claude-x", whole)
+    # A provider that charges nothing for writes bills them as input.
+    assert BOOK.cost("cheap-1", whole) == pytest.approx(0.4 * 1.0 + 0.6 * 0.1)
+
+
+def test_every_anthropic_price_has_its_cache_write_price():
+    from app.catalog.prices import load_prices
+
+    for model_id, price in load_prices().items():
+        if price.source.startswith("https://platform.claude.com"):
+            assert price.current.cache_write == pytest.approx(price.current.input * 1.25), model_id
+
 def _result(name, inp, out):
     msg = AIMessage(content="x", response_metadata={"model_name": name},
                     usage_metadata={"input_tokens": inp, "output_tokens": out, "total_tokens": inp + out})

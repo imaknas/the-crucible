@@ -24,13 +24,20 @@ class Price:
     output: float
     # Cache-hit price; None = the provider lists none (billed as input).
     cached_input: Optional[float] = None
+    # Price of writing a cache entry, where the provider charges for it
+    # (Anthropic: 1.25x input for the 5-minute entries the app writes);
+    # None = writes are billed as input (OpenAI, Google, xAI).
+    cache_write: Optional[float] = None
 
-    def cost(self, input_tokens: int, output_tokens: int, cached_tokens: int = 0) -> float:
-        """`input_tokens` includes cached ones, as LangChain reports it."""
+    def cost(self, input_tokens: int, output_tokens: int, cached_tokens: int = 0,
+             written_tokens: int = 0) -> float:
+        """`input_tokens` includes cached and written ones, as LangChain reports it."""
         cached = min(cached_tokens, input_tokens) if self.cached_input is not None else 0
+        written = min(written_tokens, input_tokens - cached) if self.cache_write is not None else 0
         return (
-            (input_tokens - cached) * self.input
+            (input_tokens - cached - written) * self.input
             + cached * (self.cached_input or 0.0)
+            + written * (self.cache_write or 0.0)
             + output_tokens * self.output
         ) / 1_000_000
 
@@ -51,7 +58,8 @@ class ModelPrice:
 
 
 def _price(d: Mapping[str, Any]) -> Price:
-    return Price(input=d["input"], output=d["output"], cached_input=d.get("cached_input"))
+    return Price(input=d["input"], output=d["output"], cached_input=d.get("cached_input"),
+                 cache_write=d.get("cache_write"))
 
 
 def load_prices(path: Path = DEFAULT_PRICES) -> dict[str, ModelPrice]:
@@ -69,6 +77,16 @@ def load_prices(path: Path = DEFAULT_PRICES) -> dict[str, ModelPrice]:
             note=d.get("note", ""),
         )
     return out
+
+
+# langchain-anthropic reports cache writes as `cache_creation`, or split by
+# lifetime (and `cache_creation` then 0): the 5-minute and 1-hour entries.
+WRITE_KEYS = ("cache_creation", "ephemeral_5m_input_tokens", "ephemeral_1h_input_tokens")
+
+
+def written_tokens(details: Mapping[str, Any]) -> int:
+    """Input tokens written to the provider's cache, from usage_metadata's input_token_details."""
+    return sum(details.get(k) or 0 for k in WRITE_KEYS)
 
 
 class PriceBook:
@@ -95,5 +113,7 @@ class PriceBook:
         price = self.price(model_name)
         if price is None:
             return None
-        cached = (usage.get("input_token_details") or {}).get("cache_read", 0) or 0
-        return price.cost(usage.get("input_tokens", 0), usage.get("output_tokens", 0), cached)
+        details = usage.get("input_token_details") or {}
+        cached = details.get("cache_read", 0) or 0
+        return price.cost(usage.get("input_tokens", 0), usage.get("output_tokens", 0), cached,
+                          written_tokens(details))

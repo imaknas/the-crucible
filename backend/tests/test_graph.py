@@ -217,8 +217,10 @@ class TestNodes:
 
         mock_get_model.assert_called_once_with("gpt-5.2", state["toggles"])
         mock_llm.invoke.assert_called_once()
-        (system, *_), = mock_llm.invoke.call_args.args
-        assert system.type == "system" and "Some facts." in system.content
+        (sent,) = mock_llm.invoke.call_args.args
+        assert [m.type for m in sent] == ["human"]  # search results are not a system prompt
+        question, notes = sent[-1].content
+        assert question["text"] == "Hello" and "Some facts." in notes["text"]
 
         out_msg = res["messages"][0]
         assert "This is a test" in out_msg.content
@@ -237,6 +239,24 @@ class TestNodes:
         mock_llm.invoke.return_value = AIMessage(content="ok")
         res = drafting_node(state, config=_cfg(lambda *_: mock_llm, thread_id="test", **configurable))
         return mock_llm.invoke.call_args.args[0], res
+
+    def test_search_results_leave_the_cached_prefix_alone(self):
+        """Results differ every turn: in the system prompt they made every
+        turn re-read the whole history at full price."""
+        from langchain_core.messages import AIMessage, HumanMessage
+
+        history = [HumanMessage(content="q0"), AIMessage(content="a0"), HumanMessage(content="q1")]
+        sent = []
+        for text in ("First result.", "Second result."):
+            messages, _ = self._sent({"active_peer": "gpt-5.4", "toggles": {}, "messages": history,
+                                      "retrieved_chunks": [{"filename": "doc.pdf", "text": text}]},
+                                     system_prompt="Be brief.")
+            sent.append(messages)
+        first, second = sent
+        assert [m.content for m in first[:-1]] == [m.content for m in second[:-1]]
+        assert first[0].type == "system" and "result" not in first[0].content
+        question, notes = first[-1].content
+        assert question["text"] == "q1" and "First result." in notes["text"] and "[1]" in notes["text"]
 
     def test_drafting_node_sends_no_system_message_by_default(self):
         """Models answer as they ship: no persona, no confidence instruction."""
