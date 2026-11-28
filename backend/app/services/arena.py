@@ -770,7 +770,7 @@ def _with_context(labels: Sequence[str], answers: Sequence[Mapping[str, Any]], s
     return labels
 
 
-def named_labels(answers: Sequence[Mapping[str, Any]]) -> Labelled:
+def named_labels(answers: Sequence[Mapping[str, Any]], turn_models: Optional[Sequence[str]] = None) -> Labelled:
     """Answers labelled by model, in the order given: for a reader's own
     question about them, which may name a model. A model that appears
     twice is numbered."""
@@ -781,33 +781,37 @@ def named_labels(answers: Sequence[Mapping[str, Any]]) -> Labelled:
     return Labelled(line, list(zip(labels, (a["content"] for a in answers))), list(answers))
 
 
-def blind_labels(answers: Sequence[Mapping[str, Any]]) -> Labelled:
+def blind_labels(answers: Sequence[Mapping[str, Any]], turn_models: Optional[Sequence[str]] = None) -> Labelled:
     """Answers labelled "Answer A", "Answer B", …, never by model: a
     combiner that knows who wrote what tends to defer to the names it rates
     (and to its own). One turn's answers take the letters a blind
-    comparison gives them (votes.blind_order), so "Answer A" in the
-    synthesis is the card marked A; answers from several turns are lettered
-    in the order given. Shown in letter order."""
+    comparison gives them (votes.blind_order over ``turn_models``, every
+    model that answered the turn, so two answers picked from three keep
+    their cards' letters: "Answer A" in the synthesis is the card marked A);
+    answers from several turns are lettered in the order given. Shown in
+    letter order."""
     from app.services.votes import blind_order
 
     turns = {a.get("turn_id") for a in answers}
     models = [a["model"] for a in answers]
     ordered = list(answers)
-    if len(turns) == 1 and None not in turns and len(set(models)) == len(models):
-        order = blind_order(next(iter(turns)), models)
-        ordered.sort(key=lambda a: order.index(a["model"]))
-    line, several = _question_line(ordered)
     letters = [chr(ord("A") + i) for i in range(len(ordered))]
+    if len(turns) == 1 and None not in turns and len(set(models)) == len(models):
+        order = blind_order(next(iter(turns)), [*(turn_models or ()), *models])
+        ordered.sort(key=lambda a: order.index(a["model"]))
+        letters = [chr(ord("A") + order.index(a["model"])) for a in ordered]
+    line, several = _question_line(ordered)
     labels = _with_context([ANSWER_LABEL.format(letter=x) for x in letters], ordered, several)
     return Labelled(line, list(zip(labels, (a["content"] for a in ordered))), ordered, letters)
 
 
 # How each synthesis mode shows the answers to the synthesizer: by letter,
 # except a reader's own question, which may be about a model by name.
-_LABELLERS: Dict[str, Callable[[Sequence[Mapping[str, Any]]], Labelled]] = {"ask": named_labels}
+Labeller = Callable[[Sequence[Mapping[str, Any]], Optional[Sequence[str]]], Labelled]
+_LABELLERS: Dict[str, Labeller] = {"ask": named_labels}
 
 
-def labeller_for(mode: str) -> Callable[[Sequence[Mapping[str, Any]]], Labelled]:
+def labeller_for(mode: str) -> Labeller:
     return _LABELLERS.get(mode, blind_labels)
 
 
@@ -829,6 +833,20 @@ def synthesis_note(mode: str = "merge", question: Optional[str] = None,
     return note
 
 
+async def turn_models_of(graph_app, thread_id: str, answers: Sequence[Mapping[str, Any]]) -> Optional[List[str]]:
+    """Every model that answered the turn these answers belong to, when
+    they belong to one: the set a blind comparison letters."""
+    turns = {a.get("turn_id") for a in answers}
+    if len(turns) != 1 or None in turns:
+        return None
+    from app.services.votes import turn_answers
+
+    try:
+        return [a["model"] for a in (await turn_answers(graph_app, thread_id, next(iter(turns))))["answers"]]
+    except ValueError:
+        return None
+
+
 @dataclass(frozen=True)
 class SynthesisAsk:
     """A synthesis request: the prompt, what the turn records about it, and
@@ -840,11 +858,13 @@ class SynthesisAsk:
 
 
 def synthesis_ask(answers: Sequence[Mapping[str, Any]], mode: str = "merge", *,
-                  keep: Sequence[str] = (), question: Optional[str] = None) -> SynthesisAsk:
+                  keep: Sequence[str] = (), question: Optional[str] = None,
+                  turn_models: Optional[Sequence[str]] = None) -> SynthesisAsk:
     """The one place a synthesis prompt and its record are written together
-    (so the letters in the prompt and the legend can't drift apart)."""
+    (so the letters in the prompt and the legend can't drift apart).
+    ``turn_models``: every model that answered the answers' turn (blind_labels)."""
     framing = synthesis_framing(mode, keep=keep, question=question)
-    labelled = labeller_for(mode)(answers)
+    labelled = labeller_for(mode)(answers, turn_models)
     return SynthesisAsk(
         build_synthesis_prompt(labelled.question, labelled.pairs, framing),
         synthesis_note(mode, question, labelled),
@@ -870,7 +890,8 @@ async def synthesis_request(
     answers = [await answer_at(graph_app, thread_id, cid) for cid in dict.fromkeys(checkpoint_ids)]
     if len(answers) < 2:
         raise ValueError(f"Synthesis needs at least two answers; got {len(answers)}.")
-    return synthesis_ask(answers, mode, keep=keep, question=question)
+    return synthesis_ask(answers, mode, keep=keep, question=question,
+                         turn_models=await turn_models_of(graph_app, thread_id, answers))
 
 
 async def answer_components(
@@ -902,7 +923,7 @@ async def answer_components(
         raise ValueError(f"A checklist needs at least two answers; got {len(answers)}.")
     model = model or default_synthesizer([a["model"] for a in answers])
     resolve_models([model])
-    labelled = blind_labels(answers)
+    labelled = blind_labels(answers, await turn_models_of(graph_app, thread_id, answers))
     config = {"configurable": {"model_factory": factory}} if factory else {}
     llm = model_factory_from(config).chat(model, {})
     response = await llm.ainvoke([HumanMessage(content=component_request(labelled.question, labelled.pairs))],
@@ -988,7 +1009,7 @@ async def synthesize_thread(
         yield {"type": "end", "model": a["model"], "content": a["content"], "checkpoint_id": a["checkpoint_id"],
                "error": None, "metrics": a.get("metrics"), "angle": a.get("angle"), "effort": a.get("effort")}
     ask = synthesis_ask([{**a, "question": a.get("question") or asked} for a in answers], mode,
-                        keep=keep, question=question)
+                        keep=keep, question=question, turn_models=await turn_models_of(graph_app, thread_id, answers))
     async for event in _synthesize(graph_app, thread_id, parent, synthesizer, ask, toggles, context):
         yield event
 

@@ -187,6 +187,28 @@ describe("ChatView synthesis", () => {
     expect(onSynthesize).toHaveBeenCalledWith(["a1", "b1"], null, { mode: "merge" });
   });
 
+  it("names who each lettered answer of a synthesis is only once a blind turn is voted on", () => {
+    const legend = [
+      { label: "Answer A", model: "claude", model_name: "CLAUDE", checkpoint_id: "b1" },
+      { label: "Answer B", model: "gpt", model_name: "GPT", checkpoint_id: "a1" },
+    ];
+    const synthesis = {
+      id: "s", role: "assistant", content: "Answer A is right.", model: "gemini", type: "synthesis",
+      kind: "synthesis", checkpoint_id: "syn", synthesis_legend: legend,
+    };
+    const props = {
+      ...base,
+      messages: [question, synthesis],
+      nodes: [node("a1", "gpt", "t1"), node("b1", "claude", "t1"), node("syn", "gemini", "t1", { type: "synthesis" })],
+      edges: [],
+      blind: true,
+    };
+    const { rerender } = render(<ChatView {...props} />);
+    expect(screen.getByTestId("synthesis-legend")).toHaveTextContent("Who wrote each shows once you vote");
+    rerender(<ChatView {...props} votesByTurn={{ t1: { turn_id: "t1" } as never }} />);
+    expect(screen.getByTestId("synthesis-legend")).toHaveTextContent("Answer A is CLAUDE · Answer B is GPT");
+  });
+
   it("reads another answer without changing who answers next, and continues it only on request", () => {
     const onViewReply = jest.fn();
     const onContinueReply = jest.fn();

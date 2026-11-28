@@ -18,8 +18,7 @@ from typer.testing import CliRunner
 
 from app.cli import app as cli_app
 from app.llm import CallableModelFactory, use_model_factory
-from app.registry import display_name
-from app.services import arena, history
+from app.services import arena, history, votes
 from app.services.synthesis import COMPARE, INDEPENDENT, ISSUES, SYNTHESIS_MODES, parse_components, synthesis_framing
 from tests.storage_helpers import point
 
@@ -262,10 +261,32 @@ async def test_a_component_list_read_by_letter_names_its_sources_by_model():
         with use_model_factory(CallableModelFactory(lambda m, _t: _Recorder(responses=[lettered]))):
             SEEN.clear()
             listed = await arena.answer_components(graph_app, "t-letters", ids)
-    shown = arena.blind_labels([{"model": m, "content": ""} for m in (A, B)])  # no turn ids: in the order given
+    # One turn's answers: lettered as a blind comparison letters them.
+    async with arena.open_graph() as graph_app:
+        turn = await votes.turn_answers(graph_app, "t-letters", ids[0])
+    letters = votes.blind_letters(turn["turn_id"], turn["answers"])
+    by_letter = {letters[a["checkpoint_id"]]: a["model_name"] for a in turn["answers"]}
     assert "[Answer A]:" in SEEN[-1] and "GPT-5.4" not in SEEN[-1]
-    first, second = (display_name(a["model"]) for a in shown.answers)
-    assert [c["sources"] for c in listed["components"]] == [[first, second], [second], ["all answers"]]
+    assert [c["sources"] for c in listed["components"]] == [[by_letter["A"], by_letter["B"]], [by_letter["B"]], ["all answers"]]
+
+
+@pytest.mark.asyncio
+async def test_a_synthesis_letters_answers_as_their_cards_are_lettered_even_when_some_are_left_out():
+    D = "gemini-4-neon"
+    async with arena.open_graph() as graph_app:
+        result = await arena.collect(arena.run_arena(graph_app, "Q?", "t-cards", [A, B, D], {}, synthesizer=None))
+        ids = {m: result["answers"][m]["checkpoint_id"] for m in (A, B, D)}
+        turn = await votes.turn_answers(graph_app, "t-cards", ids[A])
+        letters = votes.blind_letters(turn["turn_id"], turn["answers"])
+        for picked in ([A, B, D], [A, D], [B, D]):
+            run = await arena.collect(arena.synthesize_thread(
+                graph_app, "t-cards", C, checkpoint_ids=[ids[m] for m in picked]))
+            legend = run["synthesis"]["legend"]
+            assert {e["checkpoint_id"]: e["label"] for e in legend} == {
+                ids[m]: f"Answer {letters[ids[m]]}" for m in picked
+            }, picked
+            # Shown to the synthesizer in letter order.
+            assert [e["label"] for e in legend] == sorted(e["label"] for e in legend)
 
 
 # ─── CLI and MCP ─────────────────────────────────────────────────

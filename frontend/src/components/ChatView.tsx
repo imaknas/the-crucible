@@ -931,7 +931,10 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       variant="synthesis"
                       hideLegend={chat && legendBlind(msg)}
                     />
-                    {chat && issueChecks && !msg.streaming && msg.synthesis_mode === "issues" && msg.checkpoint_id && (
+                    {/* Its verdicts and "raised by" name the reviewers: held back
+                        while their turn is compared blind, like peer review. */}
+                    {chat && issueChecks && !msg.streaming && msg.synthesis_mode === "issues" && msg.checkpoint_id &&
+                      !legendBlind(msg) && (
                       <IssueCheckSection
                         check={issueChecks.checkFor(msg.checkpoint_id)}
                         running={issueChecks.isRunning(msg.checkpoint_id)}
