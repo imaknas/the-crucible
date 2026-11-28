@@ -1,0 +1,43 @@
+# What The Crucible offers as a brunna service (service-manifest v1).
+v: 1
+name: the-crucible
+what: "Ask OpenAI, Anthropic, Google and xAI models the same question side by side, branch the conversation, synthesize, review and check their answers, and run structured debates between them"
+interface: 1
+setup:
+- uv --directory backend sync --frozen --no-dev
+cli:
+  run: uv --directory backend run --no-sync crucible
+mcp:
+  run: uv --directory backend run --no-sync python -m app.mcp_server
+secrets:
+- name: OPENAI_API_KEY
+  what: "OpenAI models (GPT)"
+  how: "create a key on the API keys page of platform.openai.com"
+  optional: true
+- name: ANTHROPIC_API_KEY
+  what: "Anthropic models (Claude)"
+  how: "create a key under API keys in console.anthropic.com"
+  optional: true
+- name: GOOGLE_API_KEY
+  what: "Google models (Gemini)"
+  how: "create a key with Get API key in aistudio.google.com"
+  optional: true
+- name: XAI_API_KEY
+  what: "xAI models (Grok)"
+  how: "create a key under API keys in console.x.ai"
+  optional: true
+network:
+- api.openai.com
+- api.anthropic.com
+- generativelanguage.googleapis.com
+- api.x.ai
+- huggingface.co
+data:
+- path: checkpoints.sqlite
+  what: "conversations, their branches, debates, votes, reviews, checks and saved cases"
+- path: uploads
+  what: "files uploaded to conversations"
+- path: chroma_db
+  what: "the search index of uploaded files"
+  backup: false
+  why: "rebuilt from the uploads"
