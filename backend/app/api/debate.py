@@ -63,7 +63,8 @@ def _row(session: dict[str, Any]) -> dict[str, Any]:
     """The stored session plus what a reader wants (its question)."""
     view = debate_svc.session_view(session)
     return {
-        **session,
+        # The judge's raw calls are the transcript's to price (its judge_usage).
+        **{k: v for k, v in session.items() if k != "judge_calls"},
         "question": view["question"],
         "questions": view["questions"],
         "created_at": view["created_at"],

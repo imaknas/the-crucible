@@ -57,3 +57,5 @@ def test_a_debate_reports_what_each_call_cost(client):
         + judged[0]["judge_usage"]["cost_usd"]
     assert t["total"]["cost_usd"] == pytest.approx(expected)
     assert t["total"]["answers"] == 5 and t["total"]["helpers"]["calls"] == 2
+    # A session row leaves the judge's raw calls to the transcript, which prices them.
+    assert "judge_calls" not in client.get(f"/debate/sessions/{sid}").json()

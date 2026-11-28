@@ -599,9 +599,12 @@ test.describe("live flows (scripted models)", () => {
     // What the two reviewers' calls cost.
     await expect(panel.getByTestId("usage-metrics")).toContainText(/^2 calls · .* \$/);
 
-    // Stored: it comes back with the thread.
+    // Stored: it comes back with the thread, and so does what it cost.
+    const cost = await panel.getByTestId("usage-metrics").textContent();
     await page.reload();
-    await expect(page.getByRole("region", { name: "How the models scored each other's answers" })).toBeVisible();
+    const stored = page.getByRole("region", { name: "How the models scored each other's answers" });
+    await expect(stored).toBeVisible();
+    await expect(stored.getByTestId("usage-metrics")).toHaveText(cost ?? "");
   });
 
   test("answers picked on different branches are combined from the tree, without moving the branch point", async ({ page }) => {

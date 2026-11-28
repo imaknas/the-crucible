@@ -42,8 +42,10 @@ class UsageModel(BaseChatModel):
 
     def _generate(self, messages: List[BaseMessage], stop=None, run_manager=None, **kw) -> ChatResult:
         prompt = extract_text(messages[-1].content)
-        if "relevant" in prompt.lower() and "yes" in prompt.lower():
-            reply = "yes"
+        if "<query>" in prompt:
+            # Relevant only to the person's question, not to a summary.
+            asked = prompt.split("<query>")[1].split("</query>")[0]
+            reply = "yes" if "When does" in asked else "no"
         elif "Which topics" in prompt:
             reply = "harbor crane"
         elif "summar" in prompt.lower():

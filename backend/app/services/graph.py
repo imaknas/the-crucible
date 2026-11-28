@@ -460,6 +460,14 @@ def count_tokens(messages: list) -> int:
     return int(total * 1.2)
 
 
+def latest_request(messages: list):
+    """The message a turn asks with: the last one, or the one before a
+    summary written this turn (the summary node appends it after the
+    question). Taking the summary searched nothing on that turn, and graded
+    the chunks against the summary instead of the question."""
+    return next((m for m in reversed(messages) if not is_summary_message(m)), messages[-1])
+
+
 def retrieve_node(state: CrucibleState, config: RunnableConfig):
     """Retrieve highly relevant chunks from ChromaDB for the active query."""
     if not state.get("toggles", {}).get("use_rag"):
@@ -469,10 +477,8 @@ def retrieve_node(state: CrucibleState, config: RunnableConfig):
     if not messages:
         return {"retrieved_chunks": []}
 
-    # Only retrieve if the last message is from the user. A summary written
-    # this turn is appended after the question; looking past it is what
-    # keeps that turn from searching nothing.
-    last_msg = next((m for m in reversed(messages) if not is_summary_message(m)), messages[-1])
+    # Only retrieve if the last message is from the user.
+    last_msg = latest_request(messages)
     # Check if type is human (handles both BaseMessage and dicts)
     is_human = getattr(last_msg, "type", "") == "human" or (
         isinstance(last_msg, dict) and last_msg.get("type", "") == "human"
@@ -517,7 +523,7 @@ async def grade_retrieval_node(state: CrucibleState, config: RunnableConfig):
         return {"retrieved_chunks": []}
 
     messages = state["messages"]
-    last_msg = messages[-1]
+    last_msg = latest_request(messages)
     query = extract_text(
         last_msg.content
         if not isinstance(last_msg, dict)
