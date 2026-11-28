@@ -1987,3 +1987,23 @@ summaries in each compacted cell), so the third audit's Haiku confound
   twice and appended its verdicts twice. The duplicates were removed from
   the history and the run file, and the model list is now deduplicated.
 - Spent $1.57 against an estimate of $3.02 (0.52×).
+
+### Fourth audit, Grok (scaffold-audit-20261128T053841)
+
+grok-4.3 reading, compaction and recall only (`--scaffold`), same setup.
+
+| scaffold | model | without → with | verdict |
+|---|---|---|---|
+| compaction | grok-4.3 | 0.83 → 0.90 | inconclusive |
+| recall | grok-4.3 | 0.42 → 0.90 | **keep** |
+| | oracle-strict | 0.48 → 1.00 | **keep** |
+
+- Recall is as essential for Grok as for the other readers.
+- Grok misses 8 of 48 with the whole history in context, every value
+  there (the oracle has 48/48), e.g. "None mentioned." for a choice stated
+  in the conversation; the compacted path is not worse (+0.06, interval
+  spans zero).
+- Spent $0.64 against an estimate of $2.36 (0.27×): 75–91% of Grok's input
+  was read from xAI's cache (the probes of a cell share their history),
+  which the estimate does not count. Reasoning tokens were most of its
+  output (337 of 343 in a typical probe).
