@@ -7,6 +7,7 @@ import {
   debateReplyFor,
   closeWarning,
   earlyStopStatus,
+  judgeUsageByRound,
   mayBeLive,
   questionMessage,
   restoredDebateStatus,
@@ -18,6 +19,7 @@ import {
   type TranscriptEvent,
 } from "@/lib/debateTranscript";
 import type { DebateSession, DebateStartConfig, DebateUiStatus, Toggles } from "@/lib/types";
+import type { UsageSummary } from "@/lib/metrics";
 import { useDebateTree } from "@/hooks/useDebateTree";
 import { useDebateSessions } from "@/hooks/useDebateSessions";
 import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
@@ -126,6 +128,8 @@ export function useDebateSession({
   const [maxRounds, setMaxRounds] = useState(3);
   const [status, setStatus] = useState<DebateUiStatus>("running");
   const [convergenceScore, setConvergenceScore] = useState<number | undefined>();
+  // The agreement judge's calls per round: with the bubbles' metrics, what the debate cost.
+  const [judgeUsage, setJudgeUsage] = useState<Record<number, UsageSummary>>({});
   // Debate nodes are read-only, so selection just expands the node in place.
   const [activeNode, setActiveNode] = useState<string | null>(null);
   // The node whose reply is open in full ("Read" on a node).
@@ -233,6 +237,7 @@ export function useDebateSession({
               syncQueueRef.current = null;
               const stored = t ?? { question: resume.question ?? "", rounds: [], synthesis: null };
               dispatch({ kind: "reset", messages: resumedMessages(stored, participantsRef.current, resume) });
+              setJudgeUsage(judgeUsageByRound(stored));
               dispatch({ kind: "resume", resume, now: Date.now() });
               if (resume.round !== null) {
                 for (const a of resume.answers) {
@@ -304,6 +309,10 @@ export function useDebateSession({
 
         case "debate_round_end":
           if (msg.convergence_score != null) setConvergenceScore(msg.convergence_score);
+          if (msg.judge_usage) {
+            const usage = msg.judge_usage as UsageSummary;
+            setJudgeUsage((prev) => ({ ...prev, [msg.round ?? 0]: usage }));
+          }
           refreshSoon(sessionId);
           break;
 
@@ -465,6 +474,7 @@ export function useDebateSession({
           if (adoptingRef.current !== s.session_id) return;
           if (!promptRef.current) promptRef.current = t.question;
           dispatch({ kind: "reset", messages: transcriptMessages(t, s.participants) });
+          setJudgeUsage(judgeUsageByRound(t));
           // A transcript read while a round's checkpoints are still being
           // written can come back without rounds the session says were
           // finished; ask again shortly.
@@ -557,6 +567,7 @@ export function useDebateSession({
       setRound(0);
       setStatus("running");
       setConvergenceScore(undefined);
+      setJudgeUsage({});
     }
   }
   useEffect(() => closeSocket, [threadId, closeSocket]);
@@ -616,6 +627,7 @@ export function useDebateSession({
         promptRef.current = prompt;
         dispatch({ kind: "reset", messages: [questionMessage(prompt)] });
         setConvergenceScore(undefined);
+        setJudgeUsage({});
         participantsRef.current = session.participants;
         setShowTree(true);
         // Information, not a failure: the debate runs either way.
@@ -727,6 +739,7 @@ export function useDebateSession({
     setRound(0);
     setStatus("running");
     setConvergenceScore(undefined);
+    setJudgeUsage({});
     setActiveNode(null);
     clearTree();
   }, [closeSocket, cancelRetry, setActiveSessionId, clearTree]);
@@ -788,6 +801,7 @@ export function useDebateSession({
       setActiveSessionId(sessionId);
       dispatch({ kind: "reset" });
       setConvergenceScore(undefined);
+      setJudgeUsage({});
       fetchTree(sessionId);
       api
         .fetchDebateSession(sessionId)
@@ -837,6 +851,7 @@ export function useDebateSession({
     status,
     connected,
     convergenceScore,
+    judgeUsage,
     controls,
     dialogOpen,
     dialogPrompt,

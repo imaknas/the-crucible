@@ -13,6 +13,8 @@ import {
 } from "@mui/material";
 import * as api from "@/lib/api";
 import { errorMessage } from "@/lib/errors";
+import type { UsageSummary } from "@/lib/metrics";
+import { UsageLine } from "./ReplyMetrics";
 
 /**
  * Step one of a checklist synthesis: the answers split into parts, each
@@ -35,6 +37,7 @@ export default function ChecklistDialog({
   onMerge: (keep: string[]) => void;
 }) {
   const [parts, setParts] = React.useState<{ text: string; sources: string[] }[] | null>(null);
+  const [usage, setUsage] = React.useState<UsageSummary | null>(null);
   const [kept, setKept] = React.useState<Set<number>>(new Set());
   const [error, setError] = React.useState<string | null>(null);
 
@@ -44,10 +47,11 @@ export default function ChecklistDialog({
     // Mounted fresh for each checklist (the page keys it), so nothing to reset here.
     api
       .listAnswerComponents(threadId, ids, model)
-      .then((found) => {
+      .then(({ components, usage: cost }) => {
         if (!live) return;
-        setParts(found);
-        setKept(new Set(found.map((_, i) => i)));
+        setParts(components);
+        setUsage(cost);
+        setKept(new Set(components.map((_, i) => i)));
       })
       .catch((e) => live && setError(errorMessage(e, "Couldn't split the answers into parts")));
     return () => {
@@ -101,6 +105,7 @@ export default function ChecklistDialog({
                 sx={{ alignItems: "flex-start", "& .MuiCheckbox-root": { pt: 0.5 } }}
               />
             ))}
+            <UsageLine usage={usage} />
           </Box>
         )}
       </DialogContent>

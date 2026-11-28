@@ -48,7 +48,7 @@ import { useVoteStats } from "@/hooks/useVoteStats";
 import { useNodeNotes } from "@/hooks/useNodeNotes";
 import { useAnswerDiff } from "@/hooks/useAnswerDiff";
 import { useSavedCases } from "@/hooks/useSavedCases";
-import { afterDebateRecord, peerLegend } from "@/lib/debateTranscript";
+import { afterDebateRecord, debateTotal, peerLegend } from "@/lib/debateTranscript";
 import { reconcileMessages } from "@/lib/messages";
 import { answeringModelIds } from "@/lib/catalog";
 import { RADIUS, VISUALLY_HIDDEN } from "@/theme";
@@ -267,6 +267,10 @@ export default function Home() {
     continueDebate,
   } = debate;
   const debateLanes = debate.tree.lanes;
+  const debateCost = useMemo(
+    () => debateTotal(debate.messages, debate.judgeUsage),
+    [debate.messages, debate.judgeUsage],
+  );
   const debateWarnings = useMemo(
     () => debate.sessions.find((s) => s.session_id === debate.activeSessionId)?.warnings ?? [],
     [debate.sessions, debate.activeSessionId],
@@ -283,6 +287,7 @@ export default function Home() {
               legend: peerLegend(debateLanes),
               warnings: debateWarnings,
               mapWritten: debateMapWritten,
+              total: debateCost,
             },
             onClose: closeDebate,
             onSynthesize: debateCtl.synthesize
@@ -304,6 +309,7 @@ export default function Home() {
       debateLanes,
       debateWarnings,
       debateMapWritten,
+      debateCost,
       closeDebate,
       debateCtl,
       synthesizeDebate,

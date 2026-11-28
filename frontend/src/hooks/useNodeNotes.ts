@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import * as api from "@/lib/api";
 import { errorMessage } from "@/lib/errors";
+import { formatUsage } from "@/lib/metrics";
 import type { PushToast } from "@/hooks/useToasts";
 
 interface Options {
@@ -50,9 +51,11 @@ export function useNodeNotes({ threadId, refresh, pushToast, summarizer, collaps
       if (!threadId) return;
       setSummarizing((s) => [...s, id]);
       try {
-        await api.summarizeSubtree(threadId, id, summarizer);
+        const usage = await api.summarizeSubtree(threadId, id, summarizer);
         collapse(id, true);
         refresh();
+        // A paid call the tree doesn't show: say what it took.
+        if (usage) pushToast(`Branch summarized · ${formatUsage(usage)}`, "success");
       } catch (e) {
         pushToast(errorMessage(e, "Couldn't summarize the branch"), "error");
       } finally {

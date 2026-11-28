@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Button, CircularProgress, Typography } from "@mui/material";
 import type { IssueCheck, IssueVerdict } from "@/lib/types";
+import { UsageLine } from "./ReplyMetrics";
 
 export const VERDICT_LABELS: Record<IssueVerdict, string> = {
   holds: "Holds",
@@ -75,6 +76,7 @@ export function IssueCheckPanel({ check, modelLabel }: { check: IssueCheck; mode
           {modelLabel(model)} couldn&apos;t check: {error}
         </Typography>
       ))}
+      <UsageLine usage={check.usage} />
     </Box>
   );
 }

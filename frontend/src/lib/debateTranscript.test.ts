@@ -14,7 +14,7 @@ import {
   debatingRoleWarning,
   transcriptReducer,
   type Transcript,
-  type TranscriptAction, debateCallEstimate, debateReplyFor, debateReplyTitle, transcriptIncomplete, closeWarning, mayBeLive, resumedMessages, type DebateResume, sessionAge, transcriptMessages } from "./debateTranscript";
+  type TranscriptAction, debateCallEstimate, debateReplyFor, debateReplyTitle, transcriptIncomplete, closeWarning, mayBeLive, resumedMessages, type DebateResume, sessionAge, transcriptMessages, debateTotal, judgeUsageByRound } from "./debateTranscript";
 
 const run = (actions: TranscriptAction[], start: Transcript = EMPTY_TRANSCRIPT) =>
   actions.reduce(transcriptReducer, start);
@@ -471,5 +471,92 @@ describe("round labels under a stance", () => {
       { model_id: "claude", label: "Claude", peer_label: null, stance_note: null, lane_index: 1, color: "#111" },
     ]);
     expect(legend).toEqual([{ label: "GPT", name: "GPT", modelId: "gpt", color: "#000", note: "assigned to argue: Yes" }]);
+  });
+});
+
+describe("what a debate cost", () => {
+  const m = (cost: number) => ({
+    ttft_ms: 100,
+    total_ms: 900,
+    input_tokens: 1000,
+    output_tokens: 100,
+    reasoning_tokens: null,
+    cached_input_tokens: 0,
+    cost_usd: cost,
+  });
+  const judge = {
+    calls: 2,
+    kinds: ["agreement judge"],
+    input_tokens: 500,
+    output_tokens: 20,
+    reasoning_tokens: 0,
+    cached_input_tokens: 0,
+    cost_usd: 0.001,
+    unpriced: 0,
+  };
+
+  it("puts each reply's metrics on its bubble as it ends", () => {
+    const t = run([
+      ev({ type: "debate_round_start", round: 0 }),
+      ev({ type: "stream_start", model: "a", round: 0 }),
+      ev({ type: "stream_end", model: "a", content: "Yes", metrics: m(0.01) }),
+      ev({ type: "debate_synthesis_start", model: "a" }),
+      ev({
+        type: "debate_synthesis_end",
+        model: "a",
+        content: "Map",
+        metrics: m(0.02),
+      }),
+    ]);
+    expect(
+      t.messages
+        .filter((x) => x.role === "assistant")
+        .map((x) => x.metrics?.cost_usd),
+    ).toEqual([0.01, 0.02]);
+  });
+
+  it("restores them, and the judge's calls, from the stored transcript", () => {
+    const stored: DebateTranscript = {
+      question: "Q",
+      rounds: [
+        {
+          round: 0,
+          question: "Q",
+          responses: { a: "Yes", b: "No" },
+          metrics: { a: m(0.01), b: m(0.02) },
+        },
+        {
+          round: 1,
+          question: "Q",
+          responses: { a: "Yes", b: "No" },
+          metrics: { a: m(0.01), b: null },
+          judge_usage: judge,
+        },
+      ],
+      synthesis: { model: "a", content: "Map", metrics: m(0.03) },
+    };
+    const messages = transcriptMessages(stored, ["a", "b"]);
+    expect(
+      messages.find((x) => x.id === "restored-b-r1")?.metrics,
+    ).toBeUndefined();
+    const total = debateTotal(messages, judgeUsageByRound(stored))!;
+    // Four replies with metrics and the synthesis; the judge counted as other calls.
+    expect(total.answers).toBe(4);
+    expect(total.cost_usd).toBeCloseTo(0.01 + 0.02 + 0.01 + 0.03 + 0.001);
+    expect(total.helpers?.calls).toBe(2);
+    expect(debateTotal([], {})).toBeNull();
+  });
+
+  it("keeps a resumed round's finished answers' metrics", () => {
+    const resume: DebateResume = {
+      status: "running",
+      round: 0,
+      question: "Q",
+      convergence_score: null,
+      synthesis: null,
+      answers: [{ model: "a", content: "Yes", done: true, metrics: m(0.01) }],
+    };
+    const t = run([{ kind: "resume", resume, now: 1 }]);
+    expect(t.messages[0].metrics?.cost_usd).toBe(0.01);
   });
 });

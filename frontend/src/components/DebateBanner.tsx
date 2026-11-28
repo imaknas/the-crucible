@@ -4,6 +4,8 @@ import { Pause, Play, RotateCw, Sparkles, Swords, X as XIcon } from "lucide-reac
 import type { DebateUiStatus } from "@/lib/types";
 import type { PeerLegendEntry } from "@/lib/debateTranscript";
 import { SURFACE, readableOn } from "@/lib/colors";
+import type { TurnMetrics } from "@/lib/metrics";
+import { TurnMetricsLine } from "./ReplyMetrics";
 
 export interface DebateBannerState {
   round: number;
@@ -16,6 +18,8 @@ export interface DebateBannerState {
   warnings?: string[];
   /** The transcript already ends in an argument map: writing one is then a redo, not the next step. */
   mapWritten?: boolean;
+  /** What the debate's completed calls cost so far (lib/debateTranscript.debateTotal). */
+  total?: TurnMetrics | null;
 }
 
 const DEBATE_STATUS_STYLE: Record<DebateUiStatus, { bg: string; fg: string }> = {
@@ -122,6 +126,7 @@ export default function DebateBanner({
           {note}
         </Typography>
       )}
+      {state.total && <TurnMetricsLine total={state.total} align="left" testId="debate-metrics" />}
       {state.legend && state.legend.length > 0 && (
         <Box
           aria-label="Who each participant is"

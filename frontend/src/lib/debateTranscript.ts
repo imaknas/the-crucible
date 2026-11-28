@@ -7,6 +7,7 @@
  * makes it testable without a socket or a page.
  */
 import type { DebateLane, DebateSession, DebateTranscript, DebateUiStatus, Message, StanceMode, TreeNode } from "@/lib/types";
+import { turnTotal, type ReplyMetrics, type TurnMetrics, type UsageSummary } from "@/lib/metrics";
 
 export interface Transcript {
   messages: Message[];
@@ -22,9 +23,9 @@ const SYNTHESIS_KEY = "__synthesis__";
 export type TranscriptEvent =
   | { type: "debate_round_start"; round?: number; stance?: StanceMode }
   | { type: "stream_start"; model: string; round?: number }
-  | { type: "stream_end"; model: string; content?: string; checkpoint_id?: string }
+  | { type: "stream_end"; model: string; content?: string; checkpoint_id?: string; metrics?: ReplyMetrics | null }
   | { type: "debate_synthesis_start"; model?: string }
-  | { type: "debate_synthesis_end"; model?: string; content?: string }
+  | { type: "debate_synthesis_end"; model?: string; content?: string; metrics?: ReplyMetrics | null }
   | { type: "error"; model?: string; message?: string };
 
 /**
@@ -36,8 +37,21 @@ export interface DebateResume {
   /** The round in progress; null before the first. */
   round: number | null;
   question: string | null;
-  answers: { model: string; content: string; done: boolean; checkpoint_id?: string | null; error?: string | null }[];
-  synthesis: { model: string | null; content: string; done: boolean; error?: string | null } | null;
+  answers: {
+    model: string;
+    content: string;
+    done: boolean;
+    checkpoint_id?: string | null;
+    error?: string | null;
+    metrics?: ReplyMetrics | null;
+  }[];
+  synthesis: {
+    model: string | null;
+    content: string;
+    done: boolean;
+    error?: string | null;
+    metrics?: ReplyMetrics | null;
+  } | null;
   convergence_score: number | null;
 }
 
@@ -151,6 +165,7 @@ export function transcriptMessages(t: DebateTranscript, participants: string[]):
       const text = r.responses[model];
       const error = r.errors?.[model];
       if (text === undefined && error === undefined) continue;
+      const metrics = r.metrics?.[model];
       out.push({
         id: `restored-${model}-r${r.round}`,
         role: "assistant",
@@ -158,6 +173,7 @@ export function transcriptMessages(t: DebateTranscript, participants: string[]):
         type: "ai",
         round: r.round,
         content: text ? (error ? `${text}\n\n_(stopped: ${error})_` : text) : `_(no response: ${error})_`,
+        ...(metrics ? { metrics } : {}),
       });
     }
   }
@@ -169,9 +185,29 @@ export function transcriptMessages(t: DebateTranscript, participants: string[]):
       model: t.synthesis.model,
       ...(t.synthesis.model_name ? { model_name: t.synthesis.model_name } : {}),
       content: t.synthesis.content,
+      ...(t.synthesis.metrics ? { metrics: t.synthesis.metrics } : {}),
     });
   }
   return out;
+}
+
+/** Each round's agreement-judge calls in a stored debate, by round. */
+export function judgeUsageByRound(t: DebateTranscript): Record<number, UsageSummary> {
+  const out: Record<number, UsageSummary> = {};
+  for (const r of t.rounds) if (r.judge_usage) out[r.round] = r.judge_usage;
+  return out;
+}
+
+/**
+ * What the debate on screen cost: every reply and synthesis bubble's
+ * metrics (with the calls made for each) and the judge's calls. The same
+ * total as the stored transcript's, and it grows as the debate streams.
+ */
+export function debateTotal(messages: Message[], judge: Record<number, UsageSummary>): TurnMetrics | null {
+  return turnTotal(
+    messages.filter((m) => m.role === "assistant").map((m) => m.metrics),
+    Object.values(judge),
+  );
 }
 
 /**
@@ -381,6 +417,7 @@ function applyResume(state: Transcript, resume: DebateResume, now: number): Tran
         round: r,
         streaming: !a.done,
         ...(a.checkpoint_id ? { checkpoint_id: a.checkpoint_id } : {}),
+        ...(a.metrics ? { metrics: a.metrics } : {}),
       });
       if (!a.done) streaming[a.model] = id;
     }
@@ -395,6 +432,7 @@ function applyResume(state: Transcript, resume: DebateResume, now: number): Tran
       ...(synthesis.model ? { model: synthesis.model } : {}),
       content: synthesis.content,
       streaming: !synthesis.done,
+      ...(synthesis.metrics ? { metrics: synthesis.metrics } : {}),
     });
     if (!synthesis.done) {
       streaming[SYNTHESIS_KEY] = id;
@@ -435,6 +473,7 @@ function applyEvent(state: Transcript, event: TranscriptEvent, now: number): Tra
           content: event.content ?? m.content,
           streaming: false,
           ...(event.checkpoint_id ? { checkpoint_id: event.checkpoint_id } : {}),
+          ...(event.metrics ? { metrics: event.metrics } : {}),
         })),
         streaming: withoutKey(state.streaming, event.model),
       };
@@ -460,7 +499,12 @@ function applyEvent(state: Transcript, event: TranscriptEvent, now: number): Tra
       let streaming = withoutKey(state.streaming, SYNTHESIS_KEY);
       if (event.model) streaming = withoutKey(streaming, event.model);
       return {
-        messages: update(state.messages, id, (m) => ({ ...m, content: event.content ?? m.content, streaming: false })),
+        messages: update(state.messages, id, (m) => ({
+          ...m,
+          content: event.content ?? m.content,
+          streaming: false,
+          ...(event.metrics ? { metrics: event.metrics } : {}),
+        })),
         streaming,
       };
     }

@@ -7,7 +7,27 @@
  * cached tokens are part of output and input, never added to them.
  * `cost_usd` null means the model has no known price: shown as "price
  * unknown", never guessed.
+ *
+ * A reply's own numbers are its answering call alone. `helpers` is the other
+ * calls made for it (a history summary, document grading, recall); an
+ * operation that is only such calls (peer review, a check, a debate's judge)
+ * reports the same shape as `usage`. Only completed calls are counted.
  */
+
+/** Model calls together (services/metrics.usage_summary). */
+export interface UsageSummary {
+  calls: number;
+  /** What they were for: "summary", "recall", "document grading", … */
+  kinds: string[];
+  input_tokens: number;
+  output_tokens: number;
+  reasoning_tokens: number;
+  cached_input_tokens: number;
+  /** The priced calls' cost; null when none had a known price. */
+  cost_usd: number | null;
+  /** Calls with no known price, which cost_usd leaves out. */
+  unpriced: number;
+}
 
 export interface ReplyMetrics {
   ttft_ms: number | null;
@@ -17,13 +37,19 @@ export interface ReplyMetrics {
   reasoning_tokens: number | null;
   cached_input_tokens: number | null;
   cost_usd: number | null;
+  /** The other calls made for this reply; null (or absent, older payloads) for none. */
+  helpers?: UsageSummary | null;
 }
 
-/** A turn's answers together: tokens and cost summed, times the slowest. */
+/**
+ * A turn's answers together: tokens and cost summed, times the slowest.
+ * Tokens and cost include every answer's helpers (and any extra calls, a
+ * debate's judge), which `helpers` also sums on its own.
+ */
 export interface TurnMetrics extends ReplyMetrics {
   /** Answers with metrics. */
   answers: number;
-  /** Answers with tokens but no known price: `cost_usd` leaves them out. */
+  /** Answers and calls with tokens but no known price: `cost_usd` leaves them out. */
   unpriced: number;
 }
 
@@ -58,6 +84,48 @@ function cost(m: ReplyMetrics | TurnMetrics): string {
   return formatCost(m.cost_usd);
 }
 
+function usageCost(u: UsageSummary): string {
+  if (u.cost_usd === null) return "price unknown";
+  return u.unpriced
+    ? `${formatCost(u.cost_usd)} + ${u.unpriced} price unknown`
+    : formatCost(u.cost_usd);
+}
+
+const plural = (n: number, word: string) =>
+  `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** "$0.0012 for 3 other calls (summary, recall)". */
+export function formatHelpers(u: UsageSummary): string {
+  const kinds = u.kinds.length ? ` (${u.kinds.join(", ")})` : "";
+  return `${usageCost(u)} for ${plural(u.calls, "other call")}${kinds}`;
+}
+
+/** Calls on their own: "2 calls · 1,234 in / 56 out · $0.0012". */
+export function formatUsage(u: UsageSummary | null | undefined): string {
+  if (!u) return "";
+  return `${plural(u.calls, "call")} · ${count(u.input_tokens)} in / ${count(u.output_tokens)} out · ${usageCost(u)}`;
+}
+
+/** A usage summary's numbers, one per line, for a tooltip. */
+export function usageBreakdown(u: UsageSummary): string[] {
+  const cached = u.cached_input_tokens
+    ? ` (${count(u.cached_input_tokens)} read from cache)`
+    : "";
+  const reasoning = u.reasoning_tokens
+    ? ` (${count(u.reasoning_tokens)} of them reasoning)`
+    : "";
+  const exact = u.cost_usd === null ? "unknown" : `$${u.cost_usd.toFixed(6)}`;
+  return [
+    `${plural(u.calls, "call")}${u.kinds.length ? `: ${u.kinds.join(", ")}` : ""}`,
+    `Input tokens: ${count(u.input_tokens)}${cached}`,
+    `Output tokens: ${count(u.output_tokens)}${reasoning}`,
+    u.unpriced
+      ? `Cost: ${exact}, not counting ${plural(u.unpriced, "call")} without a known price`
+      : `Cost: ${exact}`,
+    "Completed calls only: a stopped or failed call reports nothing.",
+  ];
+}
+
 /** One answer on one line: "1.2 s to first token · 8.4 s total · 1,234 in / 567 out (120 reasoning) · $0.0123". */
 export function formatMetrics(m: ReplyMetrics | null | undefined): string {
   if (!m) return "";
@@ -65,6 +133,7 @@ export function formatMetrics(m: ReplyMetrics | null | undefined): string {
   if (m.ttft_ms !== null) parts.push(`${seconds(m.ttft_ms)} to first token`);
   if (m.total_ms !== null) parts.push(`${seconds(m.total_ms)} total`);
   if (hasTokens(m)) parts.push(tokens(m), cost(m));
+  if (m.helpers) parts.push(`+ ${formatHelpers(m.helpers)}`);
   return parts.join(" · ");
 }
 
@@ -107,6 +176,13 @@ export function metricsBreakdown(m: ReplyMetrics | TurnMetrics): string[] {
     }
   }
   if (turn) lines.push(`Over ${m.answers} answer${m.answers > 1 ? "s" : ""}`);
+  if (m.helpers) {
+    lines.push(
+      turn
+        ? `Includes ${formatHelpers(m.helpers)}`
+        : `Not counted above: ${formatHelpers(m.helpers)}, ${count(m.helpers.input_tokens)} in / ${count(m.helpers.output_tokens)} out`,
+    );
+  }
   lines.push("Times cover the model's own call.");
   return lines;
 }
@@ -124,25 +200,83 @@ const max = (values: (number | null)[]) => {
   return known.length ? Math.max(...known) : null;
 };
 
-/** A turn's total, or null when no answer has metrics. */
+type UsageCount =
+  | "calls"
+  | "input_tokens"
+  | "output_tokens"
+  | "reasoning_tokens"
+  | "cached_input_tokens"
+  | "unpriced";
+
+/** Several usage summaries as one, or null for none. */
+export function combineUsage(
+  usages: (UsageSummary | null | undefined)[],
+): UsageSummary | null {
+  const known = usages.filter((u): u is UsageSummary => !!u);
+  if (!known.length) return null;
+  const add = (key: UsageCount) =>
+    known.reduce((a, u) => a + (u[key] ?? 0), 0);
+  const costs = known
+    .map((u) => u.cost_usd)
+    .filter((c): c is number => c !== null);
+  return {
+    calls: add("calls"),
+    kinds: [...new Set(known.flatMap((u) => u.kinds))].sort(),
+    input_tokens: add("input_tokens"),
+    output_tokens: add("output_tokens"),
+    reasoning_tokens: add("reasoning_tokens"),
+    cached_input_tokens: add("cached_input_tokens"),
+    cost_usd: costs.length ? costs.reduce((a, b) => a + b, 0) : null,
+    unpriced: add("unpriced"),
+  };
+}
+
+/**
+ * A turn's total (services/metrics.turn_total), or null when nothing has
+ * metrics. `extra` is calls that belong to no answer (a debate's judge).
+ */
 export function turnTotal(
   metrics: (ReplyMetrics | null | undefined)[],
+  extra: (UsageSummary | null | undefined)[] = [],
 ): TurnMetrics | null {
   const known = metrics.filter((m): m is ReplyMetrics => !!m);
-  if (!known.length) return null;
+  const helpers = combineUsage([...known.map((m) => m.helpers), ...extra]);
+  if (!known.length && !helpers) return null;
   const priced = known.filter((m) => m.cost_usd !== null);
+  const plus = (own: number | null, more: number | undefined) =>
+    helpers ? (own ?? 0) + (more ?? 0) : own;
+  const answerCost = priced.length
+    ? priced.reduce((a, m) => a + (m.cost_usd as number), 0)
+    : null;
+  const helperCost = helpers?.cost_usd ?? null;
   return {
     answers: known.length,
     ttft_ms: max(known.map((m) => m.ttft_ms)),
     total_ms: max(known.map((m) => m.total_ms)),
-    input_tokens: sum(known.map((m) => m.input_tokens)),
-    output_tokens: sum(known.map((m) => m.output_tokens)),
-    reasoning_tokens: sum(known.map((m) => m.reasoning_tokens)),
-    cached_input_tokens: sum(known.map((m) => m.cached_input_tokens)),
-    cost_usd: priced.length
-      ? priced.reduce((a, m) => a + (m.cost_usd as number), 0)
-      : null,
-    unpriced: known.filter((m) => hasTokens(m) && m.cost_usd === null).length,
+    input_tokens: plus(
+      sum(known.map((m) => m.input_tokens)),
+      helpers?.input_tokens,
+    ),
+    output_tokens: plus(
+      sum(known.map((m) => m.output_tokens)),
+      helpers?.output_tokens,
+    ),
+    reasoning_tokens: plus(
+      sum(known.map((m) => m.reasoning_tokens)),
+      helpers?.reasoning_tokens,
+    ),
+    cached_input_tokens: plus(
+      sum(known.map((m) => m.cached_input_tokens)),
+      helpers?.cached_input_tokens,
+    ),
+    cost_usd:
+      answerCost === null && helperCost === null
+        ? null
+        : (answerCost ?? 0) + (helperCost ?? 0),
+    unpriced:
+      known.filter((m) => hasTokens(m) && m.cost_usd === null).length +
+      (helpers?.unpriced ?? 0),
+    helpers,
   };
 }
 
@@ -152,5 +286,6 @@ export function formatTurnTotal(t: TurnMetrics | null): string {
   const parts = ["Total"];
   if (t.total_ms !== null) parts.push(`slowest ${seconds(t.total_ms)}`);
   if (hasTokens(t)) parts.push(tokens(t), cost(t));
+  if (t.helpers) parts.push(`incl. ${formatHelpers(t.helpers)}`);
   return parts.join(" · ");
 }

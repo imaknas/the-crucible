@@ -1,7 +1,7 @@
 // ─── Shared Types ───────────────────────────────────────────────────────────
 // Single source of truth for all shared data types across the frontend.
 
-import type { ReplyMetrics } from "@/lib/metrics";
+import type { ReplyMetrics, TurnMetrics, UsageSummary } from "@/lib/metrics";
 import type { ReplyContext } from "@/lib/context";
 
 /** A row of the session list (GET /threads). */
@@ -259,9 +259,20 @@ export interface DebateTranscript {
     /** A model that failed this round: its slot holds the reason, later rounds don't shift. */
     errors?: Record<string, string>;
     score?: number | null;
+    /** Each reply's time, tokens and cost (with the calls made for it). */
+    metrics?: Record<string, ReplyMetrics | null>;
+    /** The agreement judge's calls that round. */
+    judge_usage?: UsageSummary | null;
   }[];
-  synthesis: { model: string; model_name?: string | null; content: string } | null;
+  synthesis: {
+    model: string;
+    model_name?: string | null;
+    content: string;
+    metrics?: ReplyMetrics | null;
+  } | null;
   injected?: { round: number; message: string }[];
+  /** Every completed call of the debate together (services/debate.rounds_total). */
+  total?: TurnMetrics | null;
 }
 
 export interface DebateRoundState {
@@ -330,6 +341,8 @@ export interface IssueCheck {
     disagree: boolean;
   }[];
   errors: Record<string, string>;
+  /** What the checkers' calls cost; null on a check stored before it was kept. */
+  usage?: UsageSummary | null;
 }
 
 export interface AnswerReview {
@@ -346,4 +359,6 @@ export interface AnswerReview {
     scores: { reviewer: string; reviewer_name: string; score: number; reason: string }[];
   }[];
   errors: Record<string, string>;
+  /** What the reviewers' calls cost; null on a review stored before it was kept. */
+  usage?: UsageSummary | null;
 }

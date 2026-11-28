@@ -31,13 +31,18 @@ describe("useNodeNotes", () => {
   });
 
   it("summarizes with the chosen summarizer and folds the branch under its summary", async () => {
-    mocked.summarizeSubtree.mockResolvedValue();
-    const { result, collapse, refresh } = setup();
+    mocked.summarizeSubtree.mockResolvedValue({
+      calls: 1, kinds: ["branch summary"], input_tokens: 1200, output_tokens: 80,
+      reasoning_tokens: 0, cached_input_tokens: 0, cost_usd: 0.0004, unpriced: 0,
+    });
+    const { result, collapse, refresh, pushToast } = setup();
     await act(() => result.current.summarize("n1"));
     expect(mocked.summarizeSubtree).toHaveBeenCalledWith("t1", "n1", "luna");
     expect(collapse).toHaveBeenCalledWith("n1", true);
     expect(refresh).toHaveBeenCalled();
     expect(result.current.summarizing).toEqual([]);
+    // The call isn't on the tree, so its cost is said once.
+    expect(pushToast).toHaveBeenCalledWith("Branch summarized · 1 call · 1,200 in / 80 out · $0.0004", "success");
   });
 
   it("says why a summary failed and folds nothing", async () => {

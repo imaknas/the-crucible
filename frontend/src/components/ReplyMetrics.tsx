@@ -4,9 +4,12 @@ import { Gauge } from "lucide-react";
 import {
   formatMetrics,
   formatTurnTotal,
+  formatUsage,
   metricsBreakdown,
+  usageBreakdown,
   type ReplyMetrics,
   type TurnMetrics,
+  type UsageSummary,
 } from "@/lib/metrics";
 import { effortLabel } from "@/lib/effort";
 import type { ReplyEffort } from "@/lib/types";
@@ -104,11 +107,15 @@ export function TurnMetricsLine({
   total,
   answered = null,
   asked = 0,
+  align = "center",
+  testId = "turn-metrics",
 }: {
   total: TurnMetrics | null;
   /** How many of the `asked` models answered: a total over fewer says so. */
   answered?: number | null;
   asked?: number;
+  align?: "left" | "center";
+  testId?: string;
 }) {
   const text = formatTurnTotal(total);
   if (!total || text === "Total") return null;
@@ -117,8 +124,15 @@ export function TurnMetricsLine({
     <MetricsLine
       text={partial + text}
       lines={metricsBreakdown(total)}
-      testId="turn-metrics"
-      align="center"
+      testId={testId}
+      align={align}
     />
   );
+}
+
+/** What an operation's own calls took (peer review, a check, a branch summary). */
+export function UsageLine({ usage }: { usage: UsageSummary | null | undefined }) {
+  const text = formatUsage(usage);
+  if (!usage || !text) return null;
+  return <MetricsLine text={text} lines={usageBreakdown(usage)} testId="usage-metrics" />;
 }

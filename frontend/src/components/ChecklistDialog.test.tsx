@@ -8,14 +8,22 @@ jest.mock("@/lib/api");
 
 describe("ChecklistDialog", () => {
   it("lists the parts, all kept, and merges the ones still ticked", async () => {
-    (api.listAnswerComponents as jest.Mock).mockResolvedValue([
-      { text: "Start with a monolith.", sources: ["GPT-5.4"] },
-      { text: "Split out billing first.", sources: ["Claude Sonnet 5"] },
-    ]);
+    (api.listAnswerComponents as jest.Mock).mockResolvedValue({
+      components: [
+        { text: "Start with a monolith.", sources: ["GPT-5.4"] },
+        { text: "Split out billing first.", sources: ["Claude Sonnet 5"] },
+      ],
+      usage: {
+        calls: 1, kinds: ["components"], input_tokens: 900, output_tokens: 60,
+        reasoning_tokens: 0, cached_input_tokens: 0, cost_usd: 0.0021, unpriced: 0,
+      },
+    });
     const onMerge = jest.fn();
     render(<ChecklistDialog open threadId="t" ids={["a", "b"]} model={null} onClose={jest.fn()} onMerge={onMerge} />);
     expect(screen.getByRole("status")).toHaveTextContent("Splitting the answers into parts");
     fireEvent.click(await screen.findByRole("checkbox", { name: /Split out billing first/ }));
+    // What splitting them cost.
+    expect(screen.getByTestId("usage-metrics")).toHaveTextContent("1 call · 900 in / 60 out · $0.0021");
     fireEvent.click(screen.getByRole("button", { name: "Merge 1 part" }));
     expect(onMerge).toHaveBeenCalledWith(["Start with a monolith."]);
     expect(api.listAnswerComponents).toHaveBeenCalledWith("t", ["a", "b"], null);

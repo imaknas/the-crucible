@@ -596,6 +596,8 @@ test.describe("live flows (scripted models)", () => {
     await expect(panel).toBeVisible();
     await expect(panel.getByText("7.0 / 10")).toHaveCount(2);
     await expect(panel).toContainText("not a verdict");
+    // What the two reviewers' calls cost.
+    await expect(panel.getByTestId("usage-metrics")).toContainText(/^2 calls · .* \$/);
 
     // Stored: it comes back with the thread.
     await page.reload();
@@ -748,6 +750,13 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.getByText("DEBATE · ROUND 2/2")).toBeVisible();
     await expect(debateStatus(page)).toHaveText("completed", { timeout: 40_000 });
     await expect(page.getByText(answerFrom(CLAUDE)).first()).toBeVisible();
+    // Each reply says what it took, and the banner what the debate cost.
+    await expect(page.getByTestId("reply-metrics").first()).toContainText("$");
+    await expect(page.getByTestId("debate-metrics").first()).toContainText(/^Total · .* \$/);
+    // The same total after a reload, from the stored transcript.
+    const total = await page.getByTestId("debate-metrics").first().textContent();
+    await page.reload();
+    await expect(page.getByTestId("debate-metrics").first()).toHaveText(total ?? "");
   });
 
   test("a model that fails mid-debate is closed out, not left spinning", async ({ page }) => {

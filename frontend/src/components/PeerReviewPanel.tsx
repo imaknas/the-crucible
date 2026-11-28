@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Typography } from "@mui/material";
 import type { AnswerReview } from "@/lib/types";
+import { UsageLine } from "./ReplyMetrics";
 
 /**
  * How the models scored each other's answers: each scored the others,
@@ -53,6 +54,7 @@ export default function PeerReviewPanel({
           {modelLabel(model)} couldn&apos;t review: {error}
         </Typography>
       ))}
+      <UsageLine usage={review.usage} />
     </Box>
   );
 }

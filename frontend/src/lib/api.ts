@@ -1,5 +1,6 @@
 import { ensureOk } from "@/lib/errors";
 import type { NextTurnContext } from "@/lib/context";
+import type { UsageSummary } from "@/lib/metrics";
 import type { CaseReplay, CaseSummary, SavedCase } from "@/lib/cases";
 
 export const API_BASE =
@@ -83,13 +84,18 @@ export async function labelNode(
   return res.json();
 }
 
-/** Summarize a node and everything below it (the summarizer model); stored on the node. */
-export async function summarizeSubtree(threadId: string, nodeId: string, model?: string | null): Promise<void> {
+/** Summarize a node and everything below it (the summarizer model); stored on the node. Resolves to what the call cost. */
+export async function summarizeSubtree(
+  threadId: string,
+  nodeId: string,
+  model?: string | null,
+): Promise<UsageSummary | null> {
   const res = await fetch(
     `${API_BASE}/history/${encodeURIComponent(threadId)}/nodes/${encodeURIComponent(nodeId)}/summary`,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: model ?? null }) },
   );
   await ensureOk(res, "Couldn't summarize the branch");
+  return (await res.json()).usage ?? null;
 }
 
 export async function clearSubtreeSummary(threadId: string, nodeId: string): Promise<void> {
@@ -324,14 +330,15 @@ export async function listAnswerComponents(
   threadId: string,
   checkpointIds: string[],
   model?: string | null,
-): Promise<{ text: string; sources: string[] }[]> {
+): Promise<{ components: { text: string; sources: string[] }[]; usage: UsageSummary | null }> {
   const res = await fetch(`${API_BASE}/synthesis/components`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ thread_id: threadId, checkpoint_ids: checkpointIds, model: model ?? null }),
   });
   await ensureOk(res, "Couldn't split the answers into parts");
-  return (await res.json()).components;
+  const body = await res.json();
+  return { components: body.components, usage: body.usage ?? null };
 }
 
 /** Record a vote on a turn's answers; the best answer by checkpoint or blind letter. */
