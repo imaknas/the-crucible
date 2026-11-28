@@ -19,7 +19,7 @@ from tests.storage_helpers import point
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
 A, B = "gpt-5.4", "claude-sonnet-5"
-FIELDS = {"ttft_ms", "total_ms", "input_tokens", "output_tokens", "reasoning_tokens", "cached_input_tokens", "cost_usd"}
+FIELDS = {"ttft_ms", "total_ms", "input_tokens", "output_tokens", "reasoning_tokens", "cached_input_tokens", "cost_usd", "helpers"}
 
 
 @pytest.fixture(autouse=True)

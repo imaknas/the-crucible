@@ -22,7 +22,7 @@ from app.llm.providers import REQUEST_NOTES_HEADER
 from app.services.documents import document_thread, documents_for_run
 from app.llm.effort import model_levels, resolve_level
 from app.services.message_format import ANGLE_KEY, CONTEXT_KEY, EFFORT_KEY, message_model
-from app.services.metrics import ReplyTimer, clock_from
+from app.services.metrics import HELPERS_KEY, ReplyTimer, clock_from, meter_from
 from app.services.recall import INTERNAL_TAG
 from app.compaction import ContextSnapshot, DetailedBrief, EarlierMessage, KeepRecent, ModelBudget, ThresholdPolicy
 
@@ -691,6 +691,10 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     # Timed on the call's own callbacks; the timing is stored on the reply
     # (services/metrics.py), so it survives a reload like the reply does.
     timer = ReplyTimer(clock_from(config))
+    # Everything the run's meter recorded so far was a call made for this
+    # reply (summary, document grading, recall): kept with it, as raw usage.
+    meter = meter_from(config)
+    helper_calls = meter.calls() if meter else []
     try:
         response = model.invoke(sanitized_messages, config=timer.watch(config))
         timer.stop()
@@ -703,6 +707,8 @@ def drafting_node(state: CrucibleState, config: RunnableConfig):
     response.name = active_peer
     response.additional_kwargs["model_id"] = active_peer
     timer.stamp(response)
+    if helper_calls:
+        response.additional_kwargs[HELPERS_KEY] = helper_calls
     # What this reply was written from, kept with it like its timing: the
     # transcript can say it answered from a summary and what recall brought
     # back, after a reload too.

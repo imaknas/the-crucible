@@ -14,13 +14,21 @@ cost is unknown, never guessed.
 Every client gets the same ``metrics`` object, or None for a reply that
 recorded neither timing nor usage (one written before this existed):
     {ttft_ms, total_ms, input_tokens, output_tokens, reasoning_tokens,
-     cached_input_tokens, cost_usd}
+     cached_input_tokens, cost_usd, helpers}
 Reasoning and cached tokens are part of output and input, not added to them.
-Times cover the answering model's call only: a summary or document search
-before it is not the model's latency.
+Times, tokens and cost_usd cover the answering model's call only. The other
+calls the same run made before it (a history summary, document grading,
+recall) are ``helpers`` (``usage_summary``), or None when there were none:
+    {calls, kinds, input_tokens, output_tokens, reasoning_tokens,
+     cached_input_tokens, cost_usd, unpriced}
+A ``UsageMeter`` on the run records every call; the drafting node keeps
+what it recorded before the answer on the reply (``HELPERS_KEY``), as raw
+usage priced when read, like the reply's own. Only completed calls report
+usage: a stopped or failed call is not counted.
 """
 
 import functools
+import threading
 import time
 from typing import Any, Callable, Dict, Iterable, Mapping, Optional
 
@@ -30,9 +38,14 @@ from langchain_core.runnables.config import merge_configs
 
 from app.catalog.prices import ModelPrice, PriceBook, load_prices
 from app.services.message_format import message_model
+from app.services.recall import INTERNAL_TAG
 from app.utils.helpers import extract_text
 
 TIMING_KEY = "crucible_timing"
+# The run's other model calls before the reply: [{model, kind, usage}].
+HELPERS_KEY = "crucible_helper_calls"
+# Where a run keeps its UsageMeter (config["configurable"]).
+METER_KEY = "usage_meter"
 # A run may inject its own monotonic clock (seconds) under this key.
 CLOCK_KEY = "monotonic_clock"
 
@@ -92,6 +105,127 @@ class ReplyTimer(BaseCallbackHandler):
             extra[TIMING_KEY] = self.timing()
 
 
+# What a call was for, from the graph node that made it. An internal call
+# inside the drafting node is recall's rewriter; the node's own untagged
+# call is the answer.
+NODE_KINDS = {"summarize": "summary", "grade_retrieval": "document grading", "retrieve": "document search"}
+
+
+def call_entry(message: Any, model: Optional[str], kind: str) -> Optional[Dict[str, Any]]:
+    """One model call's record, {model, kind, usage}: the model the provider
+    says answered, else the one asked. None if the response reported no usage."""
+    usage = getattr(message, "usage_metadata", None)
+    if not usage:
+        return None
+    served = (getattr(message, "response_metadata", None) or {}).get("model_name")
+    keep = ("input_tokens", "output_tokens", "input_token_details", "output_token_details")
+    return {"model": served if isinstance(served, str) and served else model, "kind": kind,
+            "usage": {k: dict(usage[k]) if isinstance(usage.get(k), Mapping) else usage.get(k)
+                      for k in keep if usage.get(k) is not None}}
+
+
+class UsageMeter(BaseCallbackHandler):
+    """Records every completed model call of the run it is attached to.
+
+    Calls the run makes on executor threads (graph nodes, recall) arrive
+    here concurrently, hence the lock."""
+
+    run_inline = True
+
+    def __init__(self):
+        super().__init__()
+        self._asked: Dict[Any, tuple] = {}
+        self._calls: list = []
+        self._lock = threading.Lock()
+
+    def on_chat_model_start(self, serialized, messages, *, run_id=None, tags=None, metadata=None, **kwargs: Any) -> None:
+        metadata = metadata or {}
+        model = metadata.get("ls_model_name") or ((serialized or {}).get("kwargs") or {}).get("model")
+        node = metadata.get("langgraph_node")
+        if node in NODE_KINDS:
+            kind = NODE_KINDS[node]
+        elif node == "draft":
+            kind = "recall" if INTERNAL_TAG in (tags or []) else "answer"
+        else:
+            kind = "helper"
+        with self._lock:
+            self._asked[run_id] = (model, kind)
+
+    def on_llm_error(self, error: BaseException, *, run_id=None, **kwargs: Any) -> None:
+        with self._lock:
+            self._asked.pop(run_id, None)
+
+    def on_llm_end(self, response, *, run_id=None, **kwargs: Any) -> None:
+        with self._lock:
+            model, kind = self._asked.pop(run_id, (None, "helper"))
+        try:
+            message = response.generations[0][0].message
+        except (IndexError, AttributeError):
+            return
+        entry = call_entry(message, model, kind)
+        if entry is not None:
+            with self._lock:
+                self._calls.append(entry)
+
+    def calls(self) -> list:
+        """What it has recorded so far, oldest first."""
+        with self._lock:
+            return list(self._calls)
+
+
+def meter_from(config: Optional[Mapping[str, Any]]) -> Optional[UsageMeter]:
+    return ((config or {}).get("configurable") or {}).get(METER_KEY)
+
+
+def metered(config: RunnableConfig) -> UsageMeter:
+    """Attach a new UsageMeter to a run's config (its callbacks, and the
+    configurable the drafting node reads it from) and return it."""
+    meter = UsageMeter()
+    config.setdefault("configurable", {})[METER_KEY] = meter
+    config["callbacks"] = [*(config.get("callbacks") or []), meter]
+    return meter
+
+
+def usage_summary(
+    calls: Iterable[Mapping[str, Any]],
+    *,
+    day: Optional[str],
+    prices: Optional[Mapping[str, ModelPrice]] = None,
+) -> Optional[Metrics]:
+    """Calls' tokens and cost together (see the module docstring), priced
+    as of ``day``; None for no calls."""
+    calls = [c for c in calls if c]
+    if not calls:
+        return None
+    book = PriceBook(prices if prices is not None else current_prices(), day or time.strftime("%Y-%m-%d"))
+    costs, unpriced = [], 0
+    for c in calls:
+        cost = book.cost(c["model"], c.get("usage") or {}) if c.get("model") else None
+        if cost is None:
+            unpriced += 1
+        else:
+            costs.append(cost)
+
+    def total(key: str, detail: Optional[str] = None, sub: Optional[str] = None) -> int:
+        out = 0
+        for c in calls:
+            u = c.get("usage") or {}
+            value = (u.get(detail) or {}).get(sub) if detail else u.get(key)
+            out += _int(value) or 0
+        return out
+
+    return {
+        "calls": len(calls),
+        "kinds": sorted({c.get("kind") or "helper" for c in calls}),
+        "input_tokens": total("input_tokens"),
+        "output_tokens": total("output_tokens"),
+        "reasoning_tokens": total("", "output_token_details", "reasoning"),
+        "cached_input_tokens": total("", "input_token_details", "cache_read"),
+        "cost_usd": sum(costs) if costs else None,
+        "unpriced": unpriced,
+    }
+
+
 @functools.lru_cache(maxsize=1)
 def current_prices() -> Mapping[str, ModelPrice]:
     """The price list, read once per process."""
@@ -123,7 +257,8 @@ def message_metrics(
     timing = extra.get(TIMING_KEY) if isinstance(extra, dict) else None
     timing = timing if isinstance(timing, dict) else {}
     usage = getattr(msg, "usage_metadata", None) or {}
-    if not timing and not usage:
+    helper_calls = extra.get(HELPERS_KEY) if isinstance(extra, dict) else None
+    if not timing and not usage and not helper_calls:
         return None
 
     input_tokens = _int(usage.get("input_tokens"))
@@ -146,17 +281,22 @@ def message_metrics(
         "reasoning_tokens": _int((usage.get("output_token_details") or {}).get("reasoning")),
         "cached_input_tokens": _int((usage.get("input_token_details") or {}).get("cache_read")),
         "cost_usd": cost,
+        "helpers": usage_summary(helper_calls or [], day=day, prices=prices) if isinstance(helper_calls, list) else None,
     }
 
 
-def turn_total(metrics: Iterable[Optional[Metrics]]) -> Optional[Metrics]:
+def turn_total(metrics: Iterable[Optional[Metrics]], extra: Iterable[Optional[Metrics]] = ()) -> Optional[Metrics]:
     """A turn's answers together: tokens and cost summed, time the slowest.
 
-    ``cost_usd`` sums the priced answers only; ``unpriced`` counts the
-    answers with tokens but no known price, so a total is never shown as
-    complete when it isn't. None when no answer has metrics."""
+    Tokens and ``cost_usd`` include every answer's ``helpers`` and any
+    ``extra`` usage summaries (a debate's judge), which are also summed on
+    their own as ``helpers``. ``cost_usd`` sums the priced calls only;
+    ``unpriced`` counts the answers and calls with tokens but no known
+    price, so a total is never shown as complete when it isn't. None when
+    nothing has metrics."""
     known = [m for m in metrics if m]
-    if not known:
+    helpers = [m["helpers"] for m in known if m.get("helpers")] + [e for e in extra if e]
+    if not known and not helpers:
         return None
 
     def total(key: str) -> Optional[int]:
@@ -169,16 +309,39 @@ def turn_total(metrics: Iterable[Optional[Metrics]]) -> Optional[Metrics]:
 
     costs = [m["cost_usd"] for m in known if m.get("cost_usd") is not None]
     counted = [m for m in known if m.get("input_tokens") is not None and m.get("output_tokens") is not None]
+    helper = combine_usage(helpers)
+
+    def plus(key: str) -> Optional[int]:
+        own = total(key)
+        more = helper.get(key) if helper else None
+        return own if more is None else (own or 0) + more
+
+    helper_cost = helper.get("cost_usd") if helper else None
     return {
         "answers": len(known),
         "ttft_ms": slowest("ttft_ms"),
         "total_ms": slowest("total_ms"),
-        "input_tokens": total("input_tokens"),
-        "output_tokens": total("output_tokens"),
-        "reasoning_tokens": total("reasoning_tokens"),
-        "cached_input_tokens": total("cached_input_tokens"),
+        "input_tokens": plus("input_tokens"),
+        "output_tokens": plus("output_tokens"),
+        "reasoning_tokens": plus("reasoning_tokens"),
+        "cached_input_tokens": plus("cached_input_tokens"),
+        "cost_usd": (sum(costs) + (helper_cost or 0)) if costs or helper_cost is not None else None,
+        "unpriced": sum(1 for m in counted if m.get("cost_usd") is None) + (helper["unpriced"] if helper else 0),
+        "helpers": helper,
+    }
+
+
+def combine_usage(summaries: Iterable[Optional[Metrics]]) -> Optional[Metrics]:
+    """Several usage summaries (``usage_summary``) as one."""
+    known = [s for s in summaries if s]
+    if not known:
+        return None
+    costs = [s["cost_usd"] for s in known if s.get("cost_usd") is not None]
+    keys = ("calls", "input_tokens", "output_tokens", "reasoning_tokens", "cached_input_tokens", "unpriced")
+    return {
+        **{k: sum(s.get(k) or 0 for s in known) for k in keys},
+        "kinds": sorted({k for s in known for k in s.get("kinds") or []}),
         "cost_usd": sum(costs) if costs else None,
-        "unpriced": sum(1 for m in counted if m.get("cost_usd") is None),
     }
 
 
@@ -216,4 +379,19 @@ def describe(metrics: Optional[Metrics]) -> str:
             parts.append(f"{format_cost(metrics['cost_usd'])} + {unpriced} price unknown")
         else:
             parts.append(format_cost(metrics.get("cost_usd")))
+    helpers = metrics.get("helpers")
+    if helpers:
+        # A reply's own numbers leave its helper calls out; a total has them in.
+        word = "incl." if "answers" in metrics else "+"
+        parts.append(f"{word} {describe_helpers(helpers)}")
     return " · ".join(parts)
+
+
+def describe_helpers(helpers: Metrics) -> str:
+    """"$0.0012 for 3 other calls (summary, recall)"."""
+    calls = helpers.get("calls") or 0
+    cost = format_cost(helpers.get("cost_usd")) if helpers.get("cost_usd") is not None else "price unknown"
+    if helpers.get("unpriced") and helpers.get("cost_usd") is not None:
+        cost += f" + {helpers['unpriced']} price unknown"
+    kinds = ", ".join(helpers.get("kinds") or [])
+    return f"{cost} for {calls} other call{'s' if calls != 1 else ''}" + (f" ({kinds})" if kinds else "")

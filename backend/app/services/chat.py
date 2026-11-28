@@ -15,7 +15,7 @@ from langchain_core.messages import HumanMessage
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.documents import attach_documents
 from app.services.message_format import reply_angle, reply_effort
-from app.services.metrics import message_metrics, snapshot_day
+from app.services.metrics import message_metrics, metered, snapshot_day
 from app.services.recall import INTERNAL_TAG
 from app.services.runs import (
     SYNTHESIS_TURN,
@@ -212,6 +212,9 @@ async def stream_turn(
     config = context.apply(thread_config(thread_id, parent_checkpoint_id))
     config["configurable"].update(configurable or {})
     run_id = tag_run(config)
+    # Every model call of this run, so the reply can say what the calls
+    # before it (a summary, document grading, recall) took.
+    metered(config)
     tag_turn_kind(config, turn_kind, turn_note)
     tag_turn(config, turn_id)
     if joins_turn:

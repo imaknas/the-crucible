@@ -124,7 +124,8 @@ class ScriptedChatModel(BaseChatModel):
         **kwargs: Any,
     ) -> ChatResult:
         reply = self._reply(messages)
-        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=reply, usage_metadata=usage(messages, reply)))])
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(
+            content=reply, usage_metadata=usage(messages, reply), response_metadata={"model_name": self.model_id}))])
 
     def _stream(
         self,
@@ -142,7 +143,8 @@ class ScriptedChatModel(BaseChatModel):
             token = word if last else word + " "
             # Usage on the last chunk only: chunks are added together.
             chunk = ChatGenerationChunk(
-                message=AIMessageChunk(content=token, usage_metadata=usage(messages, reply) if last else None)
+                message=AIMessageChunk(content=token, usage_metadata=usage(messages, reply) if last else None,
+                                       response_metadata={"model_name": self.model_id} if last else {})
             )
             if run_manager:
                 run_manager.on_llm_new_token(token, chunk=chunk)

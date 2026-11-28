@@ -185,9 +185,13 @@ async def invoke_arena(
     attached_documents, retrieved, notices}], synthesis: answer | null,
     synthesis_skipped?}. Each answer's checkpoint_id is where to continue
     that model from. `metrics` is {ttft_ms, total_ms, input_tokens,
-    output_tokens, reasoning_tokens, cached_input_tokens, cost_usd} (times of
-    the model call; reasoning and cached tokens are part of output and input;
-    cost_usd null = the model has no known price), or null.
+    output_tokens, reasoning_tokens, cached_input_tokens, cost_usd, helpers}
+    (times, tokens and cost of the answering call; reasoning and cached
+    tokens are part of output and input; cost_usd null = the model has no
+    known price), or null. `helpers` is the other calls made for that answer
+    (a history summary, document grading, recall): {calls, kinds,
+    input_tokens, output_tokens, reasoning_tokens, cached_input_tokens,
+    cost_usd, unpriced}, or null.
     `notices` say what degraded a turn without failing it (a summary that
     couldn't be written, document search that failed). Raises if every
     model failed; a new thread whose first turn failed entirely is removed.
