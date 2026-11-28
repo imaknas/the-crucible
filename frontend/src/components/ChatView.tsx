@@ -1,4 +1,6 @@
 import React, { useRef, useEffect } from "react";
+import { IssueCheckSection } from "./IssueCheckPanel";
+import type { IssueChecks } from "@/hooks/useIssueChecks";
 import { Box, Paper, Portal, Typography, ButtonBase, CircularProgress, useTheme } from "@mui/material";
 import { Sparkles, Network, GitBranch } from "lucide-react";
 import { motion } from "framer-motion";
@@ -48,6 +50,8 @@ interface ChatViewProps {
     isRunning: (ids: string[]) => boolean;
     run: (ids: string[]) => void;
   } | null;
+  /** Problem-by-problem checks of issue lists (useIssueChecks). */
+  issueChecks?: IssueChecks | null;
   /** Models a synthesis can be written by (those with a key). */
   synthesizerOptions?: string[];
   onDeliberate: (text: string) => void;
@@ -141,6 +145,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   onContinueReply,
   onSynthesize,
   reviews = null,
+  issueChecks = null,
   synthesizerOptions = [],
   onDeliberate,
   setShowTree,
@@ -905,6 +910,15 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       modelLabel={modelLabel}
                       variant="synthesis"
                     />
+                    {chat && issueChecks && !msg.streaming && msg.synthesis_mode === "issues" && msg.checkpoint_id && (
+                      <IssueCheckSection
+                        check={issueChecks.checkFor(msg.checkpoint_id)}
+                        running={issueChecks.isRunning(msg.checkpoint_id)}
+                        busy={issueChecks.busy}
+                        onRun={() => issueChecks.run(msg.checkpoint_id!)}
+                        modelLabel={modelLabel}
+                      />
+                    )}
                   </React.Fragment>
                 );
               }

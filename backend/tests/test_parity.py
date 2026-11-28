@@ -61,6 +61,8 @@ ROUTES: dict = {
     ("POST", "/synthesis/components"): (("synthesize", "--mode"), ("list_answer_components", None)),
     ("POST", "/synthesis/reviews"): (("review", None), ("review_answers", None)),
     ("GET", "/synthesis/reviews/{thread_id}"): (("review", "--list"), ("list_answer_reviews", None)),
+    ("POST", "/synthesis/checks"): (("check", None), ("check_issues", None)),
+    ("GET", "/synthesis/checks/{thread_id}"): (("check", "--list"), ("list_issue_checks", None)),
     ("POST", "/cases"): (("cases save", None), ("save_case", None)),
     ("GET", "/cases"): (("cases list", None), ("list_cases", None)),
     ("GET", "/cases/{case_id}"): (("cases show", None), ("get_case", None)),

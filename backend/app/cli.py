@@ -1592,6 +1592,79 @@ async def _run_review(thread_id, answers, list_only, as_json):
     return {"thread_id": thread_id, "reviews": reviews}
 
 
+VERDICT_LABELS = {"holds": "Holds", "does_not_hold": "Doesn't hold", "cant_tell": "Can't tell"}
+
+
+@app.command()
+def check(
+    checkpoint: Optional[str] = typer.Argument(None, help="The issue list's checkpoint (a synthesis written with --mode issues)."),
+    thread: str = typer.Option(..., "--thread", "-t", help="The issue list's thread."),
+    models: Optional[List[str]] = typer.Option(
+        None, "--model", "-m", help="A model that checks (repeat; default: the models that wrote the reviews)."
+    ),
+    list_only: bool = typer.Option(False, "--list", help="Show the checks stored on the thread instead of running one."),
+    format_output: str = _opt_format(),
+):
+    """
+    [bold cyan]✔ Check[/bold cyan] — Does each problem of an issue list hold?
+
+    Every checker reads the question and its attached documents and the
+    problems, without who raised them, and says of each: holds, doesn't
+    hold, or can't tell from the source, with the passage it rests on. The
+    verdicts are shown side by side, never tallied. One call per checker.
+    """
+    as_json = _check_format(format_output)
+    _load_env()
+    if list_only == bool(checkpoint):
+        raise typer.BadParameter("give an issue list's checkpoint, or --list (not both)")
+    if list_only and models:
+        raise typer.BadParameter("--list shows stored checks; it takes no --model")
+    result = _run(_run_check(thread, checkpoint, models, list_only, as_json), as_json)
+    if as_json:
+        _emit_json(result)
+
+
+async def _run_check(thread_id, checkpoint, models, list_only, as_json):
+    from rich.text import Text
+
+    from app.core import database as db
+    from app.services import checks as checks_svc
+    from app.services.arena import open_graph
+    from app.cli_display import print_header, print_info
+
+    if not db.thread_exists(thread_id):
+        raise ValueError(f"Thread {thread_id} not found.")
+    if list_only:
+        found = checks_svc.checks_of(thread_id)
+    else:
+        async with open_graph() as graph_app:
+            found = [await checks_svc.check_issues(graph_app, thread_id, checkpoint, models)]
+    if as_json:
+        return {"thread_id": thread_id, "checks": found} if list_only else found[0]
+    print_header()
+    if not found:
+        print_info("No checks on this thread yet.")
+    for c in found:
+        console.print(Text(f"Issue list {c['checkpoint_id']}: checked by "
+                           + ", ".join(x["model_name"] for x in c["checkers"]), style="bold"))
+        for row in c["issues"]:
+            mark = "  (checkers disagree)" if row["disagree"] else ""
+            console.print(Text(f"{row['number']}. {row['problem']}{mark}"))
+            if row["raised_by"]:
+                console.print(Text(f"   raised by {row['raised_by']}", style="dim"))
+            for v in row["verdicts"]:
+                own = " (its own model raised it)" if v["own"] else ""
+                console.print(Text(f"   {v['checker_name']}: {VERDICT_LABELS[v['verdict']]} — {v['reason']}{own}"))
+            if not row["verdicts"]:
+                console.print(Text("   no verdicts", style="dim"))
+        for model, error in c.get("errors", {}).items():
+            console.print(Text(f"  {model} couldn't check: {error}", style="red"))
+        if c.get("source_truncated"):
+            print_info("The attached documents were too long to show the checkers whole.")
+        print_info("Each checker's verdict against the source, side by side: read the problems they disagree on yourself.")
+    return {"thread_id": thread_id, "checks": found}
+
+
 @app.command()
 def diff(
     checkpoint_a: str = typer.Argument(..., help="One reply's checkpoint (A)."),

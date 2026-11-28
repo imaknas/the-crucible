@@ -96,6 +96,19 @@ def init_db():
         )
     """)
 
+    # Problem-by-problem checks of an issue list (services/checks.py): the
+    # latest per list, keyed by the list's tree node. Deleted with the thread
+    # and with the branch the list is on.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS issue_checks (
+            thread_id TEXT NOT NULL,
+            node_id TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (thread_id, node_id)
+        )
+    """)
+
     # A person's vote on one turn's answers (services/votes.py): the best
     # answer, a tie or "all bad", read blind or not. One per turn; voting
     # again replaces it. Deleted with the thread.
@@ -396,6 +409,7 @@ def _purge_thread_rows(conn, thread_id: str) -> None:
     conn.execute("DELETE FROM thread_metadata WHERE thread_id = ?", (thread_id,))
     conn.execute("DELETE FROM thread_documents WHERE thread_id = ?", (thread_id,))
     conn.execute("DELETE FROM answer_reviews WHERE thread_id = ?", (thread_id,))
+    conn.execute("DELETE FROM issue_checks WHERE thread_id = ?", (thread_id,))
     conn.execute("DELETE FROM node_notes WHERE thread_id = ?", (thread_id,))
     conn.execute("DELETE FROM answer_votes WHERE thread_id = ?", (thread_id,))
 
@@ -529,6 +543,31 @@ def list_answer_reviews(thread_id: str) -> list[dict]:
     try:
         rows = conn.execute(
             "SELECT data FROM answer_reviews WHERE thread_id = ? ORDER BY created_at DESC, rowid DESC", (thread_id,)
+        ).fetchall()
+    finally:
+        conn.close()
+    return [json.loads(r[0]) for r in rows]
+
+
+def save_issue_check(thread_id: str, node_id: str, data: dict) -> None:
+    """Store a check of an issue list, replacing an earlier one of the same list. Blocking: call from async code through asyncio.to_thread."""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO issue_checks (thread_id, node_id, data) VALUES (?, ?, ?)",
+            (thread_id, node_id, json.dumps(data)),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_issue_checks(thread_id: str) -> list[dict]:
+    """Every stored check of an issue list on a thread, newest first."""
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            "SELECT data FROM issue_checks WHERE thread_id = ? ORDER BY created_at DESC, rowid DESC", (thread_id,)
         ).fetchall()
     finally:
         conn.close()
@@ -869,6 +908,10 @@ def delete_checkpoint_data(thread_id, checkpoint_ids):
             )
             conn.execute(
                 "DELETE FROM node_notes WHERE thread_id = ? AND node_id = ?",
+                (thread_id, cid),
+            )
+            conn.execute(
+                "DELETE FROM issue_checks WHERE thread_id = ? AND node_id = ?",
                 (thread_id, cid),
             )
         conn.commit()

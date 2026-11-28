@@ -30,6 +30,8 @@ Everything the web UI does to a conversation is a tool, except writing API keys 
 | `list_answer_components` | Split answers into the parts to choose from for a checklist synthesis; writes nothing |
 | `review_answers` | The answers' authors score each other's 1–10 with a reason, anonymously and never their own; stored as evidence, never a verdict |
 | `list_answer_reviews` | The peer reviews stored on a thread |
+| `check_issues` | Whether each problem of an issue list (`synthesize_answers` with `mode="issues"`) holds: every model that wrote a review (or `models`) checks each problem against the question and its attached documents, without who raised it, and says holds, doesn't hold or can't tell, with the passage. Verdicts side by side, never tallied; `own` marks a verdict on a problem the checker's own model raised |
+| `list_issue_checks` | The checks stored on a thread |
 | `vote_answers` | Record a person's vote on a turn's answers: the best one (by checkpoint or blind letter), a tie or all bad, with the kind of task and a reason. One per turn; voting again replaces it. A model's judgment belongs in `review_answers` |
 | `list_votes`, `vote_stats`, `delete_vote` | The stored votes, the win rates per model they add up to (pairwise; "all bad" counted apart), or remove a turn's vote |
 | **Saved cases** | |

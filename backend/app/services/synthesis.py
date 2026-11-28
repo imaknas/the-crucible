@@ -134,21 +134,79 @@ COMPARE = SynthesisFraming(
 )
 
 
+ISSUES_HEADING = "Where the reviews contradict each other"
+
 ISSUES = SynthesisFraming(
     described_as="Independent reviews from {n} models",
     instruction=(
         "List every problem, risk, gap or objection these reviews raise, as one "
-        "list. Merge two only when they are the same problem; keep problems that "
-        "only one review raises, and don't order or drop any by how many reviews "
-        "raise it: a problem one reviewer saw can matter most. For each:\n"
-        "- the problem in one or two sentences;\n"
-        "- who raised it (the labels above);\n"
-        "- the reason or evidence they gave.\n"
+        "numbered list. Merge two only when they are the same problem; keep problems "
+        "that only one review raises, and don't order or drop any by how many reviews "
+        "raise it: a problem one reviewer saw can matter most. Write each in exactly "
+        "this form:\n"
+        "1. The problem in one or two sentences.\n"
+        "   Raised by: the labels above, comma-separated\n"
+        "   Why: the reason or evidence they gave\n"
         "Don't judge whether a problem holds and don't add problems of your own: "
-        "checking them against the source is the reader's next step. End with the "
-        "points where the reviews contradict each other."
+        "checking them against the source is the reader's next step. After the list, "
+        f"write a line \"{ISSUES_HEADING}:\" and the points where the reviews "
+        "contradict each other (or \"none\")."
     ),
 )
+
+
+# ─── Issues: the problems a list names, for checking one by one ──
+
+_ISSUE_START = re.compile(r"^\s*(?:[#>]+\s*)?\**\s*(\d+)\s*[.)]\**\s*(.*?)\s*$")
+_ISSUE_FIELD = re.compile(r"^\s*[-*•]?\s*\**\s*(raised by|why|reason|evidence)\s*\**\s*[:：]\s*\**\s*(.*?)\s*$", re.I)
+_LIST_END = re.compile(r"^\s*(?:#+\s*)?\**\s*(?:where the reviews contradict|contradictions?\b)", re.I)
+
+
+def _plain(text: str) -> str:
+    return re.sub(r"\*\*|__", "", text).strip(" *")
+
+
+@dataclass(frozen=True)
+class Issue:
+    number: int
+    problem: str
+    raised_by: str
+    why: str
+
+
+def parse_issues(text: str) -> list[Issue]:
+    """The problems of an issue list (ISSUES), numbered from 1 by position,
+    each with who raised it and why. Tolerates markdown emphasis and wrapped
+    lines.
+    ValueError when there are none: an issue list in another form (one
+    written before the numbered form) can't be checked problem by problem."""
+    items: list[dict] = []
+    for line in text.splitlines():
+        if _LIST_END.match(line):
+            break
+        start = _ISSUE_START.match(line)
+        if start and start.group(2):
+            items.append({"number": int(start.group(1)), "problem": _plain(start.group(2)),
+                          "raised_by": "", "why": ""})
+            continue
+        if not items or not line.strip():
+            continue
+        current = items[-1]
+        field_match = _ISSUE_FIELD.match(line)
+        if field_match:
+            key = "raised_by" if field_match.group(1).lower() == "raised by" else "why"
+            current[key] = _plain(field_match.group(2))
+        else:
+            key = "why" if current["raised_by"] or current["why"] else "problem"
+            current[key] = f"{current[key]} {_plain(line)}".strip()
+    # Numbered by position: a model may restart or skip numbers.
+    kept = [i for i in items if i["problem"]]
+    issues = [Issue(**{**i, "number": n}) for n, i in enumerate(kept, 1)]
+    if not issues:
+        raise ValueError(
+            "This issue list isn't in the numbered form a check reads; write the list again to check it."
+        )
+    return issues
 
 
 def checklist_merge(kept: Sequence[str]) -> SynthesisFraming:

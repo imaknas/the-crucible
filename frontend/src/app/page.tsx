@@ -4,6 +4,7 @@ import { anglesFor } from "@/lib/angles";
 import ChecklistDialog from "@/components/ChecklistDialog";
 import { useSynthesisChecklist } from "@/hooks/useSynthesisChecklist";
 import { useAnswerReviews } from "@/hooks/useAnswerReviews";
+import { useIssueChecks } from "@/hooks/useIssueChecks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Box } from "@mui/material";
@@ -206,6 +207,7 @@ export default function Home() {
   // A checklist synthesis asks which parts to keep first (ChecklistDialog).
   const synthesis = useSynthesisChecklist(synthesizeBranches);
   const answerReviews = useAnswerReviews(threadId, pushToast);
+  const issueChecks = useIssueChecks(threadId, pushToast);
 
   useEffect(() => {
     setMessagesRef.current = setMessages;
@@ -661,6 +663,7 @@ export default function Home() {
                     onContinueReply={selectCheckpoint}
                     onSynthesize={synthesis.request}
                     reviews={answerReviews}
+                    issueChecks={issueChecks}
                     synthesizerOptions={availableModelIds}
                     onDeliberate={handleDeliberate}
                     stopStreaming={stopStreaming}

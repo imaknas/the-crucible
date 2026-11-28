@@ -219,6 +219,7 @@ import type {
   TerminationPolicy,
   Thread,
   AnswerReview,
+  IssueCheck,
   AnswerVote,
   VoteStats,
 } from "@/lib/types";
@@ -369,6 +370,24 @@ export async function runAnswerReview(threadId: string, checkpointIds: string[])
   });
   await ensureOk(res, "Couldn't run the peer review");
   return res.json();
+}
+
+/** Check every problem of an issue list against the source (POST /synthesis/checks); stored on the thread. */
+export async function runIssueCheck(threadId: string, checkpointId: string): Promise<IssueCheck> {
+  const res = await fetch(`${API_BASE}/synthesis/checks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ thread_id: threadId, checkpoint_id: checkpointId }),
+  });
+  await ensureOk(res, "Couldn't check the problems");
+  return res.json();
+}
+
+/** The checks of issue lists stored on a thread, newest first. */
+export async function listIssueChecks(threadId: string): Promise<IssueCheck[]> {
+  const res = await fetch(`${API_BASE}/synthesis/checks/${encodeURIComponent(threadId)}`);
+  await ensureOk(res, "Couldn't load the checks");
+  return (await res.json()).checks;
 }
 
 /** The peer reviews stored on a thread, newest first. */

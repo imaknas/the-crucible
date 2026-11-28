@@ -404,6 +404,54 @@ async def list_answer_reviews(thread_id: str) -> Dict[str, Any]:
     return {"thread_id": thread_id, "reviews": review.reviews_of(thread_id)}
 
 
+@mcp.tool()
+@_quiet
+async def check_issues(thread_id: str, checkpoint_id: str, models: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Check every problem of an issue list (a synthesize_answers reply with
+    mode "issues") against the source the reviews answered: each checker
+    reads the question and its attached documents and the problems, without
+    who raised them or how many did, and says of each whether it holds,
+    doesn't, or the source can't tell, with the passage it rests on. The
+    verdicts are side by side, never tallied: read the ones that disagree
+    yourself. A verdict marked `own` is on a problem the checker's own model
+    raised. Stored on the thread. One model call per checker.
+
+    Returns {thread_id, checkpoint_id, question, documents, source_truncated,
+    checkers: [{model, model_name}], issues: [{number, problem, raised_by,
+    why, verdicts: [{checker, checker_name, verdict: holds|does_not_hold|cant_tell,
+    reason, own}], disagree}], errors: {model: message}}.
+
+    Args:
+        thread_id: The thread.
+        checkpoint_id: The issue list's checkpoint (synthesize_answers or get_thread_tree).
+        models: The models that check. Default: the models that wrote the reviews.
+    """
+    from app.services import checks
+
+    await _require_thread(thread_id)
+    try:
+        async with arena_svc.open_graph() as graph_app:
+            return await checks.check_issues(graph_app, thread_id, checkpoint_id, models)
+    except ValueError as e:
+        raise _tool_error(e)
+
+
+@mcp.tool()
+@_quiet
+async def list_issue_checks(thread_id: str) -> Dict[str, Any]:
+    """The checks of issue lists stored on a thread (check_issues), newest first.
+
+    Returns {thread_id, checks: [check]}.
+
+    Args:
+        thread_id: The thread.
+    """
+    from app.services import checks
+
+    await _require_thread(thread_id)
+    return {"thread_id": thread_id, "checks": checks.checks_of(thread_id)}
+
+
 # ─── Debates ─────────────────────────────────────────────────────
 
 

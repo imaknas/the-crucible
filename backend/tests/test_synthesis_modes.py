@@ -94,7 +94,7 @@ def test_the_issue_list_keeps_a_problem_one_reviewer_raised_and_leaves_judging_i
     text = ISSUES.instruction
     assert "keep problems that only one review raises" in text
     assert "don't order or drop any by how many reviews raise it" in text
-    assert "who raised it" in text
+    assert "Raised by:" in text
     assert "Don't judge whether a problem holds" in text
 
 

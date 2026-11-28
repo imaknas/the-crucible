@@ -300,6 +300,28 @@ export interface DebateTreeResponse {
 }
 
 /** An anonymous peer review of a set of answers (backend services/review.py). */
+/** A problem-by-problem check of an issue list (POST /synthesis/checks). */
+export type IssueVerdict = "holds" | "does_not_hold" | "cant_tell";
+
+export interface IssueCheck {
+  thread_id: string;
+  /** The issue list's tree node. */
+  checkpoint_id: string;
+  question: string;
+  documents: string[];
+  source_truncated: boolean;
+  checkers: { model: string; model_name: string }[];
+  issues: {
+    number: number;
+    problem: string;
+    raised_by: string;
+    why: string;
+    verdicts: { checker: string; checker_name: string; verdict: IssueVerdict; reason: string; own: boolean }[];
+    disagree: boolean;
+  }[];
+  errors: Record<string, string>;
+}
+
 export interface AnswerReview {
   review_key: string;
   thread_id: string;

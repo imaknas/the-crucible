@@ -78,6 +78,27 @@ class ScriptedChatModel(BaseChatModel):
             # A peer review (services/review.py): a score for every letter shown.
             letters = re.findall(r"^\[([A-Z])\]:", prompt, re.M)
             return "\n".join(f"{letter}: 7 — Scripted review from {self.model_id}." for letter in letters)
+        if "List every problem, risk, gap or objection" in prompt:
+            # An issue list (synthesis.ISSUES), in its numbered form.
+            labels = re.findall(r"^\[([^\]]+)\]:", prompt, re.M)
+            first, rest = (labels[:1] or ["a reviewer"]), (labels[1:] or labels[:1] or ["a reviewer"])
+            return (
+                f"1. Scripted problem one from {self.model_id} ({digest}).\n"
+                f"   Raised by: {', '.join(first)}\n"
+                "   Why: Scripted reason one.\n"
+                f"2. Scripted problem two from {self.model_id} ({digest}).\n"
+                f"   Raised by: {', '.join(rest)}\n"
+                "   Why: Scripted reason two.\n"
+                "Where the reviews contradict each other: none."
+            )
+        if "Check each problem below against" in prompt:
+            # A problem-by-problem check (services/checks.py): one verdict
+            # each, "holds" for odd problems, "can't tell" for even ones.
+            numbers = re.findall(r"^(\d+)\. ", prompt.split("Problems:", 1)[-1], re.M)
+            return "\n".join(
+                f"{n}: {'holds' if int(n) % 2 else 'can\'t tell'} — Scripted check from {self.model_id}."
+                for n in numbers
+            )
         if "List the distinct components of these answers" in prompt:
             # A checklist synthesis's first step (synthesis.component_request).
             return (

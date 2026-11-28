@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.api.deps import get_graph_app
-from app.services import arena, review
+from app.services import arena, checks, review
 
 router = APIRouter(prefix="/synthesis", tags=["synthesis"])
 
@@ -44,3 +44,25 @@ async def run_review(req: ReviewRequest, graph_app=Depends(get_graph_app)):
 def list_reviews(thread_id: str):
     """Every stored peer review on a thread, newest first."""
     return {"reviews": review.reviews_of(thread_id)}
+
+
+class CheckRequest(BaseModel):
+    thread_id: str
+    checkpoint_id: str
+    models: Optional[List[str]] = None
+
+
+@router.post("/checks")
+async def run_check(req: CheckRequest, graph_app=Depends(get_graph_app)):
+    """Check every problem of an issue list against the source the reviews
+    answered: each checker's verdict side by side; stored and returned."""
+    try:
+        return await checks.check_issues(graph_app, req.thread_id, req.checkpoint_id, req.models)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/checks/{thread_id}")
+def list_checks(thread_id: str):
+    """Every stored check of an issue list on a thread, newest first."""
+    return {"checks": checks.checks_of(thread_id)}

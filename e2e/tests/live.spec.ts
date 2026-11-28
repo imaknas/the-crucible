@@ -515,6 +515,14 @@ test.describe("live flows (scripted models)", () => {
     await page.getByText("List problems").click();
     await expect(page.getByText(/^Problems raised · /i)).toBeVisible();
     await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+
+    // Then whether each one holds, by every model that wrote a review.
+    await page.getByRole("button", { name: "Check each problem", exact: true }).click();
+    const checked = page.getByRole("region", { name: "Does each problem hold?" });
+    await expect(checked.getByTestId("checked-issue")).toHaveCount(2);
+    await expect(checked.getByTestId("checked-issue").first()).toContainText("Holds");
+    await expect(checked.getByTestId("checked-issue").nth(1)).toContainText("Can't tell");
+    await expect(page.getByRole("button", { name: "Check each problem again" })).toBeVisible();
   });
 
   test("each model can answer from its own angle, and the angles go with one message", async ({ page }) => {

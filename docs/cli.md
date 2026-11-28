@@ -28,6 +28,7 @@ uv run crucible synthesize --thread <thread_id> --mode issues      # every probl
 uv run crucible synthesize --thread <thread_id> --mode checklist   # list their parts; then --keep "<part>" (repeat) to merge just those
 uv run crucible synthesize --thread <thread_id> --mode ask -q "Which is riskier?"   # your question about them
 uv run crucible review --thread <thread_id>                        # the models score each other's answers, anonymously; --list shows stored reviews
+uv run crucible check <issue_list_cp> --thread <thread_id>         # does each problem of an issue list hold? each reviewer checks it against the source; --list shows stored checks
 ```
 
 `arena` answers in parallel, each model on its own branch, then the first model (or `--judge`) synthesizes them; `--no-synthesize` skips that. Without `--from`, each model continues its own latest reply; `--from <checkpoint>` branches from any node of `crucible tree` (to edit a message, branch from the checkpoint before it with the new text), and `--after-debate <session>` continues from a finished debate. `chat` and `arena` also take:
