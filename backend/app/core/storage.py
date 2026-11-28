@@ -24,22 +24,38 @@ from typing import Mapping, Optional
 _BACKEND = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
+# Set by brunna when it runs the app as a service: an absolute, writable
+# folder for everything the app keeps. The code folder is read-only then,
+# and the provider keys arrive as environment variables, with no .env.
+SERVICE_STATE_VAR = "BRUNNA_SERVICE_STATE"
+
+
+def env_file(environ: Mapping[str, str] = os.environ) -> Optional[str]:
+    """The .env an entry point loads keys from: backend/.env, or None when
+    the app runs as a service."""
+    return None if environ.get(SERVICE_STATE_VAR) else os.path.join(_BACKEND, ".env")
+
+
 @dataclass(frozen=True)
 class Storage:
     db_path: str
     upload_dir: str
     chroma_dir: str
-    env_path: str
+    # The .env file keys are read from and written to; None when keys come
+    # only from the environment (run as a brunna service).
+    env_path: Optional[str]
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] = os.environ) -> "Storage":
-        """The app's own locations: backend/ unless DATABASE_PATH, UPLOAD_DIR
-        or CHROMA_DIR say otherwise (Docker, the e2e fixture)."""
+        """The app's own locations: backend/, or the state folder brunna gives
+        a service (SERVICE_STATE_VAR), unless DATABASE_PATH, UPLOAD_DIR or
+        CHROMA_DIR say otherwise (Docker, the e2e fixture)."""
+        root = environ.get(SERVICE_STATE_VAR) or _BACKEND
         return cls(
-            db_path=environ.get("DATABASE_PATH") or os.path.join(_BACKEND, "checkpoints.sqlite"),
-            upload_dir=environ.get("UPLOAD_DIR") or os.path.join(_BACKEND, "uploads"),
-            chroma_dir=environ.get("CHROMA_DIR") or os.path.join(_BACKEND, "chroma_db"),
-            env_path=os.path.join(_BACKEND, ".env"),
+            db_path=environ.get("DATABASE_PATH") or os.path.join(root, "checkpoints.sqlite"),
+            upload_dir=environ.get("UPLOAD_DIR") or os.path.join(root, "uploads"),
+            chroma_dir=environ.get("CHROMA_DIR") or os.path.join(root, "chroma_db"),
+            env_path=env_file(environ),
         )
 
     def under(self, root: str) -> "Storage":

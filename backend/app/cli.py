@@ -72,10 +72,13 @@ FORMAT_HELP = "Output format: rich or json."
 
 
 def _load_env():
-    """Load .env for API keys."""
+    """Load backend/.env for API keys (none when run as a brunna service)."""
     from dotenv import load_dotenv
 
-    load_dotenv()
+    from app.core.storage import env_file
+
+    if path := env_file():
+        load_dotenv(path)
 
 
 def _gen_thread_id(prefix: str = "cli") -> str:
@@ -2141,6 +2144,7 @@ def keys(
     try:
         if set_key:
             keys_svc.check_names([set_key])
+            keys_svc.key_file()
             value = typer.prompt(set_key, hide_input=True, err=True)
             keys_svc.save_keys({set_key: value})
         elif unset:

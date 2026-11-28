@@ -160,7 +160,10 @@ if __name__ == "__main__":
 
     # The entry point reads backend/.env (the reloader's worker inherits the
     # environment); importing app modules never does.
-    load_dotenv()
+    from app.core.storage import env_file
+
+    if path := env_file():
+        load_dotenv(path)
 
     # Loopback by default; the Docker image sets HOST=0.0.0.0 and compose
     # publishes the port on 127.0.0.1 only.

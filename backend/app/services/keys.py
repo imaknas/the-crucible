@@ -43,6 +43,21 @@ def check_names(names) -> None:
         raise ValueError(f"Unknown key(s): {', '.join(sorted(unknown))}. Known: {', '.join(sorted(KEY_NAMES))}")
 
 
+KEYS_FROM_ENVIRONMENT = (
+    "This install reads its API keys from the environment and has no .env to write: "
+    "as a brunna service, set them as the service's secrets."
+)
+
+
+def key_file(env_path: Optional[str] = None) -> str:
+    """The .env keys are saved to; ValueError when keys come only from the
+    environment (a brunna service), so callers can refuse before asking for one."""
+    path = env_path or current_storage().env_path
+    if not path:
+        raise ValueError(KEYS_FROM_ENVIRONMENT)
+    return path
+
+
 def save_keys(
     keys: Mapping[str, str],
     env_path: Optional[str] = None,
@@ -53,6 +68,7 @@ def save_keys(
     Raises ValueError for a name that isn't a provider key or a value that
     could add lines to .env."""
     check_names(keys)
+    env_path = key_file(env_path)
 
     cleaned: Dict[str, str] = {}
     for name, value in keys.items():
@@ -61,7 +77,6 @@ def save_keys(
             raise ValueError(f"{name} contains characters an API key cannot have")
         cleaned[name] = value
 
-    env_path = env_path or current_storage().env_path
     lines: list[str] = []
     if os.path.exists(env_path):
         with open(env_path, "r") as f:

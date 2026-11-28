@@ -59,3 +59,22 @@ def test_cors_rejects_foreign_origin():
     assert "access-control-allow-origin" not in evil.headers
     ok = c.options("/config/keys", headers={"Origin": "http://localhost:3000", "Access-Control-Request-Method": "POST"})
     assert ok.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+
+def test_a_brunna_service_refuses_to_write_keys(monkeypatch):
+    """A service gets its keys as environment variables and its code folder
+    is read-only: saving one says where keys are set instead of writing."""
+    from typer.testing import CliRunner
+
+    from app.cli import app as cli_app
+
+    point(monkeypatch, env_path=None)
+    monkeypatch.delenv("CRUCIBLE_ALLOW_REMOTE_CONFIG", raising=False)
+    with pytest.raises(ValueError, match="service's secrets"):
+        keys_svc.save_keys({"OPENAI_API_KEY": "sk-abc123XYZ"})
+    res = _client("127.0.0.1").post("/config/keys", json={"keys": {"OPENAI_API_KEY": "sk-abc123XYZ"}})
+    assert res.status_code == 400 and "service's secrets" in res.json()["detail"]
+    # The CLI refuses before asking for the value.
+    result = CliRunner().invoke(cli_app, ["keys", "--set", "OPENAI_API_KEY"], input="sk-abc123XYZ\n")
+    assert result.exit_code == 1 and "service's secrets" in result.output
+    assert "OPENAI_API_KEY:" not in result.output

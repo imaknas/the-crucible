@@ -60,3 +60,19 @@ def test_the_model_listing_carries_dated_prices():
     luna = next(m for m in list_models(day="2026-10-31") if m["id"] == "gpt-6-luna")
     assert luna["price_per_mtok"]["input"] > 0 and luna["price_per_mtok"]["output"] > 0
     assert luna["context_window"]
+
+
+def test_a_brunna_service_keeps_everything_in_its_state_folder_and_has_no_env_file(tmp_path):
+    from app.core.storage import SERVICE_STATE_VAR, Storage, env_file
+
+    state = str(tmp_path / "state")
+    s = Storage.from_env({SERVICE_STATE_VAR: state})
+    assert s.db_path == f"{state}/checkpoints.sqlite"
+    assert s.upload_dir == f"{state}/uploads"
+    assert s.chroma_dir == f"{state}/chroma_db"
+    assert s.env_path is None and env_file({SERVICE_STATE_VAR: state}) is None
+    # An explicit location still wins.
+    assert Storage.from_env({SERVICE_STATE_VAR: state, "DATABASE_PATH": "/elsewhere.sqlite"}).db_path == "/elsewhere.sqlite"
+    # Outside a service: backend/ and backend/.env, as before.
+    plain = Storage.from_env({})
+    assert plain.db_path.endswith("backend/checkpoints.sqlite") and plain.env_path.endswith("backend/.env")

@@ -1363,7 +1363,10 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
 
     # The entry point reads backend/.env; importing this module (tests) doesn't.
-    load_dotenv()
+    from app.core.storage import env_file
+
+    if path := env_file():
+        load_dotenv(path)
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
     from app.core.storage import Storage, set_storage
 
