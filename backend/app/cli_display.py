@@ -298,6 +298,15 @@ def print_metrics(metrics, label: str = "") -> None:
         console.print(f"  [dim]{escape(f'{label}: ' if label else '')}{escape(line)}[/dim]")
 
 
+def print_usage(usage, label: str = "") -> None:
+    """What a helper operation's calls took (a usage_summary), one dim line."""
+    from app.services.metrics import describe_usage
+
+    line = describe_usage(usage)
+    if line:
+        console.print(f"  [dim]{escape(f'{label}: ' if label else '')}{escape(line)}[/dim]")
+
+
 def render_diff(diff: Dict[str, Any], unchanged: bool = False) -> None:
     """Two answers' differences (``history.diff_answers``) as text: a ``−``
     line is A's, a ``+`` line B's; inside a changed sentence removed words are

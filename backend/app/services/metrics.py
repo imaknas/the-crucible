@@ -227,6 +227,21 @@ def usage_summary(
     }
 
 
+def with_calls(record: Dict[str, Any], calls: Iterable[Optional[Mapping[str, Any]]]) -> Dict[str, Any]:
+    """``record`` with the model calls it took kept as raw usage and the
+    day they were made, to store; ``priced`` turns them into ``usage``."""
+    return {**record, "calls": {"day": utc_day(), "calls": [c for c in calls if c]}}
+
+
+def priced(record: Dict[str, Any]) -> Dict[str, Any]:
+    """A stored record as clients read it: its raw calls priced as
+    ``usage`` (a usage_summary), None for a record from before they were kept."""
+    out = {k: v for k, v in record.items() if k != "calls"}
+    stored = record.get("calls") or {}
+    out["usage"] = usage_summary(stored.get("calls") or [], day=stored.get("day"))
+    return out
+
+
 @functools.lru_cache(maxsize=1)
 def current_prices() -> Mapping[str, ModelPrice]:
     """The price list, read once per process."""

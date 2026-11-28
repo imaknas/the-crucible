@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from app.core import database as db
 from app.registry import display_name
+from app.services.metrics import call_entry, priced, with_calls
 from app.services.synthesis import Issue, parse_issues
 
 log = logging.getLogger(__name__)
@@ -180,6 +181,8 @@ async def check_issues(
     config = {"configurable": {"model_factory": factory}} if factory else {}
     truncated = False
 
+    calls: list = []
+
     async def check_by(checker: str) -> Dict[int, tuple[str, str]]:
         nonlocal truncated
         order = list(issues)
@@ -189,6 +192,7 @@ async def check_issues(
         # No toggles: a check reads the source it is given, not the web.
         llm = model_factory_from(config).chat(checker, {})
         response = await llm.ainvoke([HumanMessage(content=prompt)], config={"tags": [INTERNAL_TAG]})
+        calls.append(call_entry(response, checker, "issue check"))
         return parse_verdicts(extract_text(response.content), [i.number for i in issues])
 
     results = await asyncio.gather(*(check_by(c) for c in checkers), return_exceptions=True)
@@ -233,10 +237,11 @@ async def check_issues(
         "issues": rows,
         "errors": errors,
     }
+    check = with_calls(check, calls)
     await asyncio.to_thread(db.save_issue_check, thread_id, node, check)
-    return check
+    return priced(check)
 
 
 def checks_of(thread_id: str) -> List[dict]:
     """Every stored check of an issue list on a thread, newest first."""
-    return db.list_issue_checks(thread_id)
+    return [priced(c) for c in db.list_issue_checks(thread_id)]

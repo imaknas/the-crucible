@@ -1113,16 +1113,16 @@ async def _run_list_components(thread_id, model, as_json, answers=None):
     from rich.markup import escape
 
     from app.services.arena import answer_components, open_graph
-    from app.cli_display import print_header, print_info
+    from app.cli_display import print_header, print_info, print_usage
 
     async with open_graph() as graph_app:
-        components = await answer_components(graph_app, thread_id, answers, model)
-    result = {"thread_id": thread_id, "components": [{"text": c.text, "sources": list(c.sources)} for c in components]}
+        result = await answer_components(graph_app, thread_id, answers, model)
     if not as_json:
         print_header()
         print_info("Components of the answers. Keep the ones you want with --mode checklist --keep \"<text>\" (repeat):")
-        for i, c in enumerate(components, 1):
-            console.print(f"  {i}. {escape(c.text)}  [dim]({escape(', '.join(c.sources))})[/dim]")
+        for i, c in enumerate(result["components"], 1):
+            console.print(f"  {i}. {escape(c['text'])}  [dim]({escape(', '.join(c['sources']))})[/dim]")
+        print_usage(result["usage"])
     return result
 
 
@@ -1374,8 +1374,11 @@ def summarize_branch(
     from rich.markdown import Markdown
     from app.registry import display_name
 
+    from app.cli_display import print_usage
+
     console.rule(f"[dim]{result['nodes']} messages, by {display_name(result['model'])}[/dim]")
     console.print(Markdown(result["summary"]))
+    print_usage(result.get("usage"))
 
 
 @app.command()
@@ -1618,7 +1621,7 @@ async def _run_review(thread_id, answers, list_only, as_json):
     from app.core import database as db
     from app.services import review as review_svc
     from app.services.arena import open_graph
-    from app.cli_display import print_header, print_info
+    from app.cli_display import print_header, print_info, print_usage
 
     if not db.thread_exists(thread_id):
         raise ValueError(f"Thread {thread_id} not found.")
@@ -1641,6 +1644,7 @@ async def _run_review(thread_id, answers, list_only, as_json):
                 console.print(Text(f"      {s['reviewer_name']}: {s['score']} — {s['reason']}", style="dim"))
         for model, error in r.get("errors", {}).items():
             console.print(Text(f"  {model} couldn't review: {error}", style="red"))
+        print_usage(r.get("usage"))
         print_info("Scores the models gave each other's answers, anonymously and never their own: evidence, not a verdict.")
     return {"thread_id": thread_id, "reviews": reviews}
 
@@ -1683,7 +1687,7 @@ async def _run_check(thread_id, checkpoint, models, list_only, as_json):
     from app.core import database as db
     from app.services import checks as checks_svc
     from app.services.arena import open_graph
-    from app.cli_display import print_header, print_info
+    from app.cli_display import print_header, print_info, print_usage
 
     if not db.thread_exists(thread_id):
         raise ValueError(f"Thread {thread_id} not found.")
@@ -1712,6 +1716,7 @@ async def _run_check(thread_id, checkpoint, models, list_only, as_json):
                 console.print(Text("   no verdicts", style="dim"))
         for model, error in c.get("errors", {}).items():
             console.print(Text(f"  {model} couldn't check: {error}", style="red"))
+        print_usage(c.get("usage"))
         if c.get("source_truncated"):
             print_info("The attached documents were too long to show the checkers whole.")
         print_info("Each checker's verdict against the source, side by side: read the problems they disagree on yourself.")

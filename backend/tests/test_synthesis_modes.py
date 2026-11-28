@@ -181,13 +181,13 @@ async def test_a_checklist_lists_components_without_writing_then_merges_the_kept
     async with arena.open_graph() as graph_app:
         ids = await _turn(graph_app, "t-check")
         before = len((await history.thread_tree(graph_app, "t-check"))["nodes"])
-        components = await arena.answer_components(graph_app, "t-check", ids, C)
+        components = (await arena.answer_components(graph_app, "t-check", ids, C))["components"]
         assert len((await history.thread_tree(graph_app, "t-check"))["nodes"]) == before  # nothing written
         SEEN.clear()
         result = await arena.collect(arena.synthesize_thread(
-            graph_app, "t-check", A, checkpoint_ids=ids, mode="checklist", keep=[components[1].text]))
+            graph_app, "t-check", A, checkpoint_ids=ids, mode="checklist", keep=[components[1]["text"]]))
 
-    assert [c.text for c in components] == ["Start with a monolith.", "Split out billing first."]
+    assert [c["text"] for c in components] == ["Start with a monolith.", "Split out billing first."]
     assert "- Split out billing first." in SEEN[-1] and "Start with a monolith" not in SEEN[-1].split("keep:")[-1]
     assert result["synthesis"]["error"] is None
 

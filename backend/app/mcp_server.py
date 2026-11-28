@@ -366,7 +366,10 @@ async def list_answer_components(
     where answers say the same thing. Nothing is written to the thread.
     Pass the texts you want to synthesize_answers(mode="checklist", keep=...).
 
-    Returns {thread_id, components: [{text, sources: [answer names]}]}.
+    Returns {thread_id, components: [{text, sources: [answer names]}],
+    usage}. `usage` is what the call cost ({calls, kinds, input_tokens,
+    output_tokens, reasoning_tokens, cached_input_tokens, cost_usd,
+    unpriced}), as in review_answers and check_issues.
 
     Args:
         thread_id: The thread.
@@ -376,10 +379,9 @@ async def list_answer_components(
     await _require_thread(thread_id)
     try:
         async with arena_svc.open_graph() as graph_app:
-            components = await arena_svc.answer_components(graph_app, thread_id, checkpoint_ids, model)
+            return await arena_svc.answer_components(graph_app, thread_id, checkpoint_ids, model)
     except ValueError as e:
         raise _tool_error(e)
-    return {"thread_id": thread_id, "components": [{"text": c.text, "sources": list(c.sources)} for c in components]}
 
 
 @mcp.tool()
@@ -393,7 +395,10 @@ async def review_answers(thread_id: str, checkpoint_ids: Optional[List[str]] = N
 
     Returns {review_key, thread_id, checkpoint_ids, question, answers: [{label,
     checkpoint_id, model, model_name, average, scores: [{reviewer,
-    reviewer_name, score, reason}]}], errors: {model: message}}.
+    reviewer_name, score, reason}]}], errors: {model: message}, usage}.
+    `usage` is what the reviewers' calls cost ({calls, kinds, input_tokens,
+    output_tokens, reasoning_tokens, cached_input_tokens, cost_usd,
+    unpriced}); null on a review stored before it was kept.
 
     Args:
         thread_id: The thread.
@@ -440,7 +445,8 @@ async def check_issues(thread_id: str, checkpoint_id: str, models: Optional[List
     Returns {thread_id, checkpoint_id, question, documents, source_truncated,
     checkers: [{model, model_name}], issues: [{number, problem, raised_by,
     why, verdicts: [{checker, checker_name, verdict: holds|does_not_hold|cant_tell,
-    reason, own}], disagree}], errors: {model: message}}.
+    reason, own}], disagree}], errors: {model: message}, usage}. `usage`
+    is what the checkers' calls cost, as in review_answers.
 
     Args:
         thread_id: The thread.
@@ -925,7 +931,8 @@ async def summarize_subtree(
     node (get_thread_tree shows it as subtree_summary). One summarizer call;
     nothing is added to the conversation.
 
-    Returns {thread_id, node_id, summary, model, nodes} (summary null after clear).
+    Returns {thread_id, node_id, summary, model, nodes, usage} (summary null
+    after clear; `usage` is what the call cost, as in review_answers).
 
     Args:
         thread_id: The thread.

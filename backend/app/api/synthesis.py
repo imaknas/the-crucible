@@ -20,10 +20,9 @@ async def list_components(req: ComponentsRequest, graph_app=Depends(get_graph_ap
     """The components of the answers, for the reader to tick before a
     checklist synthesis (sent back as the chat frame's keep_components)."""
     try:
-        components = await arena.answer_components(graph_app, req.thread_id, req.checkpoint_ids, req.model)
+        return await arena.answer_components(graph_app, req.thread_id, req.checkpoint_ids, req.model)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    return {"components": [{"text": c.text, "sources": list(c.sources)} for c in components]}
 
 
 class ReviewRequest(BaseModel):

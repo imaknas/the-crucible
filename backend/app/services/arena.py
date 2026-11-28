@@ -20,11 +20,10 @@ from app.services.chat import node_checkpoint, stream_turn, thread_state_map
 from app.services.graph import workflow
 from app.llm.effort import timeout_factor
 from app.services.message_format import reply_angle, reply_effort
-from app.services.metrics import message_metrics, snapshot_day
+from app.services.metrics import call_entry, message_metrics, snapshot_day, usage_summary, utc_day
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
 from app.services.synthesis import (
     INDEPENDENT,
-    Component,
     build_synthesis_prompt,
     component_request,
     parse_components,
@@ -735,7 +734,7 @@ async def answer_components(
     model: Optional[str] = None,
     *,
     factory=None,
-) -> List[Component]:
+) -> Dict[str, Any]:
     """The checklist to choose from before a "checklist" synthesis: the
     answers at ``checkpoint_ids`` (default: the answers to the latest
     question) split into components, each naming the answers that contain
@@ -760,7 +759,10 @@ async def answer_components(
     llm = model_factory_from(config).chat(model, {})
     response = await llm.ainvoke([HumanMessage(content=component_request(question_line, labelled))],
                                  config={"tags": [INTERNAL_TAG]})
-    return parse_components(extract_text(response.content))
+    components = parse_components(extract_text(response.content))
+    return {"thread_id": thread_id,
+            "components": [{"text": c.text, "sources": list(c.sources)} for c in components],
+            "usage": usage_summary([call_entry(response, model, "components")], day=utc_day())}
 
 
 async def latest_turn_answers(graph_app, thread_id: str) -> List[Dict[str, Any]]:

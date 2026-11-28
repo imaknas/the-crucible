@@ -144,3 +144,36 @@ async def test_mcp_debate_rounds_carry_metrics():
         assert res["total"]["answers"] == 3
         got = (await client.call_tool("get_debate", {"session_id": res["session_id"]})).data
         assert got["total"]["cost_usd"] == pytest.approx(res["total"]["cost_usd"])
+
+
+def _usage(usage, calls):
+    assert usage is not None and usage["calls"] == calls and usage["cost_usd"] > 0 and usage["unpriced"] == 0
+    return usage
+
+
+def test_review_check_components_and_branch_summary_say_what_they_cost():
+    arena = json.loads(runner.invoke(cli_app, ["arena", "Q?", "-m", A, "-m", B, "-t", "t-u", "--no-synthesize",
+                                               "--format", "json"]).stdout)
+    review = json.loads(runner.invoke(cli_app, ["review", "-t", "t-u", "--format", "json"]).stdout)
+    _usage(review["usage"], 2)  # each author scores the other
+    stored = json.loads(runner.invoke(cli_app, ["review", "-t", "t-u", "--list", "--format", "json"]).stdout)
+    assert stored["reviews"][0]["usage"] == review["usage"] and "calls" not in stored["reviews"][0]
+
+    parts = json.loads(runner.invoke(cli_app, ["synthesize", "-t", "t-u", "--mode", "checklist", "-j", A,
+                                               "--format", "json"]).stdout)
+    _usage(parts["usage"], 1)
+
+    issues = json.loads(runner.invoke(cli_app, ["synthesize", "-t", "t-u", "--mode", "issues", "-j", A,
+                                                "--format", "json"]).stdout)
+    check = json.loads(runner.invoke(cli_app, ["check", issues["synthesis"]["checkpoint_id"], "-t", "t-u",
+                                               "--format", "json"]).stdout)
+    _usage(check["usage"], 2)  # one call per checker: the reviews' two models
+    listed = json.loads(runner.invoke(cli_app, ["check", "-t", "t-u", "--list", "--format", "json"]).stdout)
+    assert listed["checks"][0]["usage"] == check["usage"]
+
+    node = arena["answers"][A]["checkpoint_id"]
+    branch = json.loads(runner.invoke(cli_app, ["summarize-branch", node, "-t", "t-u", "-m", A,
+                                                "--format", "json"]).stdout)
+    _usage(branch["usage"], 1)
+    printed = runner.invoke(cli_app, ["review", "-t", "t-u", "--list"])
+    assert "2 calls · " in printed.stdout

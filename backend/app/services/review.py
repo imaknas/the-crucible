@@ -22,6 +22,7 @@ from typing import Any, List, Mapping, Optional, Sequence
 
 from app.core import database as db
 from app.registry import display_name
+from app.services.metrics import call_entry, priced, with_calls
 
 log = logging.getLogger(__name__)
 
@@ -139,6 +140,8 @@ async def review_answers(
     question = answers[0].get("question") or "(see the answers)"
     config = {"configurable": {"model_factory": factory}} if factory else {}
 
+    calls: list = []
+
     async def review_by(reviewer: str) -> tuple[str, dict[str, tuple[int, str]]]:
         others = [(r.label, _as_reviewed(a)) for r, a in zip(reviewed, answers) if a["model"] != reviewer]
         random.Random(f"{key}:{reviewer}").shuffle(others)
@@ -146,6 +149,7 @@ async def review_answers(
         response = await llm.ainvoke(
             [HumanMessage(content=review_prompt(question, others))], config={"tags": [INTERNAL_TAG]}
         )
+        calls.append(call_entry(response, reviewer, "peer review"))
         return reviewer, parse_scores(extract_text(response.content), [label for label, _ in others])
 
     results = await asyncio.gather(*(review_by(r) for r in reviewers), return_exceptions=True)
@@ -176,10 +180,11 @@ async def review_answers(
         ],
         "errors": errors,
     }
+    review = with_calls(review, calls)
     await asyncio.to_thread(db.save_answer_review, thread_id, key, review)
-    return review
+    return priced(review)
 
 
 def reviews_of(thread_id: str) -> list[dict]:
     """Every stored peer review on a thread, newest first."""
-    return db.list_answer_reviews(thread_id)
+    return [priced(r) for r in db.list_answer_reviews(thread_id)]

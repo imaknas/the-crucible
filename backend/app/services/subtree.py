@@ -13,6 +13,7 @@ from collections import deque
 from typing import Any, Dict, List, Optional
 
 from app.core import database as db
+from app.services.metrics import call_entry, usage_summary, utc_day
 
 NAME_MAX_CHARS = 80
 # What one summary call reads at most; a bigger subtree keeps its first
@@ -144,13 +145,15 @@ async def summarize_subtree(
     llm = model_factory_from(config).chat(model, {})
     response = await llm.ainvoke([HumanMessage(content=subtree_request(entries, texts))], config={"tags": [INTERNAL_TAG]})
     summary = extract_text(response.content).strip()
+    usage = usage_summary([call_entry(response, model, "branch summary")], day=utc_day())
     if not summary:
         raise ValueError(f"{model} returned an empty summary.")
     count = sum(1 for e in entries if e["role"] in ("user", "ai"))
     await asyncio.to_thread(
         db.save_node_note, thread_id, node_id, summary=summary, summary_model=model, summary_nodes=count
     )
-    return {"thread_id": thread_id, "node_id": node_id, "summary": summary, "model": model, "nodes": count}
+    return {"thread_id": thread_id, "node_id": node_id, "summary": summary, "model": model, "nodes": count,
+            "usage": usage}
 
 
 async def clear_subtree_summary(graph_app, thread_id: str, node_id: str) -> None:
