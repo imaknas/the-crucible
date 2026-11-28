@@ -21,7 +21,6 @@ from app.services.arena import (
     TurnStart,
     join_point,
     question_point,
-    synthesis_note,
     synthesis_request,
     turn_start,
 )
@@ -316,12 +315,11 @@ async def run_model(run: LiveRun, graph_app, thread_id: str, frame: dict, contex
         if frame.get("type") == SYNTHESIS_TURN and frame.get("answer_checkpoint_ids"):
             # The answers to synthesize, by checkpoint: the prompt is the
             # backend's, the same one the CLI and MCP synthesis writes.
-            mode = frame.get("synthesis_mode") or "merge"
-            message = await synthesis_request(
-                graph_app, thread_id, frame["answer_checkpoint_ids"], mode,
+            ask = await synthesis_request(
+                graph_app, thread_id, frame["answer_checkpoint_ids"], frame.get("synthesis_mode") or "merge",
                 keep=frame.get("keep_components") or (), question=frame.get("synthesis_question"),
             )
-            note = synthesis_note(mode, frame.get("synthesis_question"), frame["answer_checkpoint_ids"])
+            message, note = ask.prompt, ask.note
         run.emit({"type": "stream_start", **where, "model_color": model_color(model),
                   "kind": state.kind, "message": state.message})
         async for event in stream_turn(

@@ -34,6 +34,7 @@ from app.core.database import ThreadDocumentStore
 from app.core.schema import is_summary_message, summary_text
 from app.registry import display_name
 from app.services import arena as arena_svc
+from app.services.referee import default_synthesizer
 from app.services import debate as debate_svc
 from app.services import history
 from app.services import threads as threads_svc
@@ -112,6 +113,11 @@ def _maybe_toggles(session: Dict[str, Any], use_web_search: Optional[bool], use_
     return toggles
 
 
+def _synthesis(event: Dict[str, Any]) -> Dict[str, Any]:
+    """A synthesis: an answer plus who wrote each lettered answer it read."""
+    return {**_answer(event), "legend": event.get("legend") or None}
+
+
 def _answer(event: Dict[str, Any]) -> Dict[str, Any]:
     """One answer, the same shape in every tool."""
     return {
@@ -182,8 +188,8 @@ async def invoke_arena(
 
     Returns {thread_id, new_thread, turn_id, answers: [{model, model_name,
     content, checkpoint_id, error, metrics, angle, parent_checkpoint_id,
-    attached_documents, retrieved, notices}], synthesis: answer | null,
-    synthesis_skipped?}. Each answer's checkpoint_id is where to continue
+    attached_documents, retrieved, notices}], synthesis: answer + legend |
+    null, synthesis_skipped?, warnings}. Each answer's checkpoint_id is where to continue
     that model from. `metrics` is {ttft_ms, total_ms, input_tokens,
     output_tokens, reasoning_tokens, cached_input_tokens, cost_usd, helpers}
     (times, tokens and cost of the answering call; reasoning and cached
@@ -195,6 +201,13 @@ async def invoke_arena(
     `notices` say what degraded a turn without failing it (a summary that
     couldn't be written, document search that failed). Raises if every
     model failed; a new thread whose first turn failed entirely is removed.
+    `warnings` say what weakens the answers as independent evidence: default
+    models left out for want of a key, every answer from one provider, a
+    synthesizer that also answered.
+
+    The synthesizer reads the answers as "Answer A", "Answer B", … , never
+    by model, and its text refers to them so; `legend` is [{label, model,
+    model_name, checkpoint_id}], who each letter is.
 
     Where each model starts: parent_checkpoint_id if given; else
     after_debate_session_id; else each model continues its own latest reply
@@ -226,7 +239,7 @@ async def invoke_arena(
         after_debate_session_id: Continue the debate's thread after it: its rounds and synthesis become context (the first time it is written down; later calls continue after the newest turn).
         deliberation: Each model critically reviews the conversation so far instead of answering a new question; needs a thread with history; no synthesis.
         synthesize: Add a synthesis of the answers (needs two that succeeded).
-        synthesizer: Model that writes the synthesis. Default: the first model.
+        synthesizer: Model that writes the synthesis. Default: a model from a provider that didn't answer, when one has a key (else the first model, with a warning).
         attachments: Local file paths (.pdf .txt .md .csv, 10 MB each) in this turn's context.
         use_rag: Search the files uploaded to this thread (upload_document).
         use_web_search: Let models that support it (list_models native_search) search the web.
@@ -257,19 +270,22 @@ async def invoke_arena(
     context = _context(system_prompt, summarizer, reasoning_effort)
     documents = _attachments(attachments)
 
-    result: Dict[str, Any] = {"thread_id": thread_id, "new_thread": False, "turn_id": None, "answers": [], "synthesis": None}
+    result: Dict[str, Any] = {"thread_id": thread_id, "new_thread": False, "turn_id": None, "answers": [], "synthesis": None,
+                              "warnings": []}
     parents: Dict[str, str] = {}
     try:
         resolved = arena_svc.resolve_models(models)
-        chosen_synth = (synthesizer or resolved[0]) if synthesize and not deliberation and not join_turn else None
+        synthesizes = synthesize and not deliberation and not join_turn
+        chosen_synth = (synthesizer or default_synthesizer(resolved)) if synthesizes else None
         async with arena_svc.open_graph() as graph_app:
             async for event in arena_svc.run_arena(
-                graph_app, prompt, thread_id, resolved, _toggles(use_web_search, use_rag), chosen_synth,
+                graph_app, prompt, thread_id, models, _toggles(use_web_search, use_rag), chosen_synth,
                 context=context, parent_checkpoint_id=parent_checkpoint_id, after_debate=after_debate_session_id,
                 documents=documents, is_deliberation=deliberation, join_turn=join_turn, angles=angles,
             ):
                 if event["type"] == "start":
                     result["new_thread"], result["turn_id"] = event["new_thread"], event["turn_id"]
+                    result["warnings"] = event.get("warnings") or []
                     parents = event["parents"]
                 elif event["type"] == "end":
                     result["answers"].append({
@@ -277,7 +293,7 @@ async def invoke_arena(
                         **{k: event.get(k) or [] for k in ("attached_documents", "retrieved", "notices")},
                     })
                 elif event["type"] == "synthesis":
-                    result["synthesis"] = _answer(event)
+                    result["synthesis"] = _synthesis(event)
     except ValueError as e:
         raise _tool_error(e)
 
@@ -317,12 +333,17 @@ async def synthesize_answers(
     answers may come from any branches.
 
     Returns {thread_id, parent_checkpoint_id, answers: [answer] (exactly the
-    ones synthesized), synthesis: answer}.
+    ones synthesized), synthesis: answer + legend, warnings}. The
+    synthesizer reads the answers as "Answer A", "Answer B", … (one turn's
+    answers in the letters blind comparison gives them), except with mode
+    "ask", where your question may name a model; `legend` is [{label, model,
+    model_name, checkpoint_id}] (null when read by name). `warnings` as in
+    invoke_arena (one provider, a synthesizer that also answered).
 
     Args:
         thread_id: The thread.
         checkpoint_ids: The answers to synthesize (invoke_arena or get_thread_tree ids). Default: every model's answer to the thread's latest question, syntheses left out.
-        synthesizer: Model that writes it. Default: the first answer's model.
+        synthesizer: Model that writes it. Default: a model from a provider that wrote none of the answers, when one has a key (else the first answer's model, with a warning).
         parent_checkpoint_id: Where the synthesis goes instead.
         system_prompt: Instructions sent before the conversation.
         summarizer: Model that summarizes long history.
@@ -333,7 +354,8 @@ async def synthesize_answers(
     """
     context = _context(system_prompt, summarizer, reasoning_effort)
     await _require_thread(thread_id)
-    result: Dict[str, Any] = {"thread_id": thread_id, "parent_checkpoint_id": None, "answers": [], "synthesis": None}
+    result: Dict[str, Any] = {"thread_id": thread_id, "parent_checkpoint_id": None, "answers": [], "synthesis": None,
+                              "warnings": []}
     try:
         async with arena_svc.open_graph() as graph_app:
             async for event in arena_svc.synthesize_thread(
@@ -343,10 +365,11 @@ async def synthesize_answers(
             ):
                 if event["type"] == "start":
                     result["parent_checkpoint_id"] = event["parent_checkpoint_id"]
+                    result["warnings"] = event.get("warnings") or []
                 elif event["type"] == "end":
                     result["answers"].append(_answer(event))
                 elif event["type"] == "synthesis":
-                    result["synthesis"] = _answer(event)
+                    result["synthesis"] = _synthesis(event)
     except ValueError as e:
         raise _tool_error(e)
     if not result["synthesis"] or result["synthesis"]["error"]:
@@ -366,15 +389,16 @@ async def list_answer_components(
     where answers say the same thing. Nothing is written to the thread.
     Pass the texts you want to synthesize_answers(mode="checklist", keep=...).
 
-    Returns {thread_id, components: [{text, sources: [answer names]}],
-    usage}. `usage` is what the call cost ({calls, kinds, input_tokens,
+    Returns {thread_id, components: [{text, sources: [model names]}],
+    usage}. The model reads the answers by letter; sources are given back
+    as the models' names. `usage` is what the call cost ({calls, kinds, input_tokens,
     output_tokens, reasoning_tokens, cached_input_tokens, cost_usd,
     unpriced}), as in review_answers and check_issues.
 
     Args:
         thread_id: The thread.
         checkpoint_ids: The answers (invoke_arena or get_thread_tree ids). Default: every model's answer to the thread's latest question.
-        model: Model that writes the list. Default: the first answer's model.
+        model: Model that writes the list. Default: a model from a provider that wrote none of the answers, when one has a key (else the first answer's model).
     """
     await _require_thread(thread_id)
     try:
@@ -443,8 +467,8 @@ async def check_issues(thread_id: str, checkpoint_id: str, models: Optional[List
     raised. Stored on the thread. One model call per checker.
 
     Returns {thread_id, checkpoint_id, question, documents, source_truncated,
-    checkers: [{model, model_name}], issues: [{number, problem, raised_by,
-    why, verdicts: [{checker, checker_name, verdict: holds|does_not_hold|cant_tell,
+    checkers: [{model, model_name}], issues: [{number, problem, raised_by
+    (each "Answer X" given with its model), raised_by_models, why, verdicts: [{checker, checker_name, verdict: holds|does_not_hold|cant_tell,
     reason, own}], disagree}], errors: {model: message}, usage}. `usage`
     is what the checkers' calls cost, as in review_answers.
 

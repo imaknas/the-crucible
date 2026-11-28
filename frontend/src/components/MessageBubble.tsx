@@ -21,7 +21,7 @@ import {
   vscDarkPlus,
   vs,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Message } from "@/lib/types";
+import { Message, type SynthesisLegendEntry } from "@/lib/types";
 import { ReplyMetricsLine } from "./ReplyMetrics";
 import { ReplyContextNote } from "./ContextNotes";
 import { FAMILY_COLORS, NEUTRAL_COLOR, modelFamilyColor, modelPalette, type ModelPalette } from "@/lib/colors";
@@ -479,12 +479,14 @@ interface MessageBubbleProps {
   modelLabel?: (id: string) => string;
   /** A synthesis reply gets its own look, so it never reads as one more answer. */
   variant?: "synthesis";
+  /** A synthesis of answers read blind, before the vote: say who each letter is only after it. */
+  hideLegend?: boolean;
 }
 
 const identity = (id: string) => id;
 
 export const MessageBubble = React.memo(
-  ({ msg, isUser, isDark, onMount, index, modelLabel = identity, variant }: MessageBubbleProps) => {
+  ({ msg, isUser, isDark, onMount, index, modelLabel = identity, variant, hideLegend = false }: MessageBubbleProps) => {
     const isSynthesis = variant === "synthesis";
     const modelColor = getModelColor(isUser ? undefined : isSynthesis ? "synthesis" : msg.model, isDark, msg.model_color);
     const author = replyAuthor(msg, modelLabel);
@@ -575,6 +577,9 @@ export const MessageBubble = React.memo(
             </Typography>
           )}
           {!isUser && msg.angle && <AngleLine angle={msg.angle} />}
+          {isSynthesis && !!msg.synthesis_legend?.length && (
+            <SynthesisLegend legend={msg.synthesis_legend} hidden={hideLegend} />
+          )}
           <MessageBody msg={msg} isDark={isDark} />
           {!isUser && !msg.streaming && msg.metrics && (
             <Box sx={{ mt: 1.5 }}>
@@ -593,6 +598,20 @@ export const MessageBubble = React.memo(
 );
 
 MessageBubble.displayName = "MessageBubble";
+
+/**
+ * Who each lettered answer a synthesis read is. The synthesizer saw letters
+ * only, so its text says "Answer A"; this decodes them.
+ */
+export function SynthesisLegend({ legend, hidden }: { legend: SynthesisLegendEntry[]; hidden: boolean }) {
+  return (
+    <Typography data-testid="synthesis-legend" sx={{ mb: 1.5, fontSize: "0.8125rem", color: "text.secondary" }}>
+      {hidden
+        ? `Read without names, as ${legend.map((e) => e.label).join(", ")}. Who wrote each shows once you vote.`
+        : `Read without names: ${legend.map((e) => `${e.label} is ${e.model_name}`).join(" · ")}`}
+    </Typography>
+  );
+}
 
 /** The angle a reply was asked to answer from (lib/angles), above its text. */
 export function AngleLine({ angle }: { angle: string }) {

@@ -205,6 +205,8 @@ export async function fetchModels(): Promise<{
   families: ModelFamily[];
   default_model?: string;
   default_arena_models?: string[];
+  /** Who combines answers when no one is named (lib/referee). */
+  referee_models?: string[];
   default_summarizer?: string;
   limits?: Partial<import("@/lib/catalog").Limits>;
   /** What a run's reasoning effort may be, lowest first. */

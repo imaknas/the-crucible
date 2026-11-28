@@ -207,3 +207,36 @@ describe("blind comparison", () => {
     expect(screen.queryByText(/Total/)).not.toBeInTheDocument();
   });
 });
+
+describe("a synthesis read without names", () => {
+  const legend = [
+    { label: "Answer A", model: "claude-x", model_name: "Claude X", checkpoint_id: "n1" },
+    { label: "Answer B", model: "gpt-x", model_name: "GPT X", checkpoint_id: "n2" },
+  ];
+  const synthesis = (hideLegend: boolean) =>
+    render(
+      <MessageBubble
+        msg={{ id: "s", role: "assistant", content: "Answer A is right.", model: "gemini-x", synthesis_legend: legend }}
+        isUser={false}
+        isDark={false}
+        onMount={() => {}}
+        index={0}
+        variant="synthesis"
+        hideLegend={hideLegend}
+      />,
+    );
+
+  it("says who each letter is", () => {
+    synthesis(false);
+    expect(screen.getByTestId("synthesis-legend")).toHaveTextContent(
+      "Read without names: Answer A is Claude X · Answer B is GPT X",
+    );
+  });
+
+  it("keeps the names back while the turn is compared blind", () => {
+    synthesis(true);
+    const line = screen.getByTestId("synthesis-legend");
+    expect(line).toHaveTextContent("Who wrote each shows once you vote");
+    expect(line).not.toHaveTextContent("Claude X");
+  });
+});

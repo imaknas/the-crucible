@@ -98,12 +98,38 @@ def parse_verdicts(text: str, numbers: Sequence[int]) -> Dict[int, tuple[str, st
     return found
 
 
-def raised_by_models(issue: Issue, models: Sequence[str]) -> List[str]:
-    """Which of the reviewing models an issue's "Raised by" names: its
-    labels, without an angle note or a "#2" (arena._labelled_answers)."""
+_ANSWER_LABEL = re.compile(r"\bAnswer ([A-Z])\b", re.I)
+
+
+def _by_letter(legend: Optional[Sequence[Mapping[str, Any]]]) -> Dict[str, str]:
+    return {entry["label"].split()[-1].upper(): entry["model"] for entry in legend or []}
+
+
+def raised_by_models(issue: Issue, models: Sequence[str],
+                     legend: Optional[Sequence[Mapping[str, Any]]] = None) -> List[str]:
+    """Which of the reviewing models an issue's "Raised by" names: by letter
+    ("Answer B", through the list's ``legend``, tree.synthesis_legend), or,
+    in a list written before letters, by display name (without an angle note
+    or a "#2", arena.named_labels)."""
+    letters = _by_letter(legend)
     bare = re.sub(r"\([^)]*\)", "", issue.raised_by)
-    labels = {re.sub(r"\s*#\d+\s*$", "", part).strip(" .*").lower() for part in re.split(r",|;|\band\b", bare)}
-    return [m for m in models if display_name(m).lower() in labels]
+    parts = [re.sub(r"\s*#\d+\s*$", "", part).strip(" .*[]") for part in re.split(r",|;|\band\b", bare)]
+    named = {p.lower() for p in parts}
+    lettered = {letters[m.group(1).upper()] for p in parts if (m := _ANSWER_LABEL.fullmatch(p)) and m.group(1).upper() in letters}
+    return [m for m in models if m in lettered or display_name(m).lower() in named]
+
+
+def revealed(raised_by: str, legend: Optional[Sequence[Mapping[str, Any]]]) -> str:
+    """"Answer A, Answer C" as the reader needs it: "Answer A (GPT-6.2 Sol),
+    Answer C (Gemini 4 Neon)". The list's own text keeps the letters the
+    synthesizer wrote."""
+    letters = _by_letter(legend)
+
+    def name(m: re.Match) -> str:
+        model = letters.get(m.group(1).upper())
+        return f"{m.group(0)} ({display_name(model)})" if model else m.group(0)
+
+    return _ANSWER_LABEL.sub(name, raised_by)
 
 
 async def _source(graph_app, thread_id: str, list_state, states, store) -> Dict[str, Any]:
@@ -150,7 +176,8 @@ async def check_issues(
     the reviews answered, and store the result. Returns {thread_id,
     checkpoint_id (the list's node), question, documents (names),
     source_truncated, checkers: [{model, model_name}], issues: [{number,
-    problem, raised_by, why, verdicts: [{checker, checker_name, verdict,
+    problem, raised_by (letters given with their models), raised_by_models,
+    why, verdicts: [{checker, checker_name, verdict,
     reason, own}], disagree}], errors: {model: message}}. ``models``
     default to the models that wrote the reviews. ValueError for a
     checkpoint that isn't an issue list, a list in another form, or unusable
@@ -206,8 +233,9 @@ async def check_issues(
             verdicts[checker] = result
 
     rows = []
+    legend = synthesis_details(snapshot)["synthesis_legend"]
     for issue in issues:
-        raised = raised_by_models(issue, reviewers)
+        raised = raised_by_models(issue, reviewers, legend)
         given = [
             {
                 "checker": c,
@@ -221,7 +249,8 @@ async def check_issues(
         rows.append({
             "number": issue.number,
             "problem": issue.problem,
-            "raised_by": issue.raised_by,
+            "raised_by": revealed(issue.raised_by, legend),
+            "raised_by_models": raised,
             "why": issue.why,
             "verdicts": given,
             "disagree": len({v["verdict"] for v in given}) > 1,

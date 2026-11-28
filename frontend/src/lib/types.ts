@@ -81,6 +81,8 @@ export interface Message {
   synthesis_question?: string | null;
   /** Synthesis replies: the tree nodes of the answers it was written from (empty for older ones). */
   synthesis_answers?: string[];
+  /** Synthesis replies: who each lettered answer it read is; null when it read them by name. */
+  synthesis_legend?: SynthesisLegendEntry[] | null;
   /** Debate transcripts: the round this reply answered (0-based). */
   round?: number;
   /** A reply's time, tokens and cost (stream_end and path messages); null if it recorded none. */
@@ -105,6 +107,17 @@ export interface ModelError {
 export interface Toggles {
   use_rag: boolean;
   use_web_search: boolean;
+}
+
+/**
+ * A synthesizer reads answers as "Answer A", "Answer B", … , never by model
+ * (backend arena.blind_labels), and writes about them so: this says who each is.
+ */
+export interface SynthesisLegendEntry {
+  label: string;
+  model: string;
+  model_name: string;
+  checkpoint_id: string | null;
 }
 
 export interface TreeNode {
@@ -135,6 +148,8 @@ export interface TreeNode {
     synthesis_question?: string | null;
     /** Synthesis nodes: the answers it was written from (empty for older ones). */
     synthesis_answers?: string[];
+    /** Synthesis nodes: who each lettered answer it read is; null when read by name. */
+    synthesis_legend?: SynthesisLegendEntry[] | null;
     /** A reply's time, tokens and cost; null if it recorded none. */
     metrics?: ReplyMetrics | null;
     /** What a reply was written from (lib/context); null for older replies. */

@@ -24,6 +24,7 @@ from typer.testing import CliRunner
 from app.cli import app as cli_app
 from app.core import database as db
 from app.llm import CallableModelFactory, use_model_factory
+from app.services.referee import default_synthesizer
 from tests.storage_helpers import point
 
 KEYS = {k: "test-key" for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY")}
@@ -215,14 +216,15 @@ def test_arena_synthesis_is_marked_hung_under_the_question_and_its_prompt_hidden
     assert said == ["Q?", out["synthesis"]["content"]]
 
 
-def test_synthesize_defaults_to_the_latest_question_and_its_first_model():
+def test_synthesize_defaults_to_the_latest_question_and_a_model_that_did_not_answer():
     _json(["arena", "Old?", "-m", A, "-m", B, "-t", "t"])
     arena = _answers(_json(["arena", "New?", "-m", A, "-m", B, "-t", "t", "--no-synthesize"]))
     SEEN.clear()
     out = _json(["synthesize", "-t", "t"])
     assert sorted(a["checkpoint_id"] for a in out["answers"]) == sorted(a["checkpoint_id"] for a in arena.values())
-    assert out["synthesis"]["model"] == A
-    assert "New?" in _sent(A) and "Old?" not in _sent(A).split("Independent answers")[-1]
+    outsider = default_synthesizer([A, B])
+    assert out["synthesis"]["model"] == outsider not in (A, B)
+    assert "New?" in _sent(outsider) and "Old?" not in _sent(outsider).split("Independent answers")[-1]
 
 
 def test_synthesize_chosen_answers_beside_them():

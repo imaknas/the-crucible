@@ -326,7 +326,9 @@ interface TurnProps {
     ids: string[];
     disabled: boolean;
     options: string[];
-    firstSelected: string | null;
+    /** Who writes it when no one is picked (lib/referee), and whether that model also answered. */
+    automatic: string | null;
+    automaticAnswered: boolean;
     onSynthesize: (ids: string[], model: string | null, request?: SynthesisRequest) => void;
   } | null;
   errors?: ModelError[];
@@ -375,7 +377,7 @@ export default function TurnCards({
   blind = false,
   saveCase = null,
 }: TurnProps) {
-  // "" = the first selected model, the original behaviour.
+  // "" = automatic: a model from a provider that wrote none of the answers.
   const [synthesizer, setSynthesizer] = React.useState("");
   const [mode, setMode] = React.useState<SynthesisMode>("merge");
   const [question, setQuestion] = React.useState("");
@@ -503,7 +505,9 @@ export default function TurnCards({
                 sx={{ fontSize: "0.8125rem", minHeight: 32, "& .MuiSelect-select": { py: 0.5 } }}
               >
                 <MenuItem value="" sx={{ fontSize: "0.8125rem" }}>
-                  {synthesis.firstSelected ? `${modelLabel(synthesis.firstSelected)} (first selected)` : "First selected model"}
+                  {synthesis.automatic
+                    ? `Automatic: ${modelLabel(synthesis.automatic)}${synthesis.automaticAnswered ? " (also answered)" : ""}`
+                    : "Automatic"}
                 </MenuItem>
                 {synthesis.options.map((m) => (
                   <MenuItem key={m} value={m} title={m} sx={{ fontSize: "0.8125rem" }}>

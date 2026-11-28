@@ -32,7 +32,7 @@ INDEPENDENT = SynthesisFraming(
     instruction=(
         "Synthesize these into one answer. State where the models agree, resolve "
         "or flag where they contradict each other, and keep the strongest "
-        "supported points. Attribute claims to models where it matters."
+        "supported points. Attribute claims to answers, by their labels, where it matters."
     ),
 )
 
@@ -125,7 +125,7 @@ COMPARE = SynthesisFraming(
         "Compare these answers for a reader choosing between them. Don't merge "
         "them into one answer and don't pick a winner.\n"
         "1. A table with one row per point on which the answers differ: the "
-        "point, then one column per answer in the order given, each stating "
+        "point, then one column per answer in the order given, headed by its label, each stating "
         "that answer's position in a few words (write \"not covered\" where an "
         "answer says nothing about it).\n"
         "2. Where all the answers agree, in a few bullets.\n"
@@ -219,8 +219,8 @@ def checklist_merge(kept: Sequence[str]) -> SynthesisFraming:
             "Write one answer from these, built from exactly the components the "
             f"reader chose to keep:\n{items}\n"
             "Leave out what isn't on that list. Where kept components conflict, "
-            "say so instead of resolving it silently. Attribute claims to models "
-            "where it matters."
+            "say so instead of resolving it silently. Attribute claims to answers, "
+            "by their labels, where it matters."
         ),
     )
 
@@ -290,7 +290,7 @@ def component_request(question: str, answers: Iterable[Tuple[str, str]]) -> str:
         "List the distinct components of these answers: each separate claim, "
         "recommendation, step or caveat, merged where answers say the same "
         "thing. One per line, in this exact form and nothing else:\n"
-        "1. [answer names that contain it, comma-separated] the component in one sentence"
+        "1. [labels of the answers that contain it, comma-separated] the component in one sentence"
     )
 
 

@@ -15,14 +15,13 @@ Yields typed event dicts consumed by the WebSocket handler in api/debate.py.
 import asyncio
 import hashlib
 import logging
-import os
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Container, Mapping, Optional, Sequence
 from uuid import uuid4
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from app.registry import MODEL_REGISTRY, REFEREE_MODELS, display_name
+from app.registry import MODEL_REGISTRY, display_name
 from app.core import database as db
 from app.services.convergence import build_convergence_check
 from app.services.context import DEFAULT_CONTEXT, ContextSettings
@@ -36,6 +35,7 @@ from app.services.peers import (
 )
 from app.services.stances import OPEN, Stance, check_stance, noted, stance_from
 from app.services.synthesis import build_synthesis_prompt
+from app.services.referee import default_synthesizer  # noqa: F401  (debate.default_synthesizer)
 from app.services.runs import (
     DEBATE_RECORD_KEY,
     seed_thread,
@@ -154,26 +154,6 @@ def check_session_config(
     if peer_labels not in PEER_PRESENTATIONS:
         raise ValueError(f"peer_labels must be one of: {', '.join(PEER_PRESENTATIONS)}")
     check_stance(stance, participants, judge)
-
-
-def default_synthesizer(
-    participants: Sequence[str],
-    candidates: Sequence[str] = REFEREE_MODELS,
-    env: Mapping[str, str] = os.environ,
-) -> str:
-    """Who writes the argument map when a session names no one: the first
-    of `candidates` (registry REFEREE_MODELS, one per family) whose family
-    isn't debating and whose key is set, else the first participant.
-
-    A participant would read its own arguments among the others', and models
-    favour text they recognise as their own. With one model per family
-    debating (the default arena) there is no outsider, and the first
-    participant writes it as before; role_warnings says so."""
-    from app.llm.factory import first_offered_with_key
-
-    debating = {MODEL_REGISTRY[m]["family"] for m in participants if m in MODEL_REGISTRY}
-    outsiders = [m for m in candidates if m in MODEL_REGISTRY and MODEL_REGISTRY[m]["family"] not in debating]
-    return first_offered_with_key(outsiders, env) or participants[0]
 
 
 def role_warnings(session: Mapping[str, Any]) -> list[str]:

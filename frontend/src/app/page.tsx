@@ -3,6 +3,8 @@
 import { anglesFor } from "@/lib/angles";
 import ChecklistDialog from "@/components/ChecklistDialog";
 import { useSynthesisChecklist } from "@/hooks/useSynthesisChecklist";
+import { answeringModels as modelsOfAnswers } from "@/lib/referee";
+import type { SynthesisRequest } from "@/lib/synthesis";
 import { useAnswerReviews } from "@/hooks/useAnswerReviews";
 import { useIssueChecks } from "@/hooks/useIssueChecks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -85,6 +87,7 @@ export default function Home() {
     availableModelIds,
     modelLabel,
     modelColor,
+    automaticSynthesizer,
     defaultSummarizer,
     limits,
     effortChoices,
@@ -211,8 +214,19 @@ export default function Home() {
     pushToast,
     onThreadsChanged: fetchThreads,
   });
+  // Who writes a synthesis nobody picked a model for: one from a provider
+  // that wrote none of the answers (lib/referee), as the backend picks.
+  const synthesizerFor = useCallback(
+    (ids: string[]) => automaticSynthesizer(modelsOfAnswers(ids, nodes)),
+    [automaticSynthesizer, nodes],
+  );
+  const synthesizeWithDefault = useCallback(
+    (ids: string[], model?: string | null, request?: SynthesisRequest) =>
+      synthesizeBranches(ids, model || synthesizerFor(ids), request),
+    [synthesizeBranches, synthesizerFor],
+  );
   // A checklist synthesis asks which parts to keep first (ChecklistDialog).
-  const synthesis = useSynthesisChecklist(synthesizeBranches);
+  const synthesis = useSynthesisChecklist(synthesizeWithDefault);
   const answerReviews = useAnswerReviews(threadId, pushToast);
   const issueChecks = useIssueChecks(threadId, pushToast);
 
@@ -680,6 +694,7 @@ export default function Home() {
                     reviews={answerReviews}
                     issueChecks={issueChecks}
                     synthesizerOptions={availableModelIds}
+                    synthesizerFor={synthesizerFor}
                     onDeliberate={handleDeliberate}
                     stopStreaming={stopStreaming}
                     setShowTree={setShowTree}

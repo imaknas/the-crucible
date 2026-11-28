@@ -18,6 +18,7 @@ from typer.testing import CliRunner
 
 from app.cli import app as cli_app
 from app.llm import CallableModelFactory, use_model_factory
+from app.registry import display_name
 from app.services import arena, history
 from app.services.synthesis import COMPARE, INDEPENDENT, ISSUES, SYNTHESIS_MODES, parse_components, synthesis_framing
 from tests.storage_helpers import point
@@ -109,12 +110,68 @@ def test_components_parse_from_numbered_lines_and_an_empty_list_is_an_error():
 
 
 def test_answers_to_different_questions_are_labelled_with_theirs():
-    line, labelled = arena._labelled_answers([
+    blind = arena.blind_labels([
         {"model": A, "content": "x", "question": "Q1?"},
         {"model": A, "content": "y", "question": "Q2?"},
     ])
-    assert "several questions" in line
-    assert [label for label, _ in labelled] == ["GPT-5.4 #1, answering: Q1?", "GPT-5.4 #2, answering: Q2?"]
+    assert "several questions" in blind.question
+    assert [label for label, _ in blind.pairs] == ["Answer A, answering: Q1?", "Answer B, answering: Q2?"]
+    named = arena.named_labels([
+        {"model": A, "content": "x", "question": "Q1?"},
+        {"model": A, "content": "y", "question": "Q2?"},
+    ])
+    assert [label for label, _ in named.pairs] == ["GPT-5.4 #1, answering: Q1?", "GPT-5.4 #2, answering: Q2?"]
+    assert named.legend == []
+
+
+def test_one_turns_answers_take_the_letters_blind_comparison_gives_them():
+    from app.services.votes import blind_order
+
+    answers = [{"model": m, "content": f"from {m}", "question": "Q?", "turn_id": "turn-1", "checkpoint_id": f"cp-{m}"}
+               for m in (A, B, C)]
+    labelled = arena.blind_labels(answers)
+    assert [a["model"] for a in labelled.answers] == blind_order("turn-1", [A, B, C])
+    assert [label for label, _ in labelled.pairs] == ["Answer A", "Answer B", "Answer C"]
+    assert [(e["label"], e["model"], e["checkpoint_id"]) for e in labelled.legend] == [
+        (f"Answer {x}", m, f"cp-{m}") for x, m in zip("ABC", blind_order("turn-1", [A, B, C]))
+    ]
+    # No model is named to the synthesizer, angles still are.
+    angled = arena.blind_labels([{**answers[0], "angle": "security"}, answers[1]])
+    prompt = "\n".join(label for label, _ in angled.pairs)
+    assert "GPT" not in prompt and "Claude" not in prompt and "(asked to answer from this angle: security)" in prompt
+    # A model's reply names answers back by letter; anything else isn't one.
+    first = labelled.answers[0]["model"]
+    assert labelled.model_of("Answer A") == labelled.model_of("answer a.") == first
+    assert labelled.model_of("Answer A (asked to answer from this angle: security)") == first
+    assert labelled.model_of("Answer Z") is None and labelled.model_of("all answers") is None
+
+
+def test_only_a_readers_own_question_shows_the_answers_by_name():
+    answers = [{"model": A, "content": "x", "question": "Q?"}, {"model": B, "content": "y", "question": "Q?"}]
+    for mode, kw in (("merge", {}), ("compare", {}), ("issues", {}), ("checklist", {"keep": ["x"]})):
+        ask = arena.synthesis_ask(answers, mode, **kw)
+        assert "[Answer A]:" in ask.prompt and "GPT-5.4" not in ask.prompt, mode
+        assert ask.note["crucible_synthesis_labels"] == f"A={A},B={B}"
+    ask = arena.synthesis_ask(answers, "ask", question="What did GPT-5.4 get wrong?")
+    assert "[GPT-5.4]:" in ask.prompt and ask.legend == [] and "crucible_synthesis_labels" not in ask.note
+
+
+def test_panel_warnings_say_what_weakens_the_answers():
+    from app.registry import DEFAULT_ARENA_MODELS
+
+    keyed = DEFAULT_ARENA_MODELS[:1]
+    [dropped] = arena.panel_warnings(None, keyed)
+    assert "No API key for" in dropped and "only" in dropped
+    # Asked for by name: no warning about defaults; one provider is one.
+    assert arena.panel_warnings(["gpt-5.4", "gpt-5.4-mini"], ["gpt-5.4", "gpt-5.4-mini"]) == [
+        "Every answer comes from one provider (OpenAI): their mistakes tend to be alike, "
+        "so agreement between them is weak evidence."
+    ]
+    [own] = arena.panel_warnings([A, B], [A, B], synthesizer=A)
+    assert "also answered" in own
+    assert arena.panel_warnings([A, B], [A, B], synthesizer=C) == []
+    # One model with no synthesis is a chat turn.
+    assert arena.panel_warnings([A], [A]) == []
 
 
 # ─── Through the graph ───────────────────────────────────────────
@@ -155,7 +212,12 @@ async def test_an_arena_synthesis_records_the_answers_it_merged():
         result = await arena.collect(arena.run_arena(graph_app, "Q?", "t-auto", [A, B], {}, synthesizer=A))
         tree = await history.thread_tree(graph_app, "t-auto")
     node = next(n for n in tree["nodes"] if n["id"] == result["synthesis"]["checkpoint_id"])
-    assert node["metadata"]["synthesis_answers"] == [result["answers"][m]["checkpoint_id"] for m in (A, B)]
+    # In the order the synthesizer read them, lettered, with who each one is.
+    legend = node["metadata"]["synthesis_legend"]
+    assert node["metadata"]["synthesis_answers"] == [e["checkpoint_id"] for e in legend]
+    assert {e["checkpoint_id"]: e["model"] for e in legend} == {result["answers"][m]["checkpoint_id"]: m for m in (A, B)}
+    assert [e["label"] for e in legend] == ["Answer A", "Answer B"] and result["synthesis"]["legend"] == legend
+    assert "GPT-5.4" not in SEEN[-1] and "[Answer A]:" in SEEN[-1]
 
 
 @pytest.mark.asyncio
@@ -190,6 +252,20 @@ async def test_a_checklist_lists_components_without_writing_then_merges_the_kept
     assert [c["text"] for c in components] == ["Start with a monolith.", "Split out billing first."]
     assert "- Split out billing first." in SEEN[-1] and "Start with a monolith" not in SEEN[-1].split("keep:")[-1]
     assert result["synthesis"]["error"] is None
+
+
+@pytest.mark.asyncio
+async def test_a_component_list_read_by_letter_names_its_sources_by_model():
+    lettered = "1. [Answer A, Answer B] Start with a monolith.\n2. [answer b] Split out billing first.\n3. [all answers] Test."
+    async with arena.open_graph() as graph_app:
+        ids = await _turn(graph_app, "t-letters")
+        with use_model_factory(CallableModelFactory(lambda m, _t: _Recorder(responses=[lettered]))):
+            SEEN.clear()
+            listed = await arena.answer_components(graph_app, "t-letters", ids)
+    shown = arena.blind_labels([{"model": m, "content": ""} for m in (A, B)])  # no turn ids: in the order given
+    assert "[Answer A]:" in SEEN[-1] and "GPT-5.4" not in SEEN[-1]
+    first, second = (display_name(a["model"]) for a in shown.answers)
+    assert [c["sources"] for c in listed["components"]] == [[first, second], [second], ["all answers"]]
 
 
 # ─── CLI and MCP ─────────────────────────────────────────────────

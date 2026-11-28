@@ -7,6 +7,7 @@ from app.registry import (
     DEFAULT_ARENA_MODELS,
     DEFAULT_MODEL,
     FAMILY_META,
+    REFEREE_MODELS,
     models_by_family,
 )
 
@@ -64,6 +65,9 @@ async def get_models() -> Dict[str, Any]:
         "families": _build_families(),
         "default_model": DEFAULT_MODEL,
         "default_arena_models": DEFAULT_ARENA_MODELS,
+        # Who combines answers when no one is named: the first of these from a
+        # provider that wrote none of them and has a key (services/referee.py).
+        "referee_models": REFEREE_MODELS,
         # Resolved for the keys that are set, so the UI can name it.
         "default_summarizer": _default_summarizer(),
         "limits": _limits(),

@@ -13,6 +13,7 @@ import BranchChip, { StoppedNote, type AnswerChoice } from "./BranchChip";
 import SummaryMarker from "./SummaryMarker";
 import { replyNodeAt } from "@/lib/spanBranch";
 import { drawnBlind, maskCards } from "@/lib/blind";
+import { answeringModels } from "@/lib/referee";
 import VoteBar from "./VoteBar";
 import { anglesDiffer } from "@/lib/angles";
 import type { VoteInput } from "@/hooks/useVotes";
@@ -54,6 +55,8 @@ interface ChatViewProps {
   issueChecks?: IssueChecks | null;
   /** Models a synthesis can be written by (those with a key). */
   synthesizerOptions?: string[];
+  /** Who writes a synthesis of these answers when no one is picked (lib/referee). */
+  synthesizerFor?: (ids: string[]) => string | null;
   onDeliberate: (text: string) => void;
   setShowTree: (val: boolean) => void;
   /** Files attached to the next message, by name. */
@@ -147,6 +150,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   reviews = null,
   issueChecks = null,
   synthesizerOptions = [],
+  synthesizerFor,
   onDeliberate,
   setShowTree,
   documents,
@@ -436,6 +440,22 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
   const primaryId = branchPoint && !branchPoint.isLatest && !branchPoint.fresh ? branchPoint.node.id : null;
   const answerers = answererNames(respondingModels ?? selectedModels, modelLabel);
   const chat = !debateBanner;
+  // A synthesis of one turn's answers, read while that turn is still drawn
+  // blind (no vote yet): its legend would name them.
+  const legendBlind = (msg: Message) => {
+    if (!blind) return false;
+    const turnIds = new Set(
+      (msg.synthesis_legend ?? []).map((e) => nodes.find((n) => n.id === e.checkpoint_id)?.metadata?.turn_id),
+    );
+    const [turnId] = [...turnIds];
+    return turnIds.size === 1 && !!turnId && !votesByTurn[turnId];
+  };
+  // The synthesizer picker's "Automatic": who it is, and whether it also answered.
+  const automaticFor = (ids: string[]) => {
+    const answering = answeringModels(ids, nodes);
+    const automatic = synthesizerFor?.(ids) ?? answering[0] ?? null;
+    return { automatic, automaticAnswered: !!automatic && answering.includes(automatic) };
+  };
   // Every reply of the turn on screen was stopped (or failed) before it was
   // written: the backend continues from the answers before it (answered_head).
   const stoppedTurn =
@@ -747,7 +767,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                               ids: synthesizableIds(item.cards, nodes),
                               disabled: isLoading || synthesizableIds(item.cards, nodes).length < 2,
                               options: synthesizerOptions,
-                              firstSelected: selectedModels[0] ?? null,
+                              ...automaticFor(synthesizableIds(item.cards, nodes)),
                               onSynthesize,
                             }
                           : null
@@ -909,6 +929,7 @@ const ChatViewRaw: React.FC<ChatViewProps> = ({
                       index={i}
                       modelLabel={modelLabel}
                       variant="synthesis"
+                      hideLegend={chat && legendBlind(msg)}
                     />
                     {chat && issueChecks && !msg.streaming && msg.synthesis_mode === "issues" && msg.checkpoint_id && (
                       <IssueCheckSection

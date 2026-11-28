@@ -19,6 +19,7 @@ from app.cli import app as cli_app
 from app.core import database as db
 from app.llm import CallableModelFactory, use_model_factory
 from app.llm.fake import ScriptedModelFactory
+from app.registry import display_name
 from app.services import arena, checks, history
 from app.services.synthesis import Issue, parse_issues
 from tests.storage_helpers import point
@@ -75,6 +76,15 @@ def test_a_raised_by_label_matches_a_whole_model_name():
     assert checks.raised_by_models(issue, ["gpt-5.4", "gpt-5.4-mini"]) == ["gpt-5.4-mini"]
 
 
+def test_a_lettered_raised_by_goes_through_the_lists_legend():
+    legend = [{"label": "Answer A", "model": B}, {"label": "Answer B", "model": A}]
+    issue = Issue(number=1, problem="p", raised_by="Answer B, Answer A (asked to answer from this angle: cost)", why="")
+    assert checks.raised_by_models(issue, [A, B], legend) == [A, B]
+    assert checks.revealed("Answer B, Answer A", legend) == "Answer B (GPT-5.4), Answer A (Claude Sonnet 5)"
+    # A list written before letters has no legend and keeps its names.
+    assert checks.revealed("GPT-5.4", None) == "GPT-5.4"
+
+
 def test_verdicts_are_read_line_by_line():
     text = "1: holds — Step 2 has no backup.\n**2**: Doesn't hold – step 3 is a backup.\n3. can’t tell - not said.\nnoise"
     assert checks.parse_verdicts(text, [1, 2, 3]) == {
@@ -108,15 +118,20 @@ async def test_each_problem_is_checked_by_every_reviewer_against_the_source():
         check = await checks.check_issues(graph_app, "t-check", node, factory=factory)
         stored = checks.checks_of("t-check")
 
-    assert [c["model"] for c in check["checkers"]] == [A, B] and check["errors"] == {}
+    # The reviewers check, in the order the list read them (by letter).
+    assert sorted(c["model"] for c in check["checkers"]) == sorted([A, B]) and check["errors"] == {}
     assert check["checkpoint_id"] == node and check["documents"] == ["plan.md"]
     first, second = check["issues"]
-    assert [(v["checker"], v["verdict"]) for v in first["verdicts"]] == [(A, "holds"), (B, "holds")]
+    assert sorted((v["checker"], v["verdict"]) for v in first["verdicts"]) == sorted([(A, "holds"), (B, "holds")])
     assert not first["disagree"]
     # B gave no verdict on the second problem: no row for it, not a guess.
     assert [(v["checker"], v["verdict"]) for v in second["verdicts"]] == [(A, "does_not_hold")]
-    # The scripted list says the first problem was raised by the first label.
-    assert first["raised_by"] and any(v["own"] for v in first["verdicts"])
+    # The scripted list says the first problem was raised by the first
+    # label, "Answer A": the check names its model and marks its own verdict.
+    lettered_a = check["checkers"][0]["model"]
+    assert first["raised_by"] == f"Answer A ({display_name(lettered_a)})"
+    assert first["raised_by_models"] == [lettered_a]
+    assert [v["checker"] for v in first["verdicts"] if v["own"]] == [lettered_a]
     assert stored == [check]
 
     # Each checker read the source and the problems, not who raised them.

@@ -396,7 +396,8 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
 DEFAULT_MODEL = "gpt-6.2-sol"
 DEFAULT_ARENA_MODELS = ["gpt-6.2-sol", "claude-sonnet-5-5", "gemini-4-neon"]
 # Who writes a debate's argument map when the session names no one: the first
-# of these with a key whose family isn't debating (debate.default_synthesizer).
+# of these with a key whose family wrote none of the answers (referee.default_synthesizer),
+# and who writes an arena synthesis or a checklist when the caller names no one.
 # Kept apart from DEFAULT_ARENA_MODELS on purpose: a referee is useful only
 # from a family that isn't debating, so this list wants one more family than
 # the default debate has: Grok writes the map for the default three-family debate.

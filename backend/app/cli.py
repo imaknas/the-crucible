@@ -33,6 +33,7 @@ from rich.console import Console
 
 from app.core.storage import current_storage, set_storage
 from app.registry import DEFAULT_MODEL
+from app.services.referee import default_synthesizer
 
 app = typer.Typer(
     name="crucible",
@@ -360,7 +361,8 @@ def arena(
     ),
     join_turn: Optional[str] = _opt_join_turn(),
     judge: Optional[str] = typer.Option(
-        None, "--judge", "-j", help="Model that synthesizes the answers (default: the first model)."
+        None, "--judge", "-j",
+        help="Model that synthesizes the answers (default: one from a provider that didn't answer, when one has a key; else the first model).",
     ),
     no_synthesize: bool = typer.Option(
         False, "--no-synthesize", help="Only collect the individual answers."
@@ -403,7 +405,7 @@ def arena(
         _fail("No prompt provided. Pass the question as an argument.", as_json)
     resolved = _validate_models(models, as_json)
     angles = _parse_angles(angle, resolved)
-    synthesizer = None if (no_synthesize or deliberate or join_turn) else (judge or resolved[0])
+    synthesizer = None if (no_synthesize or deliberate or join_turn) else (judge or default_synthesizer(resolved))
     if synthesizer:
         _validate_models([synthesizer], as_json)
     context = _run_context(as_json, summarizer, system, effort)
@@ -413,7 +415,7 @@ def arena(
     result = _run(
         _run_turn(prompt or "", resolved, thread_id, synthesizer, _toggles(web_search, rag), as_json, context,
                   parent=from_checkpoint, after_debate=after_debate, documents=documents, deliberate=deliberate,
-                  join_turn=join_turn, angles=angles),
+                  join_turn=join_turn, angles=angles, requested=models or []),
         as_json,
     )
     if as_json:
@@ -424,25 +426,28 @@ def arena(
 
 
 async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, context=None, *,
-                    parent=None, after_debate=None, documents=None, deliberate=False, join_turn=None, angles=None):
+                    parent=None, after_debate=None, documents=None, deliberate=False, join_turn=None, angles=None,
+                    requested=None):
     """One turn by every model in ``models`` (chat is one model), then the
     synthesis if a synthesizer is set; with ``join_turn``, those models'
-    answers to that earlier turn."""
+    answers to that earlier turn. ``requested`` is what the person asked
+    for (``models`` resolved from it), which says whether defaults were
+    left out for want of a key."""
     from rich.markup import escape
 
     from app.services.arena import open_graph, run_arena
     from app.services.chat import name_new_thread
     from app.services.context import DEFAULT_CONTEXT
     from app.cli_display import (
-        ArenaDisplay, ReplyDisplay, print_header, print_info, print_metrics, print_success, print_error,
-        render_synthesis,
+        ArenaDisplay, ReplyDisplay, print_header, print_info, print_legend, print_metrics, print_success, print_error,
+        print_warnings, render_synthesis,
     )
     from app.services.metrics import turn_total
 
     single = len(models) == 1 and not synthesizer
     result: Dict[str, Any] = {
         "thread_id": thread_id, "prompt": prompt, "new_thread": False, "turn_id": None,
-        "parent_checkpoint_id": None, "parents": {}, "answers": {}, "synthesis": None,
+        "parent_checkpoint_id": None, "parents": {}, "answers": {}, "synthesis": None, "warnings": [],
     }
     display = None
     if not as_json:
@@ -454,16 +459,19 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
 
     async with open_graph() as graph_app:
         try:
-            async for event in run_arena(graph_app, prompt, thread_id, models, toggles, synthesizer,
+            async for event in run_arena(graph_app, prompt, thread_id, models if requested is None else requested,
+                                         toggles, synthesizer,
                                          context=context or DEFAULT_CONTEXT, parent_checkpoint_id=parent,
                                          after_debate=after_debate, documents=documents, is_deliberation=deliberate,
                                          join_turn=join_turn, angles=angles):
                 kind = event["type"]
                 if kind == "start":
                     result.update({k: event[k] for k in ("parent_checkpoint_id", "parents", "new_thread", "turn_id")})
+                    result["warnings"] = event.get("warnings") or []
                     if join_turn:
                         result["prompt"] = event["prompt"]
                     if not as_json:
+                        print_warnings(result["warnings"])
                         if join_turn:
                             print_info(f"Adding to turn [dim]{event['turn_id']}[/dim]: {escape(event['prompt'])}")
                         if event["new_thread"] and parent is None and after_debate is None:
@@ -491,12 +499,13 @@ async def _run_turn(prompt, models, thread_id, synthesizer, toggles, as_json, co
                     display = None
                     print_info(f"Synthesizing with {escape(event['model'])}…")
                 elif kind == "synthesis":
-                    result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error", "metrics")}
+                    result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error", "metrics", "legend")}
                     if not as_json:
                         if event["error"]:
                             print_error(f"Synthesis failed: {event['error']}")
                         else:
                             render_synthesis(event["content"], event["model"])
+                            print_legend(event.get("legend"))
                             print_metrics(event.get("metrics"))
         finally:
             if display:
@@ -1043,7 +1052,8 @@ def synthesize(
     ),
     debate: Optional[str] = typer.Option(None, "--debate", "-d", help="Debate session to map."),
     judge: Optional[str] = typer.Option(
-        None, "--judge", "-j", help="Model that writes it (default: the first answer's model, or the debate's synthesizer)."
+        None, "--judge", "-j",
+        help="Model that writes it (default: one from a provider that wrote none of the answers, when one has a key; or the debate's synthesizer).",
     ),
     mode: str = typer.Option(
         "merge",
@@ -1131,9 +1141,12 @@ async def _run_synthesize_thread(thread_id, judge, as_json, context, answers=Non
     from rich.markup import escape
 
     from app.services.arena import open_graph, synthesize_thread
-    from app.cli_display import print_header, print_info, print_error, print_metrics, print_success, render_synthesis
+    from app.cli_display import (
+        print_error, print_header, print_info, print_legend, print_metrics, print_success, print_warnings, render_synthesis,
+    )
 
-    result: Dict[str, Any] = {"thread_id": thread_id, "parent_checkpoint_id": None, "answers": [], "synthesis": None}
+    result: Dict[str, Any] = {"thread_id": thread_id, "parent_checkpoint_id": None, "answers": [], "synthesis": None,
+                              "warnings": []}
     if not as_json:
         print_header()
     async with open_graph() as graph_app:
@@ -1142,18 +1155,22 @@ async def _run_synthesize_thread(thread_id, judge, as_json, context, answers=Non
                                              mode=mode, keep=keep, question=question):
             if event["type"] == "start":
                 result["parent_checkpoint_id"] = event["parent_checkpoint_id"]
+                result["warnings"] = event.get("warnings") or []
+                if not as_json:
+                    print_warnings(result["warnings"])
             elif event["type"] == "end":
                 result["answers"].append({k: event.get(k) for k in ("model", "content", "checkpoint_id", "metrics")})
             elif event["type"] == "synthesis_start" and not as_json:
                 print_info(f"Synthesizing {len(result['answers'])} answers "
                            f"({escape(', '.join(a['model'] for a in result['answers']))}) with {escape(event['model'])}…")
             elif event["type"] == "synthesis":
-                result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error", "metrics")}
+                result["synthesis"] = {k: event.get(k) for k in ("model", "content", "checkpoint_id", "error", "metrics", "legend")}
                 if not as_json:
                     if event["error"]:
                         print_error(f"Synthesis failed: {event['error']}")
                     else:
                         render_synthesis(event["content"], event["model"])
+                        print_legend(event.get("legend"))
                         print_metrics(event.get("metrics"))
                         print_success(f"Saved at {event['checkpoint_id']} (under {result['parent_checkpoint_id']})")
     return result

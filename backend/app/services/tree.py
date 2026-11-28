@@ -10,6 +10,7 @@ from app.services.metrics import message_metrics, snapshot_day
 from app.services.runs import (
     DEBATE_RECORD_KEY,
     SYNTHESIS_ANSWERS_KEY,
+    SYNTHESIS_LABELS_KEY,
     SYNTHESIS_MODE_KEY,
     SYNTHESIS_QUESTION_KEY,
     SYNTHESIS_TURN,
@@ -107,9 +108,25 @@ def synthesis_details(state_obj) -> dict:
     prompt = _extra_of(m_list[-2]) if len(m_list) >= 2 else {}
     mode = meta.get(SYNTHESIS_MODE_KEY) or prompt.get(SYNTHESIS_MODE_KEY) or "merge"
     question = meta.get(SYNTHESIS_QUESTION_KEY) or prompt.get(SYNTHESIS_QUESTION_KEY)
-    answers = meta.get(SYNTHESIS_ANSWERS_KEY) or prompt.get(SYNTHESIS_ANSWERS_KEY) or ""
-    return {"synthesis_mode": mode, "synthesis_question": question,
-            "synthesis_answers": [a for a in answers.split(",") if a]}
+    answers = [a for a in (meta.get(SYNTHESIS_ANSWERS_KEY) or prompt.get(SYNTHESIS_ANSWERS_KEY) or "").split(",") if a]
+    labels = meta.get(SYNTHESIS_LABELS_KEY) or prompt.get(SYNTHESIS_LABELS_KEY) or ""
+    return {"synthesis_mode": mode, "synthesis_question": question, "synthesis_answers": answers,
+            "synthesis_legend": synthesis_legend(labels, answers)}
+
+
+def synthesis_legend(labels: str, answers: list) -> Optional[list]:
+    """Who wrote each lettered answer a synthesis read ("A=model,B=model",
+    parallel to its answers): [{label, model, model_name, checkpoint_id}],
+    or None for one that read them by name (every synthesis before letters,
+    and a reader's own question)."""
+    pairs = [p.split("=", 1) for p in labels.split(",") if "=" in p]
+    if not pairs:
+        return None
+    return [
+        {"label": f"Answer {letter}", "model": model, "model_name": display_name(model),
+         "checkpoint_id": answers[i] if i < len(answers) else None}
+        for i, (letter, model) in enumerate(pairs)
+    ]
 
 
 def get_content_key(state_obj) -> str:

@@ -5,7 +5,7 @@ from app.services.synthesis import ARGUMENT_MAP, INDEPENDENT, SynthesisFraming, 
 ANSWERS = [("m1", "yes"), ("m2", "no")]
 
 
-def test_arena_prompt_is_unchanged():
+def test_arena_prompt_is_pinned():
     # Arena merges independent answers into one; the debate's argument map
     # must not leak into it. Pinned as a literal so any drift shows.
     assert build_synthesis_prompt("Q?", ANSWERS, INDEPENDENT) == (
@@ -14,7 +14,7 @@ def test_arena_prompt_is_unchanged():
         "[m1]:\nyes\n\n[m2]:\nno\n\n"
         "Synthesize these into one answer. State where the models agree, resolve "
         "or flag where they contradict each other, and keep the strongest "
-        "supported points. Attribute claims to models where it matters."
+        "supported points. Attribute claims to answers, by their labels, where it matters."
     )
 
 

@@ -4,6 +4,7 @@ import { modelDisplayName } from "@/lib/modelNames";
 import { parseStoredSelection, resolveSelection, type SelectionDefaults } from "@/lib/modelSelection";
 import { useStoredValue, writeStoredValue } from "@/hooks/useStoredValue";
 import { FALLBACK_LIMITS, catalogColor, resolveLimits, type Limits } from "@/lib/catalog";
+import { defaultSynthesizer } from "@/lib/referee";
 
 export type CatalogStatus = "loading" | "ready" | "error";
 
@@ -28,6 +29,8 @@ export function useModelCatalog() {
   const [limits, setLimits] = useState<Limits>(FALLBACK_LIMITS);
   // The reasoning efforts a run can ask for; none to offer until loaded.
   const [effortChoices, setEffortChoices] = useState<string[]>([]);
+  // Who combines answers when no one is named, in order of preference.
+  const [referees, setReferees] = useState<string[]>([]);
   const stored = useStoredValue(SELECTION_KEY);
 
   const load = useCallback(() => {
@@ -39,6 +42,7 @@ export function useModelCatalog() {
         setDefaultSummarizer(data.default_summarizer ?? null);
         setLimits(resolveLimits(data.limits));
         setEffortChoices(data.reasoning_efforts ?? []);
+        setReferees(data.referee_models ?? []);
         setDefaults({ default_model: data.default_model, default_arena_models: data.default_arena_models });
       })
       .catch(() => setStatus("error"));
@@ -68,6 +72,11 @@ export function useModelCatalog() {
   const modelLabel = useCallback((id: string) => modelDisplayName(id, families), [families]);
   // The family colour the backend ships; guessed from the id until it loads.
   const modelColor = useCallback((id: string) => catalogColor(id, families), [families]);
+  /** Who writes a synthesis of these models' answers when no one is picked (lib/referee). */
+  const automaticSynthesizer = useCallback(
+    (answering: string[]) => defaultSynthesizer(answering, families, referees),
+    [families, referees],
+  );
   const allModelIds = families.flatMap((f) => f.models.map((m) => m.id));
   // Models whose family has a key: the ones a synthesizer can be picked from.
   const availableModelIds = families.filter((f) => f.available).flatMap((f) => f.models.map((m) => m.id));
@@ -82,6 +91,7 @@ export function useModelCatalog() {
     availableModelIds,
     modelLabel,
     modelColor,
+    automaticSynthesizer,
     defaultSummarizer,
     limits,
     effortChoices,

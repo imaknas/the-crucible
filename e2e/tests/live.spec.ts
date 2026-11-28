@@ -471,6 +471,8 @@ test.describe("live flows (scripted models)", () => {
     await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
 
     await expect(page.getByText("Synthesize answers")).toBeVisible();
+    // Unpicked, a model from a provider that didn't answer writes it.
+    await expect(page.getByLabel("Synthesis written by")).toContainText(/^Automatic: (?!GPT-6\.1 Sol|Claude Sonnet 5\.5)/);
     await page.getByLabel("Synthesis written by").click();
     await page.getByRole("option", { name: "Claude Sonnet 5.5" }).click();
     await page.getByText("Synthesize answers").click();
@@ -485,6 +487,10 @@ test.describe("live flows (scripted models)", () => {
       await expect(writtenFrom).toBeVisible();
       await expect(page.getByRole("article", { name: "GPT-6.1 Sol's answer" })).toBeVisible();
       await expect(page.getByRole("article", { name: "Claude Sonnet 5.5's answer" })).toBeVisible();
+      // It read them as Answer A and B; the legend says who each is.
+      await expect(page.getByTestId("synthesis-legend")).toContainText(
+        /Answer A is (GPT-6\.1 Sol|Claude Sonnet 5\.5) · Answer B is (GPT-6\.1 Sol|Claude Sonnet 5\.5)/,
+      );
     }
     await showTree(page);
     await expect(page.locator(".react-flow__node-synthesis")).toHaveCount(1);

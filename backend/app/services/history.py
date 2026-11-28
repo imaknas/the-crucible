@@ -195,6 +195,8 @@ async def compact_tree(graph_app, thread_id: str, excerpt_chars: int = 300) -> D
             "name": meta.get("name"),
             "bookmarked": bool(meta.get("bookmarked")),
             "subtree_summary": meta.get("subtree_summary"),
+            # A synthesis that read its answers by letter: who each one is.
+            "legend": meta.get("synthesis_legend"),
         })
     return {"thread_id": thread_id, "current_checkpoint": data["current_checkpoint"], "nodes": nodes, "debates": debates}
 

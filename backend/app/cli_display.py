@@ -288,6 +288,18 @@ def print_info(msg: str):
     console.print(f"[bold blue]ℹ[/bold blue] {msg}")
 
 
+def print_warnings(warnings) -> None:
+    """What weakens a run's answers as evidence (arena.panel_warnings)."""
+    for warning in warnings or []:
+        print_info(f"[yellow]Note:[/yellow] {escape(warning)}")
+
+
+def print_legend(legend) -> None:
+    """Who each lettered answer a synthesis read is: it names them "Answer A", …"""
+    if legend:
+        console.print("  [dim]" + escape(" · ".join(f"{e['label']} = {e['model_name']}" for e in legend)) + "[/dim]")
+
+
 def print_metrics(metrics, label: str = "") -> None:
     """A reply's (with ``label``, a turn's) time, tokens and cost on one dim
     line; nothing for a reply that recorded none."""

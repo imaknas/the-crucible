@@ -16,6 +16,7 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from typer.testing import CliRunner
 
 from app.llm import CallableModelFactory, use_model_factory
+from app.services.referee import default_synthesizer
 from app.cli import app as cli_app
 from app.core import database as db
 from tests.storage_helpers import point
@@ -48,13 +49,21 @@ def _json(args):
 # ─── CLI ─────────────────────────────────────────────────────────
 
 
+def test_arena_json_warns_when_every_answer_comes_from_one_provider():
+    out = _json(["arena", "Q?", "-m", A, "-m", "gpt-5.4-mini", "-t", "t-one", "--format", "json", "--no-synthesize"])
+    assert any("one provider (OpenAI)" in w for w in out["warnings"])
+
+
 def test_arena_json_returns_every_answer_and_a_real_synthesis():
     out = _json(["arena", "Q?", "-m", A, "-m", B, "-t", "t-arena", "--format", "json"])
     assert out["answers"][A]["content"] == f"reply from {A}"
     assert out["answers"][B]["content"] == f"reply from {B}"
     assert out["answers"][A]["checkpoint_id"] != out["answers"][B]["checkpoint_id"]
-    # Synthesis is its own call by the judge (default: first model).
-    assert out["synthesis"]["model"] == A
+    # Synthesis is its own call by the judge (default: a provider that didn't answer).
+    assert out["synthesis"]["model"] == default_synthesizer([A, B]) not in (A, B)
+    # It read the answers by letter; the legend says who each one is.
+    assert {(e["label"][:-1], e["model"]) for e in out["synthesis"]["legend"]} == {("Answer ", A), ("Answer ", B)}
+    assert {e["label"] for e in out["synthesis"]["legend"]} == {"Answer A", "Answer B"}
     assert out["synthesis"]["checkpoint_id"] not in (
         out["answers"][A]["checkpoint_id"],
         out["answers"][B]["checkpoint_id"],
@@ -161,6 +170,19 @@ async def test_mcp_exposes_tools(mcp_server):
 
 
 @pytest.mark.asyncio
+async def test_mcp_arena_says_when_default_models_had_no_key(mcp_server, monkeypatch):
+    from app.registry import DEFAULT_ARENA_MODELS, MODEL_REGISTRY
+
+    for key in ("ANTHROPIC_API_KEY", "GOOGLE_API_KEY"):
+        monkeypatch.delenv(key)
+    async with Client(mcp_server) as client:
+        res = (await client.call_tool("invoke_arena", {"prompt": "Q?"})).data
+    openai = [m for m in DEFAULT_ARENA_MODELS if MODEL_REGISTRY[m]["family"] == "openai"]
+    assert [a["model"] for a in res["answers"]] == openai
+    assert any("No API key for" in w for w in res["warnings"])
+
+
+@pytest.mark.asyncio
 async def test_mcp_arena_returns_answers_and_branches_are_readable(mcp_server):
     async with Client(mcp_server) as client:
         res = (await client.call_tool("invoke_arena", {"prompt": "Q?", "models": [A, B]})).data
@@ -168,7 +190,8 @@ async def test_mcp_arena_returns_answers_and_branches_are_readable(mcp_server):
         assert res["new_thread"] is True
         answer = {a["model"]: a for a in res["answers"]}
         assert answer[B]["content"] == f"reply from {B}" and answer[B]["model_name"]
-        assert res["synthesis"]["model"] == A
+        assert res["synthesis"]["model"] == default_synthesizer([A, B])
+        assert {e["model"] for e in res["synthesis"]["legend"]} == {A, B} and res["warnings"] == []
 
         branch = (await client.call_tool(
             "get_thread_messages", {"thread_id": thread, "checkpoint_id": answer[B]["checkpoint_id"]}
@@ -176,9 +199,10 @@ async def test_mcp_arena_returns_answers_and_branches_are_readable(mcp_server):
         assert [m["content"] for m in branch["messages"]] == ["Q?", f"reply from {B}"]
 
         answers = (await client.call_tool("get_branch_answers", {"thread_id": thread})).data["answers"]
-        # The synthesis branch is a tip too, but the fake gives it the same
-        # text as gpt-5.4's answer and identical tips are deduplicated.
-        assert {a["content"] for a in answers} == {f"reply from {A}", f"reply from {B}"}
+        # The synthesis branch is a tip too, written by the outside model.
+        assert {a["content"] for a in answers} == {
+            f"reply from {A}", f"reply from {B}", f"reply from {default_synthesizer([A, B])}"
+        }
 
         status = (await client.call_tool("get_thread_status", {"thread_id": thread})).data
         assert status["message_count"] >= 2

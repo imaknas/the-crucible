@@ -220,7 +220,19 @@ describe("a turn with a failed model", () => {
 });
 
 describe("what to do with the answers", () => {
-  const synthesis = { ids: ["n_a", "n_b"], disabled: false, options: ["a", "b"], firstSelected: "a", onSynthesize: jest.fn() };
+  const synthesis = { ids: ["n_a", "n_b"], disabled: false, options: ["a", "b"], automatic: "c", automaticAnswered: false, onSynthesize: jest.fn() };
+
+  it("names who writes it when no one is picked, and says when that model also answered", () => {
+    const { rerender } = render(<TurnCards {...base} cards={[card("a"), card("b")]} synthesis={synthesis} />);
+    const picker = screen.getByRole("combobox", { name: "Synthesis written by" });
+    expect(picker).toHaveTextContent(`Automatic: ${LABELS.c}`);
+    rerender(
+      <TurnCards {...base} cards={[card("a"), card("b")]} synthesis={{ ...synthesis, automatic: "a", automaticAnswered: true }} />,
+    );
+    expect(screen.getByRole("combobox", { name: "Synthesis written by" })).toHaveTextContent(
+      `Automatic: ${LABELS.a} (also answered)`,
+    );
+  });
 
   it("is offered under the cards once every answer is in, not while they stream", () => {
     const { rerender } = render(
